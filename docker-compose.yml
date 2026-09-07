@@ -1,0 +1,26 @@
+# Local development database. Costs nothing and requires no hosting account (DEC-002: Phase 0 runs
+# entirely locally). Start with:  docker compose up -d
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: tradeez-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tradeez
+      POSTGRES_USER: tradeez
+      POSTGRES_PASSWORD: tradeez
+      # INVARIANT 4 — the database itself runs in UTC so no conversion is implicit.
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - tradeez-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradeez -d tradeez"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tradeez-pgdata:

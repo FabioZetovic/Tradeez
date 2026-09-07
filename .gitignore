@@ -1,0 +1,41 @@
+# --- Java / Maven ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# --- Generated API types (DEC-007: regenerate from OpenAPI, never hand-edit or commit) ---
+frontend/src/lib/api/schema.d.ts
+
+# --- Environment / secrets (DEC-032: secrets never enter the repository) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Imported market data (DEC-035: IMPORTED_PRIVATE never leaves the machine) ---
+# Real market data is licensed to an individual, not to this repository. Never commit it.
+data/imported/
+*.csv
+!**/fixtures/**/*.csv
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+npm-debug.log*

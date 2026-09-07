@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: tradeez-backend
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/tradeez}
+    username: ${DATABASE_USER:tradeez}
+    password: ${DATABASE_PASSWORD:tradeez}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # DEC-030: schema changes go through Flyway only. Hibernate must never touch the schema.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: always
+    include-stacktrace: never
+
+# INVARIANT 4: all timestamps are UTC. Converted to exchange time only at the presentation edge.
+# Set at the JVM level so no code path can accidentally use the host timezone.
+tradeez:
+  timezone: UTC
+  cors:
+    # DEC-032: strict CORS, explicit origins, credentials enabled. Never a wildcard.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: alpha
+
+logging:
+  level:
+    org.springframework.security: INFO
