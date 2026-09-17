@@ -28,6 +28,8 @@
 2. Update `CURRENT STATE`, `IN PROGRESS`, `NEXT UP`, `DECISIONS`, and `OPEN THREADS`.
 3. Update `DOCUMENTATION.md` with the human-readable narrative for the same session.
 4. Both files must be updated. A session is not finished until they are.
+4b. **Record any bug you found but did not fix in `BUGS.md`.** If you fixed one, move it to that
+   file's Fixed section with the lesson — never delete it.
 5. **Commit and push.** Leaving work uncommitted strands it on one machine and guarantees a
    divergence the next session has to untangle. If the push is rejected, run
    `git pull --rebase` and resolve the conflict — **never `git push --force`**, which would
@@ -71,6 +73,7 @@ files_in_repo:
     - CHATGPT_RESEARCH.md   # Codex's deep analysis       (Session 001-CODEX)
     - DECISIONS.md          # ⭐ MERGED ADR — authoritative (Session 002)
     - DATA_STRATEGY.md      # Zero-cost demo/import data plan (Session 003)
+    - BUGS.md               # Known defects, limitations, and fixed-bug lessons (Session 009)
     - DOCUMENTATION.md      # Human-readable project history
     - PATH.md               # This file
 
@@ -87,7 +90,8 @@ read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
   2. docs/DECISIONS.md     # the locked decisions; do not re-litigate
   3. docs/DATA_STRATEGY.md # REQUIRED before touching market data or the drill engine
-  4. docs/ANALYSIS_CLAUDE.md + docs/CHATGPT_RESEARCH.md   # only if you need the reasoning behind a decision
+  4. docs/BUGS.md          # known defects — check before debugging, and before claiming something is broken
+  5. docs/ANALYSIS_CLAUDE.md + docs/CHATGPT_RESEARCH.md   # only if you need the reasoning behind a decision
 ```
 
 ---

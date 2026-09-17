@@ -33,6 +33,7 @@ work.
 | **[docs/DECISIONS.md](docs/DECISIONS.md)** | ⭐ **Authoritative.** The architecture decision record. Supersedes everything else. |
 | [docs/PATH.md](docs/PATH.md) | LLM handoff — current state, file claims, next task, invariants |
 | [docs/DATA_STRATEGY.md](docs/DATA_STRATEGY.md) | Required before touching market data or the drill engine |
+| [docs/BUGS.md](docs/BUGS.md) | Known defects, deliberate limitations, and lessons from fixed bugs |
 | [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) | Human-readable project history, session by session |
 | [docs/ANALYSIS_CLAUDE.md](docs/ANALYSIS_CLAUDE.md) · [docs/CHATGPT_RESEARCH.md](docs/CHATGPT_RESEARCH.md) | The two original independent analyses |
 
