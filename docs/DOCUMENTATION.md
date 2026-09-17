@@ -64,9 +64,9 @@ exchange-traded FX futures can later be added without hardcoding each product.
 | Area | Description | Status |
 |---|---|---|
 | **Markets** | Instrument browser, contract registry, historical charts | Registry + bars API done (Session 009) |
-| **Charts** | Candlestick charting with indicators and full drawing toolset | Not started |
+| **Charts** | Candlestick charting with indicators and full drawing toolset | Candles + timeframes done (Session 010); no drawings or indicators |
 | **Practice** ⭐ | Hidden-outcome historical replay with trade simulation and grading | Not started |
-| **Accounts** | Registration, login, session rotation, per-user data ownership | API done (Session 008); no UI |
+| **Accounts** | Registration, login, session rotation, per-user data ownership | Done (Sessions 008, 010) |
 | **Training** | Auto-generated drills per methodology, with spaced repetition | Not started |
 | **Journal** | Trade log with R-multiples, expectancy, MAE/MFE, equity curve | Not started |
 
@@ -843,6 +843,78 @@ it is holding.
 
 No chart. This session built the data behind one. There is also no import path for real data yet —
 that arrives with the CSV adapter, and nothing in the project has ever touched real market data.
+
+---
+
+### Session 010 — 2026-09-17 — The Chart
+
+**Participant:** Claude Code
+**Type:** Feature — the first screen that looks like a trading application
+
+#### What was built
+
+Candles on screen. An instrument selector, six timeframes, a live last price, and the simulated-data
+banner sitting above all of it. Also a sign-in and registration form, which was not optional: the
+market data API requires authentication, so without a way to sign in the chart had nothing to draw.
+
+#### One file imports the charting library
+
+Lightweight Charts is reached only through an adapter. Every component talks to an interface
+instead, which was justified back in Session 002 as insurance — if the custom drawing layer proves
+too expensive, the renderer can be swapped without rewriting the features built on it.
+
+That insurance paid out immediately rather than eventually. The test environment has no working
+canvas, so a component that created a chart directly could not be tested at all. Because the
+renderer sits behind an interface, a fake one records what it was asked to draw and the components
+become ordinary testable code.
+
+#### The bug that fourteen passing tests missed
+
+The chart came up showing a price of **minus 417,000**.
+
+A Nasdaq future cannot be negative, so something was badly wrong — and the cause was a single line
+in the price generator. It added a drift that grew with the number of days elapsed, and the number
+of days was counted from 1970 rather than from the start of the series. By 2024 that is nearly
+twenty thousand days, multiplied by a few hundred ticks each, and the price had walked off the
+bottom of the world.
+
+The interesting part is why the test suite was perfectly happy. Every integrity check compared
+prices **to each other**: the high is never below the low, the open sits inside the range,
+timestamps increase, volatility varies between quiet and busy stretches. All of those statements
+are exactly as true at minus 417,000 as at twenty thousand. Nothing asserted that the price itself
+was a number a market could produce, because it never occurred to anyone that it might not be.
+
+The fix replaced the runaway drift with a slow bounded wave. The more durable outcome is the test
+that now checks prices are positive and within an order of magnitude of the product's real scale,
+across several years and several seeds.
+
+**The lesson is worth stating plainly, because it generalises well beyond this project:** checking
+that quantities agree with one another is not the same as checking that any of them is sensible. A
+suite made entirely of relational assertions will certify output that is absurd at a glance. The
+cheapest way to find that class of mistake is to look at the thing you built — which is exactly how
+this one was found, after the tests had already passed.
+
+#### A smaller bug, caught the ordinary way
+
+The chart component rebuilt itself from scratch on every render of its parent, because a value it
+only reads once at startup had been listed as something to watch for changes. Harmless today, and
+not harmless later: during a replay the parent updates on every bar, so the user's zoom and pan
+would have been thrown away continuously while they were trying to watch a trade play out. A test
+caught this one before it ever ran.
+
+#### Verification
+
+Fifty-two backend tests and twenty-two frontend tests pass, and the application was driven in a real
+browser rather than only in test harnesses: an account was created, signed in, the chart rendered,
+and switching timeframes fetched fresh data. That last step is what found the price bug; no amount
+of green test output would have.
+
+#### What does not exist yet
+
+The chart is read-only. There are no drawing tools, no indicators, and no replay — you can look at
+the market but not yet mark it up or step through it. Drawing tools are next, and they are the
+largest scheduling risk in the project: the plan is deliberately five tools and then a decision
+about whether to continue building them by hand.
 
 ---
 

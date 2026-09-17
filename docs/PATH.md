@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 009
+last_session: 010
 last_author: CLAUDE
 last_updated: 2026-09-17
 phase: PHASE 0 COMPLETE (scaffold builds, tests green; no features yet)
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # tracks origin/master
 head: 91ac9c9                                     # Phase 0 scaffold
-build_passing: true  # backend 51/51 (Testcontainers), frontend 3/3 + build + typecheck
+build_passing: true  # backend 52/52 (Testcontainers), frontend 22/22 + build + typecheck
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -90,7 +90,7 @@ not_built_do_not_assume:
   - login/register UI (the API exists and is tested; no screens yet)
   - rate limiting on auth endpoints
   - instrument / contract / bar tables
-  - any chart or drawing code
+  - drawing tools, replay, indicators (the chart is read-only)
 
 blocked_on: nothing technical — Fabio chooses the next task (2b or 3)
 
@@ -132,7 +132,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 2 | ~~**Phase 0** — scaffold~~ | — | ✅ Done in Session 006. Git, Boot 3.5.16 + Java 21, Vite/React 19/TS, Postgres via Docker, Flyway V1, OpenAPI, `/api/health`, security foundation. |
 | 2b | ~~**Auth endpoints**~~ | — | ✅ Done in Session 008. register/login/refresh/logout/logout-all + `/api/me`, rotation with reuse detection, 19/19 tests. UI not built. |
 | 3 | ~~**First data slice**~~ | — | ✅ Done in Session 009. Registry, generator, aggregation, bars API, 21 tests. |
-| 4 | **First visible slice** — render generated candles through `ChartAdapter` | 3 | No vendor data required |
+| 4 | ~~**First visible slice**~~ | — | ✅ Done in Session 010. Chart renders, auth UI, timeframe switching. Verified in a browser. |
 | 5 | **Drawing proof** — HLine, trendline, rectangle, R:R position + select/drag/snap/persist/undo | 4 | Decision gate before adding more tools |
 | 6 | **Practice slice** — blind replay → immutable plan → one bracket trade → deterministic/ambiguous result → journal row | 5 | Read DEC-008/009/011/031 first |
 | 7 | **First drill** — versioned FVG detector → `detected_setup` → identification drill | 6 | ⚠️ **DEC-034**: build/test on `DEMO-NQ`, but the drill is a *developer fixture* until real data clears the gate. Detector work is not blocked; the curriculum claim is. |
@@ -810,6 +810,66 @@ for imported data.
 
 **Handoff:** `NEXT UP` task 4 — render these bars through `ChartAdapter` with Lightweight
 Charts. Pull first.
+
+---
+
+### SESSION 010
+
+```yaml
+id: 010
+author: CLAUDE
+date: 2026-09-17
+type: FEATURE — NEXT UP task 4
+code_changed: true
+claimed_files: []   # released
+```
+
+**The chart works. Verified in a real browser, not just in tests.**
+
+**New (frontend):** `lib/chart/types.ts` (`ChartAdapter`), `lib/chart/priceFormat.ts`,
+`lib/chart/lightweightAdapter.ts`, `lib/api/marketData.ts`, `hooks/useSession.ts`,
+`components/{PriceChart,SignInForm,ChartWorkspace}.tsx`, `test/fakeChartAdapter.ts`.
+Lightweight Charts v5 added. Auth UI built because the market API is authenticated — the chart
+could not fetch anything without it.
+
+**Design points:**
+- `lightweightAdapter.ts` is the **only** file importing the charting library. Everything else
+  talks to `ChartAdapter` (DEC-004).
+- That abstraction paid off immediately, not eventually: jsdom has no working canvas, so
+  `FakeChartAdapter` is the only reason the components are testable at all.
+- `priceFormat.ts` is the single tick→price boundary (INVARIANT 3). Nothing downstream of the
+  adapter sees a tick count.
+- The demo window is anchored to a **fixed** epoch, not `Date.now()`. The generator is a pure
+  function of time, so anchoring to "now" would show different data every reload and no two people
+  could discuss the same candle.
+
+**⚠️ BUG-015 — the one that matters.** The chart opened at **minus 417,000 index points**. The
+generator's linear drift multiplied `days`, and `days` counted from the **Unix epoch** —
+~19,800 by 2024 — not from the start of the series. **Fourteen passing tests did not catch it**,
+because every one compared prices *to each other* (high ≥ low, open in range) and all of those hold
+fine on a series centred on −417,000. Fixed with a bounded seasonal sine; generator bumped to
+`demo-gen-1.2.0`; a price-sanity test added across four dates and three seeds.
+
+**Also fixed:** BUG-016 (`PriceChart` remounted on every parent render — `adapterFactory` was
+in the effect deps; during replay that would discard zoom/pan on every bar).
+
+**Also logged:** BUG-013 (Vite's `changeOrigin` forwards the browser Origin, so a non-5173 dev
+port needs a matching `CORS_ALLOWED_ORIGINS` or every call 403s), BUG-014 (chart axis is
+UTC-only), ENV-002 (Docker Desktop occupies 8080 **and** 5173 on this machine).
+
+**Running it locally here:** `PORT=8081` for the backend and a matching
+`CORS_ALLOWED_ORIGINS`; Vite now reads `process.env.PORT`. See ENV-002.
+
+**Verification:** backend 52/52, frontend 22/22, build + typecheck clean. Driven in a real browser:
+registered, signed in, chart rendered, timeframe switching refetches.
+
+**Not built:** no drawing tools (task 5 — the decision gate), no replay, no indicators. The chart is
+read-only.
+
+**Handoff:** `NEXT UP` task 5 — the drawing proof. **Five tools only** (HLine, trendline,
+rectangle, R:R position) plus select/drag/snap/persist/undo, then stop and decide whether to
+continue custom or switch to KLineChart. DEC-004 calls this the largest schedule risk in the
+project. Pull first.
 
 ---
 

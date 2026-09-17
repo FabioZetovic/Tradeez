@@ -1,67 +1,34 @@
-import { useEffect, useState } from 'react'
-import { getHealth, type HealthResponse } from '@/lib/api/client'
-import { SimulatedDataBanner } from '@/components/SimulatedDataBanner'
+import { useSession } from '@/hooks/useSession'
+import { SignInForm } from '@/components/SignInForm'
+import { ChartWorkspace } from '@/components/ChartWorkspace'
+import type { ChartAdapter } from '@/lib/chart/types'
 import './App.css'
 
-type Status =
-  | { kind: 'loading' }
-  | { kind: 'ok'; health: HealthResponse }
-  | { kind: 'error'; message: string }
-
-export default function App() {
-  const [status, setStatus] = useState<Status>({ kind: 'loading' })
-
-  useEffect(() => {
-    let cancelled = false
-    getHealth()
-      .then((health) => {
-        if (!cancelled) setStatus({ kind: 'ok', health })
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setStatus({
-            kind: 'error',
-            message: error instanceof Error ? error.message : 'Unknown error',
-          })
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+export default function App({ adapterFactory }: { adapterFactory?: () => ChartAdapter } = {}) {
+  const { state, login, register, logout } = useSession()
 
   return (
     <main className="shell">
       <header className="shell__header">
-        <h1>Tradeez</h1>
-        <p className="shell__tagline">Futures day-trading practice platform</p>
+        <div>
+          <h1>Tradeez</h1>
+          <p className="shell__tagline">Futures day-trading practice</p>
+        </div>
+        {state.status === 'signedIn' && (
+          <div className="shell__account">
+            <span>{state.user.displayName}</span>
+            <button type="button" className="link" onClick={logout}>
+              Sign out
+            </button>
+          </div>
+        )}
       </header>
 
-      <SimulatedDataBanner />
+      {state.status === 'loading' && <p role="status">Loading…</p>}
 
-      <section className="panel">
-        <h2>Phase 0 — connectivity</h2>
-        {status.kind === 'loading' && <p role="status">Checking backend…</p>}
+      {state.status === 'signedOut' && <SignInForm onLogin={login} onRegister={register} />}
 
-        {status.kind === 'ok' && (
-          <dl className="kv">
-            <dt>Backend</dt>
-            <dd data-testid="backend-status">{status.health.status}</dd>
-            <dt>Database</dt>
-            <dd data-testid="database-status">{status.health.database}</dd>
-            <dt>Server time (UTC)</dt>
-            <dd>{status.health.timestamp}</dd>
-          </dl>
-        )}
-
-        {status.kind === 'error' && (
-          <p role="alert" className="error">
-            Backend unreachable: {status.message}
-            <br />
-            <small>Start it with <code>./mvnw spring-boot:run</code> in <code>backend/</code>.</small>
-          </p>
-        )}
-      </section>
+      {state.status === 'signedIn' && <ChartWorkspace adapterFactory={adapterFactory} />}
 
       <footer className="shell__footer">
         <p>

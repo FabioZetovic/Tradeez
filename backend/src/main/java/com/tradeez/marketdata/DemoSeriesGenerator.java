@@ -40,7 +40,7 @@ public class DemoSeriesGenerator {
 	 * (DEC-012). Failing to bump it is worse than a wrong value: it silently makes old results
 	 * irreproducible while claiming they are not.
 	 */
-	public static final String GENERATOR_VERSION = "demo-gen-1.1.0";
+	public static final String GENERATOR_VERSION = "demo-gen-1.2.0";
 
 	/** Where DEMO-NQ starts, in ticks. 80000 ticks x 0.25 = 20000.00 index points. */
 	private static final long BASE_PRICE_TICKS = 80_000L;
@@ -117,24 +117,31 @@ public class DemoSeriesGenerator {
 	 */
 	private long priceAt(long seed, long second) {
 		Random phaseRng = new Random(seed * 31);
+		double seasonPhase = phaseRng.nextDouble() * Math.PI * 2;
 		double slowPhase = phaseRng.nextDouble() * Math.PI * 2;
 		double mediumPhase = phaseRng.nextDouble() * Math.PI * 2;
 		double fastPhase = phaseRng.nextDouble() * Math.PI * 2;
-		double driftTicksPerDay = (phaseRng.nextDouble() - 0.5) * 800;
 
 		double days = second / (double) SECONDS_PER_DAY;
 
-		double slow = Math.sin(days * Math.PI * 2 / 3 + slowPhase) * 600;
-		double medium = Math.sin(days * Math.PI * 2 * 4 + mediumPhase) * 180;
-		double fast = Math.sin(days * Math.PI * 2 * 40 + fastPhase) * 45;
-		double drift = days * driftTicksPerDay;
+		// Every component is BOUNDED. An earlier version added a linear drift term of
+		// days * driftTicksPerDay, which looked harmless until you notice that 'days' counts from
+		// the Unix epoch, not from the start of the series: roughly 19,800 days by 2024, times a
+		// few hundred ticks a day, put the chart at about MINUS 417,000 index points. A futures
+		// price cannot be negative, and no unit test noticed because they all checked relationships
+		// between prices (high >= low, open within range) rather than whether the level itself was
+		// sane. The slow seasonal wave below gives long-horizon direction without that failure mode.
+		double season = Math.sin(days * Math.PI * 2 / 90 + seasonPhase) * 2_400;  // ~3 month cycle
+		double slow = Math.sin(days * Math.PI * 2 / 3 + slowPhase) * 600;         // ~3 day swings
+		double medium = Math.sin(days * Math.PI * 2 * 4 + mediumPhase) * 180;     // intraday
+		double fast = Math.sin(days * Math.PI * 2 * 40 + fastPhase) * 45;         // scalp noise
 
 		double jitter = (rngFor(seed, second).nextDouble() - 0.5)
 			* regimeVolatility(seed, second) * 4;
 
 		// Math.round, not a cast: casting truncates toward zero, which would bias every negative
 		// movement by up to a full tick and skew long/short results asymmetrically.
-		return BASE_PRICE_TICKS + Math.round(slow + medium + fast + drift + jitter);
+		return BASE_PRICE_TICKS + Math.round(season + slow + medium + fast + jitter);
 	}
 
 	/**

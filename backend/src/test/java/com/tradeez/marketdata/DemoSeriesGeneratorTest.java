@@ -107,6 +107,36 @@ class DemoSeriesGeneratorTest {
 		}
 
 		@Test
+		@DisplayName("prices stay in a plausible range for the product, across years")
+		void pricesAreSane() {
+			// The test that was missing. Every other integrity check compares prices to each other —
+			// high >= low, open inside the range — so all of them passed happily while the chart showed
+			// MINUS 417,000 index points. A linear drift term multiplied days-since-1970, so the level
+			// ran away even though every internal relationship stayed consistent.
+			//
+			// A Nasdaq-like index cannot be negative, and should not wander by orders of magnitude.
+			// 80,000 ticks is 20,000 points; this allows a wide band around it and still catches the
+			// whole class of runaway-level bugs.
+			for (String date : List.of(
+					"2013-06-12T14:00:00Z", "2018-01-10T14:00:00Z",
+					"2024-03-13T14:00:00Z", "2031-09-09T14:00:00Z")) {
+
+				for (long seed : List.of(1L, 42L, 7919L)) {
+					List<Bar> bars = generate(seed, Instant.parse(date), 30);
+					assertThat(bars).isNotEmpty();
+					assertThat(bars).allSatisfy(bar -> {
+						assertThat(bar.lowTicks())
+							.as("price must stay positive at %s seed %d", date, seed)
+							.isPositive();
+						assertThat(bar.closeTicks())
+							.as("price must stay near the product's scale at %s seed %d", date, seed)
+							.isBetween(40_000L, 160_000L); // 10,000 to 40,000 index points
+					});
+				}
+			}
+		}
+
+		@Test
 		@DisplayName("volume is never negative")
 		void volumeIsNonNegative() {
 			assertThat(generate(11L, MIDWEEK, 60))

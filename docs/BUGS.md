@@ -138,7 +138,64 @@ bug than being slow.
 
 ---
 
+### BUG-013 🟡 Vite's proxy forwards the browser Origin, so CORS must match the dev port
+
+**Status:** verified (hit while previewing task 4)
+**Affects:** `frontend/vite.config.ts`, `tradeez.cors.allowed-origins`
+
+The dev proxy is configured with `changeOrigin: true`, which rewrites the `Host` header but
+still forwards the browser's real `Origin`. Spring therefore sees a cross-origin request and
+applies CORS. It happens to work on port 5173 because that is the configured allowed origin — on
+any other port every authenticated call fails with **403**, which looks like a CSRF or auth problem
+and is neither.
+
+Hit immediately here because Docker Desktop occupies 5173 on this machine (see ENV-002), so the dev
+server landed on a random port.
+
+**Workaround.** Pass the actual origin when starting the backend:
+
+```bash
+CORS_ALLOWED_ORIGINS="http://localhost:5173,http://localhost:<actual-port>" ./mvnw spring-boot:run
+```
+
+**Likely fix.** Allow a localhost wildcard pattern in development only, via
+`CorsConfiguration.setAllowedOriginPatterns`. Deployed environments keep the explicit list —
+a wildcard there would defeat the point of DEC-032.
+
+---
+
+### BUG-014 🟡 Chart time axis is UTC-only
+
+**Status:** verified by inspection
+**Affects:** `lightweightAdapter.ts`
+
+The time axis is formatted as UTC. That is consistent with how everything is stored (INVARIANT 4)
+and unambiguous, but it is not how a trader reads a chart: an ICT curriculum is built on New York
+and London session times, and mentally offsetting every label is exactly the kind of friction that
+makes killzone training harder than it needs to be.
+
+**Likely fix.** Render in the instrument's exchange timezone, which the API already returns as
+`exchangeTimezone`, with a toggle for UTC. Needs care around daylight-saving transitions —
+`SessionCalendar` already concentrates that logic on the backend.
+
+---
+
 ## Environment
+
+### ENV-002 🟡 Docker Desktop occupies ports 8080 and 5173 on this machine
+
+**Status:** verified (task 4)
+
+`com.docker.backend.exe` and `wslrelay.exe` listen on both 8080 and 5173, so the backend
+and the Vite dev server cannot use their defaults here. Spring reports *"Port 8080 was already in
+use"* and the preview tooling refuses 5173.
+
+**Workaround.** `PORT=8081` for the backend; Vite reads `process.env.PORT` so the harness can
+assign one. Remember BUG-013: a non-default frontend port needs a matching `CORS_ALLOWED_ORIGINS`.
+
+Not an application defect, but it costs time on every fresh checkout on this machine.
+
+---
 
 ### ENV-001 🟠 Docker Desktop's daemon stops on its own, breaking the backend test suite
 
@@ -182,6 +239,48 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 ## Fixed
 
 Kept for the lesson, not for the changelog.
+
+### BUG-015 🔴 Generated prices ran away to roughly minus 417,000
+
+**Fixed:** Session 010 · **Found by:** looking at the chart, not by a test
+
+The price function added a linear drift term, `days * driftTicksPerDay`. The bug is in what
+`days` counted: seconds since the **Unix epoch** divided by 86,400, so about 19,800 days by
+2024 — not days into the series. Multiplied by a few hundred ticks a day, the chart opened at
+about **minus 417,000 index points**. A futures price cannot be negative.
+
+**What makes this worth recording is that fourteen passing tests did not catch it.** Every
+integrity check compared prices *to each other* — high at least low, open inside the range,
+strictly increasing timestamps, plausible volatility spread — and all of those hold perfectly well
+on a series centred on minus 417,000. Nothing asserted the price level itself was sane, because it
+never occurred to me that it might not be.
+
+**Fix:** replaced the unbounded drift with a slow seasonal sine, so every component of the price is
+bounded. Generator version bumped to `demo-gen-1.2.0`.
+
+**Test added:** prices must be positive and within an order of magnitude of the product's real
+scale, checked across four dates spanning 2013–2031 and three seeds.
+
+**Lesson:** relational invariants are not the same as absolute ones. A suite that only checks
+quantities against each other will happily certify output that is nonsense on sight — and the
+cheapest way to find this class of bug is to *look at the thing you built*.
+
+---
+
+### BUG-016 🟡 PriceChart remounted on every parent render
+
+**Fixed:** Session 010 · **Found by:** `PriceChart.test.tsx`
+
+`adapterFactory` was listed in the mount effect's dependencies. Any caller passing an inline
+arrow — the natural way to write it — produced a new reference every render, so the chart was
+destroyed and rebuilt each time. During a replay the parent re-renders on every bar, which would
+have discarded the user's zoom and pan continuously.
+
+**Fix:** hold the factory in a ref, read once at mount.
+
+**Lesson:** a dependency that is only *read* at mount does not belong in the dependency array.
+
+---
 
 ### BUG-011 🟠 Demo generator produced barely-varying volatility regimes
 

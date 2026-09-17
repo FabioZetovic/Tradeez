@@ -9,7 +9,8 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
-    port: 5173,
+    // The harness assigns a port when 5173 is taken (Docker Desktop squats on it here).
+    port: process.env.PORT ? Number(process.env.PORT) : 5173,
     // Proxy /api to the local backend so the browser sees a same-origin request in development.
     // This keeps cookie-based auth (DEC-032) working locally without relaxing SameSite.
     // In production the two are genuinely cross-origin, which is why the backend configures
