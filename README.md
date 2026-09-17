@@ -12,6 +12,20 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 
 ---
 
+## Repository
+
+`https://github.com/FabioZetovic/Tradeez` — **private**.
+
+```bash
+git clone https://github.com/FabioZetovic/Tradeez.git
+```
+
+Both AI collaborators work against this remote. **Pull before starting, push before finishing.**
+If a push is rejected, rebase — never force-push, which would destroy the other collaborator's
+work.
+
+---
+
 ## Read this before writing any code
 
 | Document | What it is |

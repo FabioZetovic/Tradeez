@@ -13,6 +13,9 @@
 ## PROTOCOL — follow exactly
 
 **At the start of every session:**
+0. **`git pull --ff-only`.** The repo has a shared remote (see `CURRENT STATE`). The other LLM
+   may have pushed since your last session, so the copy of this file on disk may be stale until
+   you pull. Pulling first is what prevents two divergent histories.
 1. Read this entire file.
 2. Read the `CURRENT STATE` block to know where the project actually is.
 3. Read `IN PROGRESS / DO NOT TOUCH` — never edit files another session has claimed.
@@ -25,6 +28,10 @@
 2. Update `CURRENT STATE`, `IN PROGRESS`, `NEXT UP`, `DECISIONS`, and `OPEN THREADS`.
 3. Update `DOCUMENTATION.md` with the human-readable narrative for the same session.
 4. Both files must be updated. A session is not finished until they are.
+5. **Commit and push.** Leaving work uncommitted strands it on one machine and guarantees a
+   divergence the next session has to untangle. If the push is rejected, run
+   `git pull --rebase` and resolve the conflict — **never `git push --force`**, which would
+   destroy the other collaborator's work.
 
 **Conventions:**
 - Session IDs are sequential: `001`, `002`, ...
@@ -37,13 +44,16 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 006
+last_session: 007
 last_author: CLAUDE
-last_updated: 2026-08-27
+last_updated: 2026-09-17
 phase: PHASE 0 COMPLETE (scaffold builds, tests green; no features yet)
 code_written: true
 repo_initialized: true
-git: true            # branch: master, no commits yet — Fabio commits
+git: true
+remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
+branch: master                                    # tracks origin/master
+head: 91ac9c9                                     # Phase 0 scaffold
 build_passing: true  # backend 3/3 (Testcontainers), frontend 3/3 + build + typecheck
 deployed: false      # local only, €0
 
@@ -622,6 +632,51 @@ JWT filter; any instrument, contract or bar table; the `DEMO-NQ` generator; any 
 **Handoff:** `NEXT UP` task 2b (auth endpoints against the V1 tables) or task 3 (the `DEMO-NQ`
 generator) — **Fabio's call, not the next session's.** Read `DATA_STRATEGY.md` before task 3 and
 DEC-034 before any drill work. Claim files before editing.
+
+---
+
+### SESSION 007
+
+```yaml
+id: 007
+author: CLAUDE
+date: 2026-09-17
+type: INFRASTRUCTURE
+code_changed: false
+claimed_files: []   # released
+```
+
+**Published to GitHub.** The Phase 0 scaffold is now in a **private** repository at
+`https://github.com/FabioZetovic/Tradeez`, branch `master`, one commit (`91ac9c9`), 46 files.
+
+Audited before publishing: no `node_modules`, no `target/`, no `dist/`, no `.jar`, and no real
+secrets. `backend/.env.example` ships deliberately as an empty template (`JWT_SECRET=` blank).
+
+GitHub CLI 2.101.0 was installed via winget to make this possible. **Fabio authenticated himself**
+through the browser device flow — assistants do not handle credentials.
+
+**Protocol changed — this is the part that matters for the next session.** Until now the project
+existed in one directory on one machine, so "where is the current version" was trivial. With a
+shared remote, two collaborators who never see each other's sessions can each hold a different idea
+of the project's state — and `PATH.md`, the file whose whole job is preventing that, is itself one
+of the files that can go stale. A stale `PATH.md` is worse than none, because it looks
+authoritative.
+
+So the protocol now brackets every session:
+
+- **Step 0: `git pull --ff-only` before reading anything.**
+- **Step 5: commit and push before finishing.** A rejected push is rebased. **Never force-push** —
+  it would silently destroy the other collaborator's work.
+
+`CURRENT STATE` now records `remote`, `branch` and `head` so a fresh session knows the repository
+is shared before touching anything.
+
+**Files modified:** `docs/PATH.md` (protocol steps 0 and 5, remote in CURRENT STATE),
+`docs/DOCUMENTATION.md` (collision rule + Session 007 narrative), `README.md` (Repository section
+with clone command). No application code, dependency, schema or API changed.
+
+**Handoff:** unchanged — `NEXT UP` task 2b (auth endpoints) or task 3 (`DEMO-NQ` generator),
+**Fabio's call.** Pull first.
 
 ---
 

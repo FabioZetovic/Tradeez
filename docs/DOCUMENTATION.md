@@ -122,6 +122,10 @@ Every working session, by either LLM, follows the same three steps:
 - **Architectural decisions are recorded, not re-litigated.** Once a decision is logged in the
   Decision Log below, it stands until explicitly revisited with Fabio.
 - **Database changes go through migrations only** (Flyway). Never hand-edit a schema.
+- **Pull before starting, push before finishing.** The project lives in a private GitHub
+  repository at `github.com/FabioZetovic/Tradeez`. Work left uncommitted on one machine is
+  invisible to the other collaborator and produces a divergence somebody has to untangle later.
+  A rejected push is rebased, never forced.
 
 ---
 
@@ -658,6 +662,38 @@ and the OpenAPI document publishes.
 Worth stating plainly, because a scaffold can look more finished than it is: there are **no
 authentication endpoints**, no instrument or contract or price tables, no `DEMO-NQ` generator, and
 no chart. Phase 0 proves the pieces connect. It does not yet do anything a trader would recognise.
+
+---
+
+### Session 007 — 2026-09-17 — Published to GitHub
+
+**Participant:** Claude Code
+**Type:** Infrastructure — no application code changed
+
+The Phase 0 scaffold was committed and pushed to a new **private** GitHub repository at
+[github.com/FabioZetovic/Tradeez](https://github.com/FabioZetovic/Tradeez). One commit, 46 files,
+verified clean before publishing: no dependency directories, no build output, and no real secrets —
+`backend/.env.example` is deliberately included as an empty template.
+
+The GitHub CLI was installed to make this possible; authentication was performed by Fabio himself
+through the browser flow, since credentials are not something an assistant should handle.
+
+#### Why this changes the collaboration protocol
+
+Until now the project existed only in one directory on one machine, so "where is the current
+version" had a trivial answer. With a shared remote, two collaborators who never see each other's
+sessions can now each hold a different idea of the project's state — and the file whose entire job
+is preventing that, `PATH.md`, is itself one of the files that can go stale.
+
+So the session protocol gained two steps that bracket every session:
+
+- **`git pull --ff-only` before reading anything.** Reading a stale `PATH.md` is worse than
+  reading no `PATH.md`, because it looks authoritative.
+- **Commit and push before finishing.** A rejected push is resolved by rebasing, never by forcing.
+  Force-pushing here would silently destroy the other collaborator's work.
+
+The remote URL, branch and current commit are now recorded in `CURRENT STATE`, so a fresh session
+knows the repository is shared before it touches anything.
 
 ---
 
