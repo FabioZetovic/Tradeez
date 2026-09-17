@@ -35,6 +35,15 @@
    `git pull --rebase` and resolve the conflict — **never `git push --force`**, which would
    destroy the other collaborator's work.
 
+**Standing instructions from Fabio (2026-09-17) — permanent, do not ask permission:**
+- **Log bugs automatically** in `docs/BUGS.md` after every session and every change. Mark each
+  entry *verified* or *reasoned*.
+- **Do not fix bugs as you find them.** They are batched into one larger patch later. Log and move on.
+- **Write a test for every new feature automatically.** Not optional, never a question.
+- **Codex is away from ~2026-09-17 for about a month.** Claude is the only collaborator meanwhile.
+  Keep these files current regardless: Codex must be able to resume, and `DOCUMENTATION.md` is read
+  by the thesis jury. File claiming stays in force — Codex may return without warning.
+
 **Conventions:**
 - Session IDs are sequential: `001`, `002`, ...
 - Author is `CLAUDE` or `CODEX`.
@@ -46,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 008
+last_session: 009
 last_author: CLAUDE
 last_updated: 2026-09-17
 phase: PHASE 0 COMPLETE (scaffold builds, tests green; no features yet)
@@ -56,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # tracks origin/master
 head: 91ac9c9                                     # Phase 0 scaffold
-build_passing: true  # backend 19/19 (Testcontainers), frontend 3/3 + build + typecheck
+build_passing: true  # backend 51/51 (Testcontainers), frontend 3/3 + build + typecheck
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -81,7 +90,6 @@ not_built_do_not_assume:
   - login/register UI (the API exists and is tested; no screens yet)
   - rate limiting on auth endpoints
   - instrument / contract / bar tables
-  - DEMO-NQ generator
   - any chart or drawing code
 
 blocked_on: nothing technical — Fabio chooses the next task (2b or 3)
@@ -123,7 +131,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 1 | ~~Reconcile the two analyses~~ | — | ✅ Done in Session 002 → `docs/DECISIONS.md` |
 | 2 | ~~**Phase 0** — scaffold~~ | — | ✅ Done in Session 006. Git, Boot 3.5.16 + Java 21, Vite/React 19/TS, Postgres via Docker, Flyway V1, OpenAPI, `/api/health`, security foundation. |
 | 2b | ~~**Auth endpoints**~~ | — | ✅ Done in Session 008. register/login/refresh/logout/logout-all + `/api/me`, rotation with reuse detection, 19/19 tests. UI not built. |
-| 3 | **First data slice** — `DEMO-NQ`/`DEMO-MNQ` generator + fixed fixtures + aggregation + typed bars endpoint | 2 | Follow `DATA_STRATEGY.md`; simulated label is mandatory |
+| 3 | ~~**First data slice**~~ | — | ✅ Done in Session 009. Registry, generator, aggregation, bars API, 21 tests. |
 | 4 | **First visible slice** — render generated candles through `ChartAdapter` | 3 | No vendor data required |
 | 5 | **Drawing proof** — HLine, trendline, rectangle, R:R position + select/drag/snap/persist/undo | 4 | Decision gate before adding more tools |
 | 6 | **Practice slice** — blind replay → immutable plan → one bracket trade → deterministic/ambiguous result → journal row | 5 | Read DEC-008/009/011/031 first |
@@ -744,6 +752,64 @@ limiting is the mitigation, not vagueness), email verification, password reset.
 
 **Handoff:** `NEXT UP` task 3 — the `DEMO-NQ` generator. Read `DATA_STRATEGY.md` first.
 Pull before starting.
+
+---
+
+### SESSION 009
+
+```yaml
+id: 009
+author: CLAUDE
+date: 2026-09-17
+type: FEATURE — NEXT UP task 3
+code_changed: true
+claimed_files: []   # released
+```
+
+**DEMO-NQ generator + bars API. 51/51 backend tests pass.**
+
+**New:** `V2__instruments.sql` (instrument registry + `data_class` enum, seeds DEMO-NQ/DEMO-MNQ),
+package `com.tradeez.marketdata` — `DataClass`, `Timeframe`, `Bar`, `BarSeries`,
+`SessionCalendar`, `BarAggregator`, `DemoSeriesGenerator`, `MarketDataProvider`,
+`GeneratedMarketDataProvider`, `Instrument`, `MarketDataService`, `MarketDataController`.
+
+**Endpoints:** `GET /api/market/instruments`, `/instruments/{symbol}`,
+`/instruments/{symbol}/bars?timeframe=&from=&to=&seed=`. Authenticated (deny-by-default).
+
+**Design points — do not undo these:**
+- **Nothing is persisted.** The series is a pure function of `(seed, range)`, so storage would
+  only be a cache that could disagree with the generator after a version bump. A full day is 86,400
+  one-second bars; regenerating is cheap.
+- **Always generate at 1s and aggregate up**, never generate the target timeframe directly. This is
+  what guarantees a 5m candle agrees with the 1s bars inside it — and the fill engine walks those 1s
+  bars (DEC-008), so disagreement would produce outcomes contradicting the user's chart.
+- **Each second is seeded from its absolute timestamp**, not from running state. Asking for
+  14:10–14:15 must not depend on whether 14:00 was requested first, or a replay resumed after a
+  reconnect would diverge. There is a test.
+- **Aggregation buckets align to the epoch**, not to the first bar, so two clients requesting
+  different start times draw the same candles.
+- **Gaps produce no bar.** A closed market is real information; a flat filler candle would be
+  invented price action a detector could then "find structure" in.
+- DEMO-NQ carries **real NQ economics** ($20/pt, 0.25 tick = $5) with exchange `DEMO`, never `CME`.
+- `MAX_BARS_PER_REQUEST = 20_000`: without it a year of 1s data is ~31M bars in one response.
+
+**Bug found and fixed (BUG-011):** regimes were selected with
+`new Random(seed*7919 + block).nextInt(4)`. Blocks are consecutive by construction and
+consecutive LCG seeds give correlated first outputs, so volatility barely varied — the busiest block
+was only 1.6x the quietest. Replaced with a splitmix64 avalanche. **Generator version bumped to
+`demo-gen-1.1.0`** because output changed (DEC-012).
+
+**Also logged:** BUG-009 (demo volume is meaningless), BUG-010 (no caching), BUG-012 (a test that
+failed against correct code — statistical assertions need an adequate sample).
+
+**Verification:** backend 51/51 (Testcontainers). 21 new tests: determinism, bar integrity,
+sessions, regime shape, aggregation, and the HTTP API.
+
+**Not built:** no chart yet — this is the data behind one. No CSV import provider. No persistence
+for imported data.
+
+**Handoff:** `NEXT UP` task 4 — render these bars through `ChartAdapter` with Lightweight
+Charts. Pull first.
 
 ---
 

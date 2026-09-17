@@ -108,6 +108,36 @@ untested, so it may not actually work when someone first relies on it.
 
 ---
 
+### BUG-009 🟡 Demo bar volume is invented and must never be analysed
+
+**Status:** verified (by design, recorded so it is not forgotten)
+**Affects:** `DemoSeriesGenerator`, every `SIMULATED` series
+
+Volume on a generated bar is derived from that bar's range. It correlates with price movement,
+which makes charts look plausible, and it means **absolutely nothing**. Anything volume-derived —
+volume profile, VWAP weighted by volume, relative volume, delta — would be reading structure out of
+a formula.
+
+Not fixable: there is no real volume to generate. Recorded because a plausible-looking number is
+more dangerous than an obviously missing one. Documented on `Bar#volume`.
+
+---
+
+### BUG-010 🟡 Market data endpoints have no caching
+
+**Status:** verified by inspection
+**Affects:** `GeneratedMarketDataProvider`
+
+Every bars request regenerates from scratch. A one-day 1s request builds 86,400 bars each time it is
+asked for. Correct and currently fast enough, but the replay engine will request overlapping ranges
+constantly, so this is worth measuring before the Practice slice ships.
+
+Deliberately not cached yet: a cache keyed on anything other than
+`(seed, range, generatorVersion)` would serve stale data after a version bump, which is a worse
+bug than being slow.
+
+---
+
 ## Environment
 
 ### ENV-001 🟠 Docker Desktop's daemon stops on its own, breaking the backend test suite
@@ -152,6 +182,47 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 ## Fixed
 
 Kept for the lesson, not for the changelog.
+
+### BUG-011 🟠 Demo generator produced barely-varying volatility regimes
+
+**Fixed:** Session 009 · **Found by:** `DemoSeriesGeneratorTest.volatilityRegimesExist`
+
+Regimes were selected with `new Random(seed * 7919 + regimeBlock).nextInt(4)`. Regime blocks are
+consecutive integers by construction, and consecutive LCG seeds produce correlated first outputs, so
+the "random" regime barely changed: the busiest three-hour block was only about 1.6x wider than the
+quietest, where it should have been several times wider. The generated market had one texture, which
+would have made regime a thing the app could not teach.
+
+**Fix:** a splitmix64 avalanche of the composed key, so structurally related inputs give unrelated
+outputs. Regime spread widened too (1.5 / 4 / 10 / 22 ticks).
+
+**Lesson:** `new Random(x).nextInt(n)` for systematically related `x` is not random. If a
+seed is composed from structured inputs — a counter, a timestamp, an id — mix it before use.
+
+**Second lesson, about the debugging:** the first attempt to diagnose this reimplemented Java's
+`nextInt(4)` in JavaScript and concluded the distribution was fine. It was wrong — Java takes the
+*high* bits for a power-of-two bound and the reimplementation took the low bits, which are exactly
+the bits an LCG is worst at. A reimplementation used as evidence has to be verified against the real
+thing first.
+
+---
+
+### BUG-012 🟡 A generator test failed against correct code
+
+**Fixed:** Session 009 (the test was rewritten, the code was not)
+
+`volatilityRegimesExist` originally compared the 99th percentile bar range against the median
+across a single generated day. Regimes change every three hours, so one day samples only a handful
+of them and the violent regime frequently never appeared — the assertion failed on output that met
+the requirement.
+
+**Fix:** compare per-block medians across a full trading week, which measures the property the
+requirement actually names.
+
+**Lesson:** a statistical assertion needs a sample large enough for the effect it claims to measure.
+This test failed twice before it was right, and only the second failure was the code's fault.
+
+---
 
 ### BUG-006 🔴 `deleteAll()` violated the self-referencing foreign key
 

@@ -63,7 +63,7 @@ exchange-traded FX futures can later be added without hardcoding each product.
 
 | Area | Description | Status |
 |---|---|---|
-| **Markets** | Instrument browser, contract registry, historical charts | Not started |
+| **Markets** | Instrument browser, contract registry, historical charts | Registry + bars API done (Session 009) |
 | **Charts** | Candlestick charting with indicators and full drawing toolset | Not started |
 | **Practice** ⭐ | Hidden-outcome historical replay with trade simulation and grading | Not started |
 | **Accounts** | Registration, login, session rotation, per-user data ownership | API done (Session 008); no UI |
@@ -769,6 +769,80 @@ arrives with the first real screens. There is also no rate limiting, no email ve
 password reset. Rate limiting matters most of the three: a registration endpoint cannot avoid
 revealing that an address is already taken, so limiting attempts is the real mitigation rather than
 a vague error message.
+
+---
+
+### Session 009 — 2026-09-17 — Market Data
+
+**Participant:** Claude Code
+**Type:** Feature — the first price data in the project
+
+#### What was built
+
+An instrument registry, a deterministic price generator, timeframe aggregation, and an API that
+serves candles. This is what everything visual depends on: there is no chart to build until there
+are bars to draw.
+
+Two instruments now exist, `DEMO-NQ` and `DEMO-MNQ`. They are **not** NQ and MNQ, and the
+naming is the point. They carry the real contract economics — twenty dollars a point, a
+quarter-point tick worth five dollars — so that position sizing and profit arithmetic are exercised
+correctly from the first line of code, while the exchange field says `DEMO` and the data class
+says `SIMULATED`. Relabelling invented prices as NQ would be the same mistake the project already
+rejected when it discarded a broker feed for being a CFD wearing a futures name.
+
+#### Why the generator works the way it does
+
+**The same seed always produces the same market.** A practice result recorded today must be
+re-derivable months from now, which is impossible if the prices cannot be regenerated. Each second
+of price action is computed from its own absolute timestamp rather than from a running total, so
+asking for ten past two produces identical bars whether or not two o'clock was requested first.
+That sounds like a technicality until a replay is interrupted and resumed — without it, the market
+would quietly change underneath the user.
+
+**Everything is generated at one-second resolution and rolled up.** Coarser candles are never
+produced directly. This guarantees that a five-minute candle and the seconds inside it tell the same
+story — which matters because the trade simulator walks the seconds while the user watches the
+candles. If the two could disagree, the app would resolve trades that contradict the chart, and a
+trader who noticed would be right to distrust every result it had ever given them.
+
+**Closed markets produce nothing.** No bars on weekends, none during the daily maintenance break. A
+gap is real information, and manufacturing a flat candle to fill it would be inventing price action
+— which a pattern detector would later happily "discover" structure in.
+
+**Prices gap across session boundaries.** Deliberately, because the trade simulator has to handle a
+stop being jumped over rather than gently touched, and that can only be tested if the data contains
+jumps.
+
+#### The bug worth reading about
+
+Volatility was supposed to shift every few hours so a generated day contains both quiet
+consolidation and violent expansion. A test measured whether it actually did, and it did not: the
+busiest stretch of the day was barely one and a half times wider than the quietest, where it should
+have been several times wider.
+
+The cause was subtle. Regimes were chosen by seeding a random number generator with a value derived
+from the block number, and block numbers are consecutive by construction. Java's standard generator
+produces *correlated* first outputs for consecutive seeds, so the "random" choice was barely
+changing. The fix was to run the composed value through an avalanche function first, so that
+structurally related inputs give unrelated outputs.
+
+The debugging is worth recording too, because the first attempt got it wrong. To check the
+distribution, the selection logic was reimplemented in another language — and the reimplementation
+read the wrong bits, concluding everything was fine when it was not. A reimplementation used as
+evidence has to be checked against the real thing before it is trusted.
+
+#### Verification
+
+Fifty-one backend tests pass, twenty-one of them new: that the same seed reproduces a series, that a
+sub-range matches the larger request containing it, that candles never hide a wick the underlying
+seconds contain, that closed markets are empty, that an oversized request is refused rather than
+attempted, and that every response carries its own provenance so a client cannot lose track of what
+it is holding.
+
+#### What does not exist yet
+
+No chart. This session built the data behind one. There is also no import path for real data yet —
+that arrives with the CSV adapter, and nothing in the project has ever touched real market data.
 
 ---
 
