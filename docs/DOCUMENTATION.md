@@ -66,6 +66,7 @@ exchange-traded FX futures can later be added without hardcoding each product.
 | **Markets** | Instrument browser, contract registry, historical charts | Not started |
 | **Charts** | Candlestick charting with indicators and full drawing toolset | Not started |
 | **Practice** ⭐ | Hidden-outcome historical replay with trade simulation and grading | Not started |
+| **Accounts** | Registration, login, session rotation, per-user data ownership | API done (Session 008); no UI |
 | **Training** | Auto-generated drills per methodology, with spaced repetition | Not started |
 | **Journal** | Trade log with R-multiples, expectancy, MAE/MFE, equity curve | Not started |
 
@@ -694,6 +695,80 @@ So the session protocol gained two steps that bracket every session:
 
 The remote URL, branch and current commit are now recorded in `CURRENT STATE`, so a fresh session
 knows the repository is shared before it touches anything.
+
+---
+
+### Session 008 — 2026-09-17 — Authentication
+
+**Participant:** Claude Code
+**Type:** Feature — the first real functionality in the project
+
+#### What was built
+
+Six endpoints and the machinery behind them: registration, login, token refresh, logout, logout
+from every device, and "who am I". DEC-032 had specified how authentication should work since
+Session 002; this session is where it stopped being a plan.
+
+Nineteen backend tests now pass against a real PostgreSQL container, covering every requirement
+that decision names — credentials, rotation, revocation, forged tokens, CSRF, and the guarantee
+that one user cannot see another's data.
+
+#### Choices worth explaining
+
+**Tokens never reach JavaScript.** The access token lives in a cookie marked `HttpOnly`, which
+browsers refuse to expose to page scripts. A successful login returns the user's profile and
+nothing else — there is no token in any response body, and the frontend module deliberately exports
+no way to read or store one. If an attacker manages to run script on the page, there is simply
+nothing there to steal.
+
+**Access tokens expire in fifteen minutes; refresh tokens last thirty days.** An access token
+cannot be withdrawn once issued, so the short lifetime bounds how long a cancelled session keeps
+working. The refresh token, which *can* be revoked instantly because it is checked against the
+database, carries the long lifetime.
+
+**Refresh tokens rotate, and replaying an old one is treated as theft.** Every refresh issues a new
+token and retires the old one. If a retired token is ever presented again, something has gone
+wrong: either an attacker captured it, or the legitimate user did. There is no way to tell which,
+so the only safe response is to invalidate **every** session for that account and require a fresh
+login. This is why the database records which token replaced which, rather than a simple
+"revoked" flag.
+
+**Stored tokens are hashed.** Only a SHA-256 digest of each refresh token is saved, so a database
+leak yields nothing usable.
+
+#### Two bugs the tests caught
+
+The first is worth describing because it is the kind of mistake that survives code review.
+
+The reuse-detection logic revoked every session for the account and then rejected the request. Both
+happened inside one database transaction — and rejecting the request meant throwing an exception,
+which rolled that transaction back and **undid the revocation**. The attacker was turned away, so
+from the outside everything looked correct. But the victim's sessions stayed alive, which is
+precisely the outcome the feature exists to prevent. A security response that silently does nothing
+is worse than none, because it is trusted.
+
+The fix tells the transaction not to roll back for that specific exception. The test that caught it
+is the one asserting the victim's *current* token also stops working — without it, this would have
+shipped looking fine.
+
+The second was narrower: deleting all tokens row by row violated the foreign key each token holds
+to the one that replaced it. Deleting them in a single statement defers the check until every row
+is already gone.
+
+#### A guard against a mistake that has not happened yet
+
+The development signing key is committed to this repository. That is fine locally and catastrophic
+anywhere else — anyone who can read the repository could forge a login for any account. Rather than
+trusting a comment to prevent that, the application now refuses to start if it is configured for a
+deployed environment while still using the committed key.
+
+#### What does not exist yet
+
+There are no login or registration screens. The API is complete and tested; the user interface
+arrives with the first real screens. There is also no rate limiting, no email verification and no
+password reset. Rate limiting matters most of the three: a registration endpoint cannot avoid
+revealing that an address is already taken, so limiting attempts is the real mitigation rather than
+a vague error message.
 
 ---
 

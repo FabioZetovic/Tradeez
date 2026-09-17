@@ -7,37 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * Phase 0 vertical smoke test (DEC-029).
- *
- * <p>Runs against a real PostgreSQL container rather than an in-memory substitute, so it also
- * proves the Flyway migration applies cleanly and that Hibernate's {@code ddl-auto: validate}
- * agrees with the migrated schema. An H2 stand-in would pass while hiding both.
- */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Testcontainers
-class HealthEndpointTest {
-
-	@Container
-	@SuppressWarnings("resource") // Testcontainers manages the lifecycle.
-	static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
-
-	@DynamicPropertySource
-	static void datasourceProperties(DynamicPropertyRegistry registry) {
-		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-		registry.add("spring.datasource.username", POSTGRES::getUsername);
-		registry.add("spring.datasource.password", POSTGRES::getPassword);
-	}
+/** Phase 0 vertical smoke test: HTTP in, database round-trip, JSON out. */
+class HealthEndpointTest extends AbstractIntegrationTest {
 
 	@Autowired
 	MockMvc mockMvc;

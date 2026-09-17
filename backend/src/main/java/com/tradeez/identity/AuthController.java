@@ -1,0 +1,104 @@
+package com.tradeez.identity;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.tradeez.identity.AuthService.IssuedTokens;
+import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
+import com.tradeez.identity.dto.AuthDtos.LoginRequest;
+import com.tradeez.identity.dto.AuthDtos.RegisterRequest;
+import com.tradeez.identity.dto.AuthDtos.UserResponse;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+
+/**
+ * Identity endpoints. DEC-032.
+ *
+ * <p>Every success response sets cookies and returns the user; <b>no response body ever contains a
+ * token</b>. Failures are mapped in {@link AuthExceptionHandler} to deliberately vague messages so
+ * the API does not become an account-enumeration oracle.
+ */
+@RestController
+@RequestMapping("/api/auth")
+@Tag(name = "Authentication", description = "Registration, login, token rotation and logout")
+public class AuthController {
+
+	private final AuthService authService;
+	private final CookieService cookies;
+
+	public AuthController(AuthService authService, CookieService cookies) {
+		this.authService = authService;
+		this.cookies = cookies;
+	}
+
+	@PostMapping("/register")
+	@Operation(summary = "Create an account and sign in")
+	public ResponseEntity<UserResponse> register(
+			@Valid @RequestBody RegisterRequest request,
+			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+		return respond(authService.register(request, userAgent), HttpStatus.CREATED);
+	}
+
+	@PostMapping("/login")
+	@Operation(summary = "Sign in with email and password")
+	public ResponseEntity<UserResponse> login(
+			@Valid @RequestBody LoginRequest request,
+			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+		return respond(authService.login(request, userAgent), HttpStatus.OK);
+	}
+
+	@PostMapping("/refresh")
+	@Operation(summary = "Rotate the refresh token and issue a new access token",
+		description = "The presented refresh token is revoked. Replaying an already-rotated token "
+			+ "revokes every session for that account, because it indicates the token was stolen.")
+	public ResponseEntity<UserResponse> refresh(
+			HttpServletRequest request,
+			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+		String raw = JwtAuthenticationFilter
+			.readCookie(request, CookieService.REFRESH_TOKEN_COOKIE)
+			.orElseThrow(AuthService.InvalidRefreshTokenException::new);
+		return respond(authService.refresh(raw, userAgent), HttpStatus.OK);
+	}
+
+	@PostMapping("/logout")
+	@Operation(summary = "Revoke the current session's refresh token and clear cookies")
+	public ResponseEntity<Void> logout(HttpServletRequest request) {
+		JwtAuthenticationFilter.readCookie(request, CookieService.REFRESH_TOKEN_COOKIE)
+			.ifPresent(authService::logout);
+
+		return ResponseEntity.noContent()
+			.header(HttpHeaders.SET_COOKIE, cookies.clearAccessCookie().toString())
+			.header(HttpHeaders.SET_COOKIE, cookies.clearRefreshCookie().toString())
+			.build();
+	}
+
+	@PostMapping("/logout-all")
+	@Operation(summary = "Revoke every refresh token for the signed-in account")
+	public ResponseEntity<Void> logoutEverywhere(@AuthenticationPrincipal AuthenticatedUser user) {
+		authService.logoutEverywhere(user.id());
+		return ResponseEntity.noContent()
+			.header(HttpHeaders.SET_COOKIE, cookies.clearAccessCookie().toString())
+			.header(HttpHeaders.SET_COOKIE, cookies.clearRefreshCookie().toString())
+			.build();
+	}
+
+	private ResponseEntity<UserResponse> respond(IssuedTokens issued, HttpStatus status) {
+		AppUser user = issued.user();
+		return ResponseEntity.status(status)
+			.header(HttpHeaders.SET_COOKIE, cookies.accessCookie(issued.accessToken()).toString())
+			.header(HttpHeaders.SET_COOKIE, cookies.refreshCookie(issued.refreshToken()).toString())
+			.body(new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(),
+				user.getCreatedAt()));
+	}
+}

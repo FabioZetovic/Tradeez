@@ -2,6 +2,8 @@ package com.tradeez.config;
 
 import java.util.List;
 
+import com.tradeez.identity.JwtAuthenticationFilter;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
@@ -34,17 +37,22 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *   <li>Sessions are stateless; the JWT is the only authentication state.</li>
  * </ul>
  *
- * <p>The token issuing/validation filter arrives with the identity module. This class establishes
- * the shape so that no one later reaches for a less safe default.
+ * <p>{@link JwtAuthenticationFilter} reads the access token from its HttpOnly cookie and populates
+ * the security context. It runs before the username/password filter, which is itself disabled —
+ * this application authenticates by cookie only.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
 	private final List<String> allowedOrigins;
+	private final JwtAuthenticationFilter jwtFilter;
 
-	public SecurityConfig(@Value("${tradeez.cors.allowed-origins}") String allowedOrigins) {
+	public SecurityConfig(
+			@Value("${tradeez.cors.allowed-origins}") String allowedOrigins,
+			JwtAuthenticationFilter jwtFilter) {
 		this.allowedOrigins = List.of(allowedOrigins.split("\\s*,\\s*"));
+		this.jwtFilter = jwtFilter;
 	}
 
 	@Bean
@@ -58,7 +66,7 @@ public class SecurityConfig {
 				.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.csrfTokenRequestHandler(csrfHandler)
 				// Auth endpoints are exempt only until a session cookie exists to protect.
-				.ignoringRequestMatchers("/api/auth/login", "/api/auth/register"))
+				.ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh"))
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
@@ -66,6 +74,9 @@ public class SecurityConfig {
 					"/actuator/health",
 					"/api/auth/login",
 					"/api/auth/register",
+					// Authenticated by the refresh cookie itself, not by an access token.
+					"/api/auth/refresh",
+					"/api/auth/logout",
 					"/v3/api-docs/**",
 					"/swagger-ui/**",
 					"/swagger-ui.html")
@@ -73,6 +84,7 @@ public class SecurityConfig {
 				.anyRequest().authenticated())
 			// Return 401 rather than redirecting to a login page; this backend serves an SPA.
 			.exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+			.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 			.httpBasic(basic -> basic.disable())
 			.formLogin(form -> form.disable());
 

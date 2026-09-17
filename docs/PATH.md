@@ -44,7 +44,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 007
+last_session: 008
 last_author: CLAUDE
 last_updated: 2026-09-17
 phase: PHASE 0 COMPLETE (scaffold builds, tests green; no features yet)
@@ -54,7 +54,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # tracks origin/master
 head: 91ac9c9                                     # Phase 0 scaffold
-build_passing: true  # backend 3/3 (Testcontainers), frontend 3/3 + build + typecheck
+build_passing: true  # backend 19/19 (Testcontainers), frontend 3/3 + build + typecheck
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -75,7 +75,8 @@ files_in_repo:
     - PATH.md               # This file
 
 not_built_do_not_assume:
-  - auth endpoints + JWT filter (SecurityConfig is structure only)
+  - login/register UI (the API exists and is tested; no screens yet)
+  - rate limiting on auth endpoints
   - instrument / contract / bar tables
   - DEMO-NQ generator
   - any chart or drawing code
@@ -103,7 +104,7 @@ this block **load-bearing, not advisory**:
    ignore the mechanism.
 
 ```yaml
-claimed_files: []   # session 006 released its claims
+claimed_files: []   # session 008 released its claims
 ```
 
 ---
@@ -117,7 +118,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 |---|---|---|---|
 | 1 | ~~Reconcile the two analyses~~ | — | ✅ Done in Session 002 → `docs/DECISIONS.md` |
 | 2 | ~~**Phase 0** — scaffold~~ | — | ✅ Done in Session 006. Git, Boot 3.5.16 + Java 21, Vite/React 19/TS, Postgres via Docker, Flyway V1, OpenAPI, `/api/health`, security foundation. |
-| 2b | **Auth endpoints** — register/login/refresh/logout against the `app_user` + `refresh_token` tables from V1, implementing DEC-032 in full (rotation, revocation, HttpOnly cookies) | — | Foundation exists; the token filter and controllers do not |
+| 2b | ~~**Auth endpoints**~~ | — | ✅ Done in Session 008. register/login/refresh/logout/logout-all + `/api/me`, rotation with reuse detection, 19/19 tests. UI not built. |
 | 3 | **First data slice** — `DEMO-NQ`/`DEMO-MNQ` generator + fixed fixtures + aggregation + typed bars endpoint | 2 | Follow `DATA_STRATEGY.md`; simulated label is mandatory |
 | 4 | **First visible slice** — render generated candles through `ChartAdapter` | 3 | No vendor data required |
 | 5 | **Drawing proof** — HLine, trendline, rectangle, R:R position + select/drag/snap/persist/undo | 4 | Decision gate before adding more tools |
@@ -677,6 +678,68 @@ with clone command). No application code, dependency, schema or API changed.
 
 **Handoff:** unchanged — `NEXT UP` task 2b (auth endpoints) or task 3 (`DEMO-NQ` generator),
 **Fabio's call.** Pull first.
+
+---
+
+### SESSION 008
+
+```yaml
+id: 008
+author: CLAUDE
+date: 2026-09-17
+type: FEATURE — NEXT UP task 2b
+code_changed: true
+claimed_files: []   # released
+```
+
+**Auth endpoints built. DEC-032 is now implemented, not just structured.** 19/19 backend tests
+pass against a real PostgreSQL container.
+
+**Endpoints:** `POST /api/auth/{register,login,refresh,logout,logout-all}`, `GET /api/me`.
+
+**New package `com.tradeez.identity`:** `AppUser`, `RefreshToken`, two repositories,
+`JwtService`, `JwtAuthenticationFilter`, `CookieService`, `AuthService`,
+`AuthController`, `MeController`, `AuthExceptionHandler`, `JwtSecretGuard`.
+
+**Design points worth not re-litigating:**
+- Access tokens are short-lived JWTs (15m); **refresh tokens are opaque random strings, not JWTs** —
+  they hit the database anyway, so self-describing tokens would leak claims for no benefit.
+- Refresh tokens are stored as **SHA-256 hashes**, never plaintext. Not BCrypt: the value is
+  high-entropy random rather than human-chosen, so it is not brute-forceable, and it must be
+  deterministic to look up by hash in one indexed query.
+- **Both cookies carry the refresh lifetime**, not the access lifetime. Looks wrong, is deliberate:
+  the JWT inside expires in minutes but the cookie must outlive it so the browser keeps sending it
+  and the SPA can call `/refresh`. A cookie expiring with its JWT makes silent refresh impossible.
+- Login hashes a throwaway password when the account does not exist, so **timing** does not leak
+  what the identical error message withholds.
+- `logout` is **not** CSRF-exempt. Only `login`, `register` and `refresh` are.
+
+**⚠️ Two real bugs found by the tests — read this before writing similar code:**
+
+1. **The reuse revocation was being rolled back.** `refresh()` is `@Transactional`; it revoked
+   every token for the account and then threw `TokenReuseDetectedException`. The throw rolled the
+   transaction back and **undid the revocation** — the attacker got a 401 while the victim's
+   sessions quietly stayed alive. The security response was a no-op that looked correct from
+   outside. Fixed with `noRollbackFor`, which is load-bearing rather than a workaround.
+   **Any future "record something, then reject the request" path has this same trap.**
+2. `deleteAll()` trips the self-referencing `replaced_by` foreign key, because it issues one
+   DELETE per row. `deleteAllInBatch()` defers the constraint check to statement end.
+
+**`JwtSecretGuard`** refuses to start the app when `cookies.secure=true` and the committed
+development JWT secret is still in use. The default secret is public — it is in this repository.
+
+**Frontend:** `src/lib/api/auth.ts` — `register`, `login`, `logout`, `getMe`,
+`restoreSession`. Exports no `getToken`/`setToken` and never touches `localStorage`;
+"am I signed in?" is answered by asking the server. No UI yet — that comes with the first screens.
+
+**Verification:** backend 19/19 (Testcontainers) · frontend 3/3 · build · typecheck. All green.
+
+**Not built:** login/register UI, rate limiting on auth endpoints (noted in
+`AuthExceptionHandler` — registration inevitably reveals that an address is taken, and rate
+limiting is the mitigation, not vagueness), email verification, password reset.
+
+**Handoff:** `NEXT UP` task 3 — the `DEMO-NQ` generator. Read `DATA_STRATEGY.md` first.
+Pull before starting.
 
 ---
 

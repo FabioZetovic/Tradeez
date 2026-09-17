@@ -35,6 +35,21 @@ server:
 # Set at the JVM level so no code path can accidentally use the host timezone.
 tradeez:
   timezone: UTC
+
+  jwt:
+    # DEC-032. Base64, 256-bit minimum. Generate with: openssl rand -base64 32
+    # The default below is a well-known development value. JwtSecretGuard refuses to start the
+    # application with it whenever cookies.secure is true, i.e. anywhere actually deployed.
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZC0wMDAwMDAwMA==}
+    # Short, because an access token cannot be revoked before it expires. This bounds the window
+    # in which an already-revoked session still works.
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+
+  cookies:
+    # false locally: a Secure cookie is silently dropped over plain HTTP, so local development
+    # would look broken for a non-obvious reason. MUST be true anywhere deployed.
+    secure: ${COOKIES_SECURE:false}
   cors:
     # DEC-032: strict CORS, explicit origins, credentials enabled. Never a wildcard.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
