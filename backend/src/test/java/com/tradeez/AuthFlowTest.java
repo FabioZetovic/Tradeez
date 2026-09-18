@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.tradeez.identity.AppUserRepository;
+import com.tradeez.identity.AuthService;
 import com.tradeez.identity.CookieService;
 import com.tradeez.identity.RefreshTokenRepository;
 
@@ -43,6 +44,9 @@ class AuthFlowTest extends AbstractIntegrationTest {
 
 	@Autowired
 	RefreshTokenRepository refreshTokens;
+
+	@Autowired
+	org.springframework.jdbc.core.JdbcTemplate jdbc;
 
 	@BeforeEach
 	void cleanSlate() {
@@ -206,10 +210,23 @@ class AuthFlowTest extends AbstractIntegrationTest {
 			Cookie real = cookieNamed(register("victim@example.com"),
 				CookieService.ACCESS_TOKEN_COOKIE);
 
-			// Flip the final character of the signature.
-			String value = real.getValue();
-			char last = value.charAt(value.length() - 1);
-			String tampered = value.substring(0, value.length() - 1) + (last == 'A' ? 'B' : 'A');
+			// Tamper with the PAYLOAD segment, not the signature's last character.
+			//
+			// The original version flipped the final character and was quietly flaky. A 32-byte
+			// HMAC-SHA256 signature is 43 base64url characters, and the last one carries only four
+			// significant bits plus two of padding — so characters differing in those padding bits,
+			// 'A' and 'B' among them, decode to identical bytes. Flipping 'A' to 'B' changed the
+			// string without changing the signature, the token verified, and the test failed for a
+			// reason that had nothing to do with the code under test.
+			//
+			// Altering the payload always changes what was signed, so verification must always fail.
+			String[] segments = real.getValue().split("\\.");
+			assertThat(segments).hasSize(3);
+			String forgedPayload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+				("{\"iss\":\"tradeez\",\"sub\":\"00000000-0000-0000-0000-000000000000\","
+					+ "\"email\":\"attacker@example.com\",\"exp\":9999999999}")
+					.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			String tampered = segments[0] + "." + forgedPayload + "." + segments[2];
 
 			mockMvc.perform(get("/api/me")
 					.cookie(new Cookie(CookieService.ACCESS_TOKEN_COOKIE, tampered)))
@@ -246,8 +263,13 @@ class AuthFlowTest extends AbstractIntegrationTest {
 		}
 
 		@Test
-		@DisplayName("replaying a rotated token revokes every session for that account")
+		@DisplayName("replaying a rotated token, after the grace window, revokes every session")
 		void reuseOfRotatedTokenRevokesTheWholeFamily() throws Exception {
+			// Updated in session 011. This test used to replay the token immediately and expect a
+			// rejection — which encoded the behaviour that WAS BUG-001: a client whose own two
+			// requests raced was treated as a thief and signed out everywhere. Immediate replays are
+			// now forgiven inside AuthService.REUSE_GRACE, so the reuse defence is exercised by
+			// ageing the rotation past that window, which is what a real theft looks like.
 			Cookie original = cookieNamed(register("stolen@example.com"),
 				CookieService.REFRESH_TOKEN_COOKIE);
 
@@ -256,6 +278,14 @@ class AuthFlowTest extends AbstractIntegrationTest {
 				.andExpect(status().isOk())
 				.andReturn();
 			Cookie current = cookieNamed(refreshed, CookieService.REFRESH_TOKEN_COOKIE);
+
+			// Age the rotation beyond the grace window so this reads as genuine reuse, not a race.
+			var stolenUser = users.findByEmailIgnoreCase("stolen@example.com").orElseThrow();
+			jdbc.update(
+				"UPDATE refresh_token SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NOT NULL",
+				java.sql.Timestamp.from(
+					java.time.Instant.now().minus(AuthService.REUSE_GRACE).minusSeconds(60)),
+				stolenUser.getId());
 
 			// An attacker replays the token they captured earlier.
 			mockMvc.perform(post("/api/auth/refresh").cookie(original))

@@ -17,166 +17,19 @@
 
 ## Open
 
-### BUG-001 🔴 Concurrent refresh requests can log a user out of every device
-
-**Status:** reasoned, not yet reproduced by a test
-**Found:** Session 009, reading `AuthService.refresh`
-**Affects:** `backend/.../identity/AuthService.java`
-
-**What happens.** Refresh tokens rotate on every use, and replaying an already-rotated token is
-treated as theft — it revokes every session for the account (DEC-032, and BUG-007 below explains
-why that revocation is deliberate). But a legitimate client can present the same token twice
-without any attacker involved.
-
-If the SPA has two requests in flight and both receive a 401, both call `/api/auth/refresh` with
-the same cookie. Serialised, the first rotates successfully; the second then sees
-`isAlreadyRotated() == true`, concludes the token was stolen, and invalidates every session for
-that account. **The user is signed out everywhere because their own app made two requests at once.**
-
-Two tabs, a flaky connection, or a page that fires several API calls on load are all enough. This is
-a well-known failure mode of refresh-token rotation, not an exotic edge case.
-
-**Secondary effect.** `RefreshToken` has no `@Version`, so there is no optimistic locking. Two
-*truly* parallel transactions could instead both succeed and mint two valid successors, orphaning
-one. Less damaging than the false logout, still wrong.
-
-**Likely fix.** A short grace window: if the presented token was rotated within, say, 30 seconds and
-its successor is still active, treat it as a duplicate request rather than theft and return the
-existing successor. Real reuse by an attacker happens long after rotation, so a narrow window
-preserves the security property. Add `@Version` to `RefreshToken` at the same time.
-
-**Test to write first:** two concurrent refreshes with the same token must both resolve without
-revoking the account.
-
----
-
-### BUG-002 🟠 No rate limiting on authentication endpoints
-
-**Status:** verified (no such code exists)
-**Found:** Session 008, noted in `AuthExceptionHandler`
-**Affects:** all of `/api/auth/**`
-
-`/api/auth/login` accepts unlimited attempts, so passwords can be brute-forced. `/api/auth/register`
-returns `409 Conflict` for an address that already exists — which is unavoidable, since a
-registration form has to tell you the address is taken — making it an account-enumeration oracle
-that can be walked at full speed.
-
-Vague error messages do not fix this; **rate limiting is the actual mitigation** and its absence is
-the real gap. Deliberately not built in Session 008 to keep that change reviewable, but it should
-land before anything is publicly deployed.
-
-**Likely fix.** Per-IP and per-account limits with exponential backoff (Bucket4j, or a filter over a
-small in-memory/Redis counter).
-
----
-
-### BUG-003 🟡 `HealthController` swallows the underlying database error
-
-**Status:** verified by inspection
-**Affects:** `backend/.../common/HealthController.java`
-
-The health check catches every exception and reports `DEGRADED` without logging what failed. When
-the database is unreachable in a deployed environment, the endpoint says something is wrong but not
-what — which is precisely when that information is most useful.
-
-**Likely fix.** Log the exception at `WARN` before returning the degraded response. Do not put the
-message in the response body: an unauthenticated endpoint should not leak connection strings.
-
----
-
-### BUG-004 🟡 `refresh_token.replaced_by` has no index
-
-**Status:** verified by reading `V1__baseline.sql`
-
-PostgreSQL does not automatically index foreign keys. `replaced_by` is unindexed, so deleting or
-updating a referenced token requires a sequential scan to check the constraint. Invisible at current
-scale; worth fixing before the table grows.
-
-**Likely fix.** A new migration adding the index. Never edit `V1__baseline.sql` — DEC-030.
-
----
-
-### BUG-005 🟡 `app_user.settings` exists but is never used
-
-**Status:** verified
-
-The column and its JPA mapping were added in the baseline migration for future user preferences.
-Nothing reads or writes it. Harmless, but it is currently unexercised code: the JSONB mapping is
-untested, so it may not actually work when someone first relies on it.
-
-**Likely fix.** Either use it or cover it with a test when the first real preference lands.
-
----
-
-### BUG-009 🟡 Demo bar volume is invented and must never be analysed
-
-**Status:** verified (by design, recorded so it is not forgotten)
-**Affects:** `DemoSeriesGenerator`, every `SIMULATED` series
-
-Volume on a generated bar is derived from that bar's range. It correlates with price movement,
-which makes charts look plausible, and it means **absolutely nothing**. Anything volume-derived —
-volume profile, VWAP weighted by volume, relative volume, delta — would be reading structure out of
-a formula.
-
-Not fixable: there is no real volume to generate. Recorded because a plausible-looking number is
-more dangerous than an obviously missing one. Documented on `Bar#volume`.
-
----
-
 ### BUG-010 🟡 Market data endpoints have no caching
 
-**Status:** verified by inspection
+**Status:** verified by inspection · **deliberately not fixed**
 **Affects:** `GeneratedMarketDataProvider`
 
-Every bars request regenerates from scratch. A one-day 1s request builds 86,400 bars each time it is
-asked for. Correct and currently fast enough, but the replay engine will request overlapping ranges
-constantly, so this is worth measuring before the Practice slice ships.
+Every bars request regenerates from scratch; a one-day 1s request builds 86,400 bars each time.
 
-Deliberately not cached yet: a cache keyed on anything other than
-`(seed, range, generatorVersion)` would serve stale data after a version bump, which is a worse
-bug than being slow.
-
----
-
-### BUG-013 🟡 Vite's proxy forwards the browser Origin, so CORS must match the dev port
-
-**Status:** verified (hit while previewing task 4)
-**Affects:** `frontend/vite.config.ts`, `tradeez.cors.allowed-origins`
-
-The dev proxy is configured with `changeOrigin: true`, which rewrites the `Host` header but
-still forwards the browser's real `Origin`. Spring therefore sees a cross-origin request and
-applies CORS. It happens to work on port 5173 because that is the configured allowed origin — on
-any other port every authenticated call fails with **403**, which looks like a CSRF or auth problem
-and is neither.
-
-Hit immediately here because Docker Desktop occupies 5173 on this machine (see ENV-002), so the dev
-server landed on a random port.
-
-**Workaround.** Pass the actual origin when starting the backend:
-
-```bash
-CORS_ALLOWED_ORIGINS="http://localhost:5173,http://localhost:<actual-port>" ./mvnw spring-boot:run
-```
-
-**Likely fix.** Allow a localhost wildcard pattern in development only, via
-`CorsConfiguration.setAllowedOriginPatterns`. Deployed environments keep the explicit list —
-a wildcard there would defeat the point of DEC-032.
-
----
-
-### BUG-014 🟡 Chart time axis is UTC-only
-
-**Status:** verified by inspection
-**Affects:** `lightweightAdapter.ts`
-
-The time axis is formatted as UTC. That is consistent with how everything is stored (INVARIANT 4)
-and unambiguous, but it is not how a trader reads a chart: an ICT curriculum is built on New York
-and London session times, and mentally offsetting every label is exactly the kind of friction that
-makes killzone training harder than it needs to be.
-
-**Likely fix.** Render in the instrument's exchange timezone, which the API already returns as
-`exchangeTimezone`, with a toggle for UTC. Needs care around daylight-saving transitions —
-`SessionCalendar` already concentrates that logic on the backend.
+Reviewed in the session-011 batch and **left alone on purpose**. A cache here would have to be
+keyed on `(seed, range, timeframe, generatorVersion)` or it would serve stale prices after a
+version bump — and the generator version has already changed twice. Adding that machinery before
+anything has been measured is how you get a subtle correctness bug in exchange for a speed-up
+nobody asked for. The honest position: measure when the replay engine exists and actually
+requests overlapping ranges, then cache if the numbers justify it.
 
 ---
 
@@ -232,6 +85,9 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |
 | Fill engine | `AMBIGUOUS` is a legitimate outcome, not a failure | DEC-008 — candle data genuinely cannot always say which of TP/SL came first |
 | Order flow | Not implemented, likely never | Impossible without licensed depth data (open question Q-03) |
+| Demo volume | Invented, and **nothing volume-derived may be trusted** | There is no real volume to generate. Volume profile, VWAP-by-volume, relative volume and delta would all be reading structure out of a formula. Was BUG-009; it is not a defect, it is the nature of simulated data (DEC-033) |
+| Rate limiting | In-memory, therefore per-instance | A second replica would allow the full quota again. A speed bump, not a guarantee; a shared store is the upgrade path if this is ever scaled out |
+| `X-Forwarded-For` | Trusted as a best effort | The header is client-supplied and forgeable, so per-IP limits can be evaded by rotating it. The real fix belongs to the deployment's proxy, which must overwrite it — verify that wherever this is hosted |
 | Deployment | Local only | DEC-002 — nothing is hosted yet, and nothing costs money |
 
 ---
@@ -239,6 +95,95 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 ## Fixed
 
 Kept for the lesson, not for the changelog.
+
+### BUG-021 🟠 The chart went blank when the timezone was toggled
+
+**Fixed:** Session 011 · **Found by:** clicking the toggle, after the suite was green
+
+Switching the axis between exchange time and UTC remounts the chart — Lightweight Charts fixes
+its time formatter at creation, so the format cannot be changed on a live instance. The remount
+produced a fresh chart with no data, and the effect that loads bars did not re-run because
+`bars` had not changed. The user got an empty chart.
+
+**Fix:** the mount effect now seeds the new instance from a ref holding the current bars.
+
+**Lesson:** an effect that rebuilds a stateful object has to restore that object's state too.
+Splitting "create it" and "fill it" across two effects with different dependencies means the
+second one silently fails to run whenever only the first is triggered.
+
+---
+
+### BUG-017 🔴 A rate limiter broke eleven unrelated tests
+
+**Fixed:** Session 011 · **Found by:** the suite, immediately after adding the limiter
+
+Adding per-IP throttling turned eleven passing market-data tests red with `429`. The limiter is an
+application singleton keyed by client IP, and every MockMvc request in the suite arrives from the
+same address — so authentication tests spent the quota and everything that ran afterwards was
+throttled before it could sign in.
+
+**Fix:** `RateLimiter.clear()`, called from `AbstractIntegrationTest` before every test, so
+isolation is inherited rather than remembered per class.
+
+**Lesson:** a singleton holding mutable state is shared by the whole test suite, not just by
+production. Any new bean that accumulates anything needs a reset hook in the same commit.
+
+---
+
+### BUG-018 🟠 The reuse test was asserting the bug
+
+**Fixed:** Session 011
+
+Fixing BUG-001 turned `reuseOfRotatedTokenRevokesTheWholeFamily` red. The test replayed a
+rotated token *immediately* and expected every session to be revoked — which is exactly the
+behaviour that made BUG-001 a bug. The test had faithfully encoded the defect.
+
+**Fix:** the test now ages the rotation past `REUSE_GRACE` before replaying, so it exercises
+genuine theft rather than a client racing itself.
+
+**Lesson:** when a fix breaks a test, decide which one is wrong before touching either. Here the
+test was — and it would have been easy to "restore" it and undo the fix instead. Same judgement as
+BUG-008, in the opposite direction.
+
+---
+
+### BUG-019 🟡 A JWT-tampering test was silently flaky
+
+**Fixed:** Session 011 · **Found by:** an intermittent failure with no code change behind it
+
+`forgedTokenIsRejected` flipped the final character of the token and expected verification to
+fail. A 32-byte HMAC-SHA256 signature is 43 base64url characters, and the last one carries only
+four significant bits plus two of padding — so characters differing only in those padding bits,
+**`A` and `B` among them**, decode to identical bytes. The test's `A`-to-`B` flip changed the
+string without changing the signature whenever a token happened to end in `A`.
+
+It passed for several sessions on luck: every run creates a new user, so the signature — and its
+last character — differs each time.
+
+**Fix:** tamper with the payload segment instead. Altering what was signed always invalidates.
+
+**Lesson:** "change one character" is not the same as "change the value" in any encoding with
+padding. A test that only sometimes exercises its own premise is worse than no test, because the
+green run is indistinguishable from a real one.
+
+---
+
+### BUG-020 🟡 An eviction test failed against correct code, on clock granularity
+
+**Fixed:** Session 011
+
+The limiter-eviction test created 500 windows with a 1ms expiry and asserted they were all
+evicted. 499 survived. Windows' clock resolution is around a millisecond, so the whole loop and
+the eviction that followed it landed inside a single tick — nothing had expired yet.
+
+**Fix:** a 50ms pause before evicting, and `evictExpired` now uses `!isAfter` rather than
+`isBefore` so a window expiring exactly on the current instant counts as finished.
+
+**Lesson:** the third test in this project to fail against correct code (after BUG-012 and
+BUG-019). All three asserted something the test itself could not reliably produce. When a test
+fails, "is my assertion actually testing what I think" comes before touching the implementation.
+
+---
 
 ### BUG-015 🔴 Generated prices ran away to roughly minus 417,000
 

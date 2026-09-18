@@ -2,6 +2,7 @@ package com.tradeez;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Tradeez — futures day-trading practice platform.
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * authoritative architecture decision record and supersedes both analysis documents.
  */
 @SpringBootApplication
+@EnableScheduling // rate-limiter window eviction (BUG-002)
 public class TradeezApplication {
 
 	public static void main(String[] args) {

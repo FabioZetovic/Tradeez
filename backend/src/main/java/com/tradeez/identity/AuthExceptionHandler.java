@@ -44,6 +44,12 @@ public class AuthExceptionHandler {
 		return body(HttpStatus.UNAUTHORIZED, "Your session has expired. Please sign in again.");
 	}
 
+	@ExceptionHandler(AuthService.TooManyAttemptsException.class)
+	public ResponseEntity<Map<String, Object>> throttled() {
+		return body(HttpStatus.TOO_MANY_REQUESTS,
+			"Too many attempts. Please wait a few minutes and try again.");
+	}
+
 	private ResponseEntity<Map<String, Object>> body(HttpStatus status, String message) {
 		return ResponseEntity.status(status).body(Map.of(
 			"status", status.value(),

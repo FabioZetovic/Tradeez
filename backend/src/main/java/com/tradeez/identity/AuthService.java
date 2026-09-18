@@ -1,5 +1,6 @@
 package com.tradeez.identity;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -24,17 +25,30 @@ public class AuthService {
 
 	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
+	/**
+	 * How long after a rotation a replay is still assumed to be the same client racing itself
+	 * rather than a thief (BUG-001). Long enough to cover a browser firing parallel requests,
+	 * far shorter than any realistic steal-and-replay.
+	 */
+	public static final Duration REUSE_GRACE = Duration.ofSeconds(20);
+
+	/** Failed sign-ins allowed against a single account before it is throttled (BUG-002). */
+	public static final int ACCOUNT_ATTEMPTS = 10;
+	public static final Duration ACCOUNT_WINDOW = Duration.ofMinutes(15);
+
 	private final AppUserRepository users;
 	private final RefreshTokenRepository refreshTokens;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
+	private final RateLimiter rateLimiter;
 
 	public AuthService(AppUserRepository users, RefreshTokenRepository refreshTokens,
-			PasswordEncoder passwordEncoder, JwtService jwtService) {
+			PasswordEncoder passwordEncoder, JwtService jwtService, RateLimiter rateLimiter) {
 		this.users = users;
 		this.refreshTokens = refreshTokens;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.rateLimiter = rateLimiter;
 	}
 
 	/** Issued credentials. The raw refresh token exists only long enough to become a cookie. */
@@ -55,6 +69,15 @@ public class AuthService {
 
 	@Transactional
 	public IssuedTokens login(LoginRequest request, String userAgent) {
+		// Per-account throttling, on top of the per-IP filter (BUG-002). The filter alone is not
+		// enough: an attacker with a pool of addresses can spread guesses at one account across many
+		// IPs and never trip a per-IP limit. Keyed on the normalised email so capitalisation cannot
+		// be used to get a fresh quota.
+		String throttleKey = "login:" + request.email().trim().toLowerCase(java.util.Locale.ROOT);
+		if (!rateLimiter.tryAcquire(throttleKey, ACCOUNT_ATTEMPTS, ACCOUNT_WINDOW)) {
+			throw new TooManyAttemptsException();
+		}
+
 		AppUser user = users.findByEmailIgnoreCase(request.email())
 			.orElse(null);
 
@@ -67,6 +90,11 @@ public class AuthService {
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 			throw new InvalidCredentialsException();
 		}
+
+		// Clear the counter on success, so someone who mistyped their password a few times is not
+		// still locked out after getting it right — that would punish exactly the person the limit
+		// exists to protect.
+		rateLimiter.reset(throttleKey);
 		return issueFor(user, userAgent);
 	}
 
@@ -98,6 +126,25 @@ public class AuthService {
 		Instant now = Instant.now();
 
 		if (stored.isAlreadyRotated()) {
+			// BUG-001. Rotation alone cannot distinguish an attacker replaying a stolen token from a
+			// client that simply issued two refreshes at once — two tabs, a flaky connection, or a
+			// page firing several calls on load are all enough. Treating the second as theft logged
+			// the user out of every device because their own app raced itself.
+			//
+			// The discriminator is time. A legitimate duplicate arrives within moments of the
+			// rotation it lost; a stolen token is replayed much later, because the thief has to
+			// exfiltrate and use it. Inside a narrow grace window we therefore issue fresh tokens
+			// and revoke nothing. This is the trade-off the OAuth security BCP recommends, and it is
+			// deliberate: an attacker replaying within seconds of a real rotation does get a session,
+			// which is a far smaller harm than logging honest users out at random.
+			if (withinReuseGrace(stored, now)) {
+				log.debug("Refresh token for user {} was already rotated {}ms ago; treating as a "
+					+ "concurrent duplicate rather than reuse.",
+					stored.getUser().getId(),
+					Duration.between(stored.getRevokedAt(), now).toMillis());
+				return issueFor(stored.getUser(), userAgent);
+			}
+
 			UUID userId = stored.getUser().getId();
 			int revoked = refreshTokens.revokeAllForUser(userId, now);
 			log.warn("Refresh token reuse detected for user {}; revoked {} active token(s). "
@@ -138,6 +185,14 @@ public class AuthService {
 		refreshTokens.revokeAllForUser(userId, Instant.now());
 	}
 
+	/** True when this token was rotated so recently that a replay is almost certainly a duplicate. */
+	private boolean withinReuseGrace(RefreshToken stored, Instant now) {
+		Instant rotatedAt = stored.getRevokedAt();
+		return rotatedAt != null
+			&& !Duration.between(rotatedAt, now).isNegative()
+			&& Duration.between(rotatedAt, now).compareTo(REUSE_GRACE) <= 0;
+	}
+
 	private IssuedTokens issueFor(AppUser user, String userAgent) {
 		String rawRefresh = jwtService.generateRefreshToken();
 		refreshTokens.save(new RefreshToken(
@@ -160,5 +215,8 @@ public class AuthService {
 	}
 
 	public static class TokenReuseDetectedException extends RuntimeException {
+	}
+
+	public static class TooManyAttemptsException extends RuntimeException {
 	}
 }

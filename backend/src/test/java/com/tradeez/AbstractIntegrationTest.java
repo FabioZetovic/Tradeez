@@ -1,10 +1,14 @@
 package com.tradeez;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+
+import com.tradeez.identity.RateLimiter;
 
 /**
  * Shared PostgreSQL container for integration tests (DEC-029).
@@ -26,6 +30,23 @@ public abstract class AbstractIntegrationTest {
 
 	static {
 		POSTGRES.start();
+	}
+
+	@Autowired
+	private RateLimiter rateLimiterForIsolation;
+
+	/**
+	 * Clears the rate limiter before every test.
+	 *
+	 * <p>The limiter is an application singleton keyed by client IP, and every MockMvc request in
+	 * the suite arrives from the same address. Without this, attempts accumulate across unrelated
+	 * test classes until registration starts returning 429 — which is precisely what happened when
+	 * the limiter was introduced: eleven market-data tests failed because earlier authentication
+	 * tests had spent the quota.
+	 */
+	@BeforeEach
+	void resetRateLimiter() {
+		rateLimiterForIsolation.clear();
 	}
 
 	@DynamicPropertySource

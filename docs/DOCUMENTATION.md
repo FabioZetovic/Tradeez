@@ -918,4 +918,83 @@ about whether to continue building them by hand.
 
 ---
 
+### Session 011 — 2026-09-18 — Clearing the Bug List
+
+**Participant:** Claude Code
+**Type:** Maintenance — eight defects closed before starting the next feature
+
+#### What was fixed
+
+The most serious was a flaw in how sessions are kept alive. Refresh tokens rotate on every use,
+and replaying an already-used one is treated as theft — the account is signed out everywhere. The
+trouble is that an honest app can present the same token twice without any attacker involved: two
+browser tabs, a flaky connection, or a page firing several requests at once are all enough. Users
+would have been logged out of every device because their own software raced itself.
+
+The discriminator turned out to be time. A duplicate arrives within moments of the rotation it
+lost; a stolen token is replayed much later, because a thief has to capture and then use it.
+Replays inside a twenty-second window are now forgiven, and anything later still triggers the full
+revocation. This is the trade-off the OAuth security guidance recommends: an attacker who strikes
+within seconds of a real rotation does get through, which is a far smaller harm than signing
+honest users out at random.
+
+Authentication endpoints are now rate limited, per address and per account, because a login form
+that accepts unlimited guesses is not really protected by anything else it does. The health check
+records why it failed instead of only that it did. A missing database index was added. The chart's
+time axis now reads in the exchange's own timezone, with a toggle back to UTC — session times are
+what the whole curriculum is built on, and mentally shifting every label by five or six hours,
+while remembering which of those it is this month, is friction the app should absorb rather than
+pass on.
+
+One entry was closed by admitting it cannot be fixed. Volume on generated data is invented, so
+nothing derived from volume can be trusted. There is no real volume to produce, so it moved from
+the defect list to the list of things the project openly does not do.
+
+One was deliberately left alone. The market-data endpoints have no cache, and adding one would
+mean keying it on the generator's version as well as the request — because that version has
+already changed twice, and a cache that forgot it would quietly serve prices from an older
+algorithm. Building that machinery before anything has been measured trades a real correctness
+risk for a speed-up nobody has asked for.
+
+#### Five new bugs, and four of them were tests
+
+Fixing things broke things, which is the ordinary way of it. What stands out is the pattern.
+
+Adding the rate limiter turned eleven unrelated tests red. The limiter counts attempts per client
+address, and every test in the suite arrives from the same one — so the authentication tests spent
+the quota and everything that ran afterwards was refused before it could even sign in. A shared
+counter belongs to the whole suite, not only to production.
+
+Fixing the session flaw turned another test red, and that one is worth dwelling on: **the test had
+faithfully encoded the bug.** It replayed a token immediately and demanded that every session be
+destroyed — which is exactly the behaviour being removed. It would have been easy to "restore" the
+test and quietly undo the fix.
+
+A third test had been quietly unreliable for weeks. It checked that a tampered login token is
+rejected, and tampered with it by changing the final character. But that final character carries
+only four meaningful bits plus two of padding, so certain pairs of characters mean exactly the
+same thing — and when the token happened to end in one of them, the test changed nothing and
+proved nothing. It had been passing on luck, because every run generates a different token.
+
+A fourth failed against perfectly correct code, defeated by the computer's clock: it created five
+hundred entries meant to expire after a millisecond, but the machine's clock does not reliably
+advance that quickly, so nothing had expired when the test checked.
+
+That is now three separate occasions in this project where a test failed and the code was fine.
+The habit worth keeping: when something goes red, ask whether the test can actually produce the
+situation it claims to be testing, before changing the thing it is pointed at.
+
+#### And one found by clicking
+
+The fifth was not a test at all. Switching the chart between exchange time and UTC left it
+completely blank. The toggle rebuilds the chart, because the charting library fixes its time
+format when it is created — but the code that loads the candles only runs when the candles
+themselves change, and they had not. A new empty chart, and nothing to put in it.
+
+The suite was green when this happened. It was found by pressing the button, which is the second
+time in two sessions that looking at the running application has caught something no amount of
+passing tests would have.
+
+---
+
 *Next session entry goes here.*

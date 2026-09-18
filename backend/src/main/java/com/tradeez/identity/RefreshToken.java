@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 /**
  * A rotating refresh token. Maps {@code refresh_token} from V1__baseline.sql.
@@ -53,6 +54,15 @@ public class RefreshToken {
 
 	@Column(name = "user_agent")
 	private String userAgent;
+
+	/**
+	 * Optimistic lock (BUG-001). Two refresh requests in genuinely parallel transactions could each
+	 * read this row as un-rotated and each mint a successor, leaving one valid but orphaned. With a
+	 * version column the second commit fails instead, so exactly one rotation wins.
+	 */
+	@Version
+	@Column(name = "version", nullable = false)
+	private long version;
 
 	protected RefreshToken() {
 		// for JPA

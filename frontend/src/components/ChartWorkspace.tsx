@@ -11,6 +11,7 @@ import {
 } from '@/lib/api/marketData'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
+import { timezoneLabel, type AxisTimezone } from '@/lib/chart/timeAxis'
 
 interface ChartWorkspaceProps {
   /** Injected in tests so the chart can render without a canvas. */
@@ -22,6 +23,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   const [symbol, setSymbol] = useState<string>('DEMO-NQ')
   const [timeframe, setTimeframe] = useState<string>('5m')
   const [series, setSeries] = useState<BarSeries | null>(null)
+  const [axisTimezone, setAxisTimezone] = useState<AxisTimezone>('exchange')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -88,6 +90,18 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
           ))}
         </div>
 
+        {instrument && (
+          <button
+            type="button"
+            className="tf"
+            data-testid="timezone-toggle"
+            title="Switch the time axis between exchange-local and UTC"
+            onClick={() => setAxisTimezone(axisTimezone === 'utc' ? 'exchange' : 'utc')}
+          >
+            {timezoneLabel(instrument.exchangeTimezone, axisTimezone, new Date())}
+          </button>
+        )}
+
         {instrument && lastBar && (
           <span className="last-price" data-testid="last-price">
             {formatPrice(lastBar.close, instrument.tickSize)}
@@ -105,6 +119,8 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
         <PriceChart
           bars={series.bars}
           tickSize={instrument.tickSize}
+          exchangeTimezone={instrument.exchangeTimezone}
+          axisTimezone={axisTimezone}
           adapterFactory={adapterFactory}
         />
       )}

@@ -5,6 +5,8 @@ import { LightweightChartAdapter } from '@/lib/chart/lightweightAdapter'
 interface PriceChartProps {
   bars: DomainBar[]
   tickSize: number
+  exchangeTimezone: string
+  axisTimezone: 'exchange' | 'utc'
   /**
    * Injectable for tests. jsdom has no working canvas, so a component that constructed the renderer
    * itself could not be tested at all — this is DEC-004's abstraction earning its keep immediately
@@ -13,7 +15,13 @@ interface PriceChartProps {
   adapterFactory?: () => ChartAdapter
 }
 
-export function PriceChart({ bars, tickSize, adapterFactory }: PriceChartProps) {
+export function PriceChart({
+  bars,
+  tickSize,
+  exchangeTimezone,
+  axisTimezone,
+  adapterFactory,
+}: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ChartAdapter | null>(null)
 
@@ -24,21 +32,33 @@ export function PriceChart({ bars, tickSize, adapterFactory }: PriceChartProps) 
   const factoryRef = useRef(adapterFactory)
   factoryRef.current = adapterFactory
 
-  // Remount only when the instrument's tick size changes: that is a different product and needs a
-  // different price scale.
+  // The latest bars, readable from inside the mount effect. A remount builds a fresh chart with no
+  // data, and the data effect below does not re-run because `bars` did not change — so without
+  // seeding here, toggling the timezone left the user staring at an empty chart. Found by clicking
+  // the toggle, not by the suite; there is a test for it now.
+  const barsRef = useRef(bars)
+  barsRef.current = bars
+
+  // Remount when the instrument changes (a different price scale) or when the axis timezone is
+  // toggled — Lightweight Charts fixes its time formatter at creation, so the label format cannot
+  // be swapped on a live chart.
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const adapter = (factoryRef.current ?? (() => new LightweightChartAdapter()))()
-    adapter.mount(container, { tickSize })
+    adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone })
     adapterRef.current = adapter
+
+    // Seed the new instance with whatever is already loaded.
+    adapter.setBars(barsRef.current)
+    adapter.fitContent()
 
     return () => {
       adapter.destroy()
       adapterRef.current = null
     }
-  }, [tickSize])
+  }, [tickSize, exchangeTimezone, axisTimezone])
 
   // Data updates reuse the mounted chart.
   useEffect(() => {

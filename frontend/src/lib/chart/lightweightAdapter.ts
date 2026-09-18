@@ -8,6 +8,7 @@ import {
 } from 'lightweight-charts'
 import type { ChartAdapter, ChartMountOptions, DomainBar } from './types'
 import { decimalsFor, ticksToPrice } from './priceFormat'
+import { createTimeFormatter } from './timeAxis'
 
 /**
  * {@link ChartAdapter} backed by TradingView Lightweight Charts v5 (Apache 2.0).
@@ -44,11 +45,11 @@ export class LightweightChartAdapter implements ChartAdapter {
         secondsVisible: false,
       },
       localization: {
-        // The exchange session crosses midnight and the user's machine could be in any timezone.
-        // Showing UTC keeps the chart consistent with the data, which is stored in UTC throughout
-        // (INVARIANT 4). Exchange-local display comes with the session tooling.
-        timeFormatter: (time: number) =>
-          new Date(time * 1000).toISOString().slice(11, 16) + ' UTC',
+        // BUG-014 — labels in the exchange's own timezone by default. The data is stored in UTC
+        // (INVARIANT 4) and this is purely a presentation concern, but it is not cosmetic: session
+        // times are what an ICT curriculum is built on, and daylight saving means a fixed offset
+        // would be wrong for half the year.
+        timeFormatter: createTimeFormatter(options.exchangeTimezone, options.axisTimezone),
       },
     })
 

@@ -55,9 +55,9 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 010
+last_session: 011
 last_author: CLAUDE
-last_updated: 2026-09-17
+last_updated: 2026-09-18
 phase: PHASE 0 COMPLETE (scaffold builds, tests green; no features yet)
 code_written: true
 repo_initialized: true
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # tracks origin/master
 head: 91ac9c9                                     # Phase 0 scaffold
-build_passing: true  # backend 52/52 (Testcontainers), frontend 22/22 + build + typecheck
+build_passing: true  # backend 60/60 (Testcontainers), frontend 27/27 + build + typecheck
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -87,12 +87,9 @@ files_in_repo:
     - PATH.md               # This file
 
 not_built_do_not_assume:
-  - login/register UI (the API exists and is tested; no screens yet)
-  - rate limiting on auth endpoints
-  - instrument / contract / bar tables
   - drawing tools, replay, indicators (the chart is read-only)
 
-blocked_on: nothing technical — Fabio chooses the next task (2b or 3)
+blocked_on: nothing technical — Fabio chooses the next task
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -116,7 +113,7 @@ this block **load-bearing, not advisory**:
    ignore the mechanism.
 
 ```yaml
-claimed_files: []   # session 008 released its claims
+claimed_files: []   # session 011 released its claims
 ```
 
 ---
@@ -870,6 +867,60 @@ read-only.
 rectangle, R:R position) plus select/drag/snap/persist/undo, then stop and decide whether to
 continue custom or switch to KLineChart. DEC-004 calls this the largest schedule risk in the
 project. Pull first.
+
+---
+
+### SESSION 011
+
+```yaml
+id: 011
+author: CLAUDE
+date: 2026-09-18
+type: BUG-FIX BATCH
+code_changed: true
+claimed_files: []   # released
+```
+
+**Eight of nine open bugs fixed. Backend 60/60, frontend 27/27.**
+
+| Bug | Fix |
+|---|---|
+| BUG-001 🔴 | 20s grace window on refresh reuse + `@Version` optimistic lock |
+| BUG-002 🟠 | Per-IP filter (20/5min) + per-account throttle (10/15min), reset on success |
+| BUG-003 🟡 | Health check logs the cause; body still leaks nothing |
+| BUG-004 🟡 | `V3` adds the `replaced_by` index |
+| BUG-005 🟡 | JSONB `settings` now has a round-trip test |
+| BUG-009 🟡 | **Not a defect** — moved to Known limitations. There is no real volume to generate |
+| BUG-013 🟡 | Dev CORS accepts any localhost port; deployed keeps the explicit list |
+| BUG-014 🟡 | Axis renders exchange-local with a UTC toggle, DST-correct via `Intl` |
+
+**Still open — BUG-010 (no caching), left alone deliberately.** A cache must be keyed on
+`(seed, range, timeframe, generatorVersion)` or it serves stale prices after a version bump,
+and that version has already changed twice. Measure when the replay engine actually requests
+overlapping ranges; do not add the machinery on a guess.
+
+**⚠️ Five NEW bugs, all found by doing the work. Four were bad tests.**
+- **BUG-017** — the new rate limiter broke *eleven* unrelated tests. It is an application
+  singleton keyed by IP, every MockMvc request shares an address, so auth tests spent the quota
+  and later classes got 429. Fixed with a reset in `AbstractIntegrationTest`.
+- **BUG-018** — fixing BUG-001 turned `reuseOfRotatedTokenRevokesTheWholeFamily` red. **The
+  test had encoded the bug**: it replayed a token immediately and demanded a mass logout. It now
+  ages the rotation past the grace window.
+- **BUG-019** — `forgedTokenIsRejected` was silently flaky. It flipped the JWT's last
+  character, but a 32-byte HMAC is 43 base64url chars whose last one carries 4 significant bits
+  plus 2 of padding — so `A` and `B` **decode identically**. It passed on luck.
+- **BUG-020** — the eviction test failed against correct code: Windows' ~1ms clock granularity
+  meant 500 windows with a 1ms expiry had not expired yet.
+- **BUG-021** — toggling the timezone left the chart **blank**. The remount created a fresh chart
+  and the data effect did not re-run. Caught by clicking, not by the suite.
+
+**Verification:** backend 60/60, frontend 27/27, build + typecheck clean. Driven in a browser on
+port 49900 **with no CORS override**, which is the real proof of the BUG-013 fix; timezone toggle
+switches CDT↔UTC and the chart stays populated.
+
+**Handoff:** `NEXT UP` task 5 — the drawing proof. **Five tools only** (HLine, trendline,
+rectangle, R:R position) plus select/drag/snap/persist/undo, then a decision gate on continuing
+custom versus switching to KLineChart. DEC-004 calls it the largest schedule risk here. Pull first.
 
 ---
 

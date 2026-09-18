@@ -46,12 +46,17 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
 	private final List<String> allowedOrigins;
+	private final boolean deployed;
 	private final JwtAuthenticationFilter jwtFilter;
 
 	public SecurityConfig(
 			@Value("${tradeez.cors.allowed-origins}") String allowedOrigins,
+			@Value("${tradeez.cookies.secure}") boolean deployed,
 			JwtAuthenticationFilter jwtFilter) {
 		this.allowedOrigins = List.of(allowedOrigins.split("\\s*,\\s*"));
+		// cookies.secure is false only on plain-HTTP localhost, which makes it a reliable signal
+		// for "this is a real environment" — the same discriminator JwtSecretGuard uses.
+		this.deployed = deployed;
 		this.jwtFilter = jwtFilter;
 	}
 
@@ -94,7 +99,21 @@ public class SecurityConfig {
 	@Bean
 	CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		config.setAllowedOrigins(allowedOrigins);
+
+		if (deployed) {
+			config.setAllowedOrigins(allowedOrigins);
+		} else {
+			// BUG-013 — in development the Vite proxy forwards the browser's real Origin, so Spring
+			// sees a cross-origin request even though the browser does not. That works on port 5173
+			// and fails with an opaque 403 on any other, which happens here because Docker Desktop
+			// occupies 5173 (ENV-002). Accepting any localhost port removes a class of confusing
+			// local failures.
+			//
+			// Development only. A deployed instance keeps the explicit list, because a wildcard
+			// there would hand any site the ability to make credentialed requests to this API and
+			// undo the point of DEC-032.
+			config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+		}
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of("*"));
 		config.setAllowCredentials(true);

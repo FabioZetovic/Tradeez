@@ -29,6 +29,10 @@ export interface DomainBar {
 export interface ChartMountOptions {
   /** Smallest price increment, e.g. 0.25. Drives both conversion and the price scale format. */
   tickSize: number
+  /** IANA zone the axis labels in, e.g. "America/Chicago" (BUG-014). */
+  exchangeTimezone: string
+  /** 'exchange' labels in the exchange's local time; 'utc' shows the stored value. */
+  axisTimezone: 'exchange' | 'utc'
   /** Shown in the chart's corner so simulated data is never mistaken for market history. */
   watermark?: string
 }

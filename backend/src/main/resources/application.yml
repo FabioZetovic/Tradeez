@@ -46,6 +46,11 @@ tradeez:
     access-token-ttl: 15m
     refresh-token-ttl: 30d
 
+  rate-limit:
+    # BUG-002. In-memory and therefore per-instance: a speed bump, not a guarantee. A shared store
+    # is the upgrade path if this is ever scaled beyond one replica.
+    auth-attempts-per-window: ${AUTH_ATTEMPTS_PER_WINDOW:20}
+
   cookies:
     # false locally: a Secure cookie is silently dropped over plain HTTP, so local development
     # would look broken for a non-obvious reason. MUST be true anywhere deployed.
