@@ -279,3 +279,58 @@ button.link {
 .kv--compact dd {
   color: var(--muted);
 }
+
+/* --- drawing layer (task 5) --- */
+
+.chart-area {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.drawing-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.drawing-toolbar__divider {
+  height: 1px;
+  margin: 0.2rem 0.15rem;
+  background: var(--border);
+}
+
+.tool {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.tool--active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(88, 166, 255, 0.12);
+}
+
+/* The chart and its overlay share a stacking context, and pointer events on the chart bubble up to
+   this frame — which is what lets the overlay hit-test while staying transparent to the pointer. */
+.chart-frame {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.drawing-overlay {
+  position: absolute;
+  inset: 0;
+  /* Above the chart canvas, below the toolbar. */
+  z-index: 2;
+}

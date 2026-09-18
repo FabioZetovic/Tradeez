@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import { LightweightChartAdapter } from '@/lib/chart/lightweightAdapter'
 
@@ -7,6 +7,14 @@ interface PriceChartProps {
   tickSize: number
   exchangeTimezone: string
   axisTimezone: 'exchange' | 'utc'
+  /**
+   * Rendered on top of the chart, given the live adapter.
+   *
+   * A render prop rather than a fixed child, so the chart knows nothing about drawings. The overlay
+   * needs the adapter to project market coordinates onto the canvas, and the adapter only exists
+   * after mount — this hands it over at exactly the right moment.
+   */
+  overlay?: (adapter: ChartAdapter | null) => ReactNode
   /**
    * Injectable for tests. jsdom has no working canvas, so a component that constructed the renderer
    * itself could not be tested at all — this is DEC-004's abstraction earning its keep immediately
@@ -21,9 +29,13 @@ export function PriceChart({
   exchangeTimezone,
   axisTimezone,
   adapterFactory,
+  overlay,
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ChartAdapter | null>(null)
+
+  // State, not just a ref: the overlay is a child and has to re-render when the adapter appears.
+  const [mountedAdapter, setMountedAdapter] = useState<ChartAdapter | null>(null)
 
   // The factory is read at mount and never again, so it is held in a ref rather than listed as a
   // dependency. Depending on it directly meant any caller passing an inline arrow — the natural way
@@ -49,6 +61,7 @@ export function PriceChart({
     const adapter = (factoryRef.current ?? (() => new LightweightChartAdapter()))()
     adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone })
     adapterRef.current = adapter
+    setMountedAdapter(adapter)
 
     // Seed the new instance with whatever is already loaded.
     adapter.setBars(barsRef.current)
@@ -57,6 +70,7 @@ export function PriceChart({
     return () => {
       adapter.destroy()
       adapterRef.current = null
+      setMountedAdapter(null)
     }
   }, [tickSize, exchangeTimezone, axisTimezone])
 
@@ -68,5 +82,12 @@ export function PriceChart({
     adapter.fitContent()
   }, [bars])
 
-  return <div ref={containerRef} className="chart" data-testid="price-chart" />
+  // The overlay is positioned against this frame, and pointer events on the chart bubble up to it —
+  // which is what lets the overlay hit-test while remaining transparent to the pointer.
+  return (
+    <div className="chart-frame">
+      <div ref={containerRef} className="chart" data-testid="price-chart" />
+      {overlay?.(mountedAdapter)}
+    </div>
+  )
 }

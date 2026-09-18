@@ -55,17 +55,17 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 011
+last_session: 012
 last_author: CLAUDE
 last_updated: 2026-09-18
-phase: PHASE 0 COMPLETE (scaffold builds, tests green; no features yet)
+phase: FEATURE WORK — auth, market data, chart and drawings shipped; Practice next
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # tracks origin/master
-head: 91ac9c9                                     # Phase 0 scaffold
-build_passing: true  # backend 60/60 (Testcontainers), frontend 27/27 + build + typecheck
+head: see git log                                 # updated every session
+build_passing: true  # backend 71/71 (Testcontainers), frontend 67/67 + build + typecheck
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -87,7 +87,7 @@ files_in_repo:
     - PATH.md               # This file
 
 not_built_do_not_assume:
-  - drawing tools, replay, indicators (the chart is read-only)
+  - replay, indicators, practice sessions, drills
 
 blocked_on: nothing technical — Fabio chooses the next task
 
@@ -113,7 +113,7 @@ this block **load-bearing, not advisory**:
    ignore the mechanism.
 
 ```yaml
-claimed_files: []   # session 011 released its claims
+claimed_files: []   # session 012 released its claims
 ```
 
 ---
@@ -130,7 +130,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 2b | ~~**Auth endpoints**~~ | — | ✅ Done in Session 008. register/login/refresh/logout/logout-all + `/api/me`, rotation with reuse detection, 19/19 tests. UI not built. |
 | 3 | ~~**First data slice**~~ | — | ✅ Done in Session 009. Registry, generator, aggregation, bars API, 21 tests. |
 | 4 | ~~**First visible slice**~~ | — | ✅ Done in Session 010. Chart renders, auth UI, timeframe switching. Verified in a browser. |
-| 5 | **Drawing proof** — HLine, trendline, rectangle, R:R position + select/drag/snap/persist/undo | 4 | Decision gate before adding more tools |
+| 5 | ~~**Drawing proof**~~ | — | ✅ Done in Session 012. Gate passed → DEC-037: keep building by hand, scope stays four shapes. |
 | 6 | **Practice slice** — blind replay → immutable plan → one bracket trade → deterministic/ambiguous result → journal row | 5 | Read DEC-008/009/011/031 first |
 | 7 | **First drill** — versioned FVG detector → `detected_setup` → identification drill | 6 | ⚠️ **DEC-034**: build/test on `DEMO-NQ`, but the drill is a *developer fixture* until real data clears the gate. Detector work is not blocked; the curriculum claim is. |
 | 8 | Optional €0 deployment smoke test | 2 | Re-check current free tiers; no purchase without Fabio |
@@ -921,6 +921,71 @@ switches CDT↔UTC and the chart stays populated.
 **Handoff:** `NEXT UP` task 5 — the drawing proof. **Five tools only** (HLine, trendline,
 rectangle, R:R position) plus select/drag/snap/persist/undo, then a decision gate on continuing
 custom versus switching to KLineChart. DEC-004 calls it the largest schedule risk here. Pull first.
+
+---
+
+### SESSION 012
+
+```yaml
+id: 012
+author: CLAUDE
+date: 2026-09-18
+type: FEATURE — NEXT UP task 5
+code_changed: true
+claimed_files: []   # released
+```
+
+**The drawing layer works, and the DEC-004 gate is passed → DEC-037: keep building by hand.**
+Backend 71/71, frontend 67/67. Verified in a browser end to end.
+
+**Four tools + the machinery:** horizontal line, trend line, rectangle, position (risk/reward).
+Select, drag, reshape by handle, magnet snap to OHLC, undo/redo, delete, persistence.
+
+**New (frontend):** `lib/drawing/{types,geometry,store,snap,render}.ts`,
+`components/{DrawingOverlay,DrawingToolbar}.tsx`, `hooks/useDrawings.ts`,
+`lib/api/drawings.ts`. **New (backend):** `V4__drawings.sql`, `com.tradeez.charting`.
+
+**Design points — do not undo these:**
+- **Anchors are (time, priceTicks), never pixels.** Pixels depend on zoom and window size; a
+  drawing stored in them slides off its level the moment either changes. DEC-024 adds the rest:
+  raw prices, so a later contract roll cannot shift every line the user drew.
+- **The overlay is transparent to the pointer unless there is something to interact with.** This
+  is the crux of putting a canvas over a chart — if it always captured events, panning and zooming
+  would stop working. It hit-tests via events bubbling to the shared parent while staying
+  transparent itself.
+- **An overlay canvas, not a chart plugin.** A plugin would tie every tool to Lightweight Charts
+  and make DEC-004's escape hatch theoretical. The whole layer needs only four projection
+  functions from `ChartAdapter`.
+- **Undo is snapshots, not inverse operations.** Inverse operations are where undo implementations
+  rot: every new tool needs its own, and the one nobody wrote corrupts the document.
+- **Drag emits `preview` (no history); pointerup emits `update` (one entry).** Otherwise a
+  single gesture takes fifty presses of undo to reverse.
+
+**⚠️ BUG-022 — a real security hole, caught by its own test.** Drawing ids are client-assigned
+UUIDs in the URL. The repository lookup was owner-scoped, which looked sufficient and was not:
+because the id is assigned, `save()` routes through `merge()`, which matches on the
+**primary key alone** and rewrote the existing row including `user_id`. One user could take
+ownership of any drawing whose id they could name. Fixed; refused with 404 rather than 403 so the
+endpoint cannot be used to probe which ids exist.
+
+**Also fixed:** BUG-024 (`created_at` null — same merge root cause), BUG-025 (unknown kind was
+a 500). **Logged:** BUG-023 (`useDrawings.commit` swallows save failures — it hid a
+completely broken save path for this entire session), ENV-003 (a failed `spring-boot:run`
+leaves the OLD backend serving, which cost ~20 minutes chasing a 401 in code that had just passed
+71 tests).
+
+**Verification:** drew a horizontal line in a browser, confirmed `priceTicks: 78832` in
+PostgreSQL, reloaded the page and watched it come back at 19708.00 — which is exactly
+78832 × 0.25. The position tool reads **"long · 2.00R · risk $200.00 · reward $400.00"** from the
+instrument's real tick value.
+
+**Not built:** no text tool, no Fibonacci, no style editing, no multi-select. Deliberate — DEC-037
+keeps the scope at four shapes.
+
+**Handoff:** `NEXT UP` task 6 — **the Practice slice, which is the actual product.** Blind
+replay → immutable plan → one bracket trade → deterministic or `AMBIGUOUS` result → journal
+row. Read DEC-008, DEC-009, DEC-011 and DEC-031 before starting. The position tool is already the
+trade-entry control; reuse it rather than building a second one. Pull first.
 
 ---
 

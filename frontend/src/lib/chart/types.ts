@@ -58,4 +58,23 @@ export interface ChartAdapter {
   fitContent(): void
   resize(width: number, height: number): void
   destroy(): void
+
+  /**
+   * Converts between market space and screen space, for the drawing overlay.
+   *
+   * Exposed here rather than letting the overlay reach into the charting library, so the drawing
+   * layer depends on four functions instead of on Lightweight Charts (DEC-004). Returns null if the
+   * chart is not mounted.
+   */
+  getProjection(): import('../drawing/types').Projection | null
+
+  /**
+   * Fires whenever the visible range changes — pan, zoom, or a resize.
+   *
+   * The overlay is a separate canvas, so nothing redraws it automatically; without this the
+   * drawings would stay put while the candles moved underneath them.
+   *
+   * @returns an unsubscribe function
+   */
+  onViewportChange(listener: () => void): () => void
 }

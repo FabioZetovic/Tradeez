@@ -64,7 +64,7 @@ exchange-traded FX futures can later be added without hardcoding each product.
 | Area | Description | Status |
 |---|---|---|
 | **Markets** | Instrument browser, contract registry, historical charts | Registry + bars API done (Session 009) |
-| **Charts** | Candlestick charting with indicators and full drawing toolset | Candles + timeframes done (Session 010); no drawings or indicators |
+| **Charts** | Candlestick charting with indicators and full drawing toolset | Candles, timeframes and four drawing tools done (Sessions 010, 012); no indicators |
 | **Practice** ⭐ | Hidden-outcome historical replay with trade simulation and grading | Not started |
 | **Accounts** | Registration, login, session rotation, per-user data ownership | Done (Sessions 008, 010) |
 | **Training** | Auto-generated drills per methodology, with spaced repetition | Not started |
@@ -994,6 +994,100 @@ themselves change, and they had not. A new empty chart, and nothing to put in it
 The suite was green when this happened. It was found by pressing the button, which is the second
 time in two sessions that looking at the running application has caught something no amount of
 passing tests would have.
+
+---
+
+### Session 012 — 2026-09-18 — Drawing on the Chart
+
+**Participant:** Claude Code
+**Type:** Feature — and a decision the project had been deferring since Session 002
+
+#### What was built
+
+Four drawing tools and the machinery behind them. A horizontal line for marking a level, a trend
+line, a rectangle — the workhorse for order blocks and fair value gaps — and a position tool that
+shows risk and reward as coloured zones with the money spelled out.
+
+Around them: selecting a shape, dragging it, reshaping it by its corners, a magnet that snaps to
+the high, low, open or close of the bar under the cursor, undo and redo, and saving so that work
+survives closing the tab.
+
+#### The decision this was really about
+
+Back in Session 002 the plan called this layer the largest scheduling risk in the project, and
+deliberately limited it: build five things, then stop and decide whether to keep building drawings
+by hand or adopt an off-the-shelf charting library that ships dozens of them.
+
+The answer is to keep building, and the reason is that **the shapes were never the hard part**.
+The hard part is working out what the pointer is over, converting between prices and pixels,
+keeping a history that can be undone, and — the fiddliest of all — letting a canvas sit on top of
+a chart without stopping the chart from being panned and zoomed. All of that is now written, and
+none of it is specific to any particular shape. Adding a fifth tool is now a small job in a way
+that adding the first one was not.
+
+The clinching argument was the position tool. It already displays a live reward-to-risk ratio in
+actual dollars, calculated from the contract's real tick value. That is not really a drawing at
+all — it is the control the Practice tab will use for entering a trade, built early. No
+third-party library would have provided it, because it depends on this project's own contract
+economics.
+
+The scope stays at four shapes. A drawer full of sixty-eight half-finished tools would still be
+worth less than one finished Practice loop.
+
+#### The security hole its own test found
+
+Each drawing carries an identifier generated in the browser, which appears in the web address
+used to save it — so a determined user can name an identifier belonging to someone else. The code
+guarded against this by only ever looking up a drawing together with its owner, which looks like
+enough and is not.
+
+Because the identifier comes from the client rather than the database, the persistence layer
+treats every save as "update the row with this key". It matches on the key **and nothing else**.
+So the owner-scoped lookup found nothing, the code took its "create a new one" path, and the save
+then overwrote the existing row — including the column recording who owns it. One user could
+quietly take possession of another's work.
+
+The fix checks ownership across the whole table before creating anything, and refuses with "not
+found" rather than "not yours", so the endpoint cannot be used to discover which identifiers are
+in use.
+
+**The lesson generalises past this feature:** a read that is careful about ownership does not make
+a write safe. Where the key comes from outside, saving is an overwrite against that key, and the
+ownership column is just another field it will happily replace.
+
+#### Twenty minutes lost to a server that was lying
+
+Partway through, newly written endpoints started returning "unauthorised" — in code that had just
+passed seventy-one tests. It looked like an authentication bug.
+
+It was not. An earlier copy of the backend was still running and still holding the port, so the
+attempt to restart it had failed while the old one carried on answering requests perfectly well.
+Every reply came from a build that predated the feature being tested. The endpoints did not
+return the wrong answer; they did not exist.
+
+Recorded because the symptom is so convincing. The check that settles it in seconds is to ask the
+running server which routes it knows about, rather than trusting that it responds at all.
+
+#### Something worth being uncomfortable about
+
+When drawings first failed to save, the application looked perfectly healthy. Shapes appeared,
+dragged and undid exactly as expected. The saving code deliberately ignores failures so that a
+brief network problem cannot crash the page mid-drag — but the same silence meant a completely
+broken save path was invisible. It was only found by querying the database directly and seeing
+nothing there.
+
+That is logged as an open defect rather than quietly fixed. A silent retry is reasonable; a silent
+permanent failure is not, because the user discovers it only when their work has already gone.
+
+#### Verification
+
+Seventy-one backend tests and sixty-seven frontend tests pass. More convincingly: a line drawn in
+a real browser was confirmed in the database as a whole number of ticks, the page was reloaded,
+and the line came back at exactly the price that number represents.
+
+#### What comes next
+
+The Practice tab — which is the actual product. Everything so far has been the equipment it needs.
 
 ---
 

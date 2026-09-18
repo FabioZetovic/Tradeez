@@ -7,6 +7,7 @@ import {
   type Time,
 } from 'lightweight-charts'
 import type { ChartAdapter, ChartMountOptions, DomainBar } from './types'
+import type { Projection } from '../drawing/types'
 import { decimalsFor, ticksToPrice } from './priceFormat'
 import { createTimeFormatter } from './timeAxis'
 
@@ -84,6 +85,42 @@ export class LightweightChartAdapter implements ChartAdapter {
 
   resize(width: number, height: number): void {
     this.chart?.resize(width, height)
+  }
+
+  getProjection(): Projection | null {
+    const chart = this.chart
+    const series = this.series
+    if (!chart || !series) return null
+
+    const timeScale = chart.timeScale()
+    const tickSize = this.tickSize
+
+    // Ticks are converted to a price on the way in and back on the way out, so the drawing layer
+    // works purely in ticks (INVARIANT 3) while the chart works in prices.
+    return {
+      // null means "outside the visible range" — the overlay treats that as not drawable rather
+      // than clamping, because a line pinned to the chart edge would claim a level it is not on.
+      timeToX: (time) => timeScale.timeToCoordinate(time as never) as number | null,
+      priceToY: (priceTicks) =>
+        series.priceToCoordinate(ticksToPrice(priceTicks, tickSize)) as number | null,
+      xToTime: (x) => {
+        const time = timeScale.coordinateToTime(x)
+        return typeof time === 'number' ? time : null
+      },
+      yToPrice: (y) => {
+        const price = series.coordinateToPrice(y)
+        return price === null ? null : Math.round((price as number) / tickSize)
+      },
+    }
+  }
+
+  onViewportChange(listener: () => void): () => void {
+    const chart = this.chart
+    if (!chart) return () => {}
+
+    const timeScale = chart.timeScale()
+    timeScale.subscribeVisibleLogicalRangeChange(listener)
+    return () => timeScale.unsubscribeVisibleLogicalRangeChange(listener)
   }
 
   destroy(): void {

@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 import type { ChartAdapter, ChartMountOptions, DomainBar } from '@/lib/chart/types'
+import type { Projection } from '@/lib/drawing/types'
 
 /**
  * A {@link ChartAdapter} that records calls instead of drawing.
@@ -40,4 +41,26 @@ export class FakeChartAdapter implements ChartAdapter {
     this.destroyed = true
     this.mounted = false
   })
+
+  /** A simple linear projection, enough for the overlay to be exercised without a canvas. */
+  getProjection = vi.fn((): Projection | null => ({
+    timeToX: (time: number) => time - 1000,
+    priceToY: (ticks: number) => 500 - (ticks - 80_000),
+    xToTime: (x: number) => x + 1000,
+    yToPrice: (y: number) => 80_000 + (500 - y),
+  }))
+
+  viewportListeners: Array<() => void> = []
+
+  onViewportChange = vi.fn((listener: () => void) => {
+    this.viewportListeners.push(listener)
+    return () => {
+      this.viewportListeners = this.viewportListeners.filter((l) => l !== listener)
+    }
+  })
+
+  /** Simulates a pan or zoom, so redraw-on-viewport-change can be tested. */
+  emitViewportChange() {
+    this.viewportListeners.forEach((l) => l())
+  }
 }

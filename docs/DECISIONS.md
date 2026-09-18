@@ -402,6 +402,44 @@ reasoning visible. Introduce a composite score only once its **weights are visib
 user-adjustable per methodology**. Never present a strategy-dependent judgment as a universal
 verdict on the trade.
 
+**DEC-037 — Continue with the hand-built drawing layer. Gate passed.** `AGREED` · Session 012
+
+DEC-004 required a five-tool proof followed by an explicit decision: keep building drawings by
+hand, or adopt KLineChart and inherit its toolset. The proof is built and the answer is **keep
+building**. The reasoning, so it can be challenged later rather than assumed:
+
+**What the proof cost.** One session for all four shapes plus the shared machinery — selection,
+dragging, handle reshaping, magnet snapping, undo/redo, persistence, and 44 tests. That is
+materially cheaper than feared, and the reason is that the hard part is not the shapes.
+
+**The hard part is the machinery, and it is now done.** Hit testing, the projection between
+market space and screen space, history, and the pointer-transparency trick that keeps chart
+panning working are all tool-agnostic. A fifth shape — Fibonacci, a channel, a measured move — is
+a hit-test function and a draw function against interfaces that already exist. The marginal cost
+of tool number five is small in a way the marginal cost of tool number one was not.
+
+**What adopting KLineChart would actually cost.** It would replace the renderer, not just add
+tools: a different chart, a different data pipeline, a different plugin model, and the loss of
+everything built on `ChartAdapter`. And its drawings would not know about integer ticks
+(INVARIANT 3), the magnet would not snap to our bars, and none of it would anchor to raw prices
+the way DEC-024 requires — so the Practice tab could not score stop placement against detected
+structure without re-deriving all of it anyway.
+
+**The decisive argument is the position tool.** It already renders a live risk/reward with real
+money — "long · 2.00R · risk $200.00 · reward $400.00" — computed from the instrument's tick
+value. That is not a drawing; it is the Practice tab's trade-entry control, built early. No
+third-party library would give us that, because it depends on our contract economics and our
+fill model.
+
+**What this does not license.** The scope stays four shapes. A catalogue of sixty-eight tools is
+still worth less than a finished Practice loop, and DEC-004's warning stands: this layer is where
+the schedule goes to die if it is allowed to. New tools are added when a curriculum needs them,
+not because they would look good in a toolbar.
+
+**Reconsider if** a future tool needs something the overlay genuinely cannot express — text
+editing in place, or a shape that must interleave with the candle rendering rather than sit above
+it.
+
 **DEC-004 — Lightweight Charts v5 behind a `ChartAdapter` interface** · `AGREED` · both analyses
 Apache 2.0, canvas-based, fast at large bar counts, and it is TradingView's own engine so the feel
 matches. Drawing tools are absent from core and **we build them** — hand-built hit-testing, magnet

@@ -17,6 +17,26 @@
 
 ## Open
 
+### BUG-023 🟠 `useDrawings.commit` swallows every save failure
+
+**Status:** verified — it actively hid a broken save path for the whole of session 012
+**Affects:** `frontend/src/hooks/useDrawings.ts`
+
+Both branches of the commit end in `.catch(() => {})`. The intent was reasonable: an autosave
+that throws mid-drag would surface as a crash over a transient network blip, and a failed save is
+retried on the next commit because the id is left out of the persisted map.
+
+The cost showed up immediately. Drawings were not saving at all — the backend serving the app was
+a stale process without the drawings routes — and **the UI looked completely healthy**. Shapes
+appeared, dragged and undid normally; the failure was only found by querying the database
+directly and seeing zero rows.
+
+**Likely fix.** Keep swallowing the throw, but surface the state: track consecutive failures and
+show an unobtrusive "not saved" indicator once one is pending. A silent retry is fine; a silent
+permanent failure is not, because the user only discovers it when their work is gone.
+
+---
+
 ### BUG-010 🟡 Market data endpoints have no caching
 
 **Status:** verified by inspection · **deliberately not fixed**
@@ -34,6 +54,29 @@ requests overlapping ranges, then cache if the numbers justify it.
 ---
 
 ## Environment
+
+### ENV-003 🟠 A failed `spring-boot:run` leaves the previous backend serving
+
+**Status:** verified (session 012, cost about twenty minutes)
+
+Restarting the backend while an older instance still holds the port fails with *"Port 8081 was
+already in use"* — but the **old process keeps serving**, so the app still responds and looks
+fine. Every request is answered by a build that predates the change under test.
+
+This produced a convincing false trail: newly written endpoints returned 401, which read as an
+authentication bug in code that had just passed 71 tests. The endpoints simply did not exist in
+the running process.
+
+**Workaround.** After starting the backend, check that the change is actually live rather than
+that the server merely answers:
+
+```bash
+curl -s http://localhost:8081/v3/api-docs | grep -o '"/api/[^"]*"' | sort -u
+```
+
+A route missing from the OpenAPI document means a stale process, not a broken route.
+
+---
 
 ### ENV-002 🟡 Docker Desktop occupies ports 8080 and 5173 on this machine
 
@@ -322,6 +365,60 @@ There is no real volume to generate, so this cannot be fixed — only disclosed.
 The rule it implies still stands: **nothing volume-derived may be built on a `SIMULATED`
 series.** Volume profile, VWAP-by-volume, relative volume and delta would all be reading
 structure out of a formula.
+
+---
+
+### BUG-022 🔴 One user could overwrite another's drawing by naming its id
+
+**Fixed:** Session 012 · **Found by:** `ChartDrawingApiTest.cannotOverwriteAnotherUsersDrawing`
+
+Drawing ids are client-assigned UUIDs that appear in the URL, so a client can name one it does
+not own. The repository lookup was scoped by owner — `findByIdAndUserId` — which looked
+like enough and was not.
+
+Because the id is assigned rather than generated, Spring Data sees a non-null id, concludes the
+entity is not new, and routes `save()` through `merge()`. Merge matches on the **primary
+key alone**. The scoped lookup returned empty, the code took the "create" branch, and the merge
+then rewrote the existing row — `user_id` included. A second user could silently take
+ownership of any drawing whose id they could name.
+
+**Fix:** check ownership against the whole table before creating, and refuse with **404** rather
+than 403 — an id the caller cannot write to should be indistinguishable from one that does not
+exist, or the endpoint becomes a way to probe which ids are in use.
+
+**Lesson:** an owner-scoped *read* does not make a *write* safe. With a client-assigned primary
+key, `save()` is an upsert against the key and nothing else — the ownership column is just
+another field it will happily overwrite.
+
+---
+
+### BUG-024 🟡 `created_at` came back null on the create path
+
+**Fixed:** Session 012
+
+Same root cause as BUG-022, different symptom. `@PrePersist` sets the timestamps, but because
+the client-assigned id sends `save()` through `merge()`, the persist callback did not fire
+reliably and the `NOT NULL` constraint rejected the insert.
+
+**Fix:** set the timestamps in the constructor, keeping `@PrePersist` as a fallback.
+
+**Lesson:** JPA lifecycle callbacks are not a dependable place for required values when the
+entity has an assigned id. If a column is `NOT NULL`, set it where the object is built.
+
+---
+
+### BUG-025 🟡 An unknown drawing kind was a 500
+
+**Fixed:** Session 012
+
+The only guard on the tool name was the database `CHECK` constraint, so a client typo arrived
+as a `DataIntegrityViolationException` and a stack trace.
+
+**Fix:** validate at the controller and return 400. The constraint stays — it is the guarantee —
+but it is no longer the only check.
+
+**Lesson:** a database constraint is a backstop, not an input validator. Both belong, and the one
+nearest the client should produce the message.
 
 ---
 
