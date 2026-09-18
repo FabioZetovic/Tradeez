@@ -94,7 +94,236 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 ## Fixed
 
+> Entries keep their **original description** so the problem is still legible, with a
+> **✅ FIXED** block appended saying how it was closed and which test proves it. Nothing is
+> deleted — a bug that vanishes silently teaches nobody anything, and the reasoning is often more
+> useful than the fix.
+
 Kept for the lesson, not for the changelog.
+
+### BUG-001 🔴 Concurrent refresh requests can log a user out of every device
+
+**Status:** reasoned, not yet reproduced by a test
+**Found:** Session 009, reading `AuthService.refresh`
+**Affects:** `backend/.../identity/AuthService.java`
+
+**What happens.** Refresh tokens rotate on every use, and replaying an already-rotated token is
+treated as theft — it revokes every session for the account (DEC-032, and BUG-007 below explains
+why that revocation is deliberate). But a legitimate client can present the same token twice
+without any attacker involved.
+
+If the SPA has two requests in flight and both receive a 401, both call `/api/auth/refresh` with
+the same cookie. Serialised, the first rotates successfully; the second then sees
+`isAlreadyRotated() == true`, concludes the token was stolen, and invalidates every session for
+that account. **The user is signed out everywhere because their own app made two requests at once.**
+
+Two tabs, a flaky connection, or a page that fires several API calls on load are all enough. This is
+a well-known failure mode of refresh-token rotation, not an exotic edge case.
+
+**Secondary effect.** `RefreshToken` has no `@Version`, so there is no optimistic locking. Two
+*truly* parallel transactions could instead both succeed and mint two valid successors, orphaning
+one. Less damaging than the false logout, still wrong.
+
+**Likely fix.** A short grace window: if the presented token was rotated within, say, 30 seconds and
+its successor is still active, treat it as a duplicate request rather than theft and return the
+existing successor. Real reuse by an attacker happens long after rotation, so a narrow window
+preserves the security property. Add `@Version` to `RefreshToken` at the same time.
+
+**Test to write first:** two concurrent refreshes with the same token must both resolve without
+revoking the account.
+
+**✅ FIXED — Session 011.**
+
+A 20-second grace window on `AuthService.refresh`. A replay inside it is treated as the
+same client racing itself and issues fresh tokens without revoking anything; a replay after it
+still revokes the whole family. `@Version` added to `RefreshToken` (migration `V3`)
+so two genuinely parallel transactions cannot both mint a successor.
+
+The trade-off is deliberate and worth stating: an attacker replaying within seconds of a real
+rotation does get a session. That is a far smaller harm than signing honest users out at random,
+and it is what the OAuth security BCP recommends.
+
+**Tests:** `BugFixTest.ConcurrentRefresh` — both the duplicate and the late-reuse paths.
+
+---
+
+### BUG-002 🟠 No rate limiting on authentication endpoints
+
+**Status:** verified (no such code exists)
+**Found:** Session 008, noted in `AuthExceptionHandler`
+**Affects:** all of `/api/auth/**`
+
+`/api/auth/login` accepts unlimited attempts, so passwords can be brute-forced. `/api/auth/register`
+returns `409 Conflict` for an address that already exists — which is unavoidable, since a
+registration form has to tell you the address is taken — making it an account-enumeration oracle
+that can be walked at full speed.
+
+Vague error messages do not fix this; **rate limiting is the actual mitigation** and its absence is
+the real gap. Deliberately not built in Session 008 to keep that change reviewable, but it should
+land before anything is publicly deployed.
+
+**Likely fix.** Per-IP and per-account limits with exponential backoff (Bucket4j, or a filter over a
+small in-memory/Redis counter).
+
+**✅ FIXED — Session 011.**
+
+Two layers. `AuthRateLimitFilter` throttles per client IP (20 per 5 minutes) and runs ahead
+of Spring Security, so a flood never reaches BCrypt — an unthrottled login endpoint is a CPU
+exhaustion vector as much as a credential one. `AuthService.login` additionally throttles per
+account (10 per 15 minutes), because an attacker with a pool of addresses can spread guesses at
+one account across many IPs and never trip a per-IP limit.
+
+A successful sign-in clears the counter, so someone who mistyped a few times is not left locked
+out after getting it right.
+
+**Tests:** `BugFixTest.RateLimiting`.
+
+**Still true, and now in Known limitations:** the limiter is in-memory and therefore per-instance,
+and `X-Forwarded-For` is client-supplied and forgeable.
+
+---
+
+### BUG-013 🟡 Vite's proxy forwards the browser Origin, so CORS must match the dev port
+
+**Status:** verified (hit while previewing task 4)
+**Affects:** `frontend/vite.config.ts`, `tradeez.cors.allowed-origins`
+
+The dev proxy is configured with `changeOrigin: true`, which rewrites the `Host` header but
+still forwards the browser's real `Origin`. Spring therefore sees a cross-origin request and
+applies CORS. It happens to work on port 5173 because that is the configured allowed origin — on
+any other port every authenticated call fails with **403**, which looks like a CSRF or auth problem
+and is neither.
+
+Hit immediately here because Docker Desktop occupies 5173 on this machine (see ENV-002), so the dev
+server landed on a random port.
+
+**Workaround.** Pass the actual origin when starting the backend:
+
+```bash
+CORS_ALLOWED_ORIGINS="http://localhost:5173,http://localhost:<actual-port>" ./mvnw spring-boot:run
+```
+
+**Likely fix.** Allow a localhost wildcard pattern in development only, via
+`CorsConfiguration.setAllowedOriginPatterns`. Deployed environments keep the explicit list —
+a wildcard there would defeat the point of DEC-032.
+
+**✅ FIXED — Session 011.** In development `SecurityConfig` uses
+`setAllowedOriginPatterns` to accept any localhost port. Deployed instances keep the explicit
+list, because a wildcard there would let any site make credentialed requests and undo DEC-032.
+
+The discriminator is `tradeez.cookies.secure`, which is false only on plain-HTTP localhost —
+the same signal `JwtSecretGuard` uses.
+
+**Verified** by signing in through a browser on port 49900 with no `CORS_ALLOWED_ORIGINS`
+override, which is what the fix actually has to survive.
+
+---
+
+### BUG-014 🟡 Chart time axis is UTC-only
+
+**Status:** verified by inspection
+**Affects:** `lightweightAdapter.ts`
+
+The time axis is formatted as UTC. That is consistent with how everything is stored (INVARIANT 4)
+and unambiguous, but it is not how a trader reads a chart: an ICT curriculum is built on New York
+and London session times, and mentally offsetting every label is exactly the kind of friction that
+makes killzone training harder than it needs to be.
+
+**Likely fix.** Render in the instrument's exchange timezone, which the API already returns as
+`exchangeTimezone`, with a toggle for UTC. Needs care around daylight-saving transitions —
+`SessionCalendar` already concentrates that logic on the backend.
+
+**✅ FIXED — Session 011.** `lib/chart/timeAxis.ts` formats the axis in the exchange's own
+timezone by default, with a toggle back to UTC in the toolbar. `Intl` handles daylight saving,
+so Chicago reads 09:00 in March and 08:00 in January for the same 14:00 UTC — a fixed offset
+would have mislabelled every session boundary for half the year and taught killzone timings an
+hour wrong.
+
+**Tests:** `timeAxis.test.ts`, including both sides of a DST transition.
+
+**Caused BUG-021** — the remount this required left the chart blank.
+
+---
+
+### BUG-003 🟡 `HealthController` swallows the underlying database error
+
+**Status:** verified by inspection
+**Affects:** `backend/.../common/HealthController.java`
+
+The health check catches every exception and reports `DEGRADED` without logging what failed. When
+the database is unreachable in a deployed environment, the endpoint says something is wrong but not
+what — which is precisely when that information is most useful.
+
+**Likely fix.** Log the exception at `WARN` before returning the degraded response. Do not put the
+message in the response body: an unauthenticated endpoint should not leak connection strings.
+
+**✅ FIXED — Session 011.** Logs at `WARN` with the exception before returning `DEGRADED`.
+The message stays out of the response body: the endpoint is unauthenticated and a connection
+string is not something to hand to the internet.
+
+**Test:** `BugFixTest.healthReportsWithoutLeaking` asserts the body contains no `jdbc:`.
+
+---
+
+### BUG-004 🟡 `refresh_token.replaced_by` has no index
+
+**Status:** verified by reading `V1__baseline.sql`
+
+PostgreSQL does not automatically index foreign keys. `replaced_by` is unindexed, so deleting or
+updating a referenced token requires a sequential scan to check the constraint. Invisible at current
+scale; worth fixing before the table grows.
+
+**Likely fix.** A new migration adding the index. Never edit `V1__baseline.sql` — DEC-030.
+
+**✅ FIXED — Session 011.** `V3__refresh_token_hardening.sql` adds a partial index on
+`replaced_by`. V1 was not edited — DEC-030 holds even for an index it should have had.
+
+**Test:** `BugFixTest.replacedByIsIndexed` queries `pg_indexes`.
+
+---
+
+### BUG-005 🟡 `app_user.settings` exists but is never used
+
+**Status:** verified
+
+The column and its JPA mapping were added in the baseline migration for future user preferences.
+Nothing reads or writes it. Harmless, but it is currently unexercised code: the JSONB mapping is
+untested, so it may not actually work when someone first relies on it.
+
+**Likely fix.** Either use it or cover it with a test when the first real preference lands.
+
+**✅ FIXED — Session 011,** by covering it rather than removing it. The column stays for user
+preferences, and a test now writes nested JSON and reads it back, so the Hibernate JSONB mapping
+is exercised instead of merely present.
+
+**Test:** `BugFixTest.settingsRoundTrip`.
+
+---
+
+### BUG-009 🟡 Demo bar volume is invented and must never be analysed
+
+**Status:** verified (by design, recorded so it is not forgotten)
+**Affects:** `DemoSeriesGenerator`, every `SIMULATED` series
+
+Volume on a generated bar is derived from that bar's range. It correlates with price movement,
+which makes charts look plausible, and it means **absolutely nothing**. Anything volume-derived —
+volume profile, VWAP weighted by volume, relative volume, delta — would be reading structure out of
+a formula.
+
+Not fixable: there is no real volume to generate. Recorded because a plausible-looking number is
+more dangerous than an obviously missing one. Documented on `Bar#volume`.
+
+**✅ CLOSED — Session 011, as not-a-defect.**
+
+There is no real volume to generate, so this cannot be fixed — only disclosed. Moved to
+[Known limitations](#known-limitations), where it belongs: it is a property of simulated data
+(DEC-033), not a mistake in the code.
+
+The rule it implies still stands: **nothing volume-derived may be built on a `SIMULATED`
+series.** Volume profile, VWAP-by-volume, relative volume and delta would all be reading
+structure out of a formula.
+
+---
 
 ### BUG-021 🟠 The chart went blank when the timezone was toggled
 
