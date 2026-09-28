@@ -55,6 +55,25 @@ requests overlapping ranges, then cache if the numbers justify it.
 
 ## Environment
 
+### ENV-004 🟠 An interrupted session leaves its file claims behind
+
+**Status:** verified (session 013)
+
+Session 013 claimed `frontend/src/**`, `docs/**` and the whole backend test tree in
+`PATH.md`, then hit Fabio's usage limit before writing any code. The claim survived the session
+that made it. It happened to be uncommitted, so it only existed on this machine — but a session
+that commits its claim and *then* dies would publish a lock with nobody behind it, and Codex
+would correctly refuse to touch most of the repository.
+
+The claim was reverted in the next exchange **without being noted**, which is itself against
+`PATH.md`'s rule 4 ("note that you are taking it"). Recorded here to close that gap.
+
+**Likely fix.** Claims carry the session id *and a timestamp*, and a claim older than 24 hours
+with no matching commit on the remote is stale by definition. Cheaper still: claim in the same
+commit as the first real change, so a claim never exists without work behind it.
+
+---
+
 ### ENV-003 🟠 A failed `spring-boot:run` leaves the previous backend serving
 
 **Status:** verified (session 012, cost about twenty minutes)
@@ -365,6 +384,27 @@ There is no real volume to generate, so this cannot be fixed — only disclosed.
 The rule it implies still stands: **nothing volume-derived may be built on a `SIMULATED`
 series.** Volume profile, VWAP-by-volume, relative volume and delta would all be reading
 structure out of a formula.
+
+---
+
+### BUG-026 🟡 `PATH.md` described a repository six sessions out of date
+
+**Fixed:** Session 013 · **Found by:** an audit Fabio asked for
+
+`CURRENT STATE.files_in_repo` was written in Session 006 and never updated. It listed the
+Phase 0 scaffold — `HealthController`, `SecurityConfig`, one migration — and nothing
+since: not the identity, market data or charting packages, not migrations V2–V4, not the drawing
+layer. Sessions 007–012 each updated the fields beside it (`phase`, `head`,
+`build_passing`) and walked straight past it.
+
+This is the failure the file exists to prevent: a fresh session reading it would have believed
+half the application did not exist.
+
+**Fix:** replaced the hand-maintained file list with a module map that changes only when a module
+is added, plus the instruction to run `git ls-files` for anything finer.
+
+**Lesson:** a list that duplicates something the tooling already knows will rot, and it rots
+silently because nothing fails when it is wrong. Point at the source of truth instead of copying it.
 
 ---
 

@@ -55,9 +55,9 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 012
+last_session: 013
 last_author: CLAUDE
-last_updated: 2026-09-18
+last_updated: 2026-09-28
 phase: FEATURE WORK — auth, market data, chart and drawings shipped; Practice next
 code_written: true
 repo_initialized: true
@@ -74,9 +74,21 @@ stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DE
   database: PostgreSQL 17 via docker-compose
 
 files_in_repo:
-  root: [.gitignore, README.md, docker-compose.yml]
-  backend/: [pom.xml, mvnw, .env.example, src/main/java/com/tradeez/{TradeezApplication,common/HealthController,config/{SecurityConfig,OpenApiConfig}}.java, src/main/resources/{application.yml,db/migration/V1__baseline.sql}, src/test/java/com/tradeez/HealthEndpointTest.java]
-  frontend/: [package.json, vite.config.ts, tsconfig.app.json, src/{App.tsx,App.test.tsx,App.css,components/SimulatedDataBanner.tsx,lib/api/client.ts,test/setup.ts}]
+  # Module map, not a file list. BUG-026: a hand-maintained file list sat six sessions out of
+  # date because nothing fails when it is wrong. For individual files run `git ls-files`.
+  backend/src/main/java/com/tradeez/:
+    common/      # health endpoint
+    config/      # SecurityConfig (CSRF, CORS, filter chain), OpenApiConfig
+    identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
+    marketdata/  # instrument registry, DEMO-NQ generator, aggregation, bars API (session 009)
+    charting/    # saved drawings                                              (session 012)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings
+  frontend/src/:
+    lib/api/      # fetch client, auth, market data, drawings
+    lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
+    lib/drawing/  # geometry, hit testing, snapping, undo store, renderer
+    components/   # app shell, sign-in, chart workspace, drawing overlay + toolbar
+    hooks/        # useSession, useDrawings
   docs/:
     - ANALYSIS_CLAUDE.md    # Claude's deep analysis      (Session 001-CLAUDE)
     - CHATGPT_RESEARCH.md   # Codex's deep analysis       (Session 001-CODEX)
@@ -986,6 +998,36 @@ keeps the scope at four shapes.
 replay → immutable plan → one bracket trade → deterministic or `AMBIGUOUS` result → journal
 row. Read DEC-008, DEC-009, DEC-011 and DEC-031 before starting. The position tool is already the
 trade-entry control; reuse it rather than building a second one. Pull first.
+
+---
+
+### SESSION 013
+
+```yaml
+id: 013
+author: CLAUDE
+date: 2026-09-18 → 2026-09-28
+type: INTERRUPTED — no code written
+code_changed: false
+claimed_files: []   # the claim this session made was stale and has been released
+```
+
+**Started task 6 and was cut off.** Claimed files for the Practice slice, then hit Fabio's usage
+limit before writing any code. Nothing from this session reached the repository.
+
+**The stale claim** stayed behind in the working tree and was reverted during a later exchange
+— without being noted, against rule 4 of the claiming protocol. Recorded now as **ENV-004**.
+
+**A PR was requested and could not be opened.** Every commit from Sessions 001–012 was pushed
+straight to `master` as the protocol directs, so there was no branch holding anything
+`master` lacked. Consequence for the next session: **task 6 goes on a branch**
+(`feat/practice-slice`) so it can be reviewed as a pull request.
+
+**Audit, at Fabio's request.** BUGS.md and DOCUMENTATION.md were accurate for all the code but
+missed this session entirely, and `CURRENT STATE.files_in_repo` had been wrong since
+Session 006. Fixed as **BUG-026** — replaced with a module map.
+
+**Handoff:** task 6, on `feat/practice-slice`.
 
 ---
 

@@ -1091,4 +1091,37 @@ The Practice tab — which is the actual product. Everything so far has been the
 
 ---
 
+### Session 013 — 2026-09-18 to 09-28 — Interrupted, and an Audit
+
+**Participant:** Claude Code
+**Type:** No application code — recorded because leaving it out would make the log dishonest
+
+Work on the Practice tab began and was cut off almost immediately by a usage limit, before any
+code was written. It would be easy to leave a session like that out of the history. It is
+recorded because it exposed a real weakness in how the two AI collaborators coordinate.
+
+Before starting work, a session "claims" the files it intends to change, so the other
+collaborator knows not to touch them. This session made its claim and then stopped existing. The
+claim did not stop with it. Had it been published, Codex would have found most of the repository
+locked by a session that was no longer running — and would, correctly, have refused to work.
+The proposed fix is to make a claim expire, or to only ever make one in the same commit as real
+work, so a lock can never exist without something behind it.
+
+Fabio then asked for the documentation to be audited. The history of the *code* was accurate. But
+one section of the handoff file — the list of what exists in the repository — had not been
+updated since Session 006. Six sessions of work, including the whole login system, the market
+data, and the drawing tools, were missing from it. A fresh session reading it would have believed
+most of the application did not exist.
+
+It was replaced with a map of the modules, which only changes when a new module appears, and an
+instruction to ask git for anything more detailed. The lesson is general: a list that copies
+something the tools already know will go stale, and it goes stale silently, because nothing
+breaks when it is wrong.
+
+A pull request was also requested, and there was nothing to put in one: everything had been
+pushed straight to the main branch as work finished. From the Practice tab onward, new work goes
+on its own branch so it can be reviewed before it is merged.
+
+---
+
 *Next session entry goes here.*
