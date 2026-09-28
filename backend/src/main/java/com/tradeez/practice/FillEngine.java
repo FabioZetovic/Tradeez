@@ -1,0 +1,258 @@
+package com.tradeez.practice;
+
+import java.time.Instant;
+import java.util.List;
+
+import com.tradeez.marketdata.Bar;
+
+/**
+ * Decides what happened to a bracket trade.
+ *
+ * <p>This is the component the whole product rests on. A learner commits to a stop and a target,
+ * the market plays out, and this class says which one was hit, when, and at what price. If it is
+ * wrong, every score, every journal entry and every lesson drawn from them is wrong too.
+ *
+ * <h2>Why it walks one-second bars (DEC-008)</h2>
+ * The learner watches five-minute candles. A single five-minute candle can easily have a high above
+ * the target and a low below the stop, and from the candle alone there is no way to know which came
+ * first. So the engine never looks at the candles the learner sees. It walks the one-second bars
+ * inside them, in order, and finds the first touch.
+ *
+ * <h2>Why it can still say "don't know"</h2>
+ * Finer data narrows the ambiguity; it does not remove it. If a single one-second bar spans both the
+ * stop and the target, the order is still unknown, and the engine says so: {@link Outcome#AMBIGUOUS}.
+ * That was a correction Codex made to the original design, and it matters — the alternative is to
+ * quietly pick an answer and present a guess as a fact. The result records the pessimistic exit so
+ * there is a number to show, and every consumer must label it as an assumption (INVARIANT 6).
+ *
+ * <h2>Rules, versioned together (DEC-012)</h2>
+ * <ul>
+ *   <li>Entry is <b>at market</b>: the open of the first one-second bar after the plan is locked.</li>
+ *   <li>Touch fills. A long stop is hit when the low reaches it; a long target when the high does.</li>
+ *   <li>Gaps fill at the open, not at the order price. A stop jumped over is filled where the market
+ *       actually reopened, which is worse — that is what happens to real stops.</li>
+ *   <li>Stops slip against the trader by {@link FillModel#stopSlippageTicks()}. Targets do not:
+ *       they are resting limit orders, and a limit cannot fill at a worse price than its own.</li>
+ *   <li>The market closing ends the trade. A gap in the one-second series means the session ended;
+ *       the position is flattened at the last close before it ({@link Outcome#TIME_EXIT}).</li>
+ *   <li>Commission is charged per contract per round trip.</li>
+ * </ul>
+ *
+ * Changing any of these changes results, so {@link #VERSION} must change with them. Every stored
+ * result carries the version that produced it; bumping it is what keeps old results explicable.
+ *
+ * <p>Everything is integer ticks (INVARIANT 3). No floating point touches a price or an amount.
+ */
+public final class FillEngine {
+
+	/** Bump on ANY change to fill behaviour. Stored on every result. */
+	public static final String VERSION = "fill-1.0.0";
+
+	private FillEngine() {
+	}
+
+	public enum Direction {
+		LONG, SHORT;
+
+		/** +1 for a long, -1 for a short: multiplies a raw price move into profit. */
+		int sign() {
+			return this == LONG ? 1 : -1;
+		}
+	}
+
+	public enum Outcome {
+		/** The target was reached first. */
+		TARGET,
+		/** The stop was reached first. */
+		STOP,
+		/**
+		 * Both were inside a single one-second bar, so the order is genuinely unknown. The recorded
+		 * exit is the pessimistic one (the stop), and must be presented as an assumption.
+		 */
+		AMBIGUOUS,
+		/** Neither was reached before the session closed; flattened at the last close. */
+		TIME_EXIT
+	}
+
+	/** The finest data the resolution used. Only one-second data exists today. */
+	public enum Resolution {
+		S1
+	}
+
+	/**
+	 * Execution assumptions, kept separate from the plan so they can be varied and versioned.
+	 *
+	 * @param stopSlippageTicks               ticks a stop fill loses beyond its price
+	 * @param commissionCentsPerContractRound commission per contract, entry plus exit
+	 */
+	public record FillModel(long stopSlippageTicks, long commissionCentsPerContractRound) {
+
+		/** DEC-008's defaults: one tick of stop slippage, $2.50 a round trip. */
+		public static final FillModel DEFAULT = new FillModel(1, 250);
+
+		public FillModel {
+			if (stopSlippageTicks < 0 || commissionCentsPerContractRound < 0) {
+				throw new IllegalArgumentException("Slippage and commission cannot be negative.");
+			}
+		}
+
+		/**
+		 * The assumptions spelled out, stored on every result beside {@link FillEngine#VERSION}.
+		 * The engine version says which rules ran; this says which numbers they ran with.
+		 */
+		public String version() {
+			return "slip-" + stopSlippageTicks + "t/comm-" + commissionCentsPerContractRound + "c";
+		}
+	}
+
+	public record Plan(Direction direction, long stopTicks, long targetTicks, int contracts) {
+
+		public Plan {
+			if (contracts <= 0) {
+				throw new IllegalArgumentException("A trade needs at least one contract.");
+			}
+		}
+	}
+
+	/**
+	 * What happened.
+	 *
+	 * @param pnlTicks  per contract, signed, after slippage, before commission
+	 * @param maeTicks  maximum adverse excursion — how far the trade went against the entry. Never
+	 *                  negative.
+	 * @param mfeTicks  maximum favourable excursion — how far it went in the trader's favour. Never
+	 *                  negative.
+	 * @param gapExit   true when the exit was filled at an opening price beyond the order, rather than
+	 *                  at the order's own price
+	 */
+	public record Fill(
+		Outcome outcome,
+		Instant entryTime,
+		long entryTicks,
+		Instant exitTime,
+		long exitTicks,
+		long pnlTicks,
+		long maeTicks,
+		long mfeTicks,
+		boolean gapExit,
+		Resolution resolution) {
+
+		/** Net result in cents across all contracts, commission included. */
+		public long netPnlCents(long tickValueCents, int contracts, FillModel model) {
+			return pnlTicks * tickValueCents * contracts
+				- model.commissionCentsPerContractRound() * contracts;
+		}
+	}
+
+	/**
+	 * Resolves a bracket trade.
+	 *
+	 * @param seconds one-second bars in time order, starting at the moment the plan was locked. Must
+	 *                not be empty — a trade cannot be entered into a closed market.
+	 */
+	public static Fill resolve(Plan plan, List<Bar> seconds, FillModel model) {
+		if (seconds.isEmpty()) {
+			throw new IllegalArgumentException("No market data to enter the trade into.");
+		}
+
+		final Direction dir = plan.direction();
+		final int sign = dir.sign();
+		final long stop = plan.stopTicks();
+		final long target = plan.targetTicks();
+		final long slip = model.stopSlippageTicks();
+
+		final Bar first = seconds.getFirst();
+		final Instant entryTime = first.openTime();
+		final long entry = first.openTicks();
+
+		long mae = 0;
+		long mfe = 0;
+
+		for (int i = 0; i < seconds.size(); i++) {
+			Bar bar = seconds.get(i);
+
+			// A hole in the one-second series means the market closed. The trade does not survive
+			// into the next session: it is flattened at the last price before the close.
+			if (i > 0 && bar.openTime().getEpochSecond()
+					- seconds.get(i - 1).openTime().getEpochSecond() > 1) {
+				Bar last = seconds.get(i - 1);
+				return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks(),
+					sign, mae, mfe, false);
+			}
+
+			long open = bar.openTicks();
+
+			// The open first. If the market opened beyond a level, the order fills at the open —
+			// never at its own price, which the market skipped straight past.
+			if (stopTouched(dir, open, open, stop)) {
+				long exit = open - sign * slip;
+				return fill(Outcome.STOP, entryTime, entry, bar.openTime(), exit, sign,
+					Math.max(mae, adverse(sign, entry, exit)), mfe, open != stop);
+			}
+			if (targetTouched(dir, open, open, target)) {
+				return fill(Outcome.TARGET, entryTime, entry, bar.openTime(), open, sign,
+					mae, Math.max(mfe, favourable(sign, entry, open)), open != target);
+			}
+
+			boolean stopHit = stopTouched(dir, bar.lowTicks(), bar.highTicks(), stop);
+			boolean targetHit = targetTouched(dir, bar.lowTicks(), bar.highTicks(), target);
+
+			if (stopHit && targetHit) {
+				// Both inside one second. The order cannot be known from this data, and pretending
+				// otherwise would be presenting a guess as a fact. Record the pessimistic exit so there
+				// is something to show, flagged as what it is.
+				long exit = stop - sign * slip;
+				return fill(Outcome.AMBIGUOUS, entryTime, entry, bar.openTime(), exit, sign,
+					Math.max(mae, adverse(sign, entry, exit)),
+					Math.max(mfe, favourable(sign, entry, target)), false);
+			}
+			if (stopHit) {
+				long exit = stop - sign * slip;
+				// Only the exit price counts toward excursion on the exit bar: whatever else the bar
+				// did happened after, or before, a position that no longer existed.
+				return fill(Outcome.STOP, entryTime, entry, bar.openTime(), exit, sign,
+					Math.max(mae, adverse(sign, entry, exit)), mfe, false);
+			}
+			if (targetHit) {
+				return fill(Outcome.TARGET, entryTime, entry, bar.openTime(), target, sign,
+					mae, Math.max(mfe, favourable(sign, entry, target)), false);
+			}
+
+			// Survived the whole second: its extremes are genuine excursions.
+			long worst = dir == Direction.LONG ? bar.lowTicks() : bar.highTicks();
+			long best = dir == Direction.LONG ? bar.highTicks() : bar.lowTicks();
+			mae = Math.max(mae, adverse(sign, entry, worst));
+			mfe = Math.max(mfe, favourable(sign, entry, best));
+		}
+
+		// Ran out of data without a decision. The caller supplied a window that ended mid-session;
+		// flatten at the last close.
+		Bar last = seconds.getLast();
+		return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks(),
+			sign, mae, mfe, false);
+	}
+
+	private static boolean stopTouched(Direction dir, long low, long high, long stop) {
+		return dir == Direction.LONG ? low <= stop : high >= stop;
+	}
+
+	private static boolean targetTouched(Direction dir, long low, long high, long target) {
+		return dir == Direction.LONG ? high >= target : low <= target;
+	}
+
+	/** How far {@code price} is against the position, in ticks; zero if it is not against it. */
+	private static long adverse(int sign, long entry, long price) {
+		return Math.max(0, -sign * (price - entry));
+	}
+
+	/** How far {@code price} is in the position's favour, in ticks; zero if it is not. */
+	private static long favourable(int sign, long entry, long price) {
+		return Math.max(0, sign * (price - entry));
+	}
+
+	private static Fill fill(Outcome outcome, Instant entryTime, long entry, Instant exitTime,
+			long exit, int sign, long mae, long mfe, boolean gap) {
+		return new Fill(outcome, entryTime, entry, exitTime, exit, sign * (exit - entry),
+			mae, mfe, gap, Resolution.S1);
+	}
+}

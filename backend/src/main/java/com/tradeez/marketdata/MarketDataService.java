@@ -83,6 +83,32 @@ public class MarketDataService {
 		return provider.bars(instrument, timeframe, from, to, seed);
 	}
 
+	/**
+	 * Server-side access to <b>any</b> market, including a practice session's secret one.
+	 *
+	 * <p>DEC-038: never call this with a seed that came from a request, and never return its output
+	 * to a client without clipping it to a session cursor. It deliberately skips the per-request caps
+	 * above, because its only callers bound their own ranges — the practice engine needs a full
+	 * trading day of one-second data to resolve a trade, far more than any client may ask for.
+	 */
+	public BarSeries internalBars(Instrument instrument, Timeframe timeframe, Instant from,
+			Instant to, long seed) {
+		if (!to.isAfter(from)) {
+			return new BarSeries(instrument.getSymbol(), timeframe, instrument.getDataClass(),
+				"generated", seed, null, List.of());
+		}
+		return providerFor(instrument).bars(instrument, timeframe, from, to, seed);
+	}
+
+	private MarketDataProvider providerFor(Instrument instrument) {
+		return providers.stream()
+			.filter(p -> p.supports(instrument))
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException(
+				"No market data provider serves " + instrument.getSymbol()
+					+ " (dataClass=" + instrument.getDataClass() + ")"));
+	}
+
 	public static class InstrumentNotFoundException extends RuntimeException {
 		public InstrumentNotFoundException(String symbol) {
 			super("No instrument with symbol '" + symbol + "'.");
