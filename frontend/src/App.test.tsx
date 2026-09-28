@@ -145,6 +145,23 @@ describe('App — signed in', () => {
     })
   })
 
+  it('never asks the public bars endpoint for a particular seed (DEC-038)', async () => {
+    // The backend rejects a seed outright, but the client should not be written to send one: a
+    // choosable seed is how a practice session's future would be read ahead of the replay.
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    await waitFor(() => expect(adapter.bars).toHaveLength(1))
+
+    const barRequests = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/bars'))
+
+    expect(barRequests.length).toBeGreaterThan(0)
+    for (const url of barRequests) {
+      expect(url).not.toMatch(/[?&]seed=/)
+    }
+  })
+
   it('sends credentials on every request so the auth cookie is attached', async () => {
     // DEC-032 — without credentials: 'include' the HttpOnly cookie is simply not sent on a
     // cross-origin request, and every authenticated call would 401 in production while passing

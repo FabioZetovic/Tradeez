@@ -83,7 +83,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
     setError(null)
 
     const { from, to } = demoWindow(timeframe)
-    getBars({ symbol, timeframe, from, to, seed: 42 })
+    getBars({ symbol, timeframe, from, to })
       .then((result) => {
         if (!cancelled) setSeries(result)
       })

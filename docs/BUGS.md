@@ -387,6 +387,37 @@ structure out of a formula.
 
 ---
 
+### BUG-027 🔴 The public bars endpoint let any client choose the market it read
+
+**Status:** reasoned — latent, not exploitable before the Practice slice existed
+**Fixed:** Session 014, at Fabio's instruction · **Found by:** reading the code while designing task 6
+**Affects:** `MarketDataController`, `lib/api/marketData.ts`
+
+`GET /api/market/instruments/{symbol}/bars` accepted a `seed` and any time range, past or future. A
+simulated market is a pure function of its seed, so the endpoint was a generator any client could
+drive.
+
+That was harmless while the only simulated market was the public chart. It stops being harmless the
+moment a practice session exists: whoever learns that session's seed can ask this endpoint for the
+bars the replay has not revealed yet, from entirely outside the practice API, and never pass the
+cursor check that DEC-009 relies on. One leaked seed — in a log line, an error message, a response
+field added carelessly later — and the product's central promise is gone.
+
+**Fix (DEC-038):** the endpoint now serves one fixed public market and rejects a `seed` parameter
+with 400. The frontend no longer sends one. Practice seeds will be `SecureRandom`, never equal to the
+public seed, withheld until the session completes, and readable only through the practice API.
+
+**Tests:** `MarketDataApiTest.seedCannotBeChosen`, and `App.test` asserting no bars request carries
+a seed. The test that used to assert *different seeds give different markets over HTTP* was asserting
+the hole itself; it was rewritten, and seed-level determinism is still proven in
+`DemoSeriesGeneratorTest`, where it belongs.
+
+**Lesson:** with generated data, the generator's inputs are the data. Securing the replay's cursor is
+worthless if another endpoint will regenerate what lies beyond it for anyone who asks with the right
+number.
+
+---
+
 ### BUG-026 🟡 `PATH.md` described a repository six sessions out of date
 
 **Fixed:** Session 013 · **Found by:** an audit Fabio asked for

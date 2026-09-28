@@ -24,6 +24,19 @@ public class MarketDataService {
 	/** Ceiling on the requested span, checked before generating anything. */
 	private static final Duration MAX_RANGE = Duration.ofDays(400);
 
+	/**
+	 * The one market the public chart shows (DEC-038).
+	 *
+	 * <p>Fixed, and deliberately not configurable from a request. Every simulated market is a pure
+	 * function of its seed, so letting a client choose one would let it read any market — including
+	 * a practice session's, past the point the replay has revealed.
+	 *
+	 * <p>Kept at 42 because that is what the chart has always shown: drawings saved before DEC-038
+	 * were anchored to prices on this market, and changing it would leave every one of them floating
+	 * over price action it was never drawn against. Practice seeds must never equal this value.
+	 */
+	public static final long PUBLIC_CHART_SEED = 42L;
+
 	private final InstrumentRepository instruments;
 	private final List<MarketDataProvider> providers;
 

@@ -250,6 +250,39 @@ retry until they win.
 Show "USA 100, unknown date" during analysis. A user who recognises or looks up the date has
 lookahead just as surely as one reading the network tab.
 
+*Refined by DEC-038:* on **simulated** data the date reveals nothing — there is no real history to
+look up. The secret that matters there is the **seed**. Date obfuscation still applies in full the
+moment real data (`IMPORTED_PRIVATE` or `LICENSED_DEPLOYABLE`) is used in practice.
+
+**DEC-038 — A simulated market's seed is a secret; the public endpoint serves one fixed market**
+`AGREED` · Claude, Session 014, at Fabio's instruction ⚠️ critical
+
+A simulated market is a pure function of `(seed, time)`. Whoever holds the seed can generate any
+range of it — including the part of a practice replay that has not been revealed yet. So for
+simulated data, **the seed is the lookahead**, in exactly the sense DEC-009 forbids.
+
+Until Session 014, `GET /api/market/instruments/{symbol}/bars` accepted any seed and any time
+range. That made it a generator anyone could drive: a practice session's seed, leaked through any
+channel, would have let a client read the whole future of that session from *outside* the practice
+API, never touching the cursor that DEC-009 relies on. Nothing exploited it only because the
+Practice slice did not exist yet.
+
+The rules:
+
+1. **The public bars endpoint serves exactly one market**, `MarketDataService.PUBLIC_CHART_SEED`
+   (42). A request that supplies a seed is rejected with 400 — loudly, so a client that believes it
+   is selecting a market learns that it is not. Kept at 42 because drawings saved before this
+   decision are anchored to prices on that market.
+2. **Practice seeds come from `SecureRandom`**, as full 64-bit values, and are **never equal to the
+   public seed**.
+3. **A practice seed is withheld from every response until its session is complete.** After that it
+   is shown, because DEC-012 reproducibility requires it and there is nothing left to reveal.
+4. **A practice market is read only through the practice API**, which clips every response to the
+   session cursor.
+
+Tested at both ends: the backend rejects a seed parameter, and the frontend is asserted never to send
+one.
+
 **DEC-008 — The fill engine simulates at sub-resolution** · `AGREED` · both analyses ⚠️ critical
 **The problem:** a replayed 5m bar with `high` above the take-profit and `low` below the stop-loss
 does not reveal which was touched first. At realistic day-trading stop distances this is common,

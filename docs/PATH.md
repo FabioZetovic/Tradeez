@@ -125,7 +125,15 @@ this block **load-bearing, not advisory**:
    ignore the mechanism.
 
 ```yaml
-claimed_files: []   # session 012 released its claims
+claimed_files:      # session 014 (CLAUDE) — task 6, practice slice, on branch feat/practice-slice
+  # Claimed in the same commit as the first real change (ENV-004): a claim with no work behind it
+  # is exactly what an interrupted session leaves lying around.
+  - backend/src/main/java/com/tradeez/practice/**
+  - backend/src/main/java/com/tradeez/marketdata/MarketData{Controller,Service}.java
+  - backend/src/main/resources/db/migration/V5__*
+  - backend/src/test/java/com/tradeez/**
+  - frontend/src/**
+  - docs/**
 ```
 
 ---

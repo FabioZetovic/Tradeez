@@ -38,18 +38,23 @@ export type TimeframeCode = (typeof TIMEFRAMES)[number]
 
 export const listInstruments = () => apiFetch<Instrument[]>('/api/market/instruments')
 
+/**
+ * Bars for the public chart.
+ *
+ * There is deliberately no seed parameter. The backend serves one fixed public market and rejects
+ * any attempt to choose another (DEC-038): a simulated market is a pure function of its seed, so a
+ * choosable seed would let anyone read a practice session's future.
+ */
 export function getBars(params: {
   symbol: string
   timeframe: string
   from: number
   to: number
-  seed: number
 }): Promise<BarSeries> {
   const query = new URLSearchParams({
     timeframe: params.timeframe,
     from: String(params.from),
     to: String(params.to),
-    seed: String(params.seed),
   })
   return apiFetch<BarSeries>(
     `/api/market/instruments/${encodeURIComponent(params.symbol)}/bars?${query}`,
