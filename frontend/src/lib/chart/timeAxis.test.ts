@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createTimeFormatter, timezoneLabel } from './timeAxis'
+import { createTimeFormatter, timezoneLabel, formatSessionTime } from './timeAxis'
 
 const CHICAGO = 'America/Chicago'
 
@@ -30,5 +30,19 @@ describe('time axis', () => {
     expect(timezoneLabel(CHICAGO, 'exchange', new Date(SUMMER * 1000))).toBe('CDT')
     expect(timezoneLabel(CHICAGO, 'exchange', new Date(WINTER * 1000))).toBe('CST')
     expect(timezoneLabel(CHICAGO, 'utc', new Date())).toBe('UTC')
+  })
+})
+
+describe('formatSessionTime', () => {
+  it('names the weekday and exchange time, with the zone, and no date', () => {
+    // 2024-03-13 14:00 UTC is a Wednesday, 09:00 in Chicago (CDT, UTC-5).
+    const text = formatSessionTime(1710338400, 'America/Chicago')
+    expect(text).toBe('Wed 09:00 CDT')
+    expect(text).not.toMatch(/2024|Mar|13/)
+  })
+
+  it('follows daylight saving: the same UTC hour is 08:00 CST in January', () => {
+    // 2024-01-10 14:00 UTC.
+    expect(formatSessionTime(1704895200, 'America/Chicago')).toBe('Wed 08:00 CST')
   })
 })

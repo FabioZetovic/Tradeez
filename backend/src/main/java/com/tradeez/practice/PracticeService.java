@@ -313,6 +313,7 @@ public class PracticeService {
 			instrument.getSymbol(),
 			instrument.getTickSize(),
 			instrument.getTickValueCents(),
+			instrument.getExchangeTimezone(),
 			session.getTimeframe(),
 			session.getStatus().name(),
 			session.getStartTime().getEpochSecond(),
@@ -322,7 +323,7 @@ public class PracticeService {
 			plan == null ? null : planView(plan),
 			entry,
 			complete && result != null ? resultView(result, plan) : null,
-			complete ? session.getSeed() : null,
+			complete ? Long.toString(session.getSeed()) : null,
 			session.getGeneratorVersion());
 	}
 
@@ -330,7 +331,8 @@ public class PracticeService {
 		long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
 		long reward = Math.abs(plan.getTargetTicks() - plan.getReferenceTicks());
 		return new PlanView(plan.getDirection(), plan.getStopTicks(), plan.getTargetTicks(),
-			plan.getContracts(), plan.getReferenceTicks(), round2((double) reward / risk));
+			plan.getContracts(), plan.getReferenceTicks(), plan.getSubmittedCursor().getEpochSecond(),
+			round2((double) reward / risk));
 	}
 
 	private static ResultView resultView(PracticeResult result, TradePlan plan) {

@@ -15,6 +15,7 @@ import { timezoneLabel, type AxisTimezone } from '@/lib/chart/timeAxis'
 import { DrawingOverlay } from './DrawingOverlay'
 import { DrawingToolbar } from './DrawingToolbar'
 import { useDrawings } from '@/hooks/useDrawings'
+import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import type { SnapMode } from '@/lib/drawing/snap'
 import type { DrawingKind } from '@/lib/drawing/types'
 
@@ -42,34 +43,16 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
     void commit()
   }, [drawingState.selectedId, dispatch, commit])
 
-  // Keyboard shortcuts. Bound on the window rather than the canvas because a canvas cannot hold
-  // focus without a tabindex, and a chart that steals focus from the page is worse than one that
-  // shares its shortcuts.
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null
-      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return
+  const cancelTool = useCallback(() => setActiveTool(null), [])
+  const persist = useCallback(() => void commit(), [commit])
 
-      if (event.key === 'Escape') {
-        setActiveTool(null)
-        dispatch({ type: 'select', id: null })
-        return
-      }
-      if ((event.key === 'Delete' || event.key === 'Backspace') && drawingState.selectedId) {
-        event.preventDefault()
-        deleteSelected()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        dispatch({ type: event.shiftKey ? 'redo' : 'undo' })
-        void commit()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [dispatch, commit, deleteSelected, drawingState.selectedId])
+  useDrawingShortcuts({
+    selectedId: drawingState.selectedId,
+    dispatch,
+    onCancelTool: cancelTool,
+    onDeleteSelected: deleteSelected,
+    onHistoryChange: persist,
+  })
 
   useEffect(() => {
     listInstruments()

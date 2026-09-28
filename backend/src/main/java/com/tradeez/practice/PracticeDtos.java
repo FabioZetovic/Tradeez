@@ -51,6 +51,8 @@ public final class PracticeDtos {
 		int contracts,
 		@Schema(description = "The last visible close when the plan was locked")
 		long referenceTicks,
+		@Schema(description = "The cursor when the plan was locked; entry is the next price after it")
+		long lockedAt,
 		@Schema(description = "Reward:risk as planned against the reference price")
 		double plannedRewardRisk) {
 	}
@@ -87,6 +89,8 @@ public final class PracticeDtos {
 		String instrument,
 		BigDecimal tickSize,
 		long tickValueCents,
+		@Schema(description = "IANA zone for labelling times, e.g. America/Chicago")
+		String exchangeTimezone,
 		String timeframe,
 		@Schema(description = "ANALYSING | IN_TRADE | COMPLETE") String status,
 		long startTime,
@@ -96,8 +100,11 @@ public final class PracticeDtos {
 		PlanView plan,
 		EntryView entry,
 		ResultView result,
-		@Schema(description = "Withheld until COMPLETE: the seed IS the future (DEC-038)")
-		Long seed,
+		@Schema(description = """
+			Withheld until COMPLETE: the seed IS the future (DEC-038). A decimal STRING, because a \
+			64-bit seed does not survive being a JSON number: JavaScript rounds anything above 2^53, \
+			and a rounded seed reproduces a different market (BUG-028).""")
+		String seed,
 		String generatorVersion) {
 	}
 

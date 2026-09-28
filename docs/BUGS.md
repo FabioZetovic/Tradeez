@@ -53,6 +53,79 @@ requests overlapping ranges, then cache if the numbers justify it.
 
 ---
 
+### BUG-029 🟠 The time axis labels in UTC; only the crosshair uses exchange time
+
+**Status:** verified — seen in the browser in session 014
+**Found by:** browser check of the Practice tab · **Affects:** `lib/chart/lightweightAdapter.ts`
+
+The practice header said *Thu 02:35 CST* while the tick marks under the latest bars read `08:00`.
+Hovering the same bar put `02:20` in the crosshair label. So the axis is in UTC and the crosshair is
+in Chicago time, on the same chart, at once.
+
+Cause: BUG-014's fix set `localization.timeFormatter`, which in Lightweight Charts v5 formats the
+**crosshair** label only. The tick marks along the axis come from `timeScale.tickMarkFormatter`,
+which was never set, so they fall back to UTC. The BUG-014 test checks the formatter function, not
+what the axis draws — which is why it passed.
+
+This matters more now than when it was written: a practice session is read in session terms (the
+Asian range, the New York open), and an axis six hours off teaches the wrong times.
+
+**Fix (batch):** set `timeScale.tickMarkFormatter` from the same `createTimeFormatter`, with a test
+that the adapter passes a tick-mark formatter at all.
+
+---
+
+### BUG-030 🟡 The test setup's canvas stub never installs
+
+**Status:** verified · **Affects:** `frontend/src/test/setup.ts`
+
+The stub is guarded by `!HTMLCanvasElement.prototype.getContext`. jsdom *does* define `getContext` —
+it just logs "Not implemented" and returns null — so the guard is false and the stub is skipped.
+Every test that mounts the drawing overlay prints that line: 55 of them in a full run as of session
+014. Harmless to results (the overlay already handles a null context), but the noise buries real
+warnings.
+
+**Fix (batch):** install the stub unconditionally in the test setup.
+
+---
+
+### BUG-031 🟡 The "Tradeez" title is nearly invisible
+
+**Status:** verified — visible in every session-014 screenshot, including the sign-in screen
+**Affects:** `index.css` / `App.css`
+
+The `h1` renders dark grey on the dark background. Leftover Vite template heading colour
+(`--text-h`) that the app's own palette never overrode.
+
+---
+
+### BUG-032 🟡 One pixel of horizontal scroll on long pages
+
+**Status:** verified — `scrollWidth` 947 vs `clientWidth` 946 on both the Chart and Practice tabs
+**Affects:** page layout (template `#root` rules in `index.css` are the first suspect)
+
+Only appears when the page is tall enough for a vertical scrollbar. A horizontal scrollbar appears for
+a single pixel. Cosmetic, pre-dates session 014.
+
+---
+
+### BUG-033 🟡 Practice regenerates its market on every request, inside a transaction
+
+**Status:** reasoned from the code; timings observed in tests (~0.3 s to create a session)
+**Affects:** `PracticeService` · **Related:** BUG-010
+
+Creating or resuming a session generates four-plus days of one-second data to aggregate the visible
+history; locking a plan generates up to a trading day of one-second bars to resolve it. All of it
+happens inside the service's `@Transactional` methods, so a database connection is held while the CPU
+works. Fine for one learner on a laptop; with many concurrent users the pool would run dry before the
+CPU did.
+
+Not fixed on purpose, for BUG-010's reason: measure first. The likely fixes, in order: generate
+outside the transaction (load, release, compute, then a short write), then cache per
+`(seed, range, generatorVersion)` if resumes turn out to dominate.
+
+---
+
 ## Environment
 
 ### ENV-004 🟠 An interrupted session leaves its file claims behind
@@ -141,7 +214,7 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 | Area | Limitation | Why |
 |---|---|---|
-| Auth | No login or registration **UI** | API complete and tested; screens arrive with the first real pages |
+| Auth | ~~No login or registration **UI**~~ | *Out of date since task 4, which shipped both screens. Struck through rather than deleted (session 014).* |
 | Auth | No email verification or password reset | Out of scope for the vertical slice |
 | Market data | No real NQ data anywhere in the project | DEC-033 — `DEMO-NQ` only, and real data needs written permission (DEC-020, DEC-035) |
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |
@@ -151,6 +224,11 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Rate limiting | In-memory, therefore per-instance | A second replica would allow the full quota again. A speed bump, not a guarantee; a shared store is the upgrade path if this is ever scaled out |
 | `X-Forwarded-For` | Trusted as a best effort | The header is client-supplied and forgeable, so per-IP limits can be evaded by rotating it. The real fix belongs to the deployment's proxy, which must overwrite it — verify that wherever this is hosted |
 | Deployment | Local only | DEC-002 — nothing is hosted yet, and nothing costs money |
+| Practice | Simulated instruments only | Real data would need its date hidden until the reveal (DEC-025); the service refuses a non-simulated instrument rather than run a session whose timestamps give the answer away |
+| Practice | Drawings on a practice chart are not saved | They are analysis of a market the learner cannot otherwise see; saving them to the instrument would put them on the public chart |
+| Practice | One bracket trade per session, entered at market | The vertical slice's scope. Limit entries, scaling and multiple trades are later work |
+| Practice | A replay steps at most 3 days past its start; 60 new sessions per user per hour; journal lists the latest 50 | Each bounds how much data one request has to generate |
+| Practice | Results on simulated data are practice, not evidence | Stated on the result card. No aggregate score exists yet; when one does, DEC-034 applies |
 
 ---
 
@@ -384,6 +462,34 @@ There is no real volume to generate, so this cannot be fixed — only disclosed.
 The rule it implies still stands: **nothing volume-derived may be built on a `SIMULATED`
 series.** Volume profile, VWAP-by-volume, relative volume and delta would all be reading
 structure out of a formula.
+
+---
+
+### BUG-028 🔴 The revealed seed was rounded by the browser, so it reproduced a different market
+
+**Status:** verified — found in the browser, before the feature was committed
+**Fixed:** Session 014, same session · **Found by:** browser check of a completed practice session
+**Affects:** `PracticeDtos.PracticeState.seed`, `lib/api/practice.ts`
+
+After a trade completes, the result card shows the seed so the outcome can be reproduced (DEC-012).
+The database held `1713776017923440752`; the page showed `1713776017923440600`.
+
+The seed is a 64-bit `SecureRandom` long, sent as a JSON number. JavaScript numbers are doubles and
+hold integers exactly only up to 2^53, so the browser silently rounded it. Nearly every practice seed
+is above that. The number on screen looked authoritative and would regenerate a *different* market —
+a reproducibility claim that was false in almost every case.
+
+Every backend test passed, because Jackson and Java read the JSON back as a long without loss. The bug
+only exists in a JavaScript client, and only a real browser showed it.
+
+**Fix:** the API sends the seed as a decimal **string**; the frontend types it as `string` and never
+parses it.
+
+**Tests:** `PracticeApiTest` asserts the seed is textual and equal to the stored value;
+`PracticeView.test` uses a seed above 2^53 and asserts the exact digits are displayed.
+
+**Lesson:** a 64-bit identifier is not a number to a JavaScript client. Anything that must survive
+exactly — seeds, snowflake ids, large counters — crosses the wire as a string.
 
 ---
 

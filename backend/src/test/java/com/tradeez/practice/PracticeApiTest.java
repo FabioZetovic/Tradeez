@@ -191,7 +191,8 @@ class PracticeApiTest extends AbstractIntegrationTest {
 
 			// DEC-038: the seed would regenerate the whole future of this market.
 			assertThat(absent(session, "/state/seed")).isTrue();
-			assertThat(session.toString()).doesNotContain("\"seed\":" + seedOf(id));
+			// Not under any key, in any form: the digits of the seed appear nowhere in the response.
+			assertThat(session.toString()).doesNotContain(Long.toString(seedOf(id)));
 
 			assertThat(seedOf(id)).isNotEqualTo(MarketDataService.PUBLIC_CHART_SEED);
 			assertThat(seedOf(create(alice).at("/state/id").asText()))
@@ -281,6 +282,8 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			assertThat(state.get("status").asText()).isEqualTo("IN_TRADE");
 			assertThat(state.at("/plan/direction").asText()).isEqualTo("LONG");
 			assertThat(state.at("/plan/plannedRewardRisk").asDouble()).isEqualTo(2.0);
+			assertThat(state.at("/plan/lockedAt").asLong())
+				.isEqualTo(session.at("/state/cursor").asLong());
 			// The result exists in the database already — and must not be in the response.
 			assertThat(absent(state, "/result")).isTrue();
 			assertThat(absent(state, "/seed")).isTrue();
@@ -450,7 +453,10 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			assertThat(state.get("status").asText()).isEqualTo("COMPLETE");
 			assertThat(result.get("outcome").asText()).isIn("TARGET", "STOP", "AMBIGUOUS", "TIME_EXIT");
 			assertThat(result.get("exitTime").asLong()).isLessThan(state.get("cursor").asLong());
-			assertThat(state.get("seed").asLong()).isEqualTo(seedOf(id));
+			// BUG-028: a string, exactly. As a JSON number a 64-bit seed is rounded by any JavaScript
+			// client, and the rounded value reproduces a different market.
+			assertThat(state.get("seed").isTextual()).isTrue();
+			assertThat(state.get("seed").asText()).isEqualTo(Long.toString(seedOf(id)));
 			assertThat(result.get("engineVersion").asText()).isEqualTo(FillEngine.VERSION);
 			assertThat(result.get("fillModelVersion").asText())
 				.isEqualTo(FillEngine.FillModel.DEFAULT.version());
@@ -479,7 +485,7 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			// Nothing but what the API has now published: the seed, the plan, the moment.
 			Instrument nq = marketData.requireInstrument("DEMO-NQ");
 			List<Bar> seconds = marketData.internalBars(nq, Timeframe.S1, lockedAt,
-				PracticeService.sessionEnd(lockedAt), state.get("seed").asLong()).bars();
+				PracticeService.sessionEnd(lockedAt), Long.parseLong(state.get("seed").asText())).bars();
 			FillEngine.Fill again = FillEngine.resolve(new FillEngine.Plan(
 					FillEngine.Direction.LONG,
 					state.at("/plan/stopTicks").asLong(),

@@ -42,3 +42,21 @@ export function timezoneLabel(exchangeTimezone: string, mode: AxisTimezone, at: 
   }).formatToParts(at)
   return parts.find((p) => p.type === 'timeZoneName')?.value ?? exchangeTimezone
 }
+
+/**
+ * A single instant for prose, in the exchange's zone: "Tue 09:35 CDT".
+ *
+ * Weekday and time, no date. On simulated data the date means nothing, while the weekday and the
+ * session time are exactly what a learner reasons about — Monday's open, the New York session.
+ */
+export function formatSessionTime(epochSeconds: number, exchangeTimezone: string): string {
+  const at = new Date(epochSeconds * 1000)
+  const text = new Intl.DateTimeFormat('en-GB', {
+    timeZone: exchangeTimezone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(at)
+  return `${text} ${timezoneLabel(exchangeTimezone, 'exchange', at)}`
+}

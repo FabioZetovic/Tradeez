@@ -56,6 +56,15 @@ export interface ChartAdapter {
   updateBar(bar: DomainBar): void
 
   fitContent(): void
+
+  /**
+   * Frames the last `count` bars, leaving room on the right.
+   *
+   * For practice: four days of history fitted into one screen is unreadable, and the learner's
+   * decision is about the most recent price action. The history stays scrollable to the left.
+   */
+  showRecent(count: number): void
+
   resize(width: number, height: number): void
   destroy(): void
 

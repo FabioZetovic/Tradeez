@@ -35,6 +35,12 @@ export class FakeChartAdapter implements ChartAdapter {
     this.fitCalls += 1
   })
 
+  recentShown: number | null = null
+
+  showRecent = vi.fn((count: number) => {
+    this.recentShown = count
+  })
+
   resize = vi.fn()
 
   destroy = vi.fn(() => {

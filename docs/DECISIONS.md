@@ -283,6 +283,11 @@ The rules:
 Tested at both ends: the backend rejects a seed parameter, and the frontend is asserted never to send
 one.
 
+*Refined in the same session (BUG-028):* when the seed is revealed, it travels as a **decimal
+string**. A full 64-bit value does not survive being a JSON number in a browser — JavaScript rounds
+anything above 2^53 — and a rounded seed regenerates a different market, which would make rule 3's
+reproducibility promise false for nearly every session.
+
 **DEC-008 — The fill engine simulates at sub-resolution** · `AGREED` · both analyses ⚠️ critical
 **The problem:** a replayed 5m bar with `high` above the take-profit and `low` below the stop-loss
 does not reveal which was touched first. At realistic day-trading stop distances this is common,

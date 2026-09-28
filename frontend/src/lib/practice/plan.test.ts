@@ -1,0 +1,124 @@
+import { describe, expect, it } from 'vitest'
+import {
+  defaultBracket,
+  directionOf,
+  flipBracket,
+  formatCents,
+  formatR,
+  MAX_BRACKET_TICKS,
+  outcomeLabel,
+  pinEntry,
+  PLAN_DRAWING_ID,
+  planFromDrawing,
+  planNumbers,
+  planProblem,
+} from './plan'
+
+const REF = 80_000
+const T = 1_710_338_400
+
+describe('practice plan helpers', () => {
+  it('places a 2R bracket on the correct sides for each direction', () => {
+    const long = defaultBracket('LONG', REF, T)
+    expect(long.id).toBe(PLAN_DRAWING_ID)
+    expect(long.kind).toBe('position')
+    expect(long.anchors.map((a) => a.priceTicks)).toEqual([REF, REF - 40, REF + 80])
+
+    const short = defaultBracket('SHORT', REF, T)
+    expect(short.anchors.map((a) => a.priceTicks)).toEqual([REF, REF + 40, REF - 80])
+  })
+
+  it('reads direction from where the target is', () => {
+    expect(directionOf(defaultBracket('LONG', REF, T))).toBe('LONG')
+    expect(directionOf(defaultBracket('SHORT', REF, T))).toBe('SHORT')
+  })
+
+  it('flips a long into the mirror-image short, and back', () => {
+    const long = defaultBracket('LONG', REF, T)
+    const short = flipBracket(long)
+    expect(short.anchors.map((a) => a.priceTicks)).toEqual([REF, REF + 40, REF - 80])
+    expect(flipBracket(short).anchors).toEqual(long.anchors)
+  })
+
+  it('pins the entry to the market price whatever was dragged', () => {
+    // The order is at market. The learner chooses the bracket, not the fill.
+    const dragged = defaultBracket('LONG', REF, T)
+    dragged.anchors[0] = { time: T - 900, priceTicks: REF + 25 }
+    const pinned = pinEntry(dragged, REF + 3, T + 300)
+    expect(pinned.anchors[0]).toEqual({ time: T + 300, priceTicks: REF + 3 })
+    // Stop and target keep their prices; only their time follows the entry.
+    expect(pinned.anchors[1]).toEqual({ time: T + 300, priceTicks: REF - 40 })
+    expect(pinned.anchors[2]).toEqual({ time: T + 300, priceTicks: REF + 80 })
+  })
+
+  it('turns the drawing into the request the server expects', () => {
+    expect(planFromDrawing(defaultBracket('SHORT', REF, T), 3)).toEqual({
+      direction: 'SHORT',
+      stopTicks: REF + 40,
+      targetTicks: REF - 80,
+      contracts: 3,
+    })
+  })
+
+  describe('planProblem mirrors the server rules', () => {
+    const ok = { direction: 'LONG' as const, stopTicks: REF - 40, targetTicks: REF + 80, contracts: 1 }
+
+    it('accepts a sensible bracket', () => {
+      expect(planProblem(ok, REF)).toBeNull()
+    })
+
+    it('rejects levels on the wrong side of the price', () => {
+      expect(planProblem({ ...ok, stopTicks: REF + 1 }, REF)).toMatch(/stop below/)
+      expect(planProblem({ ...ok, targetTicks: REF }, REF)).toMatch(/stop below/)
+      expect(
+        planProblem({ ...ok, direction: 'SHORT', stopTicks: REF - 40, targetTicks: REF - 80 }, REF),
+      ).toMatch(/stop above/)
+    })
+
+    it('rejects impossible contract counts', () => {
+      expect(planProblem({ ...ok, contracts: 0 }, REF)).toMatch(/Contracts/)
+      expect(planProblem({ ...ok, contracts: 101 }, REF)).toMatch(/Contracts/)
+      expect(planProblem({ ...ok, contracts: 1.5 }, REF)).toMatch(/Contracts/)
+    })
+
+    it('rejects brackets absurdly far from the price', () => {
+      expect(planProblem({ ...ok, targetTicks: REF + MAX_BRACKET_TICKS + 1 }, REF)).toMatch(
+        /within/,
+      )
+    })
+  })
+
+  it('computes risk and reward in integer cents, scaled by contracts', () => {
+    const numbers = planNumbers(
+      { direction: 'LONG', stopTicks: REF - 40, targetTicks: REF + 80, contracts: 2 },
+      REF,
+      500,
+    )
+    expect(numbers).toEqual({
+      riskTicks: 40,
+      rewardTicks: 80,
+      ratio: 2,
+      riskCents: 40_000,
+      rewardCents: 80_000,
+    })
+  })
+
+  it('formats cents without floating-point money', () => {
+    expect(formatCents(0)).toBe('$0.00')
+    expect(formatCents(20_000)).toBe('$200.00')
+    expect(formatCents(-250)).toBe('−$2.50')
+    expect(formatCents(123_456_789)).toBe('$1,234,567.89')
+  })
+
+  it('formats R with a sign, using the same minus as money', () => {
+    expect(formatR(2)).toBe('+2.00R')
+    expect(formatR(-1.025)).toBe('−1.02R')
+    expect(formatR(0)).toBe('0.00R')
+  })
+
+  it('names an ambiguous outcome as an assumption, not a stop (INVARIANT 6)', () => {
+    expect(outcomeLabel('AMBIGUOUS')).toMatch(/Ambiguous/)
+    expect(outcomeLabel('AMBIGUOUS')).not.toMatch(/Stopped/)
+    expect(outcomeLabel('STOP')).toBe('Stopped out')
+  })
+})

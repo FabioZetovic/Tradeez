@@ -21,6 +21,11 @@ interface PriceChartProps {
    * rather than only if the renderer is ever swapped.
    */
   adapterFactory?: () => ChartAdapter
+  /**
+   * Frame only the most recent bars instead of fitting the whole series. Practice sets this: its
+   * history is days long and the decision is about the last hour or two.
+   */
+  recentBars?: number
 }
 
 export function PriceChart({
@@ -30,6 +35,7 @@ export function PriceChart({
   axisTimezone,
   adapterFactory,
   overlay,
+  recentBars,
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ChartAdapter | null>(null)
@@ -51,6 +57,17 @@ export function PriceChart({
   const barsRef = useRef(bars)
   barsRef.current = bars
 
+  // What the mounted chart is currently displaying, so a data change can tell an append (a replay
+  // step) from a different series (a new instrument or timeframe).
+  const shownRef = useRef<DomainBar[]>([])
+
+  const recentRef = useRef(recentBars)
+  recentRef.current = recentBars
+  const frame = (adapter: ChartAdapter) => {
+    if (recentRef.current) adapter.showRecent(recentRef.current)
+    else adapter.fitContent()
+  }
+
   // Remount when the instrument changes (a different price scale) or when the axis timezone is
   // toggled — Lightweight Charts fixes its time formatter at creation, so the label format cannot
   // be swapped on a live chart.
@@ -65,7 +82,8 @@ export function PriceChart({
 
     // Seed the new instance with whatever is already loaded.
     adapter.setBars(barsRef.current)
-    adapter.fitContent()
+    frame(adapter)
+    shownRef.current = barsRef.current
 
     return () => {
       adapter.destroy()
@@ -75,11 +93,24 @@ export function PriceChart({
   }, [tickSize, exchangeTimezone, axisTimezone])
 
   // Data updates reuse the mounted chart.
+  //
+  // A replay appends a bar or a few at a time. Those are fed in with updateBar, which extends the
+  // series in place; replacing the series and refitting on every step would snap the view back to
+  // "everything" each time a bar arrived, so the learner could never zoom in on the price action
+  // they were actually watching. Anything that is not a pure append is a new series and is refitted.
   useEffect(() => {
     const adapter = adapterRef.current
     if (!adapter) return
-    adapter.setBars(bars)
-    adapter.fitContent()
+    const shown = shownRef.current
+    if (bars === shown) return
+
+    if (isAppendOf(shown, bars)) {
+      for (let i = shown.length; i < bars.length; i++) adapter.updateBar(bars[i])
+    } else {
+      adapter.setBars(bars)
+      frame(adapter)
+    }
+    shownRef.current = bars
   }, [bars])
 
   // The overlay is positioned against this frame, and pointer events on the chart bubble up to it —
@@ -89,5 +120,23 @@ export function PriceChart({
       <div ref={containerRef} className="chart" data-testid="price-chart" />
       {overlay?.(mountedAdapter)}
     </div>
+  )
+}
+
+/**
+ * True when `next` is `shown` with newer bars on the end.
+ *
+ * Checks the ends rather than every bar: a replay never rewrites what it has revealed (the server
+ * guarantees that, and a backend test holds it to it), so matching first and last is enough to know
+ * the prefix is the same series. The appended bars must be strictly later, because updateBar on an
+ * equal time would overwrite a bar instead of adding one.
+ */
+function isAppendOf(shown: DomainBar[], next: DomainBar[]): boolean {
+  if (shown.length === 0 || next.length <= shown.length) return false
+  const last = shown.length - 1
+  return (
+    next[0].time === shown[0].time &&
+    next[last].time === shown[last].time &&
+    next[shown.length].time > shown[last].time
   )
 }

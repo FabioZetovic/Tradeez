@@ -55,17 +55,17 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 013
+last_session: 014
 last_author: CLAUDE
 last_updated: 2026-09-28
-phase: FEATURE WORK — auth, market data, chart and drawings shipped; Practice next
+phase: FEATURE WORK — auth, market data, chart, drawings and the Practice slice shipped; drills next
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # tracks origin/master
+branch: feat/practice-slice                       # session 014; PR into master — merge before task 7
 head: see git log                                 # updated every session
-build_passing: true  # backend 71/71 (Testcontainers), frontend 67/67 + build + typecheck
+build_passing: true  # backend 118/118 (Testcontainers), frontend 92/92 + typecheck
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -82,13 +82,16 @@ files_in_repo:
     identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
     marketdata/  # instrument registry, DEMO-NQ generator, aggregation, bars API (session 009)
     charting/    # saved drawings                                              (session 012)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings
+    practice/    # fill engine, sessions, plans, results, replay API          (session 014)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice
   frontend/src/:
-    lib/api/      # fetch client, auth, market data, drawings
+    lib/api/      # fetch client, auth, market data, drawings, practice
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
     lib/drawing/  # geometry, hit testing, snapping, undo store, renderer
-    components/   # app shell, sign-in, chart workspace, drawing overlay + toolbar
-    hooks/        # useSession, useDrawings
+    lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
+    components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar
+    components/practice/  # journal, session screen, plan panel, result card
+    hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession
   docs/:
     - ANALYSIS_CLAUDE.md    # Claude's deep analysis      (Session 001-CLAUDE)
     - CHATGPT_RESEARCH.md   # Codex's deep analysis       (Session 001-CODEX)
@@ -99,7 +102,8 @@ files_in_repo:
     - PATH.md               # This file
 
 not_built_do_not_assume:
-  - replay, indicators, practice sessions, drills
+  - indicators, drills, any aggregate score or rating
+  - practice on real data (the service refuses it until DEC-025 date hiding exists)
 
 blocked_on: nothing technical — Fabio chooses the next task
 
@@ -125,15 +129,7 @@ this block **load-bearing, not advisory**:
    ignore the mechanism.
 
 ```yaml
-claimed_files:      # session 014 (CLAUDE) — task 6, practice slice, on branch feat/practice-slice
-  # Claimed in the same commit as the first real change (ENV-004): a claim with no work behind it
-  # is exactly what an interrupted session leaves lying around.
-  - backend/src/main/java/com/tradeez/practice/**
-  - backend/src/main/java/com/tradeez/marketdata/MarketData{Controller,Service}.java
-  - backend/src/main/resources/db/migration/V5__*
-  - backend/src/test/java/com/tradeez/**
-  - frontend/src/**
-  - docs/**
+claimed_files: []   # released by session 014
 ```
 
 ---
@@ -151,7 +147,8 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 3 | ~~**First data slice**~~ | — | ✅ Done in Session 009. Registry, generator, aggregation, bars API, 21 tests. |
 | 4 | ~~**First visible slice**~~ | — | ✅ Done in Session 010. Chart renders, auth UI, timeframe switching. Verified in a browser. |
 | 5 | ~~**Drawing proof**~~ | — | ✅ Done in Session 012. Gate passed → DEC-037: keep building by hand, scope stays four shapes. |
-| 6 | **Practice slice** — blind replay → immutable plan → one bracket trade → deterministic/ambiguous result → journal row | 5 | Read DEC-008/009/011/031 first |
+| 6 | ~~**Practice slice**~~ | — | ✅ Done in Session 014 on `feat/practice-slice`. Hidden moment → locked bracket → 1s fill engine → replay → result card → journal. **Merge the PR first.** |
+| 6b | **Bug batch** — BUG-023, BUG-029 (axis in UTC), BUG-030–033 | — | Fabio's standing rule: bugs are logged as found and fixed together. BUG-029 is the one a learner would notice. |
 | 7 | **First drill** — versioned FVG detector → `detected_setup` → identification drill | 6 | ⚠️ **DEC-034**: build/test on `DEMO-NQ`, but the drill is a *developer fixture* until real data clears the gate. Detector work is not blocked; the curriculum claim is. |
 | 8 | Optional €0 deployment smoke test | 2 | Re-check current free tiers; no purchase without Fabio |
 
@@ -177,6 +174,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-032 | Phase 0 JWT auth uses short-lived tokens, rotation/revocation, HttpOnly cookies, CSRF protection and strict CORS. |
 | DEC-033 | €0 data = labeled `DEMO-NQ`/`DEMO-MNQ` + permitted local CSV import; no crypto/CFD proxy. |
 | DEC-034 | Simulated setups are detector fixtures only; graded drills require permitted real data. |
+| DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-036 ⚠️ | **Spring Boot 3.5.x + Java 21 — NOT Boot 4.** Boot 4 renames starters (`-webmvc`, per-starter `-test`) and has no springdoc, which breaks DEC-007. Do not bump the major version. |
 | DEC-035 | Imported data use is environment-sensitive; jury display requires explicit source permission. |
 
@@ -1036,6 +1034,75 @@ missed this session entirely, and `CURRENT STATE.files_in_repo` had been wrong s
 Session 006. Fixed as **BUG-026** — replaced with a module map.
 
 **Handoff:** task 6, on `feat/practice-slice`.
+
+---
+
+### SESSION 014
+
+```yaml
+id: 014
+author: CLAUDE
+date: 2026-09-28
+type: FEATURE — task 6, the Practice slice
+branch: feat/practice-slice
+code_changed: true
+tests: backend 71 → 118, frontend 67 → 92
+claimed_files: []   # released
+```
+
+**Built task 6 — the loop the product exists for.** A session opens at a random, hidden moment in
+a simulated market with four days of history. The learner places a bracket with the position tool
+(entry pinned to the market price, stop and target dragged on the chart or typed in), locks it,
+and steps the replay forward — one bar, ten, play, or skip to the result. The result card and a
+journal row record what happened, and neither can be changed.
+
+**Before any practice code: BUG-027 → DEC-038.** The public bars endpoint accepted a `seed`. A
+simulated market is a pure function of its seed, so once practice sessions existed, anyone holding
+a session's seed could read its future from outside the practice API. The endpoint now serves one
+fixed market and rejects `seed` with 400; practice seeds are `SecureRandom`, never the public one,
+and withheld until COMPLETE.
+
+**Backend (`com.tradeez.practice`, `V5__practice.sql`).**
+- `FillEngine` (DEC-008): walks one-second bars; gaps fill at the open; stops slip one tick;
+  commission per contract; flat at the session close; `AMBIGUOUS` when one second spans both
+  levels. Checked against an **independent naive oracle** on 2,000 random brackets over generated
+  data — 1,925 decided, 29 ambiguous even at one-second resolution. That ratio is the evidence for
+  DEC-008's claim that finer data narrows ambiguity without removing it.
+- No lookahead, **by construction**: visible bars are generated only up to the cursor, so nothing
+  past it exists in memory to leak. The one place future data is generated — resolving a locked
+  plan — produces a result row and nothing else.
+- Outcome written once (INVARIANT 2): computed when the plan locks, withheld until the cursor
+  passes the exit. The replay is purely a reveal.
+- Plans and results are immutable in three layers: no setters, `updatable = false`, and a
+  database trigger that refuses UPDATE. Tested by going around the API with raw SQL.
+- Owner-scoped everywhere (another user's session is a 404 identical to a missing one),
+  optimistic-locked, 60 sessions/user/hour, replay bounded to 3 days past its start. Advancing
+  steps over closed market; a plan is refused while the market is closed.
+
+**Frontend.** Chart | Practice tabs; `components/practice/*`; `usePracticeSession` (server owns
+everything, one request at a time so a double click cannot earn a 409); the chart now **extends the
+series in place** during a replay instead of refitting, and frames the last 120 bars with room on the
+right for the bracket. Keyboard shortcuts moved into `useDrawingShortcuts`, shared with the chart tab.
+
+**Found in the browser, not by the suites:**
+- **BUG-028 🔴 (fixed)** — the revealed seed was a JSON number; JavaScript rounded it
+  (`…440752` → `…440600`), so the reproduction key on the result card regenerated a *different*
+  market. Every backend test passed because Java reads a long back exactly. Now a string, with
+  tests on both sides using a seed above 2^53.
+- **BUG-029 🟠 (open)** — the time axis draws UTC while the crosshair draws exchange time. BUG-014's
+  fix set only the crosshair formatter.
+- BUG-030–032 🟡 (open) — test canvas stub never installs; title nearly invisible; 1px horizontal
+  scroll. BUG-033 🟡 — practice regenerates data inside a transaction (measure before fixing).
+
+**Verified in a browser:** registered a throwaway local account (recorded in `backend/.env.example`),
+started a session, confirmed over the wire that no seed, no result and no bar at or past the cursor
+was sent, locked a long, stepped forward, and was stopped out: −41 ticks (stop minus one tick of
+slippage), −$207.50 net including $2.50 commission, −1.02R — all checked by hand.
+
+**`.claude/launch.json`** gained a `tradeez-backend` entry (port 8081 — see ENV-002).
+
+**Handoff:** merge the `feat/practice-slice` PR. Then Fabio chooses: the **bug batch** (6b —
+BUG-029 first) or task 7, the first drill. Pull first.
 
 ---
 

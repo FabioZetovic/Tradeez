@@ -102,6 +102,10 @@ public class TradePlan {
 		return referenceTicks;
 	}
 
+	public Instant getSubmittedCursor() {
+		return submittedCursor;
+	}
+
 	public Instant getSubmittedAt() {
 		return submittedAt;
 	}
