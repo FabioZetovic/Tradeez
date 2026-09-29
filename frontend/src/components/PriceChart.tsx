@@ -61,13 +61,6 @@ export function PriceChart({
   // step) from a different series (a new instrument or timeframe).
   const shownRef = useRef<DomainBar[]>([])
 
-  const recentRef = useRef(recentBars)
-  recentRef.current = recentBars
-  const frame = (adapter: ChartAdapter) => {
-    if (recentRef.current) adapter.showRecent(recentRef.current)
-    else adapter.fitContent()
-  }
-
   // Remount when the instrument changes (a different price scale) or when the axis timezone is
   // toggled — Lightweight Charts fixes its time formatter at creation, so the label format cannot
   // be swapped on a live chart.
@@ -82,7 +75,7 @@ export function PriceChart({
 
     // Seed the new instance with whatever is already loaded.
     adapter.setBars(barsRef.current)
-    frame(adapter)
+    frame(adapter, recentBars)
     shownRef.current = barsRef.current
 
     return () => {
@@ -90,7 +83,9 @@ export function PriceChart({
       adapterRef.current = null
       setMountedAdapter(null)
     }
-  }, [tickSize, exchangeTimezone, axisTimezone])
+    // recentBars is listed so the effect is honest about what it reads. In practice it is a
+    // constant per screen, so it never triggers a remount on its own.
+  }, [tickSize, exchangeTimezone, axisTimezone, recentBars])
 
   // Data updates reuse the mounted chart.
   //
@@ -108,10 +103,10 @@ export function PriceChart({
       for (let i = shown.length; i < bars.length; i++) adapter.updateBar(bars[i])
     } else {
       adapter.setBars(bars)
-      frame(adapter)
+      frame(adapter, recentBars)
     }
     shownRef.current = bars
-  }, [bars])
+  }, [bars, recentBars])
 
   // The overlay is positioned against this frame, and pointer events on the chart bubble up to it —
   // which is what lets the overlay hit-test while remaining transparent to the pointer.
@@ -121,6 +116,12 @@ export function PriceChart({
       {overlay?.(mountedAdapter)}
     </div>
   )
+}
+
+/** Frames a freshly loaded series: the most recent bars if asked, otherwise all of it. */
+function frame(adapter: ChartAdapter, recentBars: number | undefined) {
+  if (recentBars) adapter.showRecent(recentBars)
+  else adapter.fitContent()
 }
 
 /**

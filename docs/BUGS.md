@@ -17,8 +17,30 @@
 
 ## Open
 
-*None.* The session-015 batch closed every open bug; each entry moved to [Fixed](#fixed) with its
-original description intact.
+### BUG-035 🟡 Seven lint warnings predate the practice slice
+
+**Status:** verified — `npm run lint` (oxlint), session 015
+**Affects:** `PriceChart.tsx` (2), `useDrawings.ts` (2), `DrawingOverlay.tsx` (2), `ChartWorkspace.tsx` (1)
+
+Found while double-checking the practice PR, which is the first time anyone ran the project's own
+`lint` script. The PR had added seven warnings of its own; those were fixed before merging, leaving
+exactly the seven that `master` already had:
+
+- six `react(refs)` — the "latest value" pattern, `someRef.current = value` written during
+  render. React 19 may discard a render, which can leave a ref holding a value from a render that
+  never committed;
+- one `react(set-state-in-effect)` — `ChartWorkspace` resets loading and error state
+  synchronously at the start of its bars effect.
+
+**Why not fixed with the rest.** Two of the refs are the drawing overlay's gesture state, read by
+pointer handlers during a drag. Moving the assignment into an effect changes *when* a handler sees
+the new value, and if a render has not committed between two pointer moves, a dragged shape could
+jump. That needs hands-on browser testing of drags, which the session-015 browser pane could not
+provide (it was not rendering frames). Deferred to the next batch rather than changed blind.
+
+---
+
+Everything else is closed; each entry moved to [Fixed](#fixed) with its original description intact.
 
 ---
 
@@ -212,6 +234,11 @@ and it is what the OAuth security BCP recommends.
 
 **Tests:** `BugFixTest.ConcurrentRefresh` — both the duplicate and the late-reuse paths.
 
+
+**⚠️ Covered one ordering only — completed in session 015 as BUG-034.** The grace window handles a
+duplicate that arrives after the first refresh commits. Two refreshes that genuinely overlapped still
+failed on the version column and signed the user out, until BUG-034.
+
 ---
 
 ### BUG-002 🟠 No rate limiting on authentication endpoints
@@ -393,6 +420,40 @@ There is no real volume to generate, so this cannot be fixed — only disclosed.
 The rule it implies still stands: **nothing volume-derived may be built on a `SIMULATED`
 series.** Volume profile, VWAP-by-volume, relative volume and delta would all be reading
 structure out of a formula.
+
+---
+
+### BUG-034 🟠 Two refreshes at the same instant still signed the user out
+
+**Status:** verified — seen twice in the backend log on 2026-09-29, then reproduced by a test
+**Fixed:** Session 015, same session · **Found by:** double-checking the practice PR in the browser
+**Affects:** `AuthController.refresh` · **Related:** BUG-001
+
+Reloading the app after the 15-minute access token had expired landed on the sign-in screen. The
+network log showed why: two `GET /api/me` (401), then two `POST /api/auth/refresh` with the same
+refresh cookie at the same moment — the first 200, the second 401. React's development mode runs a
+component's startup effect twice, so the app raced itself; two tabs opening at once would do the same
+in production.
+
+BUG-001's fix covers a duplicate that arrives *after* the first refresh commits: the token is already
+rotated, the grace window recognises a duplicate, fresh tokens are issued. It did not cover a
+duplicate that arrives *during* it. Both requests read the token unrotated; `RefreshToken`'s version
+column lets exactly one rotation commit; the other failed with `StaleObjectStateException`, which had
+no handler and reached the browser as a 401. The server log for both occurrences shows exactly that.
+
+**✅ FIXED.** The refresh endpoint catches the optimistic-lock failure and tries once more. By the
+time the failure is thrown the winner has committed, so the retry finds the token rotated moments ago
+— inside the grace window — and is issued fresh tokens, revoking nothing. The version column still
+guarantees a single rotation; losing that race is simply no longer mistaken for being signed out.
+
+**Tests:** `ConcurrentRefreshTest` (2) — a spy makes one refresh lose the race deterministically
+and asserts the retry succeeds and its session works; six refreshes of one token fired at once all
+return 200. **Both fail without the fix**, the concurrent one with the very
+`StaleObjectStateException` from the server log.
+
+**Lesson:** a race fixed for "one after the other" is not fixed for "at the same time". BUG-001's
+test sent its duplicate after the first request had finished, which is the one ordering that
+cannot overlap.
 
 ---
 

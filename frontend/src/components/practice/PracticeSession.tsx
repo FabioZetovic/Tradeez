@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useCallback, useReducer, useState } from 'react'
 import { PriceChart } from '../PriceChart'
 import { DrawingOverlay } from '../DrawingOverlay'
 import { DrawingToolbar } from '../DrawingToolbar'
@@ -7,7 +7,7 @@ import { PlanPanel } from './PlanPanel'
 import { ResultCard } from './ResultCard'
 import { usePracticeSession } from '@/hooks/usePracticeSession'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
-import type { Direction, PracticeState, SessionResponse } from '@/lib/api/practice'
+import type { Direction, PlanView, PracticeState, SessionResponse } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionTime, type AxisTimezone } from '@/lib/chart/timeAxis'
@@ -63,7 +63,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   const [axisTimezone] = useState<AxisTimezone>('exchange')
   const [contracts, setContracts] = useState(1)
 
-  const lastBar = bars.at(-1)
+  const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined
   const status = state?.status
   const locked = status !== undefined && status !== 'ANALYSING'
 
@@ -75,59 +75,44 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
       ? state.plan.lockedAt - timeframeSeconds(state.timeframe)
       : (lastBar?.time ?? 0)
 
-  const pinRef = useRef({ referenceTicks, anchorTime, locked })
-  pinRef.current = { referenceTicks, anchorTime, locked }
-
   /**
    * Every drawing action passes through here. Actions on the plan drawing are rewritten to keep its
    * entry on the market price, and dropped entirely once the plan is locked — the server would
    * refuse a change anyway (DEC-013), and a chart that let the learner drag a locked stop would be
    * showing a trade that does not exist.
    */
-  const dispatch = useCallback((action: DrawingAction) => {
-    const { referenceTicks: ref, anchorTime: time, locked: isLocked } = pinRef.current
-    const touchesPlan =
-      ('drawing' in action && action.drawing.id === PLAN_DRAWING_ID) ||
-      ('id' in action && action.id === PLAN_DRAWING_ID && action.type !== 'select')
+  const dispatch = useCallback(
+    (action: DrawingAction) => {
+      const touchesPlan =
+        ('drawing' in action && action.drawing.id === PLAN_DRAWING_ID) ||
+        ('id' in action && action.id === PLAN_DRAWING_ID)
+      if (touchesPlan && locked) return
 
-    if (touchesPlan && isLocked) return
-    if (action.type === 'select' && action.id === PLAN_DRAWING_ID && isLocked) return
+      if ('drawing' in action && action.drawing.id === PLAN_DRAWING_ID) {
+        rawDispatch({ ...action, drawing: pinEntry(action.drawing, referenceTicks, anchorTime) })
+        return
+      }
+      rawDispatch(action)
+    },
+    [locked, referenceTicks, anchorTime],
+  )
 
-    if ('drawing' in action && action.drawing.id === PLAN_DRAWING_ID) {
-      rawDispatch({ ...action, drawing: pinEntry(action.drawing, ref, time) })
-      return
-    }
-    rawDispatch(action)
-  }, [])
-
-  // Keep the bracket's entry on the price as the replay moves it, while still analysing.
-  const planDrawing = drawingState.drawings.find((d) => d.id === PLAN_DRAWING_ID)
-  useEffect(() => {
-    if (!planDrawing || locked) return
-    const pinned = pinEntry(planDrawing, referenceTicks, anchorTime)
-    if (JSON.stringify(pinned.anchors) !== JSON.stringify(planDrawing.anchors)) {
-      rawDispatch({ type: 'preview', drawing: pinned })
-    }
-  }, [planDrawing, locked, referenceTicks, anchorTime])
-
-  // Once locked, the chart shows the server's plan — not whatever was last drawn.
+  // What the chart shows, derived on every render rather than written back into the drawing store
+  // by effects. While analysing, the bracket's entry follows the market price as the replay moves.
+  // Once locked, the bracket is the server's plan — not whatever was last drawn — and it stays that
+  // way through undo and redo, which only ever see the learner's own edits.
   const serverPlan = state?.plan
-  useEffect(() => {
-    if (!serverPlan) return
-    const others = drawingState.drawings.filter((d) => d.id !== PLAN_DRAWING_ID)
-    const time = serverPlan.lockedAt - timeframeSeconds(state?.timeframe ?? '5m')
-    const drawing: Drawing = {
-      ...defaultBracket(serverPlan.direction, serverPlan.referenceTicks, time),
-      anchors: [
-        { time, priceTicks: serverPlan.referenceTicks },
-        { time, priceTicks: serverPlan.stopTicks },
-        { time, priceTicks: serverPlan.targetTicks },
-      ],
-    }
-    rawDispatch({ type: 'load', drawings: [...others, drawing] })
-    // Keyed on the plan's values only: when the plan arrives, not on every later drawing edit, which
-    // would otherwise reload the drawings and wipe the undo history each time.
-  }, [serverPlan?.lockedAt, serverPlan?.stopTicks, serverPlan?.targetTicks])
+  const storedPlan = drawingState.drawings.find((d) => d.id === PLAN_DRAWING_ID)
+  const planDrawing: Drawing | undefined = serverPlan
+    ? lockedBracket(serverPlan, anchorTime)
+    : storedPlan && pinEntry(storedPlan, referenceTicks, anchorTime)
+  const shownState = {
+    ...drawingState,
+    drawings: [
+      ...drawingState.drawings.filter((d) => d.id !== PLAN_DRAWING_ID),
+      ...(planDrawing ? [planDrawing] : []),
+    ],
+  }
 
   const deleteSelected = useCallback(() => {
     if (drawingState.selectedId) dispatch({ type: 'remove', id: drawingState.selectedId })
@@ -141,10 +126,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     onDeleteSelected: deleteSelected,
   })
 
-  const draftPlan = useMemo(
-    () => (planDrawing && !locked ? planFromDrawing(planDrawing, contracts) : null),
-    [planDrawing, locked, contracts],
-  )
+  const draftPlan = planDrawing && !locked ? planFromDrawing(planDrawing, contracts) : null
 
   if (!state) {
     return (
@@ -221,7 +203,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
           overlay={(adapter) => (
             <DrawingOverlay
               adapter={adapter}
-              state={drawingState}
+              state={shownState}
               dispatch={dispatch}
               activeTool={activeTool}
               onToolFinished={() => setActiveTool(null)}
@@ -311,6 +293,18 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
       </div>
     </section>
   )
+}
+
+/** The locked plan as a position drawing, anchored to the bar that was last visible at the lock. */
+function lockedBracket(plan: PlanView, time: number): Drawing {
+  return {
+    ...defaultBracket(plan.direction, plan.referenceTicks, time),
+    anchors: [
+      { time, priceTicks: plan.referenceTicks },
+      { time, priceTicks: plan.stopTicks },
+      { time, priceTicks: plan.targetTicks },
+    ],
+  }
 }
 
 function timeframeSeconds(code: string): number {

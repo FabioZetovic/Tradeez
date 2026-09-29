@@ -265,6 +265,38 @@ describe('Practice — a full session', () => {
   })
 })
 
+describe('Practice — waiting for a setup', () => {
+  it('keeps the bracket entry on the market price as the replay moves', async () => {
+    // The order is at market, so the entry is wherever price is now. Stop and target are the
+    // learner's absolute levels and stay put; the risk between them and the entry changes.
+    const server = happyServer()
+    mockApi((call) =>
+      is(call, 'POST', '/advance')
+        ? {
+            body: {
+              state: { ...ANALYSING, cursor: CURSOR + 300 },
+              bars: [
+                { time: CURSOR, open: 80_006, high: 80_012, low: 80_004, close: 80_010, volume: 10 },
+              ],
+            },
+          }
+        : server(call),
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /place long/i }))
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('40 ticks · $200.00')
+
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+
+    await waitFor(() => expect(screen.getByText(/next price after 20002\.50/)).toBeInTheDocument())
+    // Stop still 79,966; entry now 80,010: 44 ticks of risk.
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('44 ticks · $220.00')
+    expect(screen.getByLabelText('Stop')).toHaveValue('19991.50')
+  })
+})
+
 describe('Practice — refusals', () => {
   it("shows the server's reason when a plan is refused", async () => {
     mockApi(

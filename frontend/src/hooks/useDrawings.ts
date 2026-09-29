@@ -20,10 +20,20 @@ import {
  * chart whose drawings are not being saved looks exactly like one whose drawings are. Failures are
  * still non-fatal and still retried; they are just no longer invisible.
  */
+/**
+ * A failure, tagged with the chart it happened on. Tagging rather than clearing on every symbol
+ * change is what lets a switch of instrument hide another chart's error without an effect having to
+ * reset state before the new chart has even loaded.
+ */
+interface SyncProblem {
+  symbol: string
+  message: string
+}
+
 export function useDrawings(symbol: string) {
   const [state, dispatch] = useReducer(drawingReducer, initialDrawingState)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<SyncProblem | null>(null)
+  const [saveError, setSaveError] = useState<SyncProblem | null>(null)
   // Bumped to run the load again after it failed.
   const [loadAttempt, setLoadAttempt] = useState(0)
 
@@ -35,13 +45,14 @@ export function useDrawings(symbol: string) {
 
   useEffect(() => {
     let cancelled = false
-    setLoadError(null)
-    setSaveError(null)
     listDrawings(symbol)
       .then((drawings) => {
         if (cancelled) return
         persistedRef.current = new Map(drawings.map((d) => [d.id, JSON.stringify(d)]))
         dispatch({ type: 'load', drawings })
+        setLoadError(null)
+        // The local drawings were just replaced by the server's, so nothing is waiting to save.
+        setSaveError(null)
       })
       .catch(() => {
         // A chart that loads without its annotations is degraded but usable; one that refuses to
@@ -50,7 +61,11 @@ export function useDrawings(symbol: string) {
         if (cancelled) return
         persistedRef.current = new Map()
         dispatch({ type: 'load', drawings: [] })
-        setLoadError('Your saved drawings could not be loaded. New drawings will still be saved.')
+        setSaveError(null)
+        setLoadError({
+          symbol,
+          message: 'Your saved drawings could not be loaded. New drawings will still be saved.',
+        })
       })
     return () => {
       cancelled = true
@@ -109,7 +124,12 @@ export function useDrawings(symbol: string) {
     // longer on screen; reporting it there would blame the wrong chart.
     if (sym === symbolRef.current) {
       setSaveError(
-        ok ? null : 'Some drawings could not be saved. They will be retried with your next change.',
+        ok
+          ? null
+          : {
+              symbol: sym,
+              message: 'Some drawings could not be saved. They will be retried with your next change.',
+            },
       )
     }
     return ok
@@ -120,13 +140,16 @@ export function useDrawings(symbol: string) {
    * lose. Reloading afterwards is safe only once nothing local is waiting to be saved, because a
    * load replaces the local drawings with the server's.
    */
+  const currentSaveError = saveError?.symbol === symbol ? saveError.message : null
+  const currentLoadError = loadError?.symbol === symbol ? loadError.message : null
+
   const retry = useCallback(async () => {
-    if (saveError) {
+    if (currentSaveError) {
       const saved = await commit()
       if (!saved) return
     }
-    if (loadError) setLoadAttempt((n) => n + 1)
-  }, [saveError, loadError, commit])
+    if (currentLoadError) setLoadAttempt((n) => n + 1)
+  }, [currentSaveError, currentLoadError, commit])
 
   return {
     state,
@@ -134,7 +157,7 @@ export function useDrawings(symbol: string) {
     commit,
     retry,
     // A failed save is the more urgent message: it is about work being lost from now on.
-    syncError: saveError ?? loadError,
+    syncError: currentSaveError ?? currentLoadError,
     canUndo: canUndoOf(state),
     canRedo: canRedoOf(state),
   }

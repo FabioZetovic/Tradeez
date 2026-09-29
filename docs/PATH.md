@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: feat/practice-slice                       # sessions 014–015; PR #1 into master — merge before task 7
 head: see git log                                 # updated every session
-build_passing: true  # backend 130/130 (Testcontainers), frontend 107/107 + typecheck + build
+build_passing: true  # backend 132/132 (Testcontainers), frontend 112/112 + typecheck + build; lint: 7 known warnings (BUG-035)
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1118,7 +1118,7 @@ date: 2026-09-29
 type: BUG BATCH — task 6b, at Fabio's request before the practice PR is pushed
 branch: feat/practice-slice
 code_changed: true
-tests: backend 118 → 130, frontend 92 → 107
+tests: backend 118 → 132, frontend 92 → 112
 claimed_files: []   # released
 ```
 
@@ -1150,8 +1150,25 @@ bars, ~105 ms to generate + ~22 ms to aggregate, on every create and resume.
 - Vitest runs with `css: false`, which turns even `?raw` CSS imports into empty strings. Read CSS
   from disk in tests (`styles.test.ts`).
 
-**Handoff:** merge PR #1 (`feat/practice-slice`). Then Fabio chooses — task 7, the first drill, is
-next in line. Pull first.
+**Double-check before merging (Fabio's request), and what it found.**
+- **Verified from a fresh clone** of the branch, not the working copy: backend `clean verify`
+  (tests + jar), frontend `npm ci` + typecheck + tests + build. The working copy had stale compiled
+  classes from a deleted file; a clone cannot.
+- **Lint had never been run.** `npm run lint` (oxlint) exists and nobody had used it. `master` has 7
+  warnings; the PR had added 7 more — values copied into refs during render, state set inside
+  effects, an effect with deliberately partial deps. All 7 fixed by removing the pattern, not by
+  silencing it: the practice screen now *derives* the displayed bracket instead of syncing it into
+  the drawing store with two effects; the price box keeps a draft only while typing; drawing errors
+  are tagged with their symbol. The 7 pre-existing ones are **BUG-035**, deferred with the reason.
+- **BUG-034 🟠 — found in the browser, fixed.** Reloading after the access token expired signed the
+  user out: the app fired two refreshes of one token at once, and the second failed on the token's
+  version column. BUG-001 had only covered the sequential case. The refresh endpoint now retries
+  once after losing that race. Both new tests fail without the fix; in the browser, 9 simultaneous
+  refreshes all returned 200.
+- CodeRabbit (AI review app on the repo) reviewed the practice commits with no inline findings.
+
+**Handoff:** PR #1 merged into `master` — see the post-merge note below. Then Fabio chooses: task 7,
+the first drill, is next in line; BUG-035 is the only open bug. Pull first.
 
 ---
 

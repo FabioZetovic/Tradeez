@@ -4,6 +4,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -68,7 +69,19 @@ public class AuthController {
 		String raw = JwtAuthenticationFilter
 			.readCookie(request, CookieService.REFRESH_TOKEN_COOKIE)
 			.orElseThrow(AuthService.InvalidRefreshTokenException::new);
-		return respond(authService.refresh(raw, userAgent), HttpStatus.OK);
+		IssuedTokens issued;
+		try {
+			issued = authService.refresh(raw, userAgent);
+		} catch (ObjectOptimisticLockingFailureException lostTheRace) {
+			// BUG-034. Two refreshes of the same token at the same instant — a page load that checks
+			// the session twice, two tabs — both read it unrotated, and the version column lets only
+			// one rotation commit. BUG-001's grace window covers a duplicate that arrives *after* the
+			// winner commits; this one arrived during it, failed the version check, and surfaced as a
+			// 401 that signed the user out. By the time the failure is thrown the winner has
+			// committed, so trying once more lands in the grace window and gets fresh tokens.
+			issued = authService.refresh(raw, userAgent);
+		}
+		return respond(issued, HttpStatus.OK);
 	}
 
 	@PostMapping("/logout")

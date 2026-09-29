@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Direction, PlanRequest } from '@/lib/api/practice'
 import { formatPrice, priceToTicks } from '@/lib/chart/priceFormat'
 import { formatCents, planNumbers, planProblem } from '@/lib/practice/plan'
@@ -148,17 +148,21 @@ function PriceField({
   tickSize: number
   onCommit: (ticks: number) => void
 }) {
-  const [text, setText] = useState(formatPrice(ticks, tickSize))
-  useEffect(() => setText(formatPrice(ticks, tickSize)), [ticks, tickSize])
+  // What the learner is typing, or null when they are not. While null the box simply shows the
+  // plan's price, so a bracket dragged on the chart updates it with no syncing effect.
+  const [draft, setDraft] = useState<string | null>(null)
+  const text = draft ?? formatPrice(ticks, tickSize)
 
   const id = `plan-${label.toLowerCase()}`
   const commit = () => {
-    const price = Number(text)
-    if (text.trim() !== '' && Number.isFinite(price) && price > 0) {
+    if (draft === null) return
+    const price = Number(draft)
+    if (draft.trim() !== '' && Number.isFinite(price) && price > 0) {
       onCommit(priceToTicks(price, tickSize))
-    } else {
-      setText(formatPrice(ticks, tickSize))
     }
+    // Valid or not, typing is over: show the plan's price, which is the committed value or,
+    // for nonsense input, the one that was there before.
+    setDraft(null)
   }
 
   return (
@@ -168,7 +172,7 @@ function PriceField({
         id={id}
         inputMode="decimal"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') commit()

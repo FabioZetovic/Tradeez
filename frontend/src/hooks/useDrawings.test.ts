@@ -106,6 +106,18 @@ describe('useDrawings — BUG-023: failures are reported, not swallowed', () => 
     expect(result.current.state.drawings.map((d) => d.id)).toEqual(['unsaved'])
   })
 
+  it("does not show one chart's failure on another after switching instrument", async () => {
+    vi.mocked(listDrawings).mockRejectedValueOnce(new Error('offline'))
+    const { result, rerender } = renderHook(({ symbol }) => useDrawings(symbol), {
+      initialProps: { symbol: 'DEMO-NQ' },
+    })
+    await waitFor(() => expect(result.current.syncError).toMatch(/could not be loaded/))
+
+    // Hidden immediately, before the other instrument's drawings have even arrived.
+    rerender({ symbol: 'DEMO-MNQ' })
+    expect(result.current.syncError).toBeNull()
+  })
+
   it('does not let a later successful save hide the fact that loading failed', async () => {
     vi.mocked(listDrawings).mockRejectedValue(new Error('offline'))
     const { result } = renderHook(() => useDrawings('DEMO-NQ'))

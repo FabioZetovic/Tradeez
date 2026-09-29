@@ -37,8 +37,6 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
   const [playing, setPlaying] = useState(false)
 
   const busyRef = useRef(false)
-  const idRef = useRef(sessionId)
-  idRef.current = sessionId
 
   // Callers mount one instance per session (keyed by id), so the seed never has to be forgotten —
   // and must not be: StrictMode runs this effect twice, and clearing it on the first run would send
@@ -93,21 +91,21 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
 
   const advance = useCallback(
     (count: number) =>
-      exclusive(async () => reveal(await advanceSession(idRef.current, count))),
-    [exclusive, reveal],
+      exclusive(async () => reveal(await advanceSession(sessionId, count))),
+    [exclusive, reveal, sessionId],
   )
 
   const skip = useCallback(
-    () => exclusive(async () => reveal(await skipToResult(idRef.current))),
-    [exclusive, reveal],
+    () => exclusive(async () => reveal(await skipToResult(sessionId))),
+    [exclusive, reveal, sessionId],
   )
 
   const lockPlan = useCallback(
     (plan: PlanRequest) =>
       exclusive(async () => {
-        setState(await submitPlan(idRef.current, plan))
+        setState(await submitPlan(sessionId, plan))
       }),
-    [exclusive],
+    [exclusive, sessionId],
   )
 
   // Playing is a chain of timeouts, each scheduled after the previous step finished — never an

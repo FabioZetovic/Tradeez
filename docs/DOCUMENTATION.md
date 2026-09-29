@@ -1243,7 +1243,25 @@ which exposes a stale process in one request. The launch configuration records t
 arrangement. The coordination rules between the two AI collaborators now require a claim on files
 to be made in the same commit as real work.
 
-**By the numbers:** backend tests 118 → 130, frontend tests 92 → 107, zero open bugs.
+**The check before merging.** Fabio asked for everything to be checked once more before the work
+was merged. Three things came out of that. First, the code was verified from a fresh copy of the
+repository, not the working folder, since a working folder can hide problems behind leftover build
+files. Second, the project's linter was run, apparently for the first time. It found seven warnings
+in the new code. They were patterns React advises against, such as copying values into references
+while the screen is being drawn. All seven were fixed by removing the pattern rather than silencing
+the warning. Seven similar warnings in older code are logged for the next round, because two of them
+sit in the drawing tools' drag handling and need hands-on testing to change safely.
+
+Third, and most useful: reloading the app after a short break signed the user out. The app checked
+the session twice at the same instant, both checks tried to renew the login with the same token, and
+the second one lost a race in the database and was treated as a failed login. An earlier fix,
+BUG-001, had handled the case where the second request arrives just after the first; it had never
+covered the two arriving together. The server now recognises the lost race and simply tries again.
+A new test fires several renewals at once. It fails without the fix and passes with it, and in the
+browser nine simultaneous renewals all succeeded.
+
+**By the numbers:** backend tests 118 → 132, frontend tests 92 → 112. One bug remains open, the
+seven older lint warnings, and it is deferred on purpose.
 
 ---
 
