@@ -10,6 +10,11 @@
   --warn-text: #f0c674;
   --error: #f85149;
   --ok: #3fb950;
+  /* BUG-031. The Vite template's index.css colours h1, h2 and code with --text-h, which it sets
+     near-black unless the OS is in dark mode. This app is always dark, so on a light-mode machine
+     the title vanished into the background — and so would every <code>, including the seed on the
+     result card. Defined here so the app's palette owns it whatever the OS prefers. */
+  --text-h: #e6edf3;
 }
 
 * {
@@ -28,6 +33,13 @@ body {
   max-width: 56rem;
   margin: 0 auto;
   padding: 2.5rem 1.5rem;
+  /* BUG-032. #root is a column flexbox, and auto margins on a flex item switch off stretching: the
+     shell was sized to its content instead of its container. Its content includes the chart, which
+     holds a fixed pixel width from the last time it measured itself — so when a vertical scrollbar
+     appeared and took 15px, the shell stayed at the old width and the page scrolled sideways. A
+     definite width lets it shrink with the window; the chart then remeasures to fit. */
+  width: 100%;
+  min-width: 0;
 }
 
 .shell__header h1 {

@@ -1191,4 +1191,60 @@ engine, a practice API with six endpoints, and a new tab.
 
 ---
 
+### Session 015 — 2026-09-29 — Clearing the Bug List
+
+**Participant:** Claude Code
+**Type:** Bug fixing — every open defect, before the Practice work is merged
+
+Throughout the project, bugs have been written down the moment they are found and fixed together in
+batches, rather than fixed half-way through unrelated work. Before merging the Practice tab, Fabio
+asked for the list to be emptied. Seven bugs were open; all seven are closed, and each entry in the
+bug log keeps its original description alongside how it was fixed and which test proves it.
+
+**The one a learner would have noticed.** The chart's time axis was labelled in UTC while the
+crosshair used Chicago time, so the same candle read six hours apart depending on where you looked.
+An earlier fix had corrected only the crosshair. Its test checked the formatting function, which was
+right, but nothing checked that the chart was ever given that function for its axis. The new test
+checks exactly that: it replaces the charting library with a recorder and asserts that the axis
+receives the formatter. One limit was kept on purpose. The library puts its day markers at UTC
+midnight, which is early evening in Chicago. Moving them would mean shifting every timestamp given to
+the library, and that breaks when the clocks change. So those markers say what they are, for example
+*Wed 18:00*, rather than showing a date that would suggest midnight.
+
+**A failure that had been hidden.** If saving a drawing failed, the app said nothing. That had
+already concealed a completely broken save path for a whole session. Failures are now shown with a
+*Retry now* button. Retrying saves unsaved work first and only then reloads from the server, because
+a reload replaces what is on screen and would otherwise throw that work away.
+
+**Two performance issues, fixed after measuring.** Resuming a practice session regenerated about
+170,000 one-second prices, taking roughly 130 milliseconds, and did it while holding a database
+connection. The data generation now happens with no database transaction open. A short final step
+then checks that the session was not changed by another request in the meantime; if it was, the
+request is refused rather than applied to the wrong position. Generated days are also cached, which
+brings a resume down to about 30 milliseconds. The cache could have broken the rule that the learner
+never sees the future, because a cached day contains hours the replay has not revealed yet. It is
+therefore used only for requests whose start and end fall exactly on candle boundaries, where it
+provably returns the same candles as generating them fresh. A test compares the two, candle for
+candle, across two dozen random cases.
+
+**Three cosmetic ones, each with a less obvious cause.** The page title was nearly invisible because
+a leftover colour setting from the project template turned dark whenever the computer was in light
+mode, and the same setting would also have hidden the seed on the result card. A one-pixel sideways
+scroll came from the page's layout sizing itself to its content instead of the window: the chart
+kept its previous width when a scrollbar appeared, and held the whole page one pixel too wide. Test
+runs printed 55 warnings because a safety stub in the test setup never activated.
+
+**Problems with the machine, not the code.** The development computer has a few recurring problems
+that are not bugs in Tradeez: Docker stopping on its own, ports that are already taken, and an old
+server process that keeps answering after a restart fails. Each now has a safeguard in the
+repository. The tests say plainly when Docker is not running, instead of failing with an error that
+looks like broken code. The health check reports when the running server was started and built,
+which exposes a stale process in one request. The launch configuration records the port
+arrangement. The coordination rules between the two AI collaborators now require a claim on files
+to be made in the same commit as real work.
+
+**By the numbers:** backend tests 118 → 130, frontend tests 92 → 107, zero open bugs.
+
+---
+
 *Next session entry goes here.*

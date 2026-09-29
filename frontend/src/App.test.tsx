@@ -60,6 +60,7 @@ const signedIn = {
   '/api/me': { body: USER },
   '/api/market/instruments/DEMO-NQ/bars': { body: SERIES },
   '/api/market/instruments': { body: INSTRUMENTS },
+  '/api/charts/DEMO-NQ/drawings': { body: [] },
 }
 
 afterEach(() => vi.restoreAllMocks())

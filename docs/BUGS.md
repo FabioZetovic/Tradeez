@@ -17,112 +17,8 @@
 
 ## Open
 
-### BUG-023 🟠 `useDrawings.commit` swallows every save failure
-
-**Status:** verified — it actively hid a broken save path for the whole of session 012
-**Affects:** `frontend/src/hooks/useDrawings.ts`
-
-Both branches of the commit end in `.catch(() => {})`. The intent was reasonable: an autosave
-that throws mid-drag would surface as a crash over a transient network blip, and a failed save is
-retried on the next commit because the id is left out of the persisted map.
-
-The cost showed up immediately. Drawings were not saving at all — the backend serving the app was
-a stale process without the drawings routes — and **the UI looked completely healthy**. Shapes
-appeared, dragged and undid normally; the failure was only found by querying the database
-directly and seeing zero rows.
-
-**Likely fix.** Keep swallowing the throw, but surface the state: track consecutive failures and
-show an unobtrusive "not saved" indicator once one is pending. A silent retry is fine; a silent
-permanent failure is not, because the user only discovers it when their work is gone.
-
----
-
-### BUG-010 🟡 Market data endpoints have no caching
-
-**Status:** verified by inspection · **deliberately not fixed**
-**Affects:** `GeneratedMarketDataProvider`
-
-Every bars request regenerates from scratch; a one-day 1s request builds 86,400 bars each time.
-
-Reviewed in the session-011 batch and **left alone on purpose**. A cache here would have to be
-keyed on `(seed, range, timeframe, generatorVersion)` or it would serve stale prices after a
-version bump — and the generator version has already changed twice. Adding that machinery before
-anything has been measured is how you get a subtle correctness bug in exchange for a speed-up
-nobody asked for. The honest position: measure when the replay engine exists and actually
-requests overlapping ranges, then cache if the numbers justify it.
-
----
-
-### BUG-029 🟠 The time axis labels in UTC; only the crosshair uses exchange time
-
-**Status:** verified — seen in the browser in session 014
-**Found by:** browser check of the Practice tab · **Affects:** `lib/chart/lightweightAdapter.ts`
-
-The practice header said *Thu 02:35 CST* while the tick marks under the latest bars read `08:00`.
-Hovering the same bar put `02:20` in the crosshair label. So the axis is in UTC and the crosshair is
-in Chicago time, on the same chart, at once.
-
-Cause: BUG-014's fix set `localization.timeFormatter`, which in Lightweight Charts v5 formats the
-**crosshair** label only. The tick marks along the axis come from `timeScale.tickMarkFormatter`,
-which was never set, so they fall back to UTC. The BUG-014 test checks the formatter function, not
-what the axis draws — which is why it passed.
-
-This matters more now than when it was written: a practice session is read in session terms (the
-Asian range, the New York open), and an axis six hours off teaches the wrong times.
-
-**Fix (batch):** set `timeScale.tickMarkFormatter` from the same `createTimeFormatter`, with a test
-that the adapter passes a tick-mark formatter at all.
-
----
-
-### BUG-030 🟡 The test setup's canvas stub never installs
-
-**Status:** verified · **Affects:** `frontend/src/test/setup.ts`
-
-The stub is guarded by `!HTMLCanvasElement.prototype.getContext`. jsdom *does* define `getContext` —
-it just logs "Not implemented" and returns null — so the guard is false and the stub is skipped.
-Every test that mounts the drawing overlay prints that line: 55 of them in a full run as of session
-014. Harmless to results (the overlay already handles a null context), but the noise buries real
-warnings.
-
-**Fix (batch):** install the stub unconditionally in the test setup.
-
----
-
-### BUG-031 🟡 The "Tradeez" title is nearly invisible
-
-**Status:** verified — visible in every session-014 screenshot, including the sign-in screen
-**Affects:** `index.css` / `App.css`
-
-The `h1` renders dark grey on the dark background. Leftover Vite template heading colour
-(`--text-h`) that the app's own palette never overrode.
-
----
-
-### BUG-032 🟡 One pixel of horizontal scroll on long pages
-
-**Status:** verified — `scrollWidth` 947 vs `clientWidth` 946 on both the Chart and Practice tabs
-**Affects:** page layout (template `#root` rules in `index.css` are the first suspect)
-
-Only appears when the page is tall enough for a vertical scrollbar. A horizontal scrollbar appears for
-a single pixel. Cosmetic, pre-dates session 014.
-
----
-
-### BUG-033 🟡 Practice regenerates its market on every request, inside a transaction
-
-**Status:** reasoned from the code; timings observed in tests (~0.3 s to create a session)
-**Affects:** `PracticeService` · **Related:** BUG-010
-
-Creating or resuming a session generates four-plus days of one-second data to aggregate the visible
-history; locking a plan generates up to a trading day of one-second bars to resolve it. All of it
-happens inside the service's `@Transactional` methods, so a database connection is held while the CPU
-works. Fine for one learner on a laptop; with many concurrent users the pool would run dry before the
-CPU did.
-
-Not fixed on purpose, for BUG-010's reason: measure first. The likely fixes, in order: generate
-outside the transaction (load, release, compute, then a short write), then cache per
-`(seed, range, generatorVersion)` if resumes turn out to dominate.
+*None.* The session-015 batch closed every open bug; each entry moved to [Fixed](#fixed) with its
+original description intact.
 
 ---
 
@@ -144,6 +40,11 @@ The claim was reverted in the next exchange **without being noted**, which is it
 **Likely fix.** Claims carry the session id *and a timestamp*, and a claim older than 24 hours
 with no matching commit on the remote is stale by definition. Cheaper still: claim in the same
 commit as the first real change, so a claim never exists without work behind it.
+
+
+**✅ FIXED — Session 015, in the protocol.** `PATH.md` rule 5: claim in the same commit as the
+first real change, with the session id and date; a claim older than 24 hours with no matching commit
+on the remote is stale and may be taken (noting it, per rule 4). Followed in sessions 014 and 015.
 
 ---
 
@@ -168,6 +69,19 @@ curl -s http://localhost:8081/v3/api-docs | grep -o '"/api/[^"]*"' | sort -u
 
 A route missing from the OpenAPI document means a stale process, not a broken route.
 
+
+**✅ MITIGATED — Session 015.** `/api/health` now reports `startedAt` (when this process
+started) and `builtAt` (when the code it runs was built, from Spring Boot's build-info). One request
+now says whether the process answering is the one just built:
+
+```bash
+curl -s http://localhost:8081/api/health
+```
+
+The underlying behaviour — a second instance cannot bind the port while the first keeps serving — is
+how processes work, not a defect to fix. `.claude/launch.json` also runs the backend as one managed
+process that is stopped, not orphaned. Tested in `HealthEndpointTest`.
+
 ---
 
 ### ENV-002 🟡 Docker Desktop occupies ports 8080 and 5173 on this machine
@@ -182,6 +96,12 @@ use"* and the preview tooling refuses 5173.
 assign one. Remember BUG-013: a non-default frontend port needs a matching `CORS_ALLOWED_ORIGINS`.
 
 Not an application defect, but it costs time on every fresh checkout on this machine.
+
+
+**✅ MITIGATED — Session 015.** The workaround is now configuration rather than memory:
+`.claude/launch.json` starts the backend on 8081 and the frontend on a free port behind Vite's proxy,
+where the browser sees one origin and CORS does not apply. What Docker listens on is a property of
+this machine, not of the repository.
 
 ---
 
@@ -206,6 +126,12 @@ until docker version --format '{{.Server.Version}}' >/dev/null 2>&1; do sleep 5;
 
 Not an application defect; recorded because the symptom is so misleading.
 
+
+**✅ MITIGATED — Session 015.** The daemon stopping cannot be fixed from the repository, but the
+misleading symptom can. `AbstractIntegrationTest` checks for Docker before starting PostgreSQL and
+fails with *"ENV-001: Docker is not reachable … This is not a code failure. Start Docker Desktop…"*
+instead of `ExceptionInInitializerError`. Tested in `DockerCheckTest`.
+
 ---
 
 ## Known limitations
@@ -228,6 +154,7 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Practice | Drawings on a practice chart are not saved | They are analysis of a market the learner cannot otherwise see; saving them to the instrument would put them on the public chart |
 | Practice | One bracket trade per session, entered at market | The vertical slice's scope. Limit entries, scaling and multiple trades are later work |
 | Practice | A replay steps at most 3 days past its start; 60 new sessions per user per hour; journal lists the latest 50 | Each bounds how much data one request has to generate |
+| Chart | Day ticks on the time axis sit at UTC midnight | Labelled with their true exchange-local weekday and time (e.g. *Wed 18:00*). Moving them to local midnight would mean shifting every timestamp handed to the renderer, which breaks where the zone's offset changes (BUG-029) |
 | Practice | Results on simulated data are practice, not evidence | Stated on the result card. No aggregate score exists yet; when one does, DEC-034 applies |
 
 ---
@@ -383,6 +310,10 @@ hour wrong.
 
 **Caused BUG-021** — the remount this required left the chart blank.
 
+
+**⚠️ Only half fixed — found in session 014, completed in session 015 as BUG-029.** The fix above set
+the crosshair's formatter only; the axis tick marks stayed in UTC until BUG-029.
+
 ---
 
 ### BUG-003 🟡 `HealthController` swallows the underlying database error
@@ -462,6 +393,191 @@ There is no real volume to generate, so this cannot be fixed — only disclosed.
 The rule it implies still stands: **nothing volume-derived may be built on a `SIMULATED`
 series.** Volume profile, VWAP-by-volume, relative volume and delta would all be reading
 structure out of a formula.
+
+---
+
+### BUG-033 🟡 Practice regenerates its market on every request, inside a transaction
+
+**Status:** reasoned from the code; timings observed in tests (~0.3 s to create a session)
+**Affects:** `PracticeService` · **Related:** BUG-010
+
+Creating or resuming a session generates four-plus days of one-second data to aggregate the visible
+history; locking a plan generates up to a trading day of one-second bars to resolve it. All of it
+happens inside the service's `@Transactional` methods, so a database connection is held while the CPU
+works. Fine for one learner on a laptop; with many concurrent users the pool would run dry before the
+CPU did.
+
+Not fixed on purpose, for BUG-010's reason: measure first. The likely fixes, in order: generate
+outside the transaction (load, release, compute, then a short write), then cache per
+`(seed, range, generatorVersion)` if resumes turn out to dominate.
+
+**✅ FIXED — Session 015.** `PracticeService` no longer uses method-level transactions for its
+commands. Each is three steps: read a snapshot (read-only, `REPEATABLE READ`, so session, plan and
+result are one consistent moment); generate with no transaction open; then a short write that
+re-reads the session and answers 409 if its version moved in between — the bars were generated for a
+state that no longer exists. Lock-plan now resolves the fill from the request before any row is
+written.
+
+**Tests:** `PracticeTransactionTest` (3) — a spy on `MarketDataService` records
+`isActualTransactionActive()` for every generation call across create, resume, advance, lock and
+skip, and every one is false; a version bump injected mid-generation makes *advance* return 409 and
+leaves the cursor where it was; the same for *lock*, and no plan or result row is stored.
+
+---
+
+### BUG-032 🟡 One pixel of horizontal scroll on long pages
+
+**Status:** verified — `scrollWidth` 947 vs `clientWidth` 946 on both the Chart and Practice tabs
+**Affects:** page layout (template `#root` rules in `index.css` are the first suspect)
+
+Only appears when the page is tall enough for a vertical scrollbar. A horizontal scrollbar appears for
+a single pixel. Cosmetic, pre-dates session 014.
+
+**✅ FIXED — Session 015.** Reproduced at a 961 px window on a practice session: `main.shell`
+measured 946.594 px inside a 946 px `#root`. The suspect named above was wrong — the cause was in
+`App.css`. `#root` is a column flexbox, and `.shell`'s `margin: 0 auto` switches off stretching, so
+the shell was sized to fit its content. Its content includes the chart, which keeps the pixel width it
+last measured; when a vertical scrollbar took 15 px, the chart held the shell at the old width. Fix:
+`width: 100%; min-width: 0` on `.shell`. **Browser:** 946 = 946 afterwards. Guarded by
+`styles.test.ts`.
+
+---
+
+### BUG-031 🟡 The "Tradeez" title is nearly invisible
+
+**Status:** verified — visible in every session-014 screenshot, including the sign-in screen
+**Affects:** `index.css` / `App.css`
+
+The `h1` renders dark grey on the dark background. Leftover Vite template heading colour
+(`--text-h`) that the app's own palette never overrode.
+
+**✅ FIXED — Session 015.** Wider than the title: the template's `--text-h` also colours `h2` and
+`code`, and the seed on the practice result card is a `<code>` — on a light-mode machine it would have
+been dark text on a dark box. `App.css` now defines `--text-h` in its own `:root`, so the app's
+palette owns it whatever the OS prefers. **Browser:** with the OS in light mode, the title computes to
+`rgb(230, 237, 243)`. Guarded by `styles.test.ts`.
+
+---
+
+### BUG-030 🟡 The test setup's canvas stub never installs
+
+**Status:** verified · **Affects:** `frontend/src/test/setup.ts`
+
+The stub is guarded by `!HTMLCanvasElement.prototype.getContext`. jsdom *does* define `getContext` —
+it just logs "Not implemented" and returns null — so the guard is false and the stub is skipped.
+Every test that mounts the drawing overlay prints that line: 55 of them in a full run as of session
+014. Harmless to results (the overlay already handles a null context), but the noise buries real
+warnings.
+
+**Fix (batch):** install the stub unconditionally in the test setup.
+
+**✅ FIXED — Session 015.** The stub is installed unconditionally. "Not implemented" lines in a
+full frontend run: 55 → 0.
+
+---
+
+### BUG-029 🟠 The time axis labels in UTC; only the crosshair uses exchange time
+
+**Status:** verified — seen in the browser in session 014
+**Found by:** browser check of the Practice tab · **Affects:** `lib/chart/lightweightAdapter.ts`
+
+The practice header said *Thu 02:35 CST* while the tick marks under the latest bars read `08:00`.
+Hovering the same bar put `02:20` in the crosshair label. So the axis is in UTC and the crosshair is
+in Chicago time, on the same chart, at once.
+
+Cause: BUG-014's fix set `localization.timeFormatter`, which in Lightweight Charts v5 formats the
+**crosshair** label only. The tick marks along the axis come from `timeScale.tickMarkFormatter`,
+which was never set, so they fall back to UTC. The BUG-014 test checks the formatter function, not
+what the axis draws — which is why it passed.
+
+This matters more now than when it was written: a practice session is read in session terms (the
+Asian range, the New York open), and an axis six hours off teaches the wrong times.
+
+**Fix (batch):** set `timeScale.tickMarkFormatter` from the same `createTimeFormatter`, with a test
+that the adapter passes a tick-mark formatter at all.
+
+**✅ FIXED — Session 015.** The adapter now sets `timeScale.tickMarkFormatter` from
+`createTickMarkFormatter`, in the same zone as the crosshair. Hour and minute ticks show exchange time.
+Day ticks are labelled with their true local weekday and time — e.g. *Wed 18:00* — because the
+renderer places them at UTC midnight, and moving them would mean shifting every timestamp given to
+it, which breaks wherever the zone's offset changes. A date there would falsely suggest local
+midnight; the weekday and time are exact. Documented at the formatter.
+
+**Tests:** `timeAxis.test.ts` (4 new) and `lightweightAdapter.test.ts` (3) — the second mocks the
+renderer and asserts the adapter hands a formatter *to the axis*, which is precisely the step BUG-014's
+fix skipped. **Browser:** mounted the real adapter on the real library and read back its options —
+axis and crosshair both say 09:00 for 14:00 UTC in exchange mode, both 14:00 in UTC mode.
+
+**Lesson:** test what you hand the library, not only the function you wrote. BUG-014's formatter was
+correct and tested; nothing checked that the axis ever received it.
+
+---
+
+### BUG-023 🟠 `useDrawings.commit` swallows every save failure
+
+**Status:** verified — it actively hid a broken save path for the whole of session 012
+**Affects:** `frontend/src/hooks/useDrawings.ts`
+
+Both branches of the commit end in `.catch(() => {})`. The intent was reasonable: an autosave
+that throws mid-drag would surface as a crash over a transient network blip, and a failed save is
+retried on the next commit because the id is left out of the persisted map.
+
+The cost showed up immediately. Drawings were not saving at all — the backend serving the app was
+a stale process without the drawings routes — and **the UI looked completely healthy**. Shapes
+appeared, dragged and undid normally; the failure was only found by querying the database
+directly and seeing zero rows.
+
+**Likely fix.** Keep swallowing the throw, but surface the state: track consecutive failures and
+show an unobtrusive "not saved" indicator once one is pending. A silent retry is fine; a silent
+permanent failure is not, because the user only discovers it when their work is gone.
+
+**✅ FIXED — Session 015.** `useDrawings` now reports `syncError`, with load and save failures
+tracked separately so a later successful save cannot hide that loading failed. `commit()` resolves
+to whether everything is in sync, and a failed shape is still retried on the next commit. `retry()`
+saves unsaved work first and reloads only if that succeeded — a reload replaces local drawings with
+the server's, so reloading over unsaved work would lose it. The chart shows the message as an alert
+with a *Retry now* button.
+
+**Tests:** `useDrawings.test.ts` (6) — load failure reported; save failure reported and cleared by
+a successful retry; delete failure reported; retry reloads after a failed load; retry does not reload
+over unsaved work; a save does not hide a load failure. **Browser:** with the drawings request forced
+to fail, the alert appeared, and it cleared once loading worked again.
+
+**Lesson:** "non-fatal" and "silent" are two separate decisions. The original code needed the first
+and got the second for free, which is how it hid a broken save path for a whole session.
+
+---
+
+### BUG-010 🟡 Market data endpoints have no caching
+
+**Status:** verified by inspection · **deliberately not fixed**
+**Affects:** `GeneratedMarketDataProvider`
+
+Every bars request regenerates from scratch; a one-day 1s request builds 86,400 bars each time.
+
+Reviewed in the session-011 batch and **left alone on purpose**. A cache here would have to be
+keyed on `(seed, range, timeframe, generatorVersion)` or it would serve stale prices after a
+version bump — and the generator version has already changed twice. Adding that machinery before
+anything has been measured is how you get a subtle correctness bug in exchange for a speed-up
+nobody asked for. The honest position: measure when the replay engine exists and actually
+requests overlapping ranges, then cache if the numbers justify it.
+
+**✅ FIXED — Session 015**, after measuring, as this entry asked. Four days of practice
+history is ~169,000 one-second bars: ~105 ms to generate and ~22 ms to aggregate, paid again on every
+session create and resume for the same seed and the same days.
+
+`DayBarCache` holds aggregated bars per `(seed, generatorVersion, timeframe, UTC day)`, LRU, bounded by
+bars held (200,000, about 20 MB) rather than by entries. One-second data is never cached. The
+correctness worry above is answered two ways: the generator version is in the key, and — the part
+that matters for DEC-009 — the cache only serves ranges aligned to the timeframe (`covers()`). For
+those, every bar that starts in the range also ends in it, so a cached day, which holds hours a
+replay has not revealed, can never contribute a bar past the cursor. Anything else goes straight to
+the generator.
+
+**Tests:** `DayBarCacheTest` (7) — bar-for-bar equality with direct generation over 24 random ranges
+across six timeframes; no bar past a mid-morning cursor; unaligned ranges bypass the cache; seeds,
+timeframes and versions never collide; eviction stays in budget. **Browser, afterwards:** a session
+resume took 27–33 ms and returned exactly the bars the create had.
 
 ---
 

@@ -161,4 +161,9 @@ public class PracticeSession {
 	public Instant getCreatedAt() {
 		return createdAt;
 	}
+
+	/** Read to detect a change between a snapshot and the write that follows it (BUG-033). */
+	public long getVersion() {
+		return version;
+	}
 }

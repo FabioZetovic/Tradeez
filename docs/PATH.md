@@ -55,17 +55,17 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 014
+last_session: 015
 last_author: CLAUDE
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 phase: FEATURE WORK — auth, market data, chart, drawings and the Practice slice shipped; drills next
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: feat/practice-slice                       # session 014; PR into master — merge before task 7
+branch: feat/practice-slice                       # sessions 014–015; PR #1 into master — merge before task 7
 head: see git log                                 # updated every session
-build_passing: true  # backend 118/118 (Testcontainers), frontend 92/92 + typecheck
+build_passing: true  # backend 130/130 (Testcontainers), frontend 107/107 + typecheck + build
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -80,7 +80,7 @@ files_in_repo:
     common/      # health endpoint
     config/      # SecurityConfig (CSRF, CORS, filter chain), OpenApiConfig
     identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
-    marketdata/  # instrument registry, DEMO-NQ generator, aggregation, bars API (session 009)
+    marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015)
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
   backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice
@@ -127,9 +127,12 @@ this block **load-bearing, not advisory**:
 3. **Release** your claims in your end-of-session update.
 4. If a claim is clearly stale (its session ended), note that you are taking it — do not silently
    ignore the mechanism.
+5. **Claim in the same commit as your first real change**, with your session id and the date. A
+   claim with no work behind it is what an interrupted session leaves lying around (ENV-004). A
+   claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files: []   # released by session 014
+claimed_files: []   # released by session 015
 ```
 
 ---
@@ -148,7 +151,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 4 | ~~**First visible slice**~~ | — | ✅ Done in Session 010. Chart renders, auth UI, timeframe switching. Verified in a browser. |
 | 5 | ~~**Drawing proof**~~ | — | ✅ Done in Session 012. Gate passed → DEC-037: keep building by hand, scope stays four shapes. |
 | 6 | ~~**Practice slice**~~ | — | ✅ Done in Session 014 on `feat/practice-slice`. Hidden moment → locked bracket → 1s fill engine → replay → result card → journal. **Merge the PR first.** |
-| 6b | **Bug batch** — BUG-023, BUG-029 (axis in UTC), BUG-030–033 | — | Fabio's standing rule: bugs are logged as found and fixed together. BUG-029 is the one a learner would notice. |
+| 6b | ~~**Bug batch**~~ | — | ✅ Done in Session 015: every open bug closed (BUG-010, 023, 029–033), ENV-001–004 fixed or mitigated in the repo. |
 | 7 | **First drill** — versioned FVG detector → `detected_setup` → identification drill | 6 | ⚠️ **DEC-034**: build/test on `DEMO-NQ`, but the drill is a *developer fixture* until real data clears the gate. Detector work is not blocked; the curriculum claim is. |
 | 8 | Optional €0 deployment smoke test | 2 | Re-check current free tiers; no purchase without Fabio |
 
@@ -1103,6 +1106,52 @@ slippage), −$207.50 net including $2.50 commission, −1.02R — all checked b
 
 **Handoff:** merge the `feat/practice-slice` PR. Then Fabio chooses: the **bug batch** (6b —
 BUG-029 first) or task 7, the first drill. Pull first.
+
+---
+
+### SESSION 015
+
+```yaml
+id: 015
+author: CLAUDE
+date: 2026-09-29
+type: BUG BATCH — task 6b, at Fabio's request before the practice PR is pushed
+branch: feat/practice-slice
+code_changed: true
+tests: backend 118 → 130, frontend 92 → 107
+claimed_files: []   # released
+```
+
+**Every open bug closed** before the practice branch goes back up. Each entry moved to *Fixed* in
+`BUGS.md` with its original text, a ✅ block, and the test that holds it.
+
+| Bug | Fix | Proof |
+|---|---|---|
+| BUG-029 🟠 axis in UTC | `timeScale.tickMarkFormatter` in exchange time; day ticks read e.g. *Wed 18:00* (they sit at UTC midnight — see limitation) | adapter test with mocked renderer; real library in the browser |
+| BUG-023 🟠 silent save failures | `syncError` + *Retry now*; retry saves before it reloads | 6 hook tests; forced failure in the browser |
+| BUG-033 🟡 generation inside transactions | snapshot → generate with no tx → short write that 409s if the version moved | spy asserts no tx during any generation; injected race → 409, nothing written |
+| BUG-010 🟡 no caching | `DayBarCache`, aligned ranges only, so it cannot leak past a cursor | bar-for-bar equality with generation; resume 27–33 ms |
+| BUG-030 🟡 canvas stub | unconditional | warnings 55 → 0 |
+| BUG-031 🟡 invisible title | app owns `--text-h` (also fixed invisible `<code>`, i.e. the seed) | computed colour in light mode |
+| BUG-032 🟡 1px sideways scroll | `.shell` gets a definite width; `margin: auto` in a column flexbox had disabled stretch | reproduced at 961 px, then 946 = 946 |
+
+**Environment.** ENV-004 → protocol rule 5 above. ENV-003 → `/api/health` reports `startedAt` and
+`builtAt`. ENV-001 → integration tests fail with "Docker is not reachable … not a code failure"
+instead of `ExceptionInInitializerError`. ENV-002 → `launch.json` carries the workaround. The Docker
+behaviour itself is the machine's, and stays documented.
+
+**Measured before caching (BUG-010's own condition):** four days of history = ~169,000 one-second
+bars, ~105 ms to generate + ~22 ms to aggregate, on every create and resume.
+
+**Two things worth knowing next time:**
+- The browser pane only renders while it is displayed. Hidden, `requestAnimationFrame` and
+  `ResizeObserver` stop, so the chart keeps stale sizes and cannot hit-test clicks — verify with
+  DOM reads, or mount the adapter directly on the real library, as was done for BUG-029.
+- Vitest runs with `css: false`, which turns even `?raw` CSS imports into empty strings. Read CSS
+  from disk in tests (`styles.test.ts`).
+
+**Handoff:** merge PR #1 (`feat/practice-slice`). Then Fabio chooses — task 7, the first drill, is
+next in line. Pull first.
 
 ---
 

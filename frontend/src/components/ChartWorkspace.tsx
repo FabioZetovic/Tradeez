@@ -35,7 +35,8 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
 
-  const { state: drawingState, dispatch, commit, canUndo, canRedo } = useDrawings(symbol)
+  const { state: drawingState, dispatch, commit, retry, syncError, canUndo, canRedo } =
+    useDrawings(symbol)
 
   const deleteSelected = useCallback(() => {
     if (!drawingState.selectedId) return
@@ -139,6 +140,16 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       {error && (
         <p role="alert" className="error">
           {error}
+        </p>
+      )}
+
+      {/* BUG-023: a save that failed must be visible, or unsaved work looks exactly like saved work. */}
+      {syncError && (
+        <p role="alert" className="error" data-testid="drawing-sync-error">
+          {syncError}{' '}
+          <button type="button" className="link" onClick={() => void retry()}>
+            Retry now
+          </button>
         </p>
       )}
 

@@ -20,8 +20,12 @@ class ResizeObserverStub implements ResizeObserver {
 
 globalThis.ResizeObserver ??= ResizeObserverStub
 
-if (typeof HTMLCanvasElement !== 'undefined' && !HTMLCanvasElement.prototype.getContext) {
-  // Returning null is what jsdom would do for an unsupported context type, and the overlay already
-  // has to handle that — a real browser returns null too when the context is unavailable.
-  HTMLCanvasElement.prototype.getContext = () => null
+if (typeof HTMLCanvasElement !== 'undefined') {
+  // Returning null is what jsdom does anyway, and the overlay already has to handle it — a real
+  // browser returns null too when the context is unavailable.
+  //
+  // Unconditional (BUG-030). This used to be guarded by `!prototype.getContext`, but jsdom *does*
+  // define the method — as one that logs "Not implemented" before returning null — so the guard was
+  // always false, the stub never installed, and every overlay test printed that line.
+  HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
 }

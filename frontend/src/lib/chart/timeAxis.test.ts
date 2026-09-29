@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createTimeFormatter, timezoneLabel, formatSessionTime } from './timeAxis'
+import {
+  createTickMarkFormatter,
+  createTimeFormatter,
+  formatSessionTime,
+  timezoneLabel,
+} from './timeAxis'
 
 const CHICAGO = 'America/Chicago'
 
@@ -44,5 +49,37 @@ describe('formatSessionTime', () => {
   it('follows daylight saving: the same UTC hour is 08:00 CST in January', () => {
     // 2024-01-10 14:00 UTC.
     expect(formatSessionTime(1704895200, 'America/Chicago')).toBe('Wed 08:00 CST')
+  })
+})
+
+describe('createTickMarkFormatter (BUG-029)', () => {
+  // 2024-03-13 14:00 UTC = 09:00 CDT. 2024-02-22 00:00 UTC = Wed 21 Feb 18:00 CST.
+  const NINE_CDT = 1710338400
+  const UTC_MIDNIGHT = 1708560000
+
+  it('labels hour ticks in exchange time, matching the crosshair', () => {
+    const tick = createTickMarkFormatter('America/Chicago', 'exchange')
+    expect(tick(NINE_CDT, 'time')).toBe('09:00')
+    expect(tick(NINE_CDT, 'time')).toBe(createTimeFormatter('America/Chicago', 'exchange')(NINE_CDT))
+    expect(tick(NINE_CDT + 5, 'seconds')).toBe('09:00:05')
+  })
+
+  it('labels a day tick with its true local weekday and time, not a misleading date', () => {
+    // The renderer puts day ticks at UTC midnight, which is early evening in Chicago.
+    const tick = createTickMarkFormatter('America/Chicago', 'exchange')
+    expect(tick(UTC_MIDNIGHT, 'day')).toBe('Wed 18:00')
+  })
+
+  it('keeps UTC when UTC is chosen', () => {
+    const tick = createTickMarkFormatter('America/Chicago', 'utc')
+    expect(tick(NINE_CDT, 'time')).toBe('14:00')
+    expect(tick(UTC_MIDNIGHT, 'day')).toBe('Thu 00:00')
+  })
+
+  it('labels month and year ticks in the chosen zone', () => {
+    const tick = createTickMarkFormatter('America/Chicago', 'exchange')
+    // 2024-01-01 00:00 UTC is still 31 Dec 2023 in Chicago.
+    expect(tick(1704067200, 'year')).toBe('2023')
+    expect(tick(1704067200, 'month')).toBe('Dec')
   })
 })

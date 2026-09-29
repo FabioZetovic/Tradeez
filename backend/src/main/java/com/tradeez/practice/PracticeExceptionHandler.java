@@ -37,12 +37,13 @@ public class PracticeExceptionHandler {
 
 	/**
 	 * Two requests raced on one session — a double-clicked button, or the same session open in two
-	 * tabs. The {@code @Version} column lets exactly one of them through.
+	 * tabs. Caught either by the service's own version check between its read and its write
+	 * (BUG-033), or by the {@code @Version} column at flush; exactly one request gets through.
 	 */
-	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+	@ExceptionHandler({ PracticeService.SessionChangedException.class,
+		ObjectOptimisticLockingFailureException.class })
 	public ResponseEntity<Map<String, Object>> raced() {
-		return body(HttpStatus.CONFLICT,
-			"This session was changed by another request. Reload it to see where it stands.");
+		return body(HttpStatus.CONFLICT, new PracticeService.SessionChangedException().getMessage());
 	}
 
 	/**

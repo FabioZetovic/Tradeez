@@ -1,6 +1,7 @@
 import {
   CandlestickSeries,
   createChart,
+  TickMarkType,
   type CandlestickData,
   type IChartApi,
   type ISeriesApi,
@@ -9,7 +10,7 @@ import {
 import type { ChartAdapter, ChartMountOptions, DomainBar } from './types'
 import type { Projection } from '../drawing/types'
 import { decimalsFor, ticksToPrice } from './priceFormat'
-import { createTimeFormatter } from './timeAxis'
+import { createTickMarkFormatter, createTimeFormatter, type TickKind } from './timeAxis'
 
 /**
  * {@link ChartAdapter} backed by TradingView Lightweight Charts v5 (Apache 2.0).
@@ -20,6 +21,14 @@ import { createTimeFormatter } from './timeAxis'
  */
 const RIGHT_OFFSET_BARS = 12
 
+const TICK_KIND: Record<TickMarkType, TickKind> = {
+  [TickMarkType.Year]: 'year',
+  [TickMarkType.Month]: 'month',
+  [TickMarkType.DayOfMonth]: 'day',
+  [TickMarkType.Time]: 'time',
+  [TickMarkType.TimeWithSeconds]: 'seconds',
+}
+
 export class LightweightChartAdapter implements ChartAdapter {
   private chart: IChartApi | null = null
   private series: ISeriesApi<'Candlestick'> | null = null
@@ -28,6 +37,7 @@ export class LightweightChartAdapter implements ChartAdapter {
   mount(container: HTMLElement, options: ChartMountOptions): void {
     this.destroy()
     this.tickSize = options.tickSize
+    const tickLabel = createTickMarkFormatter(options.exchangeTimezone, options.axisTimezone)
 
     this.chart = createChart(container, {
       autoSize: true,
@@ -49,6 +59,10 @@ export class LightweightChartAdapter implements ChartAdapter {
         // Empty space after the last bar. The position tool draws its zones to the right of the
         // entry, and without room there a bracket on the latest bar is a sliver against the axis.
         rightOffset: RIGHT_OFFSET_BARS,
+        // BUG-029 — the axis ticks. `localization.timeFormatter` below covers only the crosshair
+        // label; without this the axis stayed in UTC while the crosshair showed exchange time.
+        tickMarkFormatter: (time: Time, type: TickMarkType) =>
+          typeof time === 'number' ? tickLabel(time, TICK_KIND[type]) : null,
       },
       localization: {
         // BUG-014 — labels in the exchange's own timezone by default. The data is stored in UTC

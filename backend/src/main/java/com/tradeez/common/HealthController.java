@@ -1,10 +1,14 @@
 package com.tradeez.common;
 
+import java.lang.management.ManagementFactory;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,9 +29,17 @@ public class HealthController {
 	private static final Logger log = LoggerFactory.getLogger(HealthController.class);
 
 	private final JdbcTemplate jdbcTemplate;
+	private final BuildProperties build;
+	private final Instant startedAt =
+		Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime());
 
-	public HealthController(JdbcTemplate jdbcTemplate) {
+	/**
+	 * @param build absent when the app runs without a Maven build (straight from an IDE), which is
+	 *              why it is optional rather than required
+	 */
+	public HealthController(JdbcTemplate jdbcTemplate, ObjectProvider<BuildProperties> build) {
 		this.jdbcTemplate = jdbcTemplate;
+		this.build = build.getIfAvailable();
 	}
 
 	@GetMapping
@@ -46,11 +58,19 @@ public class HealthController {
 			dbUp = false;
 		}
 
-		return Map.of(
-			"status", dbUp ? "UP" : "DEGRADED",
-			"database", dbUp ? "UP" : "DOWN",
-			// INVARIANT 4: UTC everywhere.
-			"timestamp", Instant.now().toString(),
-			"application", "tradeez-backend");
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("status", dbUp ? "UP" : "DEGRADED");
+		body.put("database", dbUp ? "UP" : "DOWN");
+		// INVARIANT 4: UTC everywhere.
+		body.put("timestamp", Instant.now().toString());
+		body.put("application", "tradeez-backend");
+		// ENV-003. A restart that fails because the port is taken leaves the OLD process answering,
+		// and "the server responds" then proves nothing about which code is running. These two say:
+		// when this process started, and when the code it runs was built. Neither is sensitive.
+		body.put("startedAt", startedAt.toString());
+		if (build != null && build.getTime() != null) {
+			body.put("builtAt", build.getTime().toString());
+		}
+		return body;
 	}
 }

@@ -12,7 +12,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.DataClass;
@@ -106,21 +109,48 @@ public class PracticeService {
 	private final InstrumentRepository instruments;
 	private final MarketDataService marketData;
 
+	/**
+	 * BUG-033 — transactions are opened by hand, around the database work only.
+	 *
+	 * <p>Every command here does two kinds of work: a few row reads and writes, and generating market
+	 * data — days of one-second bars, tens to hundreds of milliseconds of CPU. Under a method-level
+	 * {@code @Transactional} the second ran while holding a pooled connection, so a handful of
+	 * learners resuming sessions at once could exhaust the pool while the database sat idle.
+	 *
+	 * <p>So each command is three steps: read a consistent {@link Snapshot}; generate with no
+	 * transaction open; then a short write that re-reads the session and refuses if its version moved
+	 * in between. The last step is what keeps two racing requests — a double-click, a second tab —
+	 * from both acting on the same cursor.
+	 */
+	private final TransactionTemplate writeTx;
+	private final TransactionTemplate readTx;
+
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, InstrumentRepository instruments,
-			MarketDataService marketData) {
+			MarketDataService marketData, PlatformTransactionManager transactionManager) {
 		this.sessions = sessions;
 		this.plans = plans;
 		this.results = results;
 		this.instruments = instruments;
 		this.marketData = marketData;
+		this.writeTx = new TransactionTemplate(transactionManager);
+		this.readTx = new TransactionTemplate(transactionManager);
+		this.readTx.setReadOnly(true);
+		// One snapshot for the session, its plan and its result. Under PostgreSQL's default
+		// READ COMMITTED each statement sees its own moment, and a plan committed between reading
+		// the session and reading the plan would produce a state that never existed.
+		this.readTx.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+	}
+
+	/** A session and everything attached to it, read in one transaction. Plan and result may be null. */
+	private record Snapshot(PracticeSession session, Instrument instrument, TradePlan plan,
+			PracticeResult result) {
 	}
 
 	// ---------------------------------------------------------------------------------------------
 	// Commands
 	// ---------------------------------------------------------------------------------------------
 
-	@Transactional
 	public SessionResponse create(UUID userId, String symbol, String timeframeCode) {
 		Instrument instrument = marketData.requireInstrument(
 			symbol == null || symbol.isBlank() ? DEFAULT_INSTRUMENT : symbol);
@@ -138,17 +168,20 @@ public class PracticeService {
 			throw new IllegalArgumentException(
 				"Practice currently runs on simulated instruments only.");
 		}
-		if (sessions.countByUserIdAndCreatedAtAfter(userId, Instant.now().minus(Duration.ofHours(1)))
-				>= MAX_SESSIONS_PER_HOUR) {
-			throw new TooManySessionsException();
-		}
-
 		Instant start = pickStart(timeframe);
-		PracticeSession session = sessions.save(new PracticeSession(
-			userId, instrument.getId(), timeframe.code(), newSeed(),
-			DemoSeriesGenerator.GENERATOR_VERSION, start.minus(HISTORY), start));
+		PracticeSession session = writeTx.execute(tx -> {
+			if (sessions.countByUserIdAndCreatedAtAfter(userId,
+					Instant.now().minus(Duration.ofHours(1))) >= MAX_SESSIONS_PER_HOUR) {
+				throw new TooManySessionsException();
+			}
+			return sessions.save(new PracticeSession(
+				userId, instrument.getId(), timeframe.code(), newSeed(),
+				DemoSeriesGenerator.GENERATOR_VERSION, start.minus(HISTORY), start));
+		});
 
-		return new SessionResponse(state(session, instrument), visibleBars(session, instrument));
+		// Generated after the commit, with no connection held (BUG-033).
+		return new SessionResponse(state(session, instrument, null, null),
+			visibleBars(session, instrument));
 	}
 
 	/**
@@ -157,12 +190,12 @@ public class PracticeService {
 	 * <p>This is the only method that generates data past the cursor, and none of it is returned:
 	 * the response is the state, which withholds the result until the replay reaches it.
 	 */
-	@Transactional
 	public PracticeState submitPlan(UUID userId, UUID sessionId, PlanRequest request) {
-		PracticeSession session = require(userId, sessionId);
-		Instrument instrument = instrumentOf(session);
+		Snapshot seen = snapshot(userId, sessionId);
+		PracticeSession session = seen.session();
+		Instrument instrument = seen.instrument();
 
-		if (session.getStatus() != Status.ANALYSING || plans.existsBySessionId(session.getId())) {
+		if (session.getStatus() != Status.ANALYSING || seen.plan() != null) {
 			throw new PlanLockedException();
 		}
 		if (!SessionCalendar.isOpen(session.getCursorTime())) {
@@ -172,38 +205,43 @@ public class PracticeService {
 		long reference = lastVisibleClose(session, instrument);
 		validateBracket(request, reference);
 
-		TradePlan plan = plans.save(new TradePlan(session.getId(), request.direction(),
-			request.stopTicks(), request.targetTicks(), request.contracts(), reference,
-			session.getCursorTime()));
-
 		// Every one-second bar from the cursor to the end of the trading session. The engine exits
 		// at the close if neither level is reached, so nothing beyond it can matter.
 		List<Bar> seconds = marketData.internalBars(instrument, Timeframe.S1,
 			session.getCursorTime(), sessionEnd(session.getCursorTime()), session.getSeed()).bars();
-
 		FillModel model = FillModel.DEFAULT;
-		Fill fill = FillEngine.resolve(plan.toEnginePlan(), seconds, model);
-		results.save(new PracticeResult(session.getId(), fill, plan.getContracts(),
-			instrument.getTickValueCents(), model, session.getGeneratorVersion(), session.getSeed()));
+		Fill fill = FillEngine.resolve(new FillEngine.Plan(request.direction(), request.stopTicks(),
+			request.targetTicks(), request.contracts()), seconds, model);
 
-		session.setStatus(Status.IN_TRADE);
-		sessions.saveAndFlush(session);
-		return state(session, instrument);
+		return writeTx.execute(tx -> {
+			// The fill was computed for the cursor in the snapshot. If the session moved since —
+			// a step in another tab — it is a fill for a moment the learner is no longer at.
+			PracticeSession current = requireUnchanged(userId, session);
+			TradePlan plan = plans.save(new TradePlan(current.getId(), request.direction(),
+				request.stopTicks(), request.targetTicks(), request.contracts(), reference,
+				current.getCursorTime()));
+			PracticeResult result = results.save(new PracticeResult(current.getId(), fill,
+				plan.getContracts(), instrument.getTickValueCents(), model,
+				current.getGeneratorVersion(), current.getSeed()));
+			current.setStatus(Status.IN_TRADE);
+			sessions.saveAndFlush(current);
+			return state(current, instrument, plan, result);
+		});
 	}
 
 	/** Reveals the next {@code count} bars. Skips closed market, so a bar is always a bar. */
-	@Transactional
 	public AdvanceResponse advance(UUID userId, UUID sessionId, int count) {
 		if (count < 1 || count > MAX_ADVANCE_BARS) {
 			throw new IllegalArgumentException(
 				"Advance between 1 and " + MAX_ADVANCE_BARS + " bars at a time.");
 		}
-		PracticeSession session = require(userId, sessionId);
-		Instrument instrument = instrumentOf(session);
+		Snapshot seen = snapshot(userId, sessionId);
+		PracticeSession session = seen.session();
+		Instrument instrument = seen.instrument();
 		Timeframe timeframe = Timeframe.fromCode(session.getTimeframe());
 
 		Instant cursor = session.getCursorTime();
-		Instant limit = replayLimit(session, timeframe);
+		Instant limit = replayLimit(seen, timeframe);
 		if (!cursor.isBefore(limit)) {
 			throw new ReplayEndException();
 		}
@@ -219,45 +257,50 @@ public class PracticeService {
 		if (bars.isEmpty()) {
 			throw new ReplayEndException();
 		}
-		if (bars.size() > count) {
-			bars = bars.subList(0, count);
-		}
-
-		session.moveCursorTo(bars.getLast().openTime().plus(timeframe.duration()));
-		completeIfExitRevealed(session);
-		sessions.saveAndFlush(session);
-		return new AdvanceResponse(state(session, instrument), toDto(bars));
+		List<Bar> revealed = bars.size() > count ? bars.subList(0, count) : bars;
+		return reveal(userId, seen, revealed.getLast().openTime().plus(timeframe.duration()), revealed);
 	}
 
 	/** Jumps straight to the bar in which the trade ended. */
-	@Transactional
 	public AdvanceResponse skipToResult(UUID userId, UUID sessionId) {
-		PracticeSession session = require(userId, sessionId);
-		if (session.getStatus() != Status.IN_TRADE) {
+		Snapshot seen = snapshot(userId, sessionId);
+		if (seen.session().getStatus() != Status.IN_TRADE) {
 			throw new NotInTradeException();
 		}
-		Instrument instrument = instrumentOf(session);
-		Timeframe timeframe = Timeframe.fromCode(session.getTimeframe());
-		PracticeResult result = requireResult(session);
+		Timeframe timeframe = Timeframe.fromCode(seen.session().getTimeframe());
+		Instant end = endOfBarContaining(requireResult(seen).getExitTime(), timeframe);
+		List<Bar> bars = generate(seen.session(), seen.instrument(), timeframe,
+			seen.session().getCursorTime(), end);
+		return reveal(userId, seen, end, bars);
+	}
 
-		Instant end = endOfBarContaining(result.getExitTime(), timeframe);
-		List<Bar> bars = generate(session, instrument, timeframe, session.getCursorTime(), end);
-
-		session.moveCursorTo(end);
-		completeIfExitRevealed(session);
-		sessions.saveAndFlush(session);
-		return new AdvanceResponse(state(session, instrument), toDto(bars));
+	/**
+	 * The write half of advance and skip: move the cursor, complete the session if the exit is now
+	 * revealed. Refuses if the session changed after the bars were generated for it.
+	 */
+	private AdvanceResponse reveal(UUID userId, Snapshot seen, Instant newCursor, List<Bar> bars) {
+		return writeTx.execute(tx -> {
+			PracticeSession current = requireUnchanged(userId, seen.session());
+			current.moveCursorTo(newCursor);
+			completeIfExitRevealed(current, seen.result());
+			sessions.saveAndFlush(current);
+			// The snapshot's plan and result are still current: writing either bumps the session's
+			// version, and requireUnchanged has just confirmed it did not move.
+			return new AdvanceResponse(
+				state(current, seen.instrument(), seen.plan(), seen.result()), toDto(bars));
+		});
 	}
 
 	// ---------------------------------------------------------------------------------------------
 	// Queries
 	// ---------------------------------------------------------------------------------------------
 
-	@Transactional(readOnly = true)
 	public SessionResponse get(UUID userId, UUID sessionId) {
-		PracticeSession session = require(userId, sessionId);
-		Instrument instrument = instrumentOf(session);
-		return new SessionResponse(state(session, instrument), visibleBars(session, instrument));
+		Snapshot seen = snapshot(userId, sessionId);
+		// Generated outside the snapshot's transaction (BUG-033).
+		return new SessionResponse(
+			state(seen.session(), seen.instrument(), seen.plan(), seen.result()),
+			visibleBars(seen.session(), seen.instrument()));
 	}
 
 	@Transactional(readOnly = true)
@@ -295,11 +338,9 @@ public class PracticeService {
 	// Views
 	// ---------------------------------------------------------------------------------------------
 
-	private PracticeState state(PracticeSession session, Instrument instrument) {
-		TradePlan plan = plans.findBySessionId(session.getId()).orElse(null);
-		PracticeResult result = plan == null
-			? null
-			: results.findBySessionId(session.getId()).orElse(null);
+	/** Built from rows already read — no queries here, so it is safe outside a transaction. */
+	private PracticeState state(PracticeSession session, Instrument instrument, TradePlan plan,
+			PracticeResult result) {
 		boolean complete = session.getStatus() == Status.COMPLETE;
 
 		// The entry is the open of the first bar after the plan was locked. It is revealed with that
@@ -381,10 +422,34 @@ public class PracticeService {
 				"Session " + session.getId() + " refers to a missing instrument"));
 	}
 
-	private PracticeResult requireResult(PracticeSession session) {
-		return results.findBySessionId(session.getId())
-			.orElseThrow(() -> new IllegalStateException(
-				"Session " + session.getId() + " is IN_TRADE without a result"));
+	/** Reads a session with its plan, result and instrument as one consistent snapshot. */
+	private Snapshot snapshot(UUID userId, UUID sessionId) {
+		return readTx.execute(tx -> {
+			PracticeSession session = require(userId, sessionId);
+			return new Snapshot(session, instrumentOf(session),
+				plans.findBySessionId(session.getId()).orElse(null),
+				results.findBySessionId(session.getId()).orElse(null));
+		});
+	}
+
+	/**
+	 * Re-reads a session inside a write, refusing if it changed since {@code seen} was read. Whatever
+	 * was generated in between was generated for the old state, and must not be applied to a new one.
+	 */
+	private PracticeSession requireUnchanged(UUID userId, PracticeSession seen) {
+		PracticeSession current = require(userId, seen.getId());
+		if (current.getVersion() != seen.getVersion()) {
+			throw new SessionChangedException();
+		}
+		return current;
+	}
+
+	private static PracticeResult requireResult(Snapshot seen) {
+		if (seen.result() == null) {
+			throw new IllegalStateException(
+				"Session " + seen.session().getId() + " is IN_TRADE without a result");
+		}
+		return seen.result();
 	}
 
 	/**
@@ -481,20 +546,23 @@ public class PracticeService {
 	 * How far this session may be stepped. A running trade can always be watched to its end, even
 	 * past the usual limit, or the learner could be left unable to see how it finished.
 	 */
-	private Instant replayLimit(PracticeSession session, Timeframe timeframe) {
-		Instant limit = session.getStartTime().plus(MAX_REPLAY);
-		if (session.getStatus() == Status.IN_TRADE) {
-			Instant exitBarEnd = endOfBarContaining(requireResult(session).getExitTime(), timeframe);
+	private static Instant replayLimit(Snapshot seen, Timeframe timeframe) {
+		Instant limit = seen.session().getStartTime().plus(MAX_REPLAY);
+		if (seen.session().getStatus() == Status.IN_TRADE) {
+			Instant exitBarEnd = endOfBarContaining(requireResult(seen).getExitTime(), timeframe);
 			return exitBarEnd.isAfter(limit) ? exitBarEnd : limit;
 		}
 		return limit;
 	}
 
-	private void completeIfExitRevealed(PracticeSession session) {
+	private static void completeIfExitRevealed(PracticeSession session, PracticeResult result) {
 		if (session.getStatus() != Status.IN_TRADE) {
 			return;
 		}
-		PracticeResult result = requireResult(session);
+		if (result == null) {
+			throw new IllegalStateException(
+				"Session " + session.getId() + " is IN_TRADE without a result");
+		}
 		if (session.getCursorTime().isAfter(result.getExitTime())) {
 			session.setStatus(Status.COMPLETE);
 		}
@@ -554,6 +622,13 @@ public class PracticeService {
 	public static class NotInTradeException extends RuntimeException {
 		public NotInTradeException() {
 			super("There is no running trade to skip to the end of.");
+		}
+	}
+
+	/** The session moved between reading it and writing to it — a double-click, a second tab. */
+	public static class SessionChangedException extends RuntimeException {
+		public SessionChangedException() {
+			super("This session was changed by another request. Reload it to see where it stands.");
 		}
 	}
 
