@@ -60,6 +60,7 @@ const signedIn = {
   '/api/me': { body: USER },
   '/api/market/instruments/DEMO-NQ/bars': { body: SERIES },
   '/api/market/instruments': { body: INSTRUMENTS },
+  '/api/charts/DEMO-NQ/drawings': { body: [] },
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -143,6 +144,23 @@ describe('App — signed in', () => {
       const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
       expect(calls.some(([url]) => String(url).includes('timeframe=15m'))).toBe(true)
     })
+  })
+
+  it('never asks the public bars endpoint for a particular seed (DEC-038)', async () => {
+    // The backend rejects a seed outright, but the client should not be written to send one: a
+    // choosable seed is how a practice session's future would be read ahead of the replay.
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    await waitFor(() => expect(adapter.bars).toHaveLength(1))
+
+    const barRequests = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/bars'))
+
+    expect(barRequests.length).toBeGreaterThan(0)
+    for (const url of barRequests) {
+      expect(url).not.toMatch(/[?&]seed=/)
+    }
   })
 
   it('sends credentials on every request so the auth cookie is attached', async () => {

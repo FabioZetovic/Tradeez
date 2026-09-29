@@ -1124,4 +1124,145 @@ on its own branch so it can be reviewed before it is merged.
 
 ---
 
+### Session 014 — 2026-09-28 — The Practice Tab
+
+**Participant:** Claude Code
+**Type:** Feature — the part of the application everything else was built to support
+
+**What it does.** The learner presses *Start a session* and gets a chart that stops at a random
+moment they have never seen. They can study it, draw on it, or step it forward bar by bar while they
+wait for a setup. When they are ready, they place a trade: the position tool from the drawing layer
+becomes the order ticket, with the entry fixed to the current price and the stop and target dragged
+into place or typed in. The panel shows the risk and reward in ticks, dollars and as a ratio.
+Pressing *Lock plan* is final. From then on the replay only *reveals*: next bar, next ten, play, or
+skip straight to the end. A result card says what happened and a journal row keeps it. Neither can
+be edited.
+
+**The rule that shaped everything: the learner must not be able to see the future.** A practice
+session is worthless if the answer can be read out of the network traffic, so the server never sends
+a candle past the replay's current position. That is enforced by how the data is produced, not by
+filtering: the chart's candles are generated only up to that position, so later ones do not exist to
+be leaked by accident.
+
+The outcome of the trade is worked out the moment the plan is locked and stored straight away. It is
+then kept hidden until the replay reaches the candle where the trade ended. Deciding it up front means
+nothing the learner does while watching — pausing, reloading, opening a second tab — can influence a
+result that already exists. The database itself refuses any attempt to change a stored plan or result;
+a test goes around the application with raw SQL to prove it.
+
+**A hole closed before any of this was written.** The markets in Tradeez are simulated, and each one
+is completely determined by a single number, its *seed*. The existing chart endpoint let a caller pick
+the seed. Once practice sessions existed, anyone who learned a session's seed could have used that
+endpoint to generate its future and bypass every protection above. The endpoint now serves only the one
+public market, and practice seeds are random, secret, and revealed only after the trade is over, so
+the result can be reproduced.
+
+**How a trade is decided.** The learner watches five-minute candles, but one candle can touch both the
+stop and the target, and a candle alone cannot say which came first. So the engine walks through the
+one-second data inside the candles and finds the first touch. It also models what real orders suffer:
+a stop fills one tick worse than its price, a market that jumps past a level fills at the jump, every
+trade pays commission, and an open trade is closed when the session ends. Sometimes even one second is
+not fine enough, because a single second contains both levels. The engine then says so. It records the
+outcome as *ambiguous* and assumes the worse result, and the result card labels that as an assumption
+rather than presenting a guess as a fact. The engine was checked against a second, deliberately naive
+implementation on two thousand random trades, and the two agreed. About 1.5% of those trades stayed
+ambiguous even at one-second resolution.
+
+**Found by using it, not by the tests.** After finishing a trade in the browser, the seed on the result
+card did not match the one in the database: `…440752` was stored and `…440600` was shown. A browser
+stores numbers in a format that holds integers exactly only up to about nine quadrillion, and a 64-bit
+seed usually exceeds that, so the browser had quietly rounded it. The number looked exact, and it would
+have regenerated a completely different market. All 118 backend tests passed throughout, because Java
+reads the number back perfectly; the bug only exists in a browser. The seed is now sent as text. It is
+not the first time in this project that clicking through the real application found what a green test
+suite could not — the chart going blank on a timezone switch, in Session 011, was found the same way.
+
+The same walkthrough also showed that the chart's time axis is labelled in UTC while its crosshair uses
+Chicago time. That was a gap in an earlier fix, and it is logged for the next round of bug fixes along
+with three cosmetic issues.
+
+**Checked by hand.** One trade in the browser, a long stopped out, worked through on paper: 41 ticks
+lost (the stop plus one tick of slippage) at $5 a tick is $205, plus $2.50 commission, is −$207.50.
+Measured against the 40 ticks of risk that were planned, that is −1.02R. The card showed exactly those
+numbers.
+
+**By the numbers:** backend tests 71 → 118, frontend tests 67 → 92, one database migration, a fill
+engine, a practice API with six endpoints, and a new tab.
+
+---
+
+### Session 015 — 2026-09-29 — Clearing the Bug List
+
+**Participant:** Claude Code
+**Type:** Bug fixing — every open defect, before the Practice work is merged
+
+Throughout the project, bugs have been written down the moment they are found and fixed together in
+batches, rather than fixed half-way through unrelated work. Before merging the Practice tab, Fabio
+asked for the list to be emptied. Seven bugs were open; all seven are closed, and each entry in the
+bug log keeps its original description alongside how it was fixed and which test proves it.
+
+**The one a learner would have noticed.** The chart's time axis was labelled in UTC while the
+crosshair used Chicago time, so the same candle read six hours apart depending on where you looked.
+An earlier fix had corrected only the crosshair. Its test checked the formatting function, which was
+right, but nothing checked that the chart was ever given that function for its axis. The new test
+checks exactly that: it replaces the charting library with a recorder and asserts that the axis
+receives the formatter. One limit was kept on purpose. The library puts its day markers at UTC
+midnight, which is early evening in Chicago. Moving them would mean shifting every timestamp given to
+the library, and that breaks when the clocks change. So those markers say what they are, for example
+*Wed 18:00*, rather than showing a date that would suggest midnight.
+
+**A failure that had been hidden.** If saving a drawing failed, the app said nothing. That had
+already concealed a completely broken save path for a whole session. Failures are now shown with a
+*Retry now* button. Retrying saves unsaved work first and only then reloads from the server, because
+a reload replaces what is on screen and would otherwise throw that work away.
+
+**Two performance issues, fixed after measuring.** Resuming a practice session regenerated about
+170,000 one-second prices, taking roughly 130 milliseconds, and did it while holding a database
+connection. The data generation now happens with no database transaction open. A short final step
+then checks that the session was not changed by another request in the meantime; if it was, the
+request is refused rather than applied to the wrong position. Generated days are also cached, which
+brings a resume down to about 30 milliseconds. The cache could have broken the rule that the learner
+never sees the future, because a cached day contains hours the replay has not revealed yet. It is
+therefore used only for requests whose start and end fall exactly on candle boundaries, where it
+provably returns the same candles as generating them fresh. A test compares the two, candle for
+candle, across two dozen random cases.
+
+**Three cosmetic ones, each with a less obvious cause.** The page title was nearly invisible because
+a leftover colour setting from the project template turned dark whenever the computer was in light
+mode, and the same setting would also have hidden the seed on the result card. A one-pixel sideways
+scroll came from the page's layout sizing itself to its content instead of the window: the chart
+kept its previous width when a scrollbar appeared, and held the whole page one pixel too wide. Test
+runs printed 55 warnings because a safety stub in the test setup never activated.
+
+**Problems with the machine, not the code.** The development computer has a few recurring problems
+that are not bugs in Tradeez: Docker stopping on its own, ports that are already taken, and an old
+server process that keeps answering after a restart fails. Each now has a safeguard in the
+repository. The tests say plainly when Docker is not running, instead of failing with an error that
+looks like broken code. The health check reports when the running server was started and built,
+which exposes a stale process in one request. The launch configuration records the port
+arrangement. The coordination rules between the two AI collaborators now require a claim on files
+to be made in the same commit as real work.
+
+**The check before merging.** Fabio asked for everything to be checked once more before the work
+was merged. Three things came out of that. First, the code was verified from a fresh copy of the
+repository, not the working folder, since a working folder can hide problems behind leftover build
+files. Second, the project's linter was run, apparently for the first time. It found seven warnings
+in the new code. They were patterns React advises against, such as copying values into references
+while the screen is being drawn. All seven were fixed by removing the pattern rather than silencing
+the warning. Seven similar warnings in older code are logged for the next round, because two of them
+sit in the drawing tools' drag handling and need hands-on testing to change safely.
+
+Third, and most useful: reloading the app after a short break signed the user out. The app checked
+the session twice at the same instant, both checks tried to renew the login with the same token, and
+the second one lost a race in the database and was treated as a failed login. An earlier fix,
+BUG-001, had handled the case where the second request arrives just after the first; it had never
+covered the two arriving together. The server now recognises the lost race and simply tries again.
+A new test fires several renewals at once. It fails without the fix and passes with it, and in the
+browser nine simultaneous renewals all succeeded.
+
+**By the numbers:** backend tests 118 → 132, frontend tests 92 → 112. One bug remains open, the
+seven older lint warnings, and it is deferred on purpose.
+
+---
+
 *Next session entry goes here.*

@@ -106,13 +106,12 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
 				.param("timeframe", "5m")
 				.param("from", String.valueOf(from))
-				.param("to", String.valueOf(to))
-				.param("seed", "42"))
+				.param("to", String.valueOf(to)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.instrument").value("DEMO-NQ"))
 			.andExpect(jsonPath("$.timeframe").value("5m"))
 			.andExpect(jsonPath("$.dataClass").value("SIMULATED"))
-			.andExpect(jsonPath("$.seed").value(42))
+			.andExpect(jsonPath("$.seed").value(MarketDataService.PUBLIC_CHART_SEED))
 			.andExpect(jsonPath("$.generatorVersion").exists())
 			// The disclaimer ships with the data rather than being the UI's job to remember.
 			.andExpect(jsonPath("$.disclaimer").value("SIMULATED DATA — NOT MARKET HISTORY"))
@@ -120,17 +119,31 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("the same seed returns an identical series across requests (DEC-012)")
-	void seedIsReproducibleOverHttp() throws Exception {
+	@DisplayName("the public market is identical across requests (DEC-012)")
+	void publicMarketIsReproducible() throws Exception {
 		long from = 1710338400L;
 		long to = from + 1800;
 
-		String first = fetchBars(from, to, 7);
-		String second = fetchBars(from, to, 7);
-		String different = fetchBars(from, to, 8);
+		assertThat(fetchBars(from, to)).isEqualTo(fetchBars(from, to));
+	}
 
-		assertThat(first).isEqualTo(second);
-		assertThat(first).isNotEqualTo(different);
+	@Test
+	@DisplayName("a client cannot choose which market it reads (DEC-038)")
+	void seedCannotBeChosen() throws Exception {
+		// This test used to assert the opposite: that seed 7 and seed 8 returned different markets
+		// over HTTP. That was the hole. A simulated market is a pure function of its seed, and this
+		// endpoint serves any range, including the future — so a practice session's seed would have
+		// let anyone read every bar its replay had not yet revealed, from outside the practice API
+		// entirely. Seed-level determinism is still proven, in DemoSeriesGeneratorTest, where it
+		// belongs; it is just no longer something a caller can reach.
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
+				.param("timeframe", "1m")
+				.param("from", "1710338400")
+				.param("to", "1710340200")
+				.param("seed", "7"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message")
+				.value(org.hamcrest.Matchers.containsString("does not accept a seed")));
 	}
 
 	@Test
@@ -141,8 +154,7 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
 				.param("timeframe", "1s")
 				.param("from", "1710338400")
-				.param("to", String.valueOf(1710338400L + 365L * 86400))
-				.param("seed", "1"))
+				.param("to", String.valueOf(1710338400L + 365L * 86400)))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message")
 				.value(org.hamcrest.Matchers.containsString(
@@ -178,18 +190,16 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
 				.param("timeframe", "5m")
 				.param("from", String.valueOf(saturday))
-				.param("to", String.valueOf(saturday + 3600))
-				.param("seed", "1"))
+				.param("to", String.valueOf(saturday + 3600)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.bars.length()").value(0));
 	}
 
-	private String fetchBars(long from, long to, long seed) throws Exception {
+	private String fetchBars(long from, long to) throws Exception {
 		return mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
 				.param("timeframe", "1m")
 				.param("from", String.valueOf(from))
-				.param("to", String.valueOf(to))
-				.param("seed", String.valueOf(seed)))
+				.param("to", String.valueOf(to)))
 			.andExpect(status().isOk())
 			.andReturn().getResponse().getContentAsString();
 	}

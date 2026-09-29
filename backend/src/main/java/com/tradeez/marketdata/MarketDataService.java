@@ -24,6 +24,19 @@ public class MarketDataService {
 	/** Ceiling on the requested span, checked before generating anything. */
 	private static final Duration MAX_RANGE = Duration.ofDays(400);
 
+	/**
+	 * The one market the public chart shows (DEC-038).
+	 *
+	 * <p>Fixed, and deliberately not configurable from a request. Every simulated market is a pure
+	 * function of its seed, so letting a client choose one would let it read any market — including
+	 * a practice session's, past the point the replay has revealed.
+	 *
+	 * <p>Kept at 42 because that is what the chart has always shown: drawings saved before DEC-038
+	 * were anchored to prices on this market, and changing it would leave every one of them floating
+	 * over price action it was never drawn against. Practice seeds must never equal this value.
+	 */
+	public static final long PUBLIC_CHART_SEED = 42L;
+
 	private final InstrumentRepository instruments;
 	private final List<MarketDataProvider> providers;
 
@@ -68,6 +81,32 @@ public class MarketDataService {
 					+ " (dataClass=" + instrument.getDataClass() + ")"));
 
 		return provider.bars(instrument, timeframe, from, to, seed);
+	}
+
+	/**
+	 * Server-side access to <b>any</b> market, including a practice session's secret one.
+	 *
+	 * <p>DEC-038: never call this with a seed that came from a request, and never return its output
+	 * to a client without clipping it to a session cursor. It deliberately skips the per-request caps
+	 * above, because its only callers bound their own ranges — the practice engine needs a full
+	 * trading day of one-second data to resolve a trade, far more than any client may ask for.
+	 */
+	public BarSeries internalBars(Instrument instrument, Timeframe timeframe, Instant from,
+			Instant to, long seed) {
+		if (!to.isAfter(from)) {
+			return new BarSeries(instrument.getSymbol(), timeframe, instrument.getDataClass(),
+				"generated", seed, null, List.of());
+		}
+		return providerFor(instrument).bars(instrument, timeframe, from, to, seed);
+	}
+
+	private MarketDataProvider providerFor(Instrument instrument) {
+		return providers.stream()
+			.filter(p -> p.supports(instrument))
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException(
+				"No market data provider serves " + instrument.getSymbol()
+					+ " (dataClass=" + instrument.getDataClass() + ")"));
 	}
 
 	public static class InstrumentNotFoundException extends RuntimeException {

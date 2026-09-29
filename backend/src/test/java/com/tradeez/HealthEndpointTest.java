@@ -22,7 +22,10 @@ class HealthEndpointTest extends AbstractIntegrationTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("UP"))
 			.andExpect(jsonPath("$.database").value("UP"))
-			.andExpect(jsonPath("$.application").value("tradeez-backend"));
+			.andExpect(jsonPath("$.application").value("tradeez-backend"))
+			// ENV-003: enough to tell a stale process from the one just started.
+			.andExpect(jsonPath("$.startedAt").isString())
+			.andExpect(jsonPath("$.builtAt").isString());
 	}
 
 	@Test

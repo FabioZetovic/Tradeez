@@ -51,24 +51,36 @@ public class MarketDataController {
 	}
 
 	@GetMapping("/instruments/{symbol}/bars")
-	@Operation(summary = "OHLCV bars",
+	@Operation(summary = "OHLCV bars for the public chart",
 		description = """
 			Prices are integer tick counts, not decimals — multiply by the instrument's tickSize \
-			to display. The same seed and range always return an identical series, which is what \
-			makes a practice result reproducible (DEC-012).""")
+			to display. Always serves the one public market; a seed cannot be chosen (DEC-038).""")
 	public BarSeriesResponse bars(
 			@PathVariable String symbol,
 			@RequestParam(defaultValue = "5m") String timeframe,
 			@RequestParam long from,
 			@RequestParam long to,
-			@RequestParam(defaultValue = "1") long seed) {
+			@RequestParam(required = false) Long seed) {
+
+		// DEC-038. A simulated market is a pure function of its seed, and this endpoint serves any
+		// time range — past or future. When it accepted a seed, it was a generator anyone could
+		// drive: a practice session's seed would have been enough to read every bar the replay had
+		// not yet revealed, defeating DEC-009 from outside the practice API entirely.
+		//
+		// So it serves exactly one market, the public chart's. Rejected loudly rather than ignored:
+		// a client that thinks it is selecting a market should learn that it is not.
+		if (seed != null) {
+			throw new IllegalArgumentException(
+				"The public bars endpoint does not accept a seed. It always serves the public "
+					+ "chart's market; practice sessions are read through /api/practice.");
+		}
 
 		BarSeries series = service.bars(
 			symbol,
 			Timeframe.fromCode(timeframe),
 			Instant.ofEpochSecond(from),
 			Instant.ofEpochSecond(to),
-			seed);
+			MarketDataService.PUBLIC_CHART_SEED);
 
 		return new BarSeriesResponse(
 			series.instrumentSymbol(),

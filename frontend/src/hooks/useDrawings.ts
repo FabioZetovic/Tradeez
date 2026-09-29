@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { deleteDrawing, listDrawings, saveDrawing } from '@/lib/api/drawings'
 import {
   canRedo as canRedoOf,
@@ -13,9 +13,29 @@ import {
  * The local reducer is the source of truth while the user is working; the server is synchronised
  * afterwards. Doing it the other way round — awaiting a round trip before the shape moves — would
  * make dragging feel broken on any connection worse than a LAN.
+ *
+ * BUG-023 — a failed load or save is reported through `syncError`, never swallowed. The original
+ * version caught every failure silently so a network blip could not crash a drag. That goal was
+ * right and the method was not: it hid a completely broken save path for a whole session, because a
+ * chart whose drawings are not being saved looks exactly like one whose drawings are. Failures are
+ * still non-fatal and still retried; they are just no longer invisible.
  */
+/**
+ * A failure, tagged with the chart it happened on. Tagging rather than clearing on every symbol
+ * change is what lets a switch of instrument hide another chart's error without an effect having to
+ * reset state before the new chart has even loaded.
+ */
+interface SyncProblem {
+  symbol: string
+  message: string
+}
+
 export function useDrawings(symbol: string) {
   const [state, dispatch] = useReducer(drawingReducer, initialDrawingState)
+  const [loadError, setLoadError] = useState<SyncProblem | null>(null)
+  const [saveError, setSaveError] = useState<SyncProblem | null>(null)
+  // Bumped to run the load again after it failed.
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   // What the server currently holds, so a commit can work out what actually changed rather than
   // re-uploading every shape on every gesture.
@@ -30,16 +50,27 @@ export function useDrawings(symbol: string) {
         if (cancelled) return
         persistedRef.current = new Map(drawings.map((d) => [d.id, JSON.stringify(d)]))
         dispatch({ type: 'load', drawings })
+        setLoadError(null)
+        // The local drawings were just replaced by the server's, so nothing is waiting to save.
+        setSaveError(null)
       })
       .catch(() => {
         // A chart that loads without its annotations is degraded but usable; one that refuses to
-        // load because a secondary request failed is not.
-        if (!cancelled) dispatch({ type: 'load', drawings: [] })
+        // load because a secondary request failed is not. But the user is told: an empty chart
+        // would otherwise read as "my drawings are gone".
+        if (cancelled) return
+        persistedRef.current = new Map()
+        dispatch({ type: 'load', drawings: [] })
+        setSaveError(null)
+        setLoadError({
+          symbol,
+          message: 'Your saved drawings could not be loaded. New drawings will still be saved.',
+        })
       })
     return () => {
       cancelled = true
     }
-  }, [symbol])
+  }, [symbol, loadAttempt])
 
   const stateRef = useRef(state)
   stateRef.current = state
@@ -49,43 +80,84 @@ export function useDrawings(symbol: string) {
    *
    * Diffed against the last known server state so a drag that moved one line does not re-save the
    * other forty. Called when a gesture ends, never during one.
+   *
+   * A shape that fails to save is left out of the persisted map, so the next commit retries it.
+   * Resolves to whether everything is now in sync.
    */
-  const commit = useCallback(async () => {
+  const commit = useCallback(async (): Promise<boolean> => {
     const current = stateRef.current.drawings
     const persisted = persistedRef.current
     const sym = symbolRef.current
 
     const currentIds = new Set(current.map((d) => d.id))
-    const work: Promise<unknown>[] = []
+    const work: Promise<boolean>[] = []
 
     for (const drawing of current) {
       const serialised = JSON.stringify(drawing)
       if (persisted.get(drawing.id) !== serialised) {
         work.push(
           saveDrawing(sym, drawing)
-            .then(() => persisted.set(drawing.id, serialised))
-            .catch(() => {
-              // Leave it out of `persisted` so the next commit retries it. Swallowing the error is
-              // deliberate: an autosave that throws mid-drag would surface as a crash over a
-              // transient network blip.
-            }),
+            .then(() => {
+              persisted.set(drawing.id, serialised)
+              return true
+            })
+            .catch(() => false),
         )
       }
     }
 
     for (const id of persisted.keys()) {
       if (!currentIds.has(id)) {
-        work.push(deleteDrawing(sym, id).then(() => persisted.delete(id)).catch(() => {}))
+        work.push(
+          deleteDrawing(sym, id)
+            .then(() => {
+              persisted.delete(id)
+              return true
+            })
+            .catch(() => false),
+        )
       }
     }
 
-    await Promise.all(work)
+    const ok = (await Promise.all(work)).every(Boolean)
+    // A symbol switch while the saves were in flight makes this result about a chart that is no
+    // longer on screen; reporting it there would blame the wrong chart.
+    if (sym === symbolRef.current) {
+      setSaveError(
+        ok
+          ? null
+          : {
+              symbol: sym,
+              message: 'Some drawings could not be saved. They will be retried with your next change.',
+            },
+      )
+    }
+    return ok
   }, [])
+
+  /**
+   * Retries whatever failed. A failed save first: it is about work the user has done and would
+   * lose. Reloading afterwards is safe only once nothing local is waiting to be saved, because a
+   * load replaces the local drawings with the server's.
+   */
+  const currentSaveError = saveError?.symbol === symbol ? saveError.message : null
+  const currentLoadError = loadError?.symbol === symbol ? loadError.message : null
+
+  const retry = useCallback(async () => {
+    if (currentSaveError) {
+      const saved = await commit()
+      if (!saved) return
+    }
+    if (currentLoadError) setLoadAttempt((n) => n + 1)
+  }, [currentSaveError, currentLoadError, commit])
 
   return {
     state,
     dispatch,
     commit,
+    retry,
+    // A failed save is the more urgent message: it is about work being lost from now on.
+    syncError: currentSaveError ?? currentLoadError,
     canUndo: canUndoOf(state),
     canRedo: canRedoOf(state),
   }

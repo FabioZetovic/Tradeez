@@ -31,6 +31,58 @@ export function createTimeFormatter(exchangeTimezone: string, mode: AxisTimezone
     formatter.format(new Date(epochSeconds * 1000)) + suffix
 }
 
+/** What a tick mark on the time axis marks. Mirrors the renderer's own categories. */
+export type TickKind = 'year' | 'month' | 'day' | 'time' | 'seconds'
+
+/**
+ * Labels for the tick marks along the time axis (BUG-029).
+ *
+ * The crosshair label and the axis ticks are formatted by two different hooks in the renderer, and
+ * the BUG-014 fix only set the first. The chart then showed Chicago time in the crosshair and UTC
+ * along the axis, six hours apart, on the same screen.
+ *
+ * One limit is deliberate. The renderer places day, month and year ticks at *UTC* boundaries, and
+ * moving them would mean shifting every timestamp handed to it — which breaks wherever a zone's
+ * offset changes. So a "day" tick is labelled with what it truly is in the chosen zone — a weekday
+ * and a time, e.g. "Wed 18:00" — rather than with a date that would suggest local midnight. Hour
+ * and minute ticks are unaffected: the exchange zones used here are whole hours from UTC.
+ */
+export function createTickMarkFormatter(exchangeTimezone: string, mode: AxisTimezone) {
+  const timeZone = mode === 'utc' ? 'UTC' : exchangeTimezone
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const seconds = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+  const weekday = new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short' })
+  const month = new Intl.DateTimeFormat('en-GB', { timeZone, month: 'short' })
+  const year = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric' })
+
+  return (epochSeconds: number, kind: TickKind): string => {
+    const at = new Date(epochSeconds * 1000)
+    switch (kind) {
+      case 'year':
+        return year.format(at)
+      case 'month':
+        return month.format(at)
+      case 'day':
+        return `${weekday.format(at)} ${time.format(at)}`
+      case 'seconds':
+        return seconds.format(at)
+      case 'time':
+        return time.format(at)
+    }
+  }
+}
+
 /** Short label for the timezone toggle, e.g. "CDT" or "UTC". */
 export function timezoneLabel(exchangeTimezone: string, mode: AxisTimezone, at: Date): string {
   if (mode === 'utc') return 'UTC'
@@ -41,4 +93,22 @@ export function timezoneLabel(exchangeTimezone: string, mode: AxisTimezone, at: 
     timeZoneName: 'short',
   }).formatToParts(at)
   return parts.find((p) => p.type === 'timeZoneName')?.value ?? exchangeTimezone
+}
+
+/**
+ * A single instant for prose, in the exchange's zone: "Tue 09:35 CDT".
+ *
+ * Weekday and time, no date. On simulated data the date means nothing, while the weekday and the
+ * session time are exactly what a learner reasons about — Monday's open, the New York session.
+ */
+export function formatSessionTime(epochSeconds: number, exchangeTimezone: string): string {
+  const at = new Date(epochSeconds * 1000)
+  const text = new Intl.DateTimeFormat('en-GB', {
+    timeZone: exchangeTimezone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(at)
+  return `${text} ${timezoneLabel(exchangeTimezone, 'exchange', at)}`
 }

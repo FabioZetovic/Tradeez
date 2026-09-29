@@ -1,0 +1,359 @@
+import { act, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PracticeView } from './PracticeView'
+import { FakeChartAdapter } from '@/test/fakeChartAdapter'
+import type {
+  PracticeState,
+  ResultView,
+  SessionResponse,
+  SessionSummary,
+} from '@/lib/api/practice'
+
+const ID = '11111111-2222-3333-4444-555555555555'
+const CURSOR = 1_710_338_400
+
+const BARS = [
+  { time: CURSOR - 900, open: 79_990, high: 80_004, low: 79_985, close: 80_000, volume: 10 },
+  { time: CURSOR - 600, open: 80_000, high: 80_010, low: 79_996, close: 80_004, volume: 10 },
+  { time: CURSOR - 300, open: 80_004, high: 80_012, low: 80_001, close: 80_006, volume: 10 },
+]
+
+const ANALYSING: PracticeState = {
+  id: ID,
+  instrument: 'DEMO-NQ',
+  tickSize: 0.25,
+  tickValueCents: 500,
+  exchangeTimezone: 'America/Chicago',
+  timeframe: '5m',
+  status: 'ANALYSING',
+  startTime: CURSOR,
+  cursor: CURSOR,
+  dataClass: 'SIMULATED',
+  disclaimer: 'SIMULATED DATA — NOT MARKET HISTORY',
+  generatorVersion: 'demo-gen-1.2.0',
+}
+
+const PLAN = {
+  direction: 'LONG' as const,
+  stopTicks: 79_960,
+  targetTicks: 80_086,
+  contracts: 1,
+  referenceTicks: 80_006,
+  lockedAt: CURSOR,
+  plannedRewardRisk: 1.74,
+}
+
+const AMBIGUOUS: ResultView = {
+  outcome: 'AMBIGUOUS',
+  assumption:
+    'The stop and the target were both touched inside the same second, so which came first ' +
+    'cannot be known from this data. The result assumes the worst case: the stop.',
+  entryTime: CURSOR,
+  entryTicks: 80_007,
+  exitTime: CURSOR + 1234,
+  exitTicks: 79_959,
+  pnlTicks: -48,
+  netPnlCents: -24_250,
+  commissionCents: 250,
+  maeTicks: 48,
+  mfeTicks: 79,
+  gapExit: false,
+  rMultiple: -1.04,
+  resolution: 'S1',
+  engineVersion: 'fill-1.0.0',
+  fillModelVersion: 'slip-1t/comm-250c',
+}
+
+interface Call {
+  method: string
+  url: string
+  body: unknown
+}
+
+type Handler = (call: Call) => { status?: number; body: unknown }
+
+let calls: Call[] = []
+
+function mockApi(handler: Handler) {
+  calls = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init?: RequestInit) => {
+      const call = {
+        method: init?.method ?? 'GET',
+        url,
+        body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
+      }
+      calls.push(call)
+      const { status = 200, body } = handler(call)
+      return Promise.resolve({
+        ok: status < 400,
+        status,
+        statusText: String(status),
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+      })
+    }),
+  )
+}
+
+const is = (call: Call, method: string, suffix: string) =>
+  call.method === method && call.url.endsWith(suffix)
+
+/** A server that plays one session through: create, lock, one bar, skip to an ambiguous result. */
+function happyServer(overrides: Partial<Record<'plan', { status: number; body: unknown }>> = {}) {
+  return (call: Call) => {
+    if (is(call, 'GET', '/api/practice/sessions')) return { body: [] }
+    if (is(call, 'POST', '/api/practice/sessions')) {
+      return { status: 201, body: { state: ANALYSING, bars: BARS } satisfies SessionResponse }
+    }
+    if (is(call, 'POST', '/plan')) {
+      return overrides.plan ?? { body: { ...ANALYSING, status: 'IN_TRADE', plan: PLAN } }
+    }
+    if (is(call, 'POST', '/advance')) {
+      return {
+        body: {
+          state: {
+            ...ANALYSING,
+            status: 'IN_TRADE',
+            plan: PLAN,
+            cursor: CURSOR + 300,
+            entry: { time: CURSOR, ticks: 80_007 },
+          },
+          bars: [
+            { time: CURSOR, open: 80_007, high: 80_015, low: 79_999, close: 80_010, volume: 10 },
+          ],
+        },
+      }
+    }
+    if (is(call, 'POST', '/skip')) {
+      return {
+        body: {
+          state: {
+            ...ANALYSING,
+            status: 'COMPLETE',
+            plan: PLAN,
+            cursor: CURSOR + 1500,
+            entry: { time: CURSOR, ticks: 80_007 },
+            result: AMBIGUOUS,
+            // Above 2^53 on purpose: as a JSON number this would be rounded (BUG-028).
+            seed: '1713776017923440752',
+          },
+          bars: [
+            { time: CURSOR + 1200, open: 80_010, high: 80_090, low: 79_950, close: 79_970, volume: 10 },
+          ],
+        },
+      }
+    }
+    return { status: 404, body: { message: 'not found' } }
+  }
+}
+
+function renderPractice() {
+  return render(<PracticeView adapterFactory={() => new FakeChartAdapter()} />)
+}
+
+async function startSession(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /start a session/i }))
+  await screen.findByTestId('price-chart')
+}
+
+afterEach(() => vi.restoreAllMocks())
+
+describe('Practice — a full session', () => {
+  beforeEach(() => mockApi(happyServer()))
+
+  it('starts at a hidden moment, labelled as simulated, without fetching it twice', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+
+    expect(screen.getByTestId('practice-status')).toHaveTextContent('Analysing')
+    expect(screen.getByRole('note')).toHaveTextContent(/SIMULATED DATA/)
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/sessions'))).toHaveLength(1)
+    expect(calls.some((c) => c.method === 'GET' && c.url.includes(ID))).toBe(false)
+  })
+
+  it('builds a bracket, explains a bad one, and locks exactly what was shown', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+
+    await user.click(screen.getByRole('button', { name: /place long/i }))
+    const numbers = screen.getByTestId('plan-numbers')
+    expect(numbers).toHaveTextContent('40 ticks · $200.00')
+    expect(numbers).toHaveTextContent('80 ticks · $400.00')
+    expect(numbers).toHaveTextContent('2.00')
+
+    // A stop above the price is not a long.
+    const stop = screen.getByLabelText('Stop')
+    await user.clear(stop)
+    await user.type(stop, '20005{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent(/stop below the current price/)
+    expect(screen.getByRole('button', { name: /lock plan/i })).toBeDisabled()
+
+    await user.clear(stop)
+    await user.type(stop, '19990{Enter}')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /lock plan/i }))
+    await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade'))
+
+    const lock = calls.find((c) => is(c, 'POST', '/plan'))
+    expect(lock?.body).toEqual({
+      direction: 'LONG',
+      stopTicks: 79_960,
+      targetTicks: 80_086,
+      contracts: 1,
+    })
+    // Nothing about the outcome is on screen yet, and neither is the entry price.
+    expect(screen.getByTestId('trade-entry')).toHaveTextContent('at the next price')
+    expect(screen.queryByTestId('result-outcome')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('result-seed')).not.toBeInTheDocument()
+  })
+
+  it('reveals the entry with the next bar, then the result — labelled as an assumption', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /place long/i }))
+    await user.click(screen.getByRole('button', { name: /lock plan/i }))
+    await screen.findByText(/— locked/)
+
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(screen.getByTestId('trade-entry')).toHaveTextContent('20001.75'))
+    expect(calls.find((c) => is(c, 'POST', '/advance'))?.body).toEqual({ bars: 1 })
+
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    const outcome = await screen.findByTestId('result-outcome')
+    expect(outcome).toHaveTextContent('Ambiguous — worst case assumed')
+    const result = screen.getByRole('region', { name: 'Result' })
+    expect(within(result).getByRole('note')).toHaveTextContent(/assumes the worst case/)
+    expect(screen.getByTestId('result-net')).toHaveTextContent('−$242.50')
+    expect(screen.getByTestId('result-r')).toHaveTextContent('−1.04R')
+    // Only now is the seed shown — it is the reproduction key (DEC-012, DEC-038).
+    expect(screen.getByTestId('result-seed')).toHaveTextContent(/^1713776017923440752$/)
+    expect(screen.getByTestId('practice-status')).toHaveTextContent('Complete')
+    expect(screen.queryByRole('button', { name: /play/i })).not.toBeInTheDocument()
+  })
+
+  it('ignores a second click while a step is in flight', async () => {
+    // The session row is optimistic-locked, so a double click would otherwise earn a 409.
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const server = happyServer()
+    mockApi(server)
+    const fetchMock = vi.mocked(globalThis.fetch)
+    const original = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (url, init) => {
+      if (String(url).endsWith('/advance')) await gate
+      return original(url, init)
+    })
+
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    const next = screen.getByRole('button', { name: /next bar/i })
+    await user.click(next)
+    await user.click(next)
+    await act(async () => release())
+
+    await waitFor(() => expect(screen.getByTestId('practice-cursor')).toBeInTheDocument())
+    expect(calls.filter((c) => is(c, 'POST', '/advance'))).toHaveLength(1)
+  })
+})
+
+describe('Practice — waiting for a setup', () => {
+  it('keeps the bracket entry on the market price as the replay moves', async () => {
+    // The order is at market, so the entry is wherever price is now. Stop and target are the
+    // learner's absolute levels and stay put; the risk between them and the entry changes.
+    const server = happyServer()
+    mockApi((call) =>
+      is(call, 'POST', '/advance')
+        ? {
+            body: {
+              state: { ...ANALYSING, cursor: CURSOR + 300 },
+              bars: [
+                { time: CURSOR, open: 80_006, high: 80_012, low: 80_004, close: 80_010, volume: 10 },
+              ],
+            },
+          }
+        : server(call),
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /place long/i }))
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('40 ticks · $200.00')
+
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+
+    await waitFor(() => expect(screen.getByText(/next price after 20002\.50/)).toBeInTheDocument())
+    // Stop still 79,966; entry now 80,010: 44 ticks of risk.
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('44 ticks · $220.00')
+    expect(screen.getByLabelText('Stop')).toHaveValue('19991.50')
+  })
+})
+
+describe('Practice — refusals', () => {
+  it("shows the server's reason when a plan is refused", async () => {
+    mockApi(
+      happyServer({
+        plan: {
+          status: 409,
+          body: { message: 'The market is closed at this point in the replay.' },
+        },
+      }),
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /place long/i }))
+    await user.click(screen.getByRole('button', { name: /lock plan/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/market is closed/)
+    expect(screen.getByTestId('practice-status')).toHaveTextContent('Analysing')
+  })
+})
+
+describe('Practice — journal', () => {
+  it('lists sessions without an outcome until they are complete', async () => {
+    const rows: SessionSummary[] = [
+      {
+        id: 'a',
+        instrument: 'DEMO-NQ',
+        timeframe: '5m',
+        status: 'IN_TRADE',
+        createdAt: CURSOR,
+        direction: 'SHORT',
+      },
+      {
+        id: 'b',
+        instrument: 'DEMO-NQ',
+        timeframe: '1m',
+        status: 'COMPLETE',
+        createdAt: CURSOR - 60,
+        direction: 'LONG',
+        outcome: 'TARGET',
+        netPnlCents: 39_750,
+        rMultiple: 2,
+      },
+    ]
+    mockApi((call) =>
+      is(call, 'GET', '/api/practice/sessions') ? { body: rows } : { status: 404, body: {} },
+    )
+    renderPractice()
+
+    const [running, done] = await screen.findAllByTestId('journal-row')
+    expect(running).toHaveTextContent('In trade')
+    expect(running).not.toHaveTextContent('$')
+    expect(within(running).getByRole('button')).toHaveTextContent('Resume')
+
+    expect(done).toHaveTextContent('Target hit')
+    expect(done).toHaveTextContent('$397.50')
+    expect(done).toHaveTextContent('+2.00')
+    expect(within(done).getByRole('button')).toHaveTextContent('Review')
+  })
+})

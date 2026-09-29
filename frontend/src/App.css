@@ -10,6 +10,11 @@
   --warn-text: #f0c674;
   --error: #f85149;
   --ok: #3fb950;
+  /* BUG-031. The Vite template's index.css colours h1, h2 and code with --text-h, which it sets
+     near-black unless the OS is in dark mode. This app is always dark, so on a light-mode machine
+     the title vanished into the background — and so would every <code>, including the seed on the
+     result card. Defined here so the app's palette owns it whatever the OS prefers. */
+  --text-h: #e6edf3;
 }
 
 * {
@@ -28,6 +33,13 @@ body {
   max-width: 56rem;
   margin: 0 auto;
   padding: 2.5rem 1.5rem;
+  /* BUG-032. #root is a column flexbox, and auto margins on a flex item switch off stretching: the
+     shell was sized to its content instead of its container. Its content includes the chart, which
+     holds a fixed pixel width from the last time it measured itself — so when a vertical scrollbar
+     appeared and took 15px, the shell stayed at the old width and the page scrolled sideways. A
+     definite width lets it shrink with the window; the chart then remeasures to fit. */
+  width: 100%;
+  min-width: 0;
 }
 
 .shell__header h1 {
@@ -333,4 +345,162 @@ button.link {
   inset: 0;
   /* Above the chart canvas, below the toolbar. */
   z-index: 2;
+}
+
+/* --- practice (task 6) --- */
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+
+.tab--active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.practice {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.practice__panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.primary {
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.buy {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.sell {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.chip {
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.chip--in_trade {
+  border-color: var(--warn-border);
+  color: var(--warn-text);
+}
+
+.chip--complete {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.plan-grid input {
+  width: 9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.result__headline {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.result--win .result__headline {
+  color: var(--ok);
+}
+
+.result--loss .result__headline {
+  color: var(--error);
+}
+
+/* INVARIANT 6: an assumed outcome is labelled as one, where it cannot be missed. */
+.assumption {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--warn-border);
+  border-radius: 6px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 0.85rem;
+}
+
+.provenance summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.journal {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.journal th,
+.journal td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.journal th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* The page shell centres its text; practice panels are forms and tables, which read left-aligned. */
+.practice .panel {
+  text-align: left;
 }

@@ -15,6 +15,7 @@ import { timezoneLabel, type AxisTimezone } from '@/lib/chart/timeAxis'
 import { DrawingOverlay } from './DrawingOverlay'
 import { DrawingToolbar } from './DrawingToolbar'
 import { useDrawings } from '@/hooks/useDrawings'
+import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import type { SnapMode } from '@/lib/drawing/snap'
 import type { DrawingKind } from '@/lib/drawing/types'
 
@@ -34,7 +35,8 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
 
-  const { state: drawingState, dispatch, commit, canUndo, canRedo } = useDrawings(symbol)
+  const { state: drawingState, dispatch, commit, retry, syncError, canUndo, canRedo } =
+    useDrawings(symbol)
 
   const deleteSelected = useCallback(() => {
     if (!drawingState.selectedId) return
@@ -42,34 +44,16 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
     void commit()
   }, [drawingState.selectedId, dispatch, commit])
 
-  // Keyboard shortcuts. Bound on the window rather than the canvas because a canvas cannot hold
-  // focus without a tabindex, and a chart that steals focus from the page is worse than one that
-  // shares its shortcuts.
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null
-      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return
+  const cancelTool = useCallback(() => setActiveTool(null), [])
+  const persist = useCallback(() => void commit(), [commit])
 
-      if (event.key === 'Escape') {
-        setActiveTool(null)
-        dispatch({ type: 'select', id: null })
-        return
-      }
-      if ((event.key === 'Delete' || event.key === 'Backspace') && drawingState.selectedId) {
-        event.preventDefault()
-        deleteSelected()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        dispatch({ type: event.shiftKey ? 'redo' : 'undo' })
-        void commit()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [dispatch, commit, deleteSelected, drawingState.selectedId])
+  useDrawingShortcuts({
+    selectedId: drawingState.selectedId,
+    dispatch,
+    onCancelTool: cancelTool,
+    onDeleteSelected: deleteSelected,
+    onHistoryChange: persist,
+  })
 
   useEffect(() => {
     listInstruments()
@@ -83,7 +67,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
     setError(null)
 
     const { from, to } = demoWindow(timeframe)
-    getBars({ symbol, timeframe, from, to, seed: 42 })
+    getBars({ symbol, timeframe, from, to })
       .then((result) => {
         if (!cancelled) setSeries(result)
       })
@@ -156,6 +140,16 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       {error && (
         <p role="alert" className="error">
           {error}
+        </p>
+      )}
+
+      {/* BUG-023: a save that failed must be visible, or unsaved work looks exactly like saved work. */}
+      {syncError && (
+        <p role="alert" className="error" data-testid="drawing-sync-error">
+          {syncError}{' '}
+          <button type="button" className="link" onClick={() => void retry()}>
+            Retry now
+          </button>
         </p>
       )}
 
