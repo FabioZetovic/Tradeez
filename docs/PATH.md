@@ -58,12 +58,12 @@
 last_session: 015
 last_author: CLAUDE
 last_updated: 2026-09-29
-phase: FEATURE WORK — auth, market data, chart, drawings and the Practice slice shipped; drills next
+phase: FEATURE WORK — auth, market data, chart, drawings and the Practice slice merged; drills next
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: feat/practice-slice                       # sessions 014–015; PR #1 into master — merge before task 7
+branch: master                                    # PR #1 (feat/practice-slice) merged 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
 build_passing: true  # backend 132/132 (Testcontainers), frontend 112/112 + typecheck + build; lint: 7 known warnings (BUG-035)
 deployed: false      # local only, €0
@@ -1167,8 +1167,15 @@ bars, ~105 ms to generate + ~22 ms to aggregate, on every create and resume.
   refreshes all returned 200.
 - CodeRabbit (AI review app on the repo) reviewed the practice commits with no inline findings.
 
-**Handoff:** PR #1 merged into `master` — see the post-merge note below. Then Fabio chooses: task 7,
-the first drill, is next in line; BUG-035 is the only open bug. Pull first.
+**Merged.** PR #1 went into `master` on 2026-09-29 as `d6747e4`, a merge commit that keeps the five
+branch commits. It was pinned to the verified head (`--match-head-commit`), and the merged tree was
+confirmed identical to that commit. CodeRabbit's review of the final commit was still waiting on
+the free plan's hourly limit; paying to skip the wait was not an option (€0 rule). Then, on
+`master`: this note and a README brought up to date. Its "home page shows backend status" line
+dated from Phase 0, and its layout map predated the chart.
+
+**Handoff:** work from `master`. Fabio chooses next: task 7, the first drill, is in line; BUG-035
+is the only open bug. New task work goes on a branch and through a PR, as task 6 did. Pull first.
 
 ---
 

@@ -10,6 +10,23 @@ decision** — not just the profit.
 Graduation project (*završni rad*) by **Fabio Žetović**, built collaboratively with two AI
 engineering assistants, **Claude Code** and **ChatGPT Codex**.
 
+### What works today
+
+- **Accounts:** register and sign in. Sessions use HttpOnly cookies with rotating refresh tokens.
+- **Chart:** a simulated E-mini Nasdaq market (`DEMO-NQ`, `DEMO-MNQ`, clearly labelled as
+  simulated), from 1-minute to 1-hour candles, with times shown in exchange time.
+- **Drawing tools:** horizontal line, trend line, rectangle and position (risk/reward). They are
+  saved per account, with undo and redo.
+- **Practice:** a session opens at a random hidden moment. You place a bracket trade and lock it,
+  then step the replay forward bar by bar.
+  - Each trade is resolved on one-second data, and a genuinely undecidable one is reported as
+    *ambiguous*, not guessed.
+  - A result card shows P&L, R-multiple, worst and best excursion, and the seed that reproduces it.
+  - A journal keeps every session, and results can't be edited.
+
+**Not built yet:** graded drills (next), any score or rating, real market data, and CSV import.
+The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
+
 ---
 
 ## Repository
@@ -61,7 +78,7 @@ work.
 | Migrations | Flyway | DEC-030 |
 | API contract | springdoc-openapi → `openapi-typescript` | DEC-007 |
 | Auth | JWT in HttpOnly cookies, CSRF, strict CORS | DEC-032 |
-| Market data | Generated `DEMO-NQ` / `DEMO-MNQ` + local CSV import | DEC-033 |
+| Market data | Generated `DEMO-NQ` / `DEMO-MNQ` (local CSV import planned) | DEC-033 |
 
 ---
 
@@ -89,13 +106,18 @@ cd backend && ./mvnw spring-boot:run
 cd frontend && npm install && npm run dev
 ```
 
-The home page shows backend and database status. If both read `UP`, the vertical is wired.
+Open the app, create an account, and you land on the chart. The **Practice** tab runs replay
+sessions.
+
+If ports 8080 or 5173 are taken (Docker Desktop holds both on some machines, see ENV-002), run the
+backend with `PORT=8081 ./mvnw spring-boot:run` and the frontend with
+`VITE_API_PROXY_TARGET=http://localhost:8081 npm run dev`. `.claude/launch.json` does exactly this.
 
 ### Useful endpoints
 
 | URL | What |
 |---|---|
-| `http://localhost:8080/api/health` | Health, including a real database round-trip |
+| `http://localhost:8080/api/health` | Health, including a real database round-trip, plus `startedAt` / `builtAt` to spot a stale process |
 | `http://localhost:8080/swagger-ui.html` | Interactive API docs |
 | `http://localhost:8080/v3/api-docs` | OpenAPI JSON — the source for generated TS types |
 
@@ -109,8 +131,14 @@ cd backend && ./mvnw test
 cd frontend && npm run test:run
 ```
 
+```bash
+cd frontend && npm run typecheck && npm run lint
+```
+
 Backend tests run against a real PostgreSQL container via Testcontainers, so Docker must be
-running. An in-memory database would pass while hiding migration and schema-validation failures.
+running. If it is not, the tests say so in plain words rather than failing with an initializer
+error (ENV-001). An in-memory database would pass while hiding migration and schema-validation
+failures.
 
 ### Regenerating the API types
 
@@ -129,10 +157,10 @@ server payload type on the client.
 
 ```
 Tradeez/
-├── backend/           Spring Boot — com.tradeez.{common,config,...}
-│   └── src/main/resources/db/migration/   Flyway migrations
+├── backend/           Spring Boot — com.tradeez.{identity,marketdata,charting,practice,common,config}
+│   └── src/main/resources/db/migration/   Flyway migrations (V1–V5)
 ├── frontend/          React + Vite
-│   └── src/{components,lib/api,test}/
+│   └── src/{components,hooks,lib/{api,chart,drawing,practice},test}/
 ├── docs/              Decisions, strategy, history, handoff
 └── docker-compose.yml Local PostgreSQL
 ```
