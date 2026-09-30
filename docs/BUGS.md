@@ -158,6 +158,9 @@ instead of `ExceptionInInitializerError`. Tested in `DockerCheckTest`.
 **Recurred in session 016.** This time it stopped the running backend rather than the tests:
 startup failed with *"Connection to localhost:5432 refused"*. Restarting Docker Desktop brought the
 daemon back in about five seconds, and the database container restarted with it.
+It stopped again overnight before the 2026-09-30 re-check (third occurrence in two days); the same
+restart fixed it in about fifteen seconds. Frequent enough that a first step of any session should be
+`docker version` — the Server line, not just the client.
 
 ---
 
