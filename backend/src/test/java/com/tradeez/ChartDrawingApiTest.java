@@ -224,7 +224,7 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("drawings on an unknown instrument are a 404")
 	void unknownInstrumentIsNotFound() throws Exception {
-		mockMvc.perform(get("/api/charts/NQ/drawings").cookie(alice))
+		mockMvc.perform(get("/api/charts/NOPE/drawings").cookie(alice))
 			.andExpect(status().isNotFound());
 	}
 }

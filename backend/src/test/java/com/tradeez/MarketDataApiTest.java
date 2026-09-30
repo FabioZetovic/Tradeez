@@ -59,13 +59,25 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("the V2 migration seeds DEMO-NQ and DEMO-MNQ")
+	@DisplayName("V2 seeds DEMO-NQ and DEMO-MNQ; V7 adds the real NQ contract")
 	void seededInstrumentsArePresent() throws Exception {
 		mockMvc.perform(get("/api/market/instruments").cookie(auth))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.length()").value(2))
+			.andExpect(jsonPath("$.length()").value(3))
 			.andExpect(jsonPath("$[0].symbol").value("DEMO-MNQ"))
-			.andExpect(jsonPath("$[1].symbol").value("DEMO-NQ"));
+			.andExpect(jsonPath("$[1].symbol").value("DEMO-NQ"))
+			.andExpect(jsonPath("$[2].symbol").value("NQ"));
+	}
+
+	@Test
+	@DisplayName("NQ is the real CME contract, and says it is private until licensed (DEC-035, DEC-040)")
+	void realNqSaysWhatItIs() throws Exception {
+		mockMvc.perform(get("/api/market/instruments/NQ").cookie(auth))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.exchange").value("CME"))
+			.andExpect(jsonPath("$.tickSize").value(0.25))
+			.andExpect(jsonPath("$.tickValueCents").value(500))
+			.andExpect(jsonPath("$.dataClass").value("IMPORTED_PRIVATE"));
 	}
 
 	@Test
@@ -93,7 +105,7 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("an unknown symbol is a 404, not an empty series")
 	void unknownSymbolIsNotFound() throws Exception {
-		mockMvc.perform(get("/api/market/instruments/NQ").cookie(auth))
+		mockMvc.perform(get("/api/market/instruments/NOPE").cookie(auth))
 			.andExpect(status().isNotFound());
 	}
 

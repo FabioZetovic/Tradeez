@@ -149,6 +149,40 @@ use and redistribution. A third-party downloader's MIT software license does **n
 license to the market data it downloads. Tradeez will not teach futures by silently relabeling a
 CFD feed as NQ.
 
+**DEC-040 — Real historical NQ from Databento; the simulated market leaves the app**
+`AGREED` · Fabio, Session 017 · ⚠️ **supersedes DEC-033 for everything a learner sees**
+
+Fabio, session 017: *"you can not mimic price action on your own, it needs to be a real historic
+chart data … from NQ from 10 years ago, 5 years ago, 3 months ago."* The premise of DEC-033 — that a
+generated market is an acceptable stand-in until real data was affordable — is rejected by the
+person the product is for.
+
+- **Source.** Databento's Historical API, dataset `GLBX.MDP3` (CME Globex), continuous symbol
+  `NQ.v.0` — the front contract by volume — with **raw, unadjusted prices**: the real jump at each
+  quarterly roll is kept, so drawings anchored to prices (DEC-024) stay valid. Chosen over FirstRate
+  Data (paid, one-minute only) and Yahoo (intraday history only weeks to two years back). A
+  TradingView-derived Kaggle dump (doubtful licence) and Dukascopy (a CFD, DEC-020) were rejected.
+- **Resolution.** One-minute bars for the whole history, stored in PostgreSQL (`market_bar`, V7);
+  every coarser timeframe is aggregated from them. One-second bars — what the fill engine walks
+  (DEC-008) — are fetched a trading day at a time, for the days practice actually uses.
+- **Money.** The €0 rule stands. New Databento accounts carry a $125 credit; every download is
+  priced with `metadata.get_cost` **before** it is fetched and refused above $5 per request or $100
+  in total (`application.yml`), and every attempt is recorded in `market_data_import`. Any large
+  import starts with a dry run. Raising a cap is Fabio's decision, not code's.
+- **The key.** `DATABENTO_API_KEY` lives in `backend/.env` (gitignored, loaded through
+  `spring.config.import`) — never in the repository, in chat, in a log line or in an error message.
+- **Data class.** `IMPORTED_PRIVATE` — local, one user — until written permission to show the data
+  to others (the jury) exists (DEC-035; Q-09 stays open). Under DEC-034 this class **may** back
+  graded drills.
+- **The simulated market** is withdrawn from the app once real data is in (`instrument.listed`),
+  not deleted; the generator stays in the test suite, where injected ground truth is exactly what a
+  test needs.
+
+Before the switch, three things real data forces: practice must **hide the date** until the reveal
+(DEC-025 — a learner who knows the date knows the outcome); the fill engine must not read a quiet
+second as a market closure (real one-second bars are sparse: no trade, no bar); and drills on real
+data become gradable exercises rather than fixtures.
+
 **DEC-034 — Graded drills require real data; `SIMULATED` drills are developer fixtures only**
 `AGREED` · Claude, Session 004 · extends DEC-033 and DEC-026
 Detectors may run on `DEMO-NQ` — injected ground truth is exactly what unit-tests a detector. But a
@@ -178,6 +212,9 @@ and the intended use.
 
 **DEC-033 — Zero-cost development uses explicitly simulated futures data plus permitted import**
 · `AGREED` · Fabio's €0/no-crypto constraint, Codex decision
+
+> ⚠️ **Superseded by DEC-040 (session 017)** for everything a learner sees: Fabio requires real
+> historical NQ. The generated market remains a test fixture only.
 
 Phase 0 and the first vertical slice use deterministic datasets named `DEMO-NQ` and `DEMO-MNQ`.
 They are generated on the real 0.25-point tick grid with the real NQ/MNQ multiplier, exchange

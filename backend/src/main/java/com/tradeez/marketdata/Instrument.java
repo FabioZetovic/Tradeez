@@ -73,6 +73,10 @@ public class Instrument {
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	private Instant createdAt;
 
+	/** Whether the app offers this instrument (V7). Withdrawn rows stay, so history stays intact. */
+	@Column(name = "listed", nullable = false, insertable = false, updatable = false)
+	private boolean listed;
+
 	protected Instrument() {
 		// for JPA
 	}
@@ -147,5 +151,9 @@ public class Instrument {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public boolean isListed() {
+		return listed;
 	}
 }

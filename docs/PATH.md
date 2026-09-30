@@ -136,7 +136,11 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files: []   # released by session 016
+claimed_files:      # session 017 (CLAUDE) — real NQ data from Databento, on branch feat/real-nq-data (2026-09-30)
+  - backend/**
+  - frontend/src/**
+  - docs/**
+  - README.md
 ```
 
 ---
@@ -158,6 +162,16 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 6b | ~~**Bug batch**~~ | — | ✅ Done in Session 015: every open bug closed (BUG-010, 023, 029–033), ENV-001–004 fixed or mitigated in the repo. |
 | 7 | ~~**First drill**~~ | — | ✅ Done in Session 016; **merged into `master` 2026-09-30 as `2280d37`** — no PR, Fabio's call. Rule `fvg-1.0.0` (DEC-039), `detected_setup`, identification drill as a DEC-034 fixture. |
 | 8 | Optional €0 deployment smoke test | 2 | Re-check current free tiers; no purchase without Fabio |
+
+**Real data track (DEC-040, session 017 — Fabio: "it needs to be real data").** Takes priority.
+
+| # | Task | Blocked by | Notes |
+|---|---|---|---|
+| R1 | ~~**Databento importer**~~ | — | ✅ Session 017 on `feat/real-nq-data` (not merged): client, cost-capped importer, `market_bar`, import ledger, real-data provider, fake-Databento tests. |
+| R2 | **Import NQ history** | Fabio's Databento key in `backend/.env` | Dry run first, then 1m from 2016 to now. Run command in `ImportCommand`. |
+| R3 | **Switch the app to real NQ** | R2 | Withdraw DEMO-NQ/MNQ (`listed = false`); chart navigation by date — 10 years, 5 years, 3 months back. |
+| R4 | **Practice on real data** | R2 | Hide the date until the reveal (DEC-025); one-second bars per day on demand; fill engine must not read a quiet second as a closure. |
+| R5 | **Drills on real data** | R2 | Gradable under DEC-034 once on `IMPORTED_PRIVATE`. |
 
 ---
 
@@ -182,6 +196,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-033 | €0 data = labeled `DEMO-NQ`/`DEMO-MNQ` + permitted local CSV import; no crypto/CFD proxy. |
 | DEC-034 | Simulated setups are detector fixtures only; graded drills require permitted real data. |
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
+| DEC-040 ⚠️ | **Real NQ from Databento; the simulated market leaves the app.** Every download priced first, capped ($5/request, $100 total). Key only in `backend/.env`. `IMPORTED_PRIVATE` until display is licensed. |
 | DEC-039 | FVG rule `fvg-1.0.0`: consecutive candles, gap ≥ 25% of the prior 14 candles' average range. **Never tune the generator to produce patterns for drills** — refuse the drill instead (1m). |
 | DEC-036 ⚠️ | **Spring Boot 3.5.x + Java 21 — NOT Boot 4.** Boot 4 renames starters (`-webmvc`, per-starter `-test`) and has no springdoc, which breaks DEC-007. Do not bump the major version. |
 | DEC-035 | Imported data use is environment-sensitive; jury display requires explicit source permission. |
@@ -1243,6 +1258,36 @@ live run with real clicks on the real chart through the adapter's projection (5 
 extra mark named). `master` had not moved since the branch point, and the merged tree was confirmed
 identical to the verified branch. BUG-035 stays open, deferred for its stated reason. Next: Fabio
 chooses — task 8 (€0 deployment smoke test) or more drill types. Pull first.
+
+---
+
+### SESSION 017 — IN PROGRESS
+
+```yaml
+id: 017
+author: CLAUDE
+date: 2026-09-30
+type: FEATURE — real NQ data (DEC-040)
+branch: feat/real-nq-data        # not merged
+claimed_files: see IN PROGRESS above — held, the work continues
+```
+
+**Fabio rejected the simulated market**: the product needs real historical NQ, ten years back to
+recent months. Options researched (Databento, FirstRate Data, Yahoo; Kaggle dump and Dukascopy
+rejected); Fabio chose **Databento** and **removing the simulated market from the app** (DEC-040).
+
+**Done (R1), none of it needing the key:** `backend/.env` is now actually loaded (it never was);
+`DatabentoClient` (cost + CSV bars, key only in the auth header); `DatabentoImporter` (monthly /
+daily chunks, priced before download, $5/request and $100 total caps, idempotent, off-grid prices
+rejected); V7 (`market_bar`, `market_data_import`, instrument `NQ` as CME / `IMPORTED_PRIVATE`,
+`instrument.listed`); `ImportedMarketDataProvider`; `ImportCommand` for the command line. Tests run
+against `FakeDatabento` (JDK HTTP server) — never the real account. Backend 164 → 183.
+
+A test caught a real bug before commit: the CSV parser wrapped the *consumer's* exceptions too, so an
+off-grid price surfaced as "unreadable row". Fixed.
+
+**Waiting on Fabio:** a Databento account and `DATABENTO_API_KEY=…` in `backend/.env` (not in
+chat). If sign-up asks for a payment card, stop and decide first. Then: dry run → import → R3–R5.
 
 ---
 

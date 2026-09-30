@@ -2,6 +2,11 @@ spring:
   application:
     name: tradeez-backend
 
+  # Reads backend/.env (KEY=VALUE lines) as properties when it exists. The file is gitignored, so
+  # secrets such as DATABENTO_API_KEY live on the machine and never in the repository (DEC-032).
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/tradeez}
     username: ${DATABASE_USER:tradeez}
@@ -58,6 +63,15 @@ tradeez:
   cors:
     # DEC-032: strict CORS, explicit origins, credentials enabled. Never a wildcard.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+# DEC-040 — real NQ from Databento. Every download is priced first and refused above these caps, so
+# the free credit cannot be overrun by a mistake. Raising a cap is a decision for Fabio, not for code.
+databento:
+  api-key: ${DATABENTO_API_KEY:}
+  base-url: ${DATABENTO_BASE_URL:https://hist.databento.com}
+  dataset: GLBX.MDP3
+  max-cost-per-request-usd: 5.00
+  max-total-cost-usd: 100.00
 
 management:
   endpoints:
