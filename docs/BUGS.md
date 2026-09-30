@@ -154,6 +154,14 @@ misleading symptom can. `AbstractIntegrationTest` checks for Docker before start
 fails with *"ENV-001: Docker is not reachable … This is not a code failure. Start Docker Desktop…"*
 instead of `ExceptionInInitializerError`. Tested in `DockerCheckTest`.
 
+
+**Recurred in session 016.** This time it stopped the running backend rather than the tests:
+startup failed with *"Connection to localhost:5432 refused"*. Restarting Docker Desktop brought the
+daemon back in about five seconds, and the database container restarted with it.
+It stopped again overnight before the 2026-09-30 re-check (third occurrence in two days); the same
+restart fixed it in about fifteen seconds. Frequent enough that a first step of any session should be
+`docker version` — the Server line, not just the client.
+
 ---
 
 ## Known limitations
@@ -177,6 +185,9 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Practice | One bracket trade per session, entered at market | The vertical slice's scope. Limit entries, scaling and multiple trades are later work |
 | Practice | A replay steps at most 3 days past its start; 60 new sessions per user per hour; journal lists the latest 50 | Each bounds how much data one request has to generate |
 | Chart | Day ticks on the time axis sit at UTC midnight | Labelled with their true exchange-local weekday and time (e.g. *Wed 18:00*). Moving them to local midnight would mean shifting every timestamp handed to the renderer, which breaks where the zone's offset changes (BUG-029) |
+| Drills | On simulated data every drill is a developer fixture: labelled, never graded, no rating | DEC-034, enforced by a CHECK constraint. Graded drills need permitted real data |
+| Drills | FVG identification only, on 5m and 15m | One-minute drills are refused: the simulated market produces almost no qualifying gaps there, and it is deliberately not tuned to (DEC-039) |
+| Drills | No drill history or statistics screen | Nothing may be aggregated into a score from fixture drills (DEC-034); answered drills are stored and immutable |
 | Practice | Results on simulated data are practice, not evidence | Stated on the result card. No aggregate score exists yet; when one does, DEC-034 applies |
 
 ---
