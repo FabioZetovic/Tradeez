@@ -23,8 +23,12 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
     *ambiguous*, not guessed.
   - A result card shows P&L, R-multiple, worst and best excursion, and the seed that reproduces it.
   - A journal keeps every session, and results can't be edited.
+- **Drills:** find every fair value gap in a 30-candle chart. The answer key comes from a versioned
+  detector and is withheld until you check; each gap is explained in the detector's own numbers. On
+  simulated data a drill is labelled a developer fixture and never graded.
 
-**Not built yet:** graded drills (next), any score or rating, real market data, and CSV import.
+**Not built yet:** graded drills (they need permitted real data), other drill types, any score or
+rating, real market data, and CSV import.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 
 ---
@@ -157,10 +161,10 @@ server payload type on the client.
 
 ```
 Tradeez/
-├── backend/           Spring Boot — com.tradeez.{identity,marketdata,charting,practice,common,config}
-│   └── src/main/resources/db/migration/   Flyway migrations (V1–V5)
+├── backend/           Spring Boot — com.tradeez.{identity,marketdata,charting,practice,analysis,drills,common,config}
+│   └── src/main/resources/db/migration/   Flyway migrations (V1–V6)
 ├── frontend/          React + Vite
-│   └── src/{components,hooks,lib/{api,chart,drawing,practice},test}/
+│   └── src/{components,hooks,lib/{api,chart,drawing,practice,drills},test}/
 ├── docs/              Decisions, strategy, history, handoff
 └── docker-compose.yml Local PostgreSQL
 ```

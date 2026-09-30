@@ -1265,4 +1265,56 @@ seven older lint warnings, and it is deferred on purpose.
 
 ---
 
+### Session 016 — 2026-09-29 to 09-30 — The First Drill
+
+**Participant:** Claude Code
+**Type:** Feature — drills, the second half of the product
+
+Practice sessions take about five minutes each. Nobody gets two hundred repetitions of spotting a
+pattern that way, and repetition is how pattern recognition is learned. Drills are the answer the
+project decided on early: a few seconds each, one idea at a time, done by the dozen. This session
+built the first one: find every *fair value gap* in a stretch of chart.
+
+**What a fair value gap is, here.** Take three consecutive candles. If the first candle's high is
+below the third candle's low, the prices between them were not traded by either: a gap, left behind
+by a fast move in the middle candle. The mirror image is the bearish version. The app finds these
+automatically with a *detector*, a small, exact piece of code that applies one written rule. Every
+gap it finds is stored in a table together with the rule's version, its settings, and the numbers
+that qualified it, so any result can be reproduced and explained later.
+
+**Deciding how big a gap has to be — by measuring, not guessing.** With a fixed minimum size, the
+detector flagged about every fourth five-minute candle as a gap, and almost no one-minute candles.
+That is useless for a drill, and would mean something different for every instrument. The rule now
+compares each gap with how much the market had been moving just before it: at least a quarter of
+the average candle size of the previous fourteen. That gives a handful of gaps per screen on five-
+and fifteen-minute charts, and it is written down as a versioned decision, because it is a
+judgement call and changing it changes every result.
+
+**The honesty rule, again.** Tradeez's market is simulated, and an earlier decision (DEC-034) says a
+learner must not be *taught* from invented data: the gaps in it come from a formula, not from real
+traders. So the drill is labelled, before anything else on the screen, as a *developer fixture*. It
+shows how the drill works; it is not graded and counts toward nothing. The database itself refuses
+to store a simulated drill as graded, so a later feature cannot quietly start grading these. And on
+one-minute charts, where the simulated market produces almost no gaps, the drill is refused with
+that reason rather than having the simulator adjusted to produce them: tuning the fake market to
+contain the pattern being taught is exactly the circle that decision exists to avoid.
+
+**The drill itself.** You get thirty candles, click the middle candle of every gap you see, and
+press *Check*. The server, which kept the answer to itself until then, marks each gap found or
+missed and lists any extra marks. For every gap it explains why, in the detector's own numbers:
+"Candle 1's high, 19830.00, is below candle 3's low, 19834.00. Neither traded in the 16 ticks (4.00
+points) between them." An early version of that sentence added that the gap was "crossed only by
+candle 2", which the rule never checks, so it was cut. The explanations are meant to say exactly
+what the rule saw and nothing more. Once answered, a drill cannot be changed.
+
+**Checked.** The detector was compared with a second, deliberately simple implementation over five
+days of data, and the two agreed exactly. In the running app a drill came back in under a second,
+carried no answer key, and scored an empty answer and a perfect one correctly. The live database
+refused both attempts to grade or edit an answered drill.
+
+**By the numbers:** backend tests 132 → 164, frontend tests 112 → 131, one migration, a new
+`analysis` module, a Drills tab.
+
+---
+
 *Next session entry goes here.*

@@ -55,6 +55,22 @@ public final class SessionCalendar {
 	}
 
 	/**
+	 * True when the market is open for the whole of {@code [from, to)}.
+	 *
+	 * <p>Checked minute by minute, which is exact rather than an approximation: every boundary in this
+	 * calendar falls on a whole hour. Used wherever a span of chart has to be one unbroken piece of
+	 * trading — a practice session's opening moment, a drill's window.
+	 */
+	public static boolean isOpenThroughout(Instant from, Instant to) {
+		for (Instant t = from; t.isBefore(to); t = t.plusSeconds(60)) {
+			if (!isOpen(t)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * The exchange trading date an instant belongs to.
 	 *
 	 * <p>A futures trading day crosses midnight: Sunday 17:00 CT onwards is <i>Monday's</i> session.

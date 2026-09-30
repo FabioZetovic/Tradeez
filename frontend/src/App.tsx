@@ -2,13 +2,14 @@ import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
 import { ChartWorkspace } from '@/components/ChartWorkspace'
 import { PracticeView } from '@/components/practice/PracticeView'
+import { DrillView } from '@/components/drills/DrillView'
 import { useState } from 'react'
 import type { ChartAdapter } from '@/lib/chart/types'
 import './App.css'
 
 export default function App({ adapterFactory }: { adapterFactory?: () => ChartAdapter } = {}) {
   const { state, login, register, logout } = useSession()
-  const [tab, setTab] = useState<'chart' | 'practice'>('chart')
+  const [tab, setTab] = useState<'chart' | 'practice' | 'drills'>('chart')
 
   return (
     <main className="shell">
@@ -52,9 +53,19 @@ export default function App({ adapterFactory }: { adapterFactory?: () => ChartAd
             >
               Practice
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'drills'}
+              className={tab === 'drills' ? 'tab tab--active' : 'tab'}
+              onClick={() => setTab('drills')}
+            >
+              Drills
+            </button>
           </nav>
           {tab === 'chart' && <ChartWorkspace adapterFactory={adapterFactory} />}
           {tab === 'practice' && <PracticeView adapterFactory={adapterFactory} />}
+          {tab === 'drills' && <DrillView adapterFactory={adapterFactory} />}
         </>
       )}
 

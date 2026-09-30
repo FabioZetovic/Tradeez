@@ -420,6 +420,41 @@ The app grades whether the learner **followed a defined, versioned curriculum** 
 methodology is objectively correct. This is both the honest position and the defensible one in
 front of an academic jury.
 
+**DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
+The first detector under DEC-026. The rule:
+
+- **Bullish:** candle 1's high is below candle 3's low. **Bearish:** candle 1's low is above candle 3's high.
+- The three candles are **consecutive** — no market closure between them. A jump across a session
+  break is an opening gap, a different concept, and is never reported.
+- The gap is at least **25% of the average high–low range of the 14 candles before candle 1**. Integer
+  ticks throughout: the threshold is rounded up, never below one tick, and compared without floating
+  point.
+
+**Why relative, not a fixed size.** Measured on the simulated market: a fixed 4-tick minimum flagged
+roughly one five-minute candle in four, and almost no one-minute candles. Measured against recent
+volatility, the rule gives about 3–7 gaps per 30 candles at 5m and 1.5–3 at 15m across three seeds,
+and the same parameters carry to other instruments. The 25% is a judgement call — exactly the kind
+of parameter DEC-026 says shifts results — so it is stored on every hit, and changing it or any other
+parameter means a new rule version.
+
+Consequences:
+
+1. **The generator is not tuned for drills.** At one minute the simulated market produces almost no
+   qualifying gaps. One-minute drills are refused, with that reason, rather than manufactured:
+   tuning the generator to produce gaps would be the circularity DEC-034 forbids.
+2. **Hits are scanned on demand and stored idempotently.** A simulated market has no end, so "scan
+   history once" becomes "scan a stretch the first time something needs it". The insert ignores
+   duplicates, so concurrent scans of overlapping stretches are safe. Parameters are part of a hit's
+   identity.
+3. **Identification drills use the public chart's market (seed 42).** A static chart hides nothing in
+   the future, so it needs no secret seed (contrast DEC-038), and one market means one shared set of
+   stored hits.
+4. **Explanations state what the rule checked, and nothing more.** They are rendered from the stored
+   evidence. An early draft saying the gap "was crossed only by candle 2" was cut: the rule does not
+   establish it.
+5. **DEC-034 is in the schema.** `ck_drill_simulated_never_graded` makes a graded simulated drill
+   impossible, and a trigger makes an answered drill immutable.
+
 **DEC-027 — Scoring is a transparent multidimensional scorecard, not a single number** · `AGREED`
 Outcome: R-multiple, P&L in ticks and currency, MAE, MFE. Process: risk-limit compliance, plan
 completeness, rule adherence, execution quality, and **calibration** (does stated confidence match

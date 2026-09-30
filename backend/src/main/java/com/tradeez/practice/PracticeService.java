@@ -514,22 +514,13 @@ public class PracticeService {
 		for (int attempt = 0; attempt < 10_000; attempt++) {
 			long second = EARLIEST_START.getEpochSecond() + random.nextLong(span);
 			Instant start = Instant.ofEpochSecond(second - Math.floorMod(second, step));
-			if (openThroughout(start.minus(timeframe.duration()), start.plus(MIN_SESSION_LEFT))) {
+			if (SessionCalendar.isOpenThroughout(start.minus(timeframe.duration()),
+					start.plus(MIN_SESSION_LEFT))) {
 				return start;
 			}
 		}
 		// The market is open ~70% of the week; ten thousand misses in a row does not happen.
 		throw new IllegalStateException("Could not find an open-market start");
-	}
-
-	/** Session boundaries fall on whole hours, so checking each minute is exact. */
-	private static boolean openThroughout(Instant from, Instant to) {
-		for (Instant t = from; t.isBefore(to); t = t.plus(Duration.ofMinutes(1))) {
-			if (!SessionCalendar.isOpen(t)) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	/** The first closed minute at or after {@code from}: where a trade entered at {@code from} ends. */

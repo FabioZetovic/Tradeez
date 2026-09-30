@@ -55,9 +55,9 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 015
+last_session: 016
 last_author: CLAUDE
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 phase: FEATURE WORK — auth, market data, chart, drawings and the Practice slice merged; drills next
 code_written: true
 repo_initialized: true
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # PR #1 (feat/practice-slice) merged 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 132/132 (Testcontainers), frontend 112/112 + typecheck + build; lint: 7 known warnings (BUG-035)
+build_passing: true  # backend 164/164 (Testcontainers), frontend 131/131 + typecheck + build; lint: 7 known warnings (BUG-035)
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -83,14 +83,18 @@ files_in_repo:
     marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015)
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice
+    analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
+    drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
     lib/drawing/  # geometry, hit testing, snapping, undo store, renderer
     lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
+    lib/drills/   # candle picking, marks, explanations generated from detector evidence
     components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar
     components/practice/  # journal, session screen, plan panel, result card
+    components/drills/    # drill screen and click overlay
     hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession
   docs/:
     - ANALYSIS_CLAUDE.md    # Claude's deep analysis      (Session 001-CLAUDE)
@@ -102,7 +106,7 @@ files_in_repo:
     - PATH.md               # This file
 
 not_built_do_not_assume:
-  - indicators, drills, any aggregate score or rating
+  - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
   - practice on real data (the service refuses it until DEC-025 date hiding exists)
 
 blocked_on: nothing technical — Fabio chooses the next task
@@ -132,7 +136,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files: []   # released by session 015
+claimed_files: []   # released by session 016
 ```
 
 ---
@@ -152,7 +156,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 5 | ~~**Drawing proof**~~ | — | ✅ Done in Session 012. Gate passed → DEC-037: keep building by hand, scope stays four shapes. |
 | 6 | ~~**Practice slice**~~ | — | ✅ Done in Session 014 on `feat/practice-slice`. Hidden moment → locked bracket → 1s fill engine → replay → result card → journal. **Merge the PR first.** |
 | 6b | ~~**Bug batch**~~ | — | ✅ Done in Session 015: every open bug closed (BUG-010, 023, 029–033), ENV-001–004 fixed or mitigated in the repo. |
-| 7 | **First drill** — versioned FVG detector → `detected_setup` → identification drill | 6 | ⚠️ **DEC-034**: build/test on `DEMO-NQ`, but the drill is a *developer fixture* until real data clears the gate. Detector work is not blocked; the curriculum claim is. |
+| 7 | ~~**First drill**~~ | — | ✅ Done in Session 016 on `feat/fvg-drill` — **pushed, not merged, no PR** (Fabio's call). Rule `fvg-1.0.0` (DEC-039), `detected_setup`, identification drill as a DEC-034 fixture. |
 | 8 | Optional €0 deployment smoke test | 2 | Re-check current free tiers; no purchase without Fabio |
 
 ---
@@ -178,6 +182,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-033 | €0 data = labeled `DEMO-NQ`/`DEMO-MNQ` + permitted local CSV import; no crypto/CFD proxy. |
 | DEC-034 | Simulated setups are detector fixtures only; graded drills require permitted real data. |
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
+| DEC-039 | FVG rule `fvg-1.0.0`: consecutive candles, gap ≥ 25% of the prior 14 candles' average range. **Never tune the generator to produce patterns for drills** — refuse the drill instead (1m). |
 | DEC-036 ⚠️ | **Spring Boot 3.5.x + Java 21 — NOT Boot 4.** Boot 4 renames starters (`-webmvc`, per-starter `-test`) and has no springdoc, which breaks DEC-007. Do not bump the major version. |
 | DEC-035 | Imported data use is environment-sensitive; jury display requires explicit source permission. |
 
@@ -1176,6 +1181,61 @@ dated from Phase 0, and its layout map predated the chart.
 
 **Handoff:** work from `master`. Fabio chooses next: task 7, the first drill, is in line; BUG-035
 is the only open bug. New task work goes on a branch and through a PR, as task 6 did. Pull first.
+
+---
+
+### SESSION 016
+
+```yaml
+id: 016
+author: CLAUDE
+date: 2026-09-29 → 2026-09-30   # interrupted twice by the usage limit; no work was lost
+type: FEATURE — task 7, the first drill
+branch: feat/fvg-drill           # pushed; NOT merged, no PR — Fabio: "just continue, don't PR"
+code_changed: true
+tests: backend 132 → 164, frontend 112 → 131
+claimed_files: []   # released
+```
+
+**Built task 7: FVG detector → `detected_setup` → identification drill.** Decisions in **DEC-039**.
+
+- **`com.tradeez.analysis`** — `FvgDetector` (pure, rule `fvg-1.0.0`, integer ticks, threshold
+  relative to recent volatility), `DetectedSetup`, and `SetupScanner`, which scans a stretch on
+  demand and stores every hit with its rule version, parameters, evidence, seed and generator
+  version. The insert ignores duplicates, so rescanning and concurrent scans are safe.
+- **`com.tradeez.drills`** — `POST /api/drills` picks a random 30-candle window of unbroken trading
+  with 1–6 gaps; the answer key (`drill_setup`) is withheld until `POST /api/drills/{id}/answer`,
+  which is accepted once and returns found / missed / extra with each gap's evidence.
+- **V6** — `detected_setup`, `drill`, `drill_setup`. DEC-034 as a CHECK (a simulated drill can never
+  be graded); an answered drill is immutable by trigger.
+- **Frontend** — a **Drills** tab: fixture notice first, the versioned rule, the chart with a click
+  overlay (clicks read from the frame, so panning still works), and explanations generated from the
+  evidence. `SessionCalendar.isOpenThroughout` is now shared with practice.
+
+**Measured before choosing.** A fixed 4-tick minimum flagged every fourth 5m candle and almost no 1m
+ones; relative to volatility the rule gives 3–7 gaps per 30 candles at 5m, 1.5–3 at 15m. 1m drills
+are refused rather than tuning the generator (DEC-034).
+
+**Verified** — detector against an independent oracle on 5 days of 5m and 15m (exact agreement);
+scanner stores exactly the detector's hits, once; live: drill created in 0.9 s cold / 0.1 s warm,
+no answer key on the wire, an empty answer and a perfect answer (2 of 2 from the database's key)
+both correct, second answer 409, and the live database refused both grading and editing an answered
+drill.
+
+**Next time:**
+- The browser pane lays out at **zero width while hidden**, so clicks cannot be aimed at a candle
+  there. The click-marking path is proven by component tests (fake adapter) and one live click;
+  aiming at specific candles needs the pane displayed.
+- A reload signed in with two 401 refreshes. The log showed no reuse detection and no error — the
+  pane had been restarted between sessions and had no refresh cookie. Not a bug; BUG-034's fix was
+  re-verified live the same day.
+- ENV-001 recurred: the backend failed to start ("Connection to localhost:5432 refused") until
+  Docker Desktop was restarted.
+- A component test clicked before the chart had handed the overlay its adapter (a second render);
+  the test now waits for the overlay to draw. A person cannot click that early.
+
+**Handoff:** task 7 is on `feat/fvg-drill`, pushed, **not merged**. Fabio chooses: merge it (via a
+PR or directly), task 8, or more drill types. BUG-035 is the only open bug. Pull first.
 
 ---
 

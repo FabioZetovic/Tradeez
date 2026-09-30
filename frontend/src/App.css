@@ -504,3 +504,18 @@ button.link {
 .practice .panel {
   text-align: left;
 }
+
+/* --- drills (task 7) --- */
+
+.drill-gaps {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.drill-gaps li {
+  margin-bottom: 0.75rem;
+}
+
+.drill-gaps li p {
+  margin: 0.25rem 0 0;
+}
