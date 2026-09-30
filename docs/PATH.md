@@ -63,7 +63,7 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # PR #1 (feat/practice-slice) merged 2026-09-29 as d6747e4
+branch: master                                    # feat/fvg-drill merged 2026-09-30 as 2280d37 (no PR); PR #1 merged 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
 build_passing: true  # backend 164/164 (Testcontainers), frontend 131/131 + typecheck + build; lint: 7 known warnings (BUG-035)
 deployed: false      # local only, €0
@@ -156,7 +156,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 | 5 | ~~**Drawing proof**~~ | — | ✅ Done in Session 012. Gate passed → DEC-037: keep building by hand, scope stays four shapes. |
 | 6 | ~~**Practice slice**~~ | — | ✅ Done in Session 014 on `feat/practice-slice`. Hidden moment → locked bracket → 1s fill engine → replay → result card → journal. **Merge the PR first.** |
 | 6b | ~~**Bug batch**~~ | — | ✅ Done in Session 015: every open bug closed (BUG-010, 023, 029–033), ENV-001–004 fixed or mitigated in the repo. |
-| 7 | ~~**First drill**~~ | — | ✅ Done in Session 016 on `feat/fvg-drill` — **pushed, not merged, no PR** (Fabio's call). Rule `fvg-1.0.0` (DEC-039), `detected_setup`, identification drill as a DEC-034 fixture. |
+| 7 | ~~**First drill**~~ | — | ✅ Done in Session 016; **merged into `master` 2026-09-30 as `2280d37`** — no PR, Fabio's call. Rule `fvg-1.0.0` (DEC-039), `detected_setup`, identification drill as a DEC-034 fixture. |
 | 8 | Optional €0 deployment smoke test | 2 | Re-check current free tiers; no purchase without Fabio |
 
 ---
@@ -1236,6 +1236,13 @@ drill.
 
 **Handoff:** task 7 is on `feat/fvg-drill`, pushed, **not merged**. Fabio chooses: merge it (via a
 PR or directly), task 8, or more drill types. BUG-035 is the only open bug. Pull first.
+
+**Merged — 2026-09-30.** Fabio said "merge it". Merged locally with `--no-ff` as `2280d37` (no PR, as
+asked), after a re-check from a fresh clone of the branch: backend 164/164, frontend 131/131, and a
+live run with real clicks on the real chart through the adapter's projection (5 of 5 found, the
+extra mark named). `master` had not moved since the branch point, and the merged tree was confirmed
+identical to the verified branch. BUG-035 stays open, deferred for its stated reason. Next: Fabio
+chooses — task 8 (€0 deployment smoke test) or more drill types. Pull first.
 
 ---
 
