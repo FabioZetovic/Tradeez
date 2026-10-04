@@ -149,8 +149,35 @@ use and redistribution. A third-party downloader's MIT software license does **n
 license to the market data it downloads. Tradeez will not teach futures by silently relabeling a
 CFD feed as NQ.
 
+**DEC-042 — Massive's free plan first; Databento later for deep history**
+`AGREED` · Fabio, Session 017 (2026-10-04) · amends the *source order* of DEC-040, nothing else
+
+Databento's sign-up asks for a payment card (billed only beyond its $125 credit). Fabio asked for a
+card-free start — *"for now lets take it one step at a time"* — and, after a comparison, signed up
+for **Massive** (formerly Polygon.io). Finnhub (no CME futures), Marketstack (stocks only), Nasdaq
+Data Link (continuous futures deprecated, daily only), Alpha Vantage (no futures), Yahoo (minutes only
+days back) and IEX Cloud (shut down 2024) were checked and rejected.
+
+- **What the free plan gives.** CME futures one-minute aggregates, about **two years back**, 5
+  requests a minute, up to 50,000 bars a request, "individual use". No card.
+- **What it does not.** No one-second bars (they start at $29/month), so practice fills run on
+  minute bars and report `AMBIGUOUS` more often — honestly, per DEC-008 and INVARIANT 6. History on
+  Massive starts in April 2017 even on its top plan, so "10 years back" still needs Databento.
+- **Contracts.** Massive serves each quarterly contract separately (`NQZ5`, `NQH6`); there is no
+  continuous symbol. Tradeez builds the continuous series itself: for each session, the front
+  contract is the one with the **highest volume in the previous session** — no lookahead, the same
+  idea as Databento's `NQ.v.0`. Bars keep their contract id (`market_bar.contract_id`), raw prices,
+  and the roll stays visible (DEC-010, DEC-024).
+- **Everything else in DEC-040 stands:** the key lives only in `backend/.env` (`MASSIVE_API_KEY`), the
+  data class is `IMPORTED_PRIVATE`, the simulated market leaves the app, and every import is
+  recorded in `market_data_import`. Massive's free plan costs nothing, so the cost cap has nothing to
+  price; the importer instead respects the request rate limit.
+- **The Databento importer stays** — built and tested in Session 017 — for when Fabio decides to pay
+  for deeper history or one-second bars. That decision is his.
+
 **DEC-040 — Real historical NQ from Databento; the simulated market leaves the app**
-`AGREED` · Fabio, Session 017 · ⚠️ **supersedes DEC-033 for everything a learner sees**
+`AGREED` · Fabio, Session 017 · ⚠️ **supersedes DEC-033 for everything a learner sees** · source
+order amended by **DEC-042** (Massive's free plan first)
 
 Fabio, session 017: *"you can not mimic price action on your own, it needs to be a real historic
 chart data … from NQ from 10 years ago, 5 years ago, 3 months ago."* The premise of DEC-033 — that a
@@ -410,6 +437,30 @@ An `audit` module recording domain events and reproducibility metadata.
 
 ### Product and learning
 
+**DEC-041 — Tradeez is an ICT trainer: paper trading on real historical charts**
+`AGREED` · Fabio, Session 017 (2026-10-04) · sharpens DEC-023, narrows the methodology tracks
+
+Fabio, session 017: *"i feel like we stirred too far away from the original idea of the app … my idea
+was to make an app that will help people trade ICT concepts"*, and *"the whole idea would be paper
+trading charts from long time ago. Since you can learn on historical charts based off of candle
+movements to select trades."*
+
+- **The product is ICT learning by paper trading on real history.** The practice replay (DEC-023's
+  sessions) is where ICT is *applied*; drills are where each ICT concept is *learned*. Both stay
+  co-equal.
+- **[`ICT_CONCEPTS.md`](ICT_CONCEPTS.md) is the curriculum specification**: every concept with its
+  meaning, draft rule, detectability, teaching modes and data needs. New detectors and drills are
+  specified there first.
+- **ICT is the only methodology track in v1.** The orderflow, generic price-action and session-
+  statistics tracks of Claude's analysis (§6.2) are dropped; price-action basics appear only as the
+  foundations ICT builds on (Level 0–1). Order flow (Q-03) is therefore out of scope.
+- **Every milestone must ship visible ICT content.** The project spent its first sixteen sessions on
+  foundations (auth, data, chart, fill engine, immutability) with one ICT concept to show; Fabio
+  noticed. The roadmap in `PATH.md` now interleaves engine work with concepts a learner can see.
+- **Nothing in the honesty decisions changes.** INVARIANT 8, DEC-026 and DEC-034 apply to every
+  concept: Tradeez grades adherence to its versioned reading of ICT, never that ICT works; a new
+  Evidence mode shows how often each concept's claims held in the imported history, with sample sizes.
+
 **DEC-023 — Practice sessions and micro-drills are co-equal features** · `AGREED` · Fabio
 Fabio chose the ambitious scope deliberately. Both are first-class:
 
@@ -632,6 +683,9 @@ Never hand-edit the database. Seed only synthetic or permitted demo data.
 
 | ID | Question | Owner |
 |---|---|---|
-| Q-03 | Is order flow / footprint in scope at all? Both analyses say it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** rather than build a fake footprint chart. | Fabio |
+| Q-03 | Is order flow / footprint in scope at all? Both analyses say it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** rather than build a fake footprint chart. *Session 017: DEC-041 puts it out of scope for v1 (not part of ICT); close it if Fabio agrees.* | Fabio |
 | Q-08 | Croatian or English UI for the presentation? | Fabio |
+| Q-13 | Default ICT reading: 2022 mentorship, or the 2016–17 material? (`ICT_CONCEPTS.md` Part 15 recommends the 2022 mentorship for models and windows.) | Fabio |
+| Q-14 | Which killzone table becomes `sessions-1.0.0`? (Recommended: the index-futures version, New York AM 08:30–11:00.) | Fabio |
+| Q-15 | Source of historical economic-calendar dates for news-linked concepts. | either LLM, when Level 6 is built |
 | Q-09 | Select and legally verify the real NQ/MNQ historical-data source before Tradeez claims real-market training or deploys vendor data. This is not a Phase 0 blocker. | Fabio + either LLM |

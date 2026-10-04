@@ -58,7 +58,7 @@
 last_session: 016
 last_author: CLAUDE
 last_updated: 2026-09-30
-phase: FEATURE WORK — auth, market data, chart, drawings and the Practice slice merged; drills next
+phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
 git: true
@@ -101,6 +101,7 @@ files_in_repo:
     - CHATGPT_RESEARCH.md   # Codex's deep analysis       (Session 001-CODEX)
     - DECISIONS.md          # ⭐ MERGED ADR — authoritative (Session 002)
     - DATA_STRATEGY.md      # Zero-cost demo/import data plan (Session 003)
+    - ICT_CONCEPTS.md       # ⭐ ICT curriculum spec: every concept, draft rule, teaching mode, data need (Session 017)
     - BUGS.md               # Known defects, limitations, and fixed-bug lessons (Session 009)
     - DOCUMENTATION.md      # Human-readable project history
     - PATH.md               # This file
@@ -109,12 +110,13 @@ not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
   - practice on real data (the service refuses it until DEC-025 date hiding exists)
 
-blocked_on: nothing technical — Fabio chooses the next task
+blocked_on: T2 needs MASSIVE_API_KEY in backend/.env (Fabio, after rotating the key he pasted in chat); T1 can start without it
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
   2. docs/DECISIONS.md     # the locked decisions; do not re-litigate
   3. docs/DATA_STRATEGY.md # REQUIRED before touching market data or the drill engine
+  3b. docs/ICT_CONCEPTS.md # REQUIRED before writing any detector, drill or lesson (DEC-041)
   4. docs/BUGS.md          # known defects — check before debugging, and before claiming something is broken
   5. docs/ANALYSIS_CLAUDE.md + docs/CHATGPT_RESEARCH.md   # only if you need the reasoning behind a decision
 ```
@@ -150,28 +152,84 @@ claimed_files:      # session 017 (CLAUDE) — real NQ data from Databento, on b
 Ordered. Take the topmost unblocked item. Roadmap shape is **vertical slice** (DEC-018): thin and
 end-to-end first, then thicken. Nothing here is "build a whole layer."
 
-| # | Task | Blocked by | Notes |
-|---|---|---|---|
-| 1 | ~~Reconcile the two analyses~~ | — | ✅ Done in Session 002 → `docs/DECISIONS.md` |
-| 2 | ~~**Phase 0** — scaffold~~ | — | ✅ Done in Session 006. Git, Boot 3.5.16 + Java 21, Vite/React 19/TS, Postgres via Docker, Flyway V1, OpenAPI, `/api/health`, security foundation. |
-| 2b | ~~**Auth endpoints**~~ | — | ✅ Done in Session 008. register/login/refresh/logout/logout-all + `/api/me`, rotation with reuse detection, 19/19 tests. UI not built. |
-| 3 | ~~**First data slice**~~ | — | ✅ Done in Session 009. Registry, generator, aggregation, bars API, 21 tests. |
-| 4 | ~~**First visible slice**~~ | — | ✅ Done in Session 010. Chart renders, auth UI, timeframe switching. Verified in a browser. |
-| 5 | ~~**Drawing proof**~~ | — | ✅ Done in Session 012. Gate passed → DEC-037: keep building by hand, scope stays four shapes. |
-| 6 | ~~**Practice slice**~~ | — | ✅ Done in Session 014 on `feat/practice-slice`. Hidden moment → locked bracket → 1s fill engine → replay → result card → journal. **Merge the PR first.** |
-| 6b | ~~**Bug batch**~~ | — | ✅ Done in Session 015: every open bug closed (BUG-010, 023, 029–033), ENV-001–004 fixed or mitigated in the repo. |
-| 7 | ~~**First drill**~~ | — | ✅ Done in Session 016; **merged into `master` 2026-09-30 as `2280d37`** — no PR, Fabio's call. Rule `fvg-1.0.0` (DEC-039), `detected_setup`, identification drill as a DEC-034 fixture. |
-| 8 | Optional €0 deployment smoke test | 2 | Re-check current free tiers; no purchase without Fabio |
+**Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
+2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
+(014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · R1 Databento importer (017, on
+`feat/real-nq-data`, not merged).
 
-**Real data track (DEC-040, session 017 — Fabio: "it needs to be real data").** Takes priority.
+### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
-| # | Task | Blocked by | Notes |
-|---|---|---|---|
-| R1 | ~~**Databento importer**~~ | — | ✅ Session 017 on `feat/real-nq-data` (not merged): client, cost-capped importer, `market_bar`, import ledger, real-data provider, fake-Databento tests. |
-| R2 | **Import NQ history** | Fabio's Databento key in `backend/.env` | Dry run first, then 1m from 2016 to now. Run command in `ImportCommand`. |
-| R3 | **Switch the app to real NQ** | R2 | Withdraw DEMO-NQ/MNQ (`listed = false`); chart navigation by date — 10 years, 5 years, 3 months back. |
-| R4 | **Practice on real data** | R2 | Hide the date until the reveal (DEC-025); one-second bars per day on demand; fill engine must not read a quiet second as a closure. |
-| R5 | **Drills on real data** | R2 | Gradable under DEC-034 once on `IMPORTED_PRIVATE`. |
+Fabio: the product is **learning ICT by paper trading on real historical charts**. Codex is away, so
+Claude builds every task, its own and Codex's (DEC-028 — no fixed ownership). This list merges
+Claude's roadmap (`ANALYSIS_CLAUDE.md` §5–§8), Codex's (`CHATGPT_RESEARCH.md` §4–§5, §10), the open
+DECISIONS and the ICT curriculum (`ICT_CONCEPTS.md`), ordered by what each task unblocks. Every
+milestone ends with something ICT-specific a learner can see (DEC-041).
+
+**Source key:** F = Fabio · C = Claude's analysis · X = Codex's research · D = a decision ·
+I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
+
+**M0 — Real charts: paper trading on real NQ history**
+
+| # | Task | Blocked by | Source | Notes |
+|---|---|---|---|---|
+| T1 | **Massive importer** | — (tests use a fake server) | F, D-042 | Per-contract 1m aggregates; front contract = highest previous-session volume; respects 5 requests/min; reuses `market_bar`, `market_data_import`, `ImportedMarketDataProvider`; key `MASSIVE_API_KEY` in `backend/.env` only. |
+| T2 | **Import 2 years of NQ, and ES** | T1 + Fabio's key in `backend/.env` | F, I-66 | ~700k NQ bars; ES for SMT later. |
+| T3 | **Real NQ in the app** | T2 | F, X §4 | DEMO withdrawn (`listed = false`); go-to-date; session separators; New York time axis with DST tests (INVARIANT 4). |
+| T4 | **Practice on real data** | T3 | F, D-025 | Date hidden until reveal; moment picker (random, filterable by killzone/weekday); fills on minute bars with honest `AMBIGUOUS` (no 1s on the free plan). |
+| T5 | **Replay paper-trading mode** | T4 | F, C §5, X §5 | Fabio's core idea. Step / play / pause / speed; place orders at any moment (entry + stop + target), several trades per replay, each plan locked (INVARIANT 10); session summary in R. |
+| T6 | **Bug batch, then merge `feat/real-nq-data`** | T3 | process | Working agreement: fix known bugs before a merge; fresh-clone lint/typecheck/build. |
+
+**M1 — ICT on the chart**
+
+| # | Task | Blocked by | Source | Notes |
+|---|---|---|---|---|
+| T7 | **New York clock layer** | T3 | I-11, I-50–55, X §4 | Session strip, killzone shading, opening-price lines (midnight, 08:30, 09:30, weekly), PDH/PDL/PWH/PWL, session highs/lows. Rules `levels`, `opens`, `sessions` (Q-14). |
+| T8 | **ICT drawing tools** | T3 | I-21, I-42–43, X §4 | Fibonacci with ICT preset; zone with CE line; labels. Extends DEC-037's four shapes — record the decision. |
+| T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
+| T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
+| T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
+| T12 | **Liquidity** | T11 | I-10–14 | Resting/taken levels, equal highs/lows, sweep vs run. |
+
+**M2 — The learning loop**
+
+| # | Task | Blocked by | Source | Notes |
+|---|---|---|---|---|
+| T13 | **Drill engine for every detector** | T10–T12 | C §6, D-023, D-034 | Modes A and B, graded on real data; explanations from evidence. Generalises the FVG drill. |
+| T14 | **Lesson cards** | T13 | I Part 0 | Text from `ICT_CONCEPTS.md` plus detected real examples. |
+| T15 | **Prediction drills** | T13 | C §6.1, I-15–17 | Mode C ("which liquidity is taken first?"); ERL/IRL labels, DOL questions, obstacle counts. |
+| T16 | **Learning state and curriculum map** | T13 | C §6.3, I Part 12 | Per-concept rating, spaced repetition, unlocks; real-data attempts only (INVARIANT 8b). |
+
+**M3 — Blocks, ranges, time models**
+
+| # | Task | Blocked by | Source | Notes |
+|---|---|---|---|---|
+| T17 | **Blocks** | T11, T12 | I-30–37 | Order block, breaker, mitigation, rejection, unicorn. |
+| T18 | **Ranges and Fibonacci** | T11 | I-40–44 | Dealing range, premium/discount, OTE, standard deviations. |
+| T19 | **Time models and profiles** | T7, T11 | I-53–57, I-62–65 | Silver Bullet and macro windows, IPDA ranges, power of three, Judas swing, daily and weekly profiles. |
+| T20 | **SMT divergence** | T2 (ES), T11 | I-66 | NQ vs ES. |
+| T21 | **Evidence views** | T10–T19 | I S-6 | How often each concept's claim held on real NQ, with sample size — never framed as an edge. |
+
+**M4 — Models and the exam**
+
+| # | Task | Blocked by | Source | Notes |
+|---|---|---|---|---|
+| T22 | **ICT plans and model checklists** | T5, T17–T19 | I-60–61, I-70–78, D-027 | Plan fields (model, DOL, bias, killzone); the chosen model's checklist checked at the decision moment. |
+| T23 | **Scorecard** | T5 | C §5.5, X §5, D-027 | R, MAE/MFE, process and outcome separately, calibration (confidence vs hit rate). |
+| T24 | **Review overlay** | T22 | D-026 | After the trade: what the rules saw at each moment, explained in their own numbers. |
+| T25 | **Journal statistics** | T23 | C §1.4, X §5 | By model, killzone, weekday; sample sizes on every figure. |
+| T26 | **Management and risk drills** | T23 | D-023 | Modes E and F. |
+| T27 | **Fees, commission, slippage** | T5 | X §5 | New fill-model version (DEC-012). |
+| T28 | **Partial targets** | T5 | X §5, I-81 | More than one target per plan. |
+
+**M5 — Presentation, and later**
+
+| # | Task | Blocked by | Source | Notes |
+|---|---|---|---|---|
+| T29 | **Disclaimers, onboarding, UI language** | — | D-015, X, Q-08 | Visible in the app and on a slide. |
+| T30 | **BUG-035** | — | BUGS.md | The seven older lint warnings. |
+| T31 | **€0 deployment smoke test; jury data rights** | M0 | X, C §4.1, Q-09 | Was task 8. No purchase without Fabio. |
+| T32 | **Deeper history and one-second bars** | Fabio's budget decision | D-040 | Databento importer is built; or a month of Massive's paid plan. |
+| T33 | **Indicators (VWAP, ATR, EMA)** | T3 | X §4 | Low priority for ICT. |
 
 ---
 
@@ -196,6 +254,8 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-033 | €0 data = labeled `DEMO-NQ`/`DEMO-MNQ` + permitted local CSV import; no crypto/CFD proxy. |
 | DEC-034 | Simulated setups are detector fixtures only; graded drills require permitted real data. |
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
+| DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
+| DEC-042 | **Massive's free plan first** (2 years of CME 1m, 5 req/min, per-contract tickers — Tradeez picks the front contract by previous-session volume); Databento later for deep history and 1s. Key `MASSIVE_API_KEY` only in `backend/.env`. |
 | DEC-040 ⚠️ | **Real NQ from Databento; the simulated market leaves the app.** Every download priced first, capped ($5/request, $100 total). Key only in `backend/.env`. `IMPORTED_PRIVATE` until display is licensed. |
 | DEC-039 | FVG rule `fvg-1.0.0`: consecutive candles, gap ≥ 25% of the prior 14 candles' average range. **Never tune the generator to produce patterns for drills** — refuse the drill instead (1m). |
 | DEC-036 ⚠️ | **Spring Boot 3.5.x + Java 21 — NOT Boot 4.** Boot 4 renames starters (`-webmvc`, per-starter `-test`) and has no springdoc, which breaks DEC-007. Do not bump the major version. |
@@ -261,7 +321,10 @@ Still open:
 |---|---|---|---|
 | Q-03 | Order flow / footprint in scope at all? Both analyses agree it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** — more honest than a fake footprint chart. | 001 | Fabio |
 | Q-08 | Croatian or English UI for the presentation? | 001 | Fabio |
-| Q-09 | Before real NQ is deployed, select a provider and obtain **written** confirmation covering classroom use, jury demo, authenticated display, caching and replay. Not a Phase 0 blocker. | 003 | Fabio + either LLM |
+| Q-09 | Before real NQ is deployed, select a provider and obtain **written** confirmation covering classroom use, jury demo, authenticated display, caching and replay. Not a Phase 0 blocker. *(017: Massive's free plan says "individual use".)* | 003 | Fabio + either LLM |
+| Q-13 | Default ICT reading: 2022 mentorship or 2016–17 material? (Recommended: 2022 for models and windows.) | 017 | Fabio |
+| Q-14 | Which killzone table becomes `sessions-1.0.0`? (Recommended: index version, NY AM 08:30–11:00.) | 017 | Fabio |
+| Q-15 | Source of historical economic-calendar dates (news-linked concepts ICT-35, ICT-56). | 017 | either LLM, at Level 6 |
 | ~~Q-12~~ | ~~Does Fabio's broker permit CSV export?~~ **CLOSED, Session 006.** Fabio has **no futures broker and has not begun trading** — he is building Tradeez to learn. There is no broker export to obtain, and no urgency: `DEMO-NQ` requires nothing. Re-open only if he opens an account. | 004 | closed |
 
 ---
@@ -1288,6 +1351,34 @@ off-grid price surfaced as "unreadable row". Fixed.
 
 **Waiting on Fabio:** a Databento account and `DATABENTO_API_KEY=…` in `backend/.env` (not in
 chat). If sign-up asks for a payment card, stop and decide first. Then: dry run → import → R3–R5.
+
+**2026-10-04 — Databento sign-up asks for a card.** Their stated policy: the card verifies the
+account and is billed only beyond the $125 credit. Fabio asked for card-free options first ("one step
+at a time"). Checked: **Finnhub** (no CME futures; intraday candles not on the free plan),
+**Marketstack** (stocks/indices, intraday is IEX stocks only), **Nasdaq Data Link** (CHRIS continuous
+futures deprecated, daily only), **Alpha Vantage** (no futures), **Yahoo** (`NQ=F` minutes only
+~7 days back, intraday ~60 days), **IEX Cloud** (shut down 2024-08-31). Only **Massive** (formerly
+Polygon.io) fits: free Futures Basic, CME minute bars, 2 years back, 5 calls/min, per-contract tickers
+(`NQZ5`, no continuous symbol), individual use. Second bars from $29/month; its history starts
+2017-04-03 even on the top plan. Recommended: Massive free now for 2 years of real NQ, Databento later
+for 5–10 years. Awaiting Fabio's choice.
+
+**2026-10-04 — Fabio chose Massive and re-centred the product on ICT.** He signed up for Massive's free
+plan (DEC-042). He also pasted the API key into the chat. Claude did **not** write it to
+`backend/.env`: a key that has appeared in a chat transcript should be treated as exposed, so Fabio
+was asked to regenerate it in Massive's dashboard and put the new one in `backend/.env` himself. The
+key is recorded nowhere in the repository or these docs.
+
+Fabio then said the project had drifted from its idea — *"an app that will help people trade ICT
+concepts"* by *"paper trading charts from long time ago"* — and asked for (1) a detailed document of
+every ICT concept, (2) one task list covering Claude's and Codex's work, sorted for viability, and (3)
+a plan for teaching ICT. Delivered: `docs/ICT_CONCEPTS.md` (≈70 concepts in ten levels, each with
+meaning, draft versioned rule, detectability class D/R/J, confirmation time, teaching modes and data
+needs; Part 13 maps concepts to work), DEC-041 and DEC-042, and the unified roadmap T1–T33 in NEXT UP.
+Time windows and gap definitions were cross-checked against community summaries; where versions
+disagree, the doc says so and versions the choice (Q-13, Q-14). New open questions Q-13–Q-15.
+
+No code changed in this part of the session. Next: T1 (Massive importer) on Fabio's go.
 
 ---
 

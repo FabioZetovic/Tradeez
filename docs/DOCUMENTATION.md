@@ -1317,4 +1317,68 @@ refused both attempts to grade or edit an answered drill.
 
 ---
 
+### Session 017 — 2026-09-30 to 10-04 — Real Data, and Back to ICT
+
+**Participant:** Claude Code
+**Type:** Feature (real market data) and product direction
+
+**"It needs to be real data."** Until now every chart in Tradeez came from a generator: a formula
+producing NQ-like prices, clearly labelled as simulated. Fabio rejected that outright. Price action
+cannot be invented, he said; a learner needs the real NQ of ten years ago, five years ago, three
+months ago. He was right, and two earlier decisions (simulated data as a stand-in, DEC-033) were
+superseded by a new one (DEC-040): Tradeez moves to real historical NQ, and the simulated market
+leaves the app. The generator stays only in the test suite, where invented data with known answers is
+exactly what a test needs.
+
+**An importer that cannot spend money by accident.** The first provider chosen, Databento, charges per
+download from a free starting credit. The importer built for it asks Databento what each download
+would cost *before* fetching it, refuses anything above $5 per request or $100 in total, records every
+attempt in a ledger table, can do a "dry run" that only prices, and skips months it already has. Real
+prices are stored exactly as the exchange printed them, in whole ticks; a price that does not sit on
+NQ's quarter-point grid stops the import instead of being rounded. It was tested entirely against a
+fake Databento server, so no test ever touches a real account — and one of those tests caught a real
+bug before it shipped (an error in the price data was being reported as a parsing problem).
+
+**A card, and a cheaper first step.** Databento's sign-up asked for a payment card. Its policy is to
+charge only beyond the free credit, but Fabio preferred to start without one. Seven alternatives were
+checked. Most had no futures data at all, or only daily candles, or minute data reaching back only
+days. One fit: **Massive** (formerly Polygon.io), whose free plan includes real CME futures in
+one-minute candles going back about two years. It has limits — no one-second candles, which makes the
+fill engine report "ambiguous" more often, and no history before 2017 even on paid plans — so the
+Databento importer is kept for when deeper history is worth paying for (DEC-042).
+
+**"We drifted from the original idea."** Then Fabio said something more important: the app had moved
+away from what he set out to build — *an app that helps people trade ICT concepts*, by paper trading
+on old charts. Looking back, he was right about the balance. Sixteen sessions had built the engine
+(accounts, data, chart, drawings, an honest fill engine, immutable trade records) and exactly one ICT
+concept, the fair value gap. The engine is what ICT learning needs, but a learner could not yet see
+much ICT in it.
+
+The answer is a new document, `ICT_CONCEPTS.md`: about seventy ICT concepts and structures — market
+structure, liquidity, fair value gaps, order blocks, premium and discount, killzones, the 2022 model
+and more — arranged in ten levels from candle basics to full entry models. Each concept says what it
+means, why ICT cares about it, how software could detect it as a written, versioned rule, how
+confidently it can be detected at all (some are exact geometry, some depend on chosen settings, some
+are pure judgement), how the app should teach it, and what data it needs. The roadmap was rebuilt from
+it (DEC-041): thirty-three tasks, combining Claude's and Codex's original plans, ordered so that every
+milestone ends with ICT a learner can actually see.
+
+**The same honesty, applied to ICT.** ICT is a popular methodology taught through videos, not a
+scientific result, and no independent evidence shows it gives traders an edge. Tradeez will not claim
+that it does. It teaches ICT's definitions exactly and grades whether the learner applied them — and it
+adds an *Evidence* view that shows how often each ICT claim actually held on real NQ history, with
+the number of cases behind every figure. A learner who sees "ICT says this happens; on 500 real days it
+happened 62% of the time" learns more than one who is simply told it is true.
+
+**A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
+the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
+asked to generate a fresh one and place it in the project's private settings file himself. The app
+reads it from there; nobody needs to see it.
+
+**By the numbers:** backend tests 164 → 183 (the importer), one migration (V7: stored market bars, the
+import ledger, the real NQ instrument), three new decisions (DEC-040 to DEC-042), one curriculum
+document.
+
+---
+
 *Next session entry goes here.*
