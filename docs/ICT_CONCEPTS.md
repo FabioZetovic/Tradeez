@@ -113,7 +113,7 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | F-1 | Candle anatomy | 0 | D | 📝 | — | 1m |
 | F-2 | Timeframes and top-down reading | 0 | D | 📝 | — | 1m → aggregates |
 | F-3 | NQ, the contract | 0 | D | 📝 | — | instrument registry |
-| F-4 | The New York clock | 0 | D | 📝 | — | session calendar |
+| F-4 | The New York clock | 0 | D | ✅ partly (New York time axis, T3) | — | session calendar |
 | F-5 | Risk in R, position size | 0 | D | ✅ partly (practice slice) | — | — |
 | ICT-01 | Swing high / swing low | 1 | D | 📐 | `swing-1.0.0` | 1m |
 | ICT-02 | Short-, intermediate-, long-term highs and lows | 1 | D | 📐 | `swing-tier-1.0.0` | 1m |

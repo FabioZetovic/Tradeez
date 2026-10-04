@@ -55,9 +55,9 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 016
+last_session: 017   # in progress — real data imported, chart switched (T1–T3)
 last_author: CLAUDE
-last_updated: 2026-09-30
+last_updated: 2026-10-04
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/fvg-drill merged 2026-09-30 as 2280d37 (no PR); PR #1 merged 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 221/221 on a clean checkout (Testcontainers), frontend 131/131 + typecheck + build; lint: 7 known warnings (BUG-035). Locally EnvExampleTest fails until Fabio moves his key out of .env.example (ENV-005) — by design.
+build_passing: true  # backend 223/223 (Testcontainers), frontend 146/146 + typecheck; lint: 7 known warnings (BUG-035), none new
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -88,7 +88,7 @@ files_in_repo:
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -113,7 +113,7 @@ not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
   - practice on real data (the service refuses it until DEC-025 date hiding exists)
 
-blocked_on: T2 — Fabio put the key in backend/.env.example (tracked!) instead of backend/.env. He must move it (ideally a regenerated one) and remove it from the example; then run T2.
+blocked_on: nothing — local DB holds 697,003 real NQ 1m bars (2024-10-08 → 2026-10-02, Massive). Next: T4 (practice on real data).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -176,8 +176,8 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
 | T1 | ~~**Massive importer**~~ | — | F, D-042 | ✅ Session 017: `marketdata/massive/` — client (Bearer header, same-host `next_url` only, BigDecimal prices), 5/min pacer with 429 back-off, quarterly contracts, front by previous-session volume, monthly chunks, `NO_DATA` never marked covered. Shared `importing/` package; `--tradeez.import.source=massive` (default). Found and fixed BUG-036. |
-| T2 | **Import 2 years of NQ** | Fabio's key in `backend/.env` (ENV-005) | F | Dry run, then `--tradeez.import.from=2024-10-08 --tradeez.import.to=2026-10-03`. Start inside the 2-year window: a month only partly inside it would be marked done. ES moves to T20 — it needs an instrument row first. |
-| T3 | **Real NQ in the app** | T2 | F, X §4 | DEMO withdrawn (`listed = false`); go-to-date; session separators; New York time axis with DST tests (INVARIANT 4). |
+| T2 | ~~**Import 2 years of NQ**~~ | — | F | ✅ Session 017: 697,003 real 1m bars, 2024-10-08 → 2026-10-02, 25 months, 9 contracts, $0, ~8 min. Rolls the week before each expiry; prices checked against known events (April 2025 crash low 16,460). Local DB only (`IMPORTED_PRIVATE`). ES moved to T20. |
+| T3 | ~~**Real NQ in the app**~~ | — | F, X §4 | ✅ Session 017: V8 withdraws DEMO from the list (still resolves by symbol for Practice/Drills); instruments carry `dataFrom`/`dataTo`; series carry their real `source`; chart opens on the newest data, date picker + Latest/1W/1M/3M/1Y/2Y; New York time axis by default (toggle NY → exchange → UTC). Session separators moved to T7. |
 | T4 | **Practice on real data** | T3 | F, D-025 | Date hidden until reveal; moment picker (random, filterable by killzone/weekday); fills on minute bars with honest `AMBIGUOUS` (no 1s on the free plan). |
 | T5 | **Replay paper-trading mode** | T4 | F, C §5, X §5 | Fabio's core idea. Step / play / pause / speed; place orders at any moment (entry + stop + target), several trades per replay, each plan locked (INVARIANT 10); session summary in R. |
 | T6 | **Bug batch, then merge `feat/real-nq-data`** | T3 | process | Working agreement: fix known bugs before a merge; fresh-clone lint/typecheck/build. |
@@ -186,7 +186,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T7 | **New York clock layer** | T3 | I-11, I-50–55, X §4 | Session strip, killzone shading, opening-price lines (midnight, 08:30, 09:30, weekly), PDH/PDL/PWH/PWL, session highs/lows. Rules `levels`, `opens`, `sessions` (index killzones, DEC-043). |
+| T7 | **New York clock layer** | T3 | I-11, I-50–55, X §4 | Session separators (from T3), session strip, killzone shading, opening-price lines (midnight, 08:30, 09:30, weekly), PDH/PDL/PWH/PWL, session highs/lows. Rules `levels`, `opens`, `sessions` (index killzones, DEC-043). |
 | T8 | **ICT drawing tools** | T3 | I-21, I-42–43, X §4 | Fibonacci with ICT preset; zone with CE line; labels. Extends DEC-037's four shapes — record the decision. |
 | T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
 | T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
@@ -1414,6 +1414,24 @@ columns by the host offset — NQ's 17:00 open read as 18:00. `TradeezApplicatio
 remove it from `.env.example`. Then T2: dry run, import, and the empty `MASSIVE_API_KEY=` line with a
 comment goes into `.env.example`.
 
----
+**T2 — two years of real NQ, imported.** Fabio said the regenerated key was in place; it was in
+`backend/.env.example` again (byte-identical to before, so it was already the regenerated key), and
+`backend/.env` did not exist. That key had never been in chat, so Claude moved the line into
+`backend/.env` with a shell pipe (never displayed) and restored the template; the template now carries
+an empty `MASSIVE_API_KEY=` with a comment saying where the real key goes. Dry run: 25 months, $0,
+contract switches in the third month of each quarter. Import: **697,003 one-minute bars**,
+2024-10-08 → 2026-10-02 16:59 ET, 9 contracts, ~8 minutes. Checks: no invalid OHLC, no zero volume,
+sessions start 18:00 ET, every roll jumps +200 to +325 points (contango), the June-2025 contract's low
+is the real April 2025 crash (16,460).
 
-*Next session block goes here.*
+**T3 — the chart shows real NQ.** Backend: V8 sets `listed = false` on simulated instruments (list
+only; they still resolve by symbol, Practice and Drills use them until T4/T13); `InstrumentResponse`
+gains `dataFrom`/`dataTo`; `BarSeriesResponse` gains `source`, read from the import ledger instead of
+the provider's hard-coded "databento" (INVARIANT 7). Frontend: real NQ by default; windows per
+timeframe sized under the 20,000-bar cap (`dateNavigation.ts`); date picker (New York dates, a day
+shows up to its 17:00 ET close, DST-correct) and jumps; New York axis by default
+(`AxisTimezone = 'new-york' | 'exchange' | 'utc'`). Checked in the running app: Friday 2 Oct 2026's
+08:30 ET jobs-report candle sits at 08:30 on the axis; 7 Apr 2025 shows the ~10:00 ET headline spike;
+"2Y" first showed a single day — the window end was clamped one day after the first minute — so the
+clamp now keeps a full window (found by clicking, test added). 1h reads ~220k minutes per request
+(~0.4 s) — recorded as a limitation. Backend 221 → 223, frontend 131 → 146.

@@ -11,4 +11,7 @@ public interface InstrumentRepository extends JpaRepository<Instrument, UUID> {
 	Optional<Instrument> findBySymbolIgnoreCase(String symbol);
 
 	List<Instrument> findAllByOrderBySymbolAsc();
+
+	/** What the app offers (DEC-040: withdrawn simulated markets still resolve by symbol). */
+	List<Instrument> findAllByListedTrueOrderBySymbolAsc();
 }

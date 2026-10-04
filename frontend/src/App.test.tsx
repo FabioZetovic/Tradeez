@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -11,29 +11,41 @@ const USER = {
   createdAt: '2026-09-17T00:00:00Z',
 }
 
-const INSTRUMENTS = [
-  {
-    symbol: 'DEMO-NQ',
-    displayName: 'Demo E-mini Nasdaq-100 (simulated)',
-    exchange: 'DEMO',
-    currency: 'USD',
-    tickSize: 0.25,
-    tickValueCents: 500,
-    dataClass: 'SIMULATED',
-    exchangeTimezone: 'America/Chicago',
-  },
-]
+const DAY = 86_400
+/** What V8 + a Massive import leave the API saying: real NQ only, two years of minutes. */
+const DATA_FROM = Date.parse('2024-10-08T00:00:00Z') / 1000
+const DATA_TO = Date.parse('2026-10-03T00:00:00Z') / 1000
+
+const NQ = {
+  symbol: 'NQ',
+  displayName: 'E-mini Nasdaq-100 futures',
+  exchange: 'CME',
+  currency: 'USD',
+  tickSize: 0.25,
+  tickValueCents: 500,
+  dataClass: 'IMPORTED_PRIVATE',
+  exchangeTimezone: 'America/Chicago',
+  dataFrom: DATA_FROM,
+  dataTo: DATA_TO,
+}
+const INSTRUMENTS = [NQ]
 
 const SERIES = {
-  instrument: 'DEMO-NQ',
+  instrument: 'NQ',
   timeframe: '5m',
-  dataClass: 'SIMULATED',
-  seed: 42,
-  generatorVersion: 'demo-gen-1.1.0',
-  disclaimer: 'SIMULATED DATA — NOT MARKET HISTORY',
+  dataClass: 'IMPORTED_PRIVATE',
+  source: 'massive',
   bars: [
-    { time: 1710338400, open: 80_000, high: 80_010, low: 79_990, close: 80_006, volume: 10 },
+    { time: DATA_TO - 300, open: 80_000, high: 80_010, low: 79_990, close: 80_006, volume: 10 },
   ],
+}
+
+/** The 'to' of every bars request made so far, in order. */
+function barRequestEnds(): number[] {
+  return (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+    .map(([url]) => String(url))
+    .filter((url) => url.includes('/bars'))
+    .map((url) => Number(new URL(url, 'http://test').searchParams.get('to')))
 }
 
 /** Routes fetch by URL so tests describe server behaviour rather than call order. */
@@ -58,9 +70,9 @@ function mockApi(routes: Record<string, { status?: number; body: unknown }>) {
 const signedOut = { '/api/me': { status: 401, body: {} }, '/api/auth/refresh': { status: 401, body: {} } }
 const signedIn = {
   '/api/me': { body: USER },
-  '/api/market/instruments/DEMO-NQ/bars': { body: SERIES },
+  '/api/market/instruments/NQ/bars': { body: SERIES },
   '/api/market/instruments': { body: INSTRUMENTS },
-  '/api/charts/DEMO-NQ/drawings': { body: [] },
+  '/api/charts/NQ/drawings': { body: [] },
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -122,9 +134,56 @@ describe('App — signed in', () => {
     expect(adapter.mountOptions?.tickSize).toBe(0.25)
   })
 
-  it('shows the simulated-data banner (DEC-033)', async () => {
+  it('labels real data with its source and shows no simulated-data banner (INVARIANT 7)', async () => {
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    expect(await screen.findByText(/SIMULATED DATA — NOT MARKET HISTORY/i)).toBeInTheDocument()
+    expect(await screen.findByTestId('data-source')).toHaveTextContent('massive')
+    expect(screen.queryByText(/SIMULATED DATA — NOT MARKET HISTORY/i)).not.toBeInTheDocument()
+  })
+
+  it('opens on the newest imported data', async () => {
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    await waitFor(() => expect(adapter.bars).toHaveLength(1))
+    expect(barRequestEnds()[0]).toBe(DATA_TO)
+  })
+
+  it('jumps back in time from the newest data', async () => {
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    await waitFor(() => expect(adapter.bars).toHaveLength(1))
+
+    await userEvent.click(screen.getByRole('button', { name: '1M' }))
+
+    await waitFor(() => expect(barRequestEnds()).toContain(DATA_TO - 30 * DAY))
+  })
+
+  it("a picked date loads that day up to its 17:00 New York close", async () => {
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    const input = await screen.findByTestId('go-to-date')
+    expect(input).toHaveAttribute('min', '2024-10-07')
+    expect(input).toHaveAttribute('max', '2026-10-02')
+
+    fireEvent.change(input, { target: { value: '2025-03-10' } })
+
+    // 17:00 EDT on 10 March 2025 = 21:00 UTC.
+    await waitFor(() => expect(barRequestEnds()).toContain(Date.parse('2025-03-10T21:00:00Z') / 1000))
+  })
+
+  it('shows New York time by default, the clock ICT is taught in (DEC-043)', async () => {
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    await waitFor(() => expect(adapter.bars).toHaveLength(1))
+    expect(adapter.mountOptions?.axisTimezone).toBe('new-york')
+    expect(screen.getByTestId('timezone-toggle').textContent).toMatch(/^E[DS]T$/)
+  })
+
+  it('says so, and loads nothing, when no history has been imported', async () => {
+    mockApi({ ...signedIn, '/api/market/instruments': { body: [{ ...NQ, dataFrom: undefined, dataTo: undefined }] } })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+
+    expect(await screen.findByTestId('no-history')).toHaveTextContent(/No real NQ history/)
+    expect(barRequestEnds()).toEqual([])
   })
 
   it('displays the last price converted from ticks, not the raw tick count', async () => {

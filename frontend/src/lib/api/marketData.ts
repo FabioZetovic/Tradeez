@@ -20,14 +20,21 @@ export interface Instrument {
   /** SIMULATED | IMPORTED_PRIVATE | LICENSED_DEPLOYABLE — see DEC-033/034/035. */
   dataClass: string
   exchangeTimezone: string
+  /** Real data only: first stored minute (epoch seconds). Absent when nothing is imported. */
+  dataFrom?: number
+  /** Real data only: end of the last stored minute (epoch seconds). */
+  dataTo?: number
 }
 
 export interface BarSeries {
   instrument: string
   timeframe: string
   dataClass: string
-  seed: number | null
-  generatorVersion: string
+  /** Where the bars came from (INVARIANT 7): 'generated', or the importer, e.g. 'massive'. */
+  source: string
+  /** Generated data only. */
+  seed?: number | null
+  generatorVersion?: string | null
   /** Non-null for simulated data. Rendered verbatim — the UI does not compose its own wording. */
   disclaimer: string | null
   bars: DomainBar[]
@@ -59,21 +66,4 @@ export function getBars(params: {
   return apiFetch<BarSeries>(
     `/api/market/instruments/${encodeURIComponent(params.symbol)}/bars?${query}`,
   )
-}
-
-/**
- * A window of generated history ending at a fixed point.
- *
- * The end is deliberately a constant rather than `Date.now()`. The generator is a pure function of
- * time (DEC-012), so anchoring to "now" would mean the chart showed different data on every reload
- * and no two people could ever discuss the same candle. A fixed anchor makes the demo reproducible.
- */
-export const DEMO_ANCHOR_EPOCH = 1710338400 // 2024-03-13 14:00 UTC, mid-session
-
-export function demoWindow(timeframe: string, barCount = 200): { from: number; to: number } {
-  const seconds: Record<string, number> = {
-    '1m': 60, '3m': 180, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600,
-  }
-  const span = (seconds[timeframe] ?? 300) * barCount
-  return { from: DEMO_ANCHOR_EPOCH - span, to: DEMO_ANCHOR_EPOCH }
 }

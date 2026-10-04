@@ -59,14 +59,28 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("V2 seeds DEMO-NQ and DEMO-MNQ; V7 adds the real NQ contract")
-	void seededInstrumentsArePresent() throws Exception {
+	@DisplayName("the app offers only real NQ; V8 withdrew the simulated markets (DEC-040)")
+	void onlyRealNqIsListed() throws Exception {
 		mockMvc.perform(get("/api/market/instruments").cookie(auth))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.length()").value(3))
-			.andExpect(jsonPath("$[0].symbol").value("DEMO-MNQ"))
-			.andExpect(jsonPath("$[1].symbol").value("DEMO-NQ"))
-			.andExpect(jsonPath("$[2].symbol").value("NQ"));
+			.andExpect(jsonPath("$.length()").value(1))
+			.andExpect(jsonPath("$[0].symbol").value("NQ"))
+			.andExpect(jsonPath("$[0].dataClass").value("IMPORTED_PRIVATE"));
+	}
+
+	@Test
+	@DisplayName("withdrawn simulated markets still resolve by symbol, for Practice and Drills")
+	void withdrawnStillResolve() throws Exception {
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ").cookie(auth))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.dataClass").value("SIMULATED"))
+			// Simulated data has no edges, so no coverage is claimed.
+			.andExpect(jsonPath("$.dataFrom").doesNotExist())
+			.andExpect(jsonPath("$.dataTo").doesNotExist());
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
+				.param("timeframe", "5m").param("from", "1710334800").param("to", "1710338400"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.source").value("generated"));
 	}
 
 	@Test

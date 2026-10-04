@@ -39,14 +39,30 @@ public class MarketDataService {
 
 	private final InstrumentRepository instruments;
 	private final List<MarketDataProvider> providers;
+	private final MarketBarStore barStore;
 
-	public MarketDataService(InstrumentRepository instruments, List<MarketDataProvider> providers) {
+	public MarketDataService(InstrumentRepository instruments, List<MarketDataProvider> providers,
+			MarketBarStore barStore) {
 		this.instruments = instruments;
 		this.providers = providers;
+		this.barStore = barStore;
 	}
 
+	/** The instruments the app offers. Withdrawn ones (DEC-040) still resolve by symbol. */
 	public List<Instrument> listInstruments() {
-		return instruments.findAllByOrderBySymbolAsc();
+		return instruments.findAllByListedTrueOrderBySymbolAsc();
+	}
+
+	/**
+	 * The span of stored one-minute history for real data: {@code [first bar's open, last bar's
+	 * close)}, or null when nothing is imported. Null for simulated data too, which has no edges.
+	 */
+	public Instant[] coverage(Instrument instrument) {
+		if (instrument.getDataClass() == DataClass.SIMULATED) {
+			return null;
+		}
+		Instant[] extent = barStore.extent(instrument.getId(), "1m");
+		return extent == null ? null : new Instant[] { extent[0], extent[1].plusSeconds(60) };
 	}
 
 	public Instrument requireInstrument(String symbol) {
@@ -95,7 +111,8 @@ public class MarketDataService {
 			Instant to, long seed) {
 		if (!to.isAfter(from)) {
 			return new BarSeries(instrument.getSymbol(), timeframe, instrument.getDataClass(),
-				"generated", seed, null, List.of());
+				instrument.getDataClass() == DataClass.SIMULATED ? "generated" : "imported",
+				seed, null, List.of());
 		}
 		return providerFor(instrument).bars(instrument, timeframe, from, to, seed);
 	}

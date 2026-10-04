@@ -207,7 +207,8 @@ person the product is for.
   graded drills.
 - **The simulated market** is withdrawn from the app once real data is in (`instrument.listed`),
   not deleted; the generator stays in the test suite, where injected ground truth is exactly what a
-  test needs.
+  test needs. *Implemented in Session 017 (T3, migration V8) for the chart; Practice and Drills keep
+  using the labelled simulated market until T4 and T13.*
 
 Before the switch, three things real data forces: practice must **hide the date** until the reveal
 (DEC-025 — a learner who knows the date knows the outcome); the fill engine must not read a quiet

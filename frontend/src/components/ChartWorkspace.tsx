@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { PriceChart } from './PriceChart'
 import { SimulatedDataBanner } from './SimulatedDataBanner'
 import {
-  demoWindow,
   getBars,
   listInstruments,
   TIMEFRAMES,
@@ -11,13 +10,26 @@ import {
 } from '@/lib/api/marketData'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
-import { timezoneLabel, type AxisTimezone } from '@/lib/chart/timeAxis'
+import { nextAxisTimezone, timezoneLabel, type AxisTimezone } from '@/lib/chart/timeAxis'
+import {
+  chartWindow,
+  clampEnd,
+  JUMPS,
+  newYorkDate,
+  sessionEndOn,
+  windowDays,
+} from '@/lib/chart/dateNavigation'
 import { DrawingOverlay } from './DrawingOverlay'
 import { DrawingToolbar } from './DrawingToolbar'
 import { useDrawings } from '@/hooks/useDrawings'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import type { SnapMode } from '@/lib/drawing/snap'
 import type { DrawingKind } from '@/lib/drawing/types'
+
+/** Candles in view when a window loads; the rest of the window is a scroll away. */
+const RECENT_BARS = 200
+
+const DAY = 86_400
 
 interface ChartWorkspaceProps {
   /** Injected in tests so the chart can render without a canvas. */
@@ -26,10 +38,14 @@ interface ChartWorkspaceProps {
 
 export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   const [instruments, setInstruments] = useState<Instrument[]>([])
-  const [symbol, setSymbol] = useState<string>('DEMO-NQ')
+  // Real NQ by default (DEC-040); the simulated markets are no longer listed.
+  const [symbol, setSymbol] = useState<string>('NQ')
   const [timeframe, setTimeframe] = useState<string>('5m')
   const [series, setSeries] = useState<BarSeries | null>(null)
-  const [axisTimezone, setAxisTimezone] = useState<AxisTimezone>('exchange')
+  // ICT states every time in New York time (DEC-043).
+  const [axisTimezone, setAxisTimezone] = useState<AxisTimezone>('new-york')
+  // Where the window ends: null follows the newest imported minute.
+  const [end, setEnd] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
@@ -57,16 +73,33 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
 
   useEffect(() => {
     listInstruments()
-      .then(setInstruments)
+      .then((list) => {
+        setInstruments(list)
+        // Keep the current choice when it is offered; otherwise take the first instrument.
+        setSymbol((current) =>
+          list.length === 0 || list.some((i) => i.symbol === current) ? current : list[0].symbol,
+        )
+      })
       .catch(() => setError('Could not load instruments.'))
   }, [])
 
+  const instrument = instruments.find((i) => i.symbol === symbol)
+  const dataFrom = instrument?.dataFrom
+  const dataTo = instrument?.dataTo
+  // Real history is a bounded window; nothing to load until the instrument says where it ends.
+  const windowEnd =
+    dataFrom === undefined || dataTo === undefined
+      ? null
+      : clampEnd(end ?? dataTo, dataFrom, dataTo, windowDays(timeframe) * DAY)
+  const noHistory = instrument !== undefined && dataTo === undefined
+
   useEffect(() => {
+    if (windowEnd === null) return
     let cancelled = false
     setLoading(true)
     setError(null)
 
-    const { from, to } = demoWindow(timeframe)
+    const { from, to } = chartWindow(timeframe, windowEnd)
     getBars({ symbol, timeframe, from, to })
       .then((result) => {
         if (!cancelled) setSeries(result)
@@ -81,21 +114,26 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
     return () => {
       cancelled = true
     }
-  }, [symbol, timeframe])
+  }, [symbol, timeframe, windowEnd])
 
-  const instrument = instruments.find((i) => i.symbol === symbol)
   const lastBar = series?.bars.at(-1)
 
   return (
     <section className="workspace">
-      {/* The banner reads the data's own dataClass rather than assuming. When real licensed data
-          eventually arrives, this disappears on its own instead of needing to be remembered. */}
-      <SimulatedDataBanner dataClass={series?.dataClass ?? 'SIMULATED'} />
+      {/* The banner reads the data's own dataClass rather than assuming, and waits for the data:
+          real NQ must not flash a "simulated" warning while it loads. */}
+      {series && <SimulatedDataBanner dataClass={series.dataClass} />}
 
       <div className="toolbar">
         <label>
           Instrument
-          <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
+          <select
+            value={symbol}
+            onChange={(e) => {
+              setSymbol(e.target.value)
+              setEnd(null)
+            }}
+          >
             {instruments.map((i) => (
               <option key={i.symbol} value={i.symbol}>
                 {i.symbol}
@@ -118,13 +156,43 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
           ))}
         </div>
 
+        {instrument && dataFrom !== undefined && dataTo !== undefined && windowEnd !== null && (
+          <div className="date-nav" role="group" aria-label="Go to date">
+            <label>
+              Date
+              <input
+                type="date"
+                data-testid="go-to-date"
+                min={newYorkDate(dataFrom)}
+                max={newYorkDate(dataTo)}
+                value={newYorkDate(windowEnd)}
+                onChange={(e) => {
+                  if (e.target.value) setEnd(sessionEndOn(e.target.value))
+                }}
+              />
+            </label>
+            {JUMPS.map((jump) => (
+              <button
+                key={jump.label}
+                type="button"
+                className="tf"
+                aria-pressed={jump.days === 0 ? end === null : undefined}
+                title={jump.days === 0 ? 'The newest imported data' : `${jump.label} before the newest data`}
+                onClick={() => setEnd(jump.days === 0 ? null : dataTo - jump.days * DAY)}
+              >
+                {jump.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {instrument && (
           <button
             type="button"
             className="tf"
             data-testid="timezone-toggle"
-            title="Switch the time axis between exchange-local and UTC"
-            onClick={() => setAxisTimezone(axisTimezone === 'utc' ? 'exchange' : 'utc')}
+            title="Time axis: New York → exchange → UTC"
+            onClick={() => setAxisTimezone(nextAxisTimezone(axisTimezone))}
           >
             {timezoneLabel(instrument.exchangeTimezone, axisTimezone, new Date())}
           </button>
@@ -140,6 +208,13 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       {error && (
         <p role="alert" className="error">
           {error}
+        </p>
+      )}
+
+      {noHistory && (
+        <p role="status" data-testid="no-history">
+          No real {instrument.symbol} history has been imported yet. Run the import described in
+          docs/PATH.md (task T2).
         </p>
       )}
 
@@ -180,6 +255,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
             exchangeTimezone={instrument.exchangeTimezone}
             axisTimezone={axisTimezone}
             adapterFactory={adapterFactory}
+            recentBars={RECENT_BARS}
             overlay={(adapter) => (
               <DrawingOverlay
                 adapter={adapter}
@@ -197,7 +273,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
         </div>
       )}
 
-      {loading && <p role="status">Loading…</p>}
+      {loading && !noHistory && <p role="status">Loading…</p>}
 
       {series && instrument && (
         <dl className="kv kv--compact">
@@ -207,10 +283,24 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
           <dd>
             {instrument.tickSize} = ${(instrument.tickValueCents / 100).toFixed(2)}
           </dd>
-          <dt>Seed</dt>
-          <dd>{series.seed}</dd>
-          <dt>Generator</dt>
-          <dd>{series.generatorVersion}</dd>
+          <dt>Source</dt>
+          <dd data-testid="data-source">{series.source}</dd>
+          {dataFrom !== undefined && dataTo !== undefined && (
+            <>
+              <dt>History</dt>
+              <dd>
+                {newYorkDate(dataFrom)} → {newYorkDate(dataTo)}
+              </dd>
+            </>
+          )}
+          {series.seed != null && (
+            <>
+              <dt>Seed</dt>
+              <dd>{series.seed}</dd>
+              <dt>Generator</dt>
+              <dd>{series.generatorVersion}</dd>
+            </>
+          )}
         </dl>
       )}
     </section>

@@ -1,3 +1,5 @@
+import type { AxisTimezone } from './timeAxis'
+
 /**
  * The chart abstraction (DEC-004).
  *
@@ -32,7 +34,7 @@ export interface ChartMountOptions {
   /** IANA zone the axis labels in, e.g. "America/Chicago" (BUG-014). */
   exchangeTimezone: string
   /** 'exchange' labels in the exchange's local time; 'utc' shows the stored value. */
-  axisTimezone: 'exchange' | 'utc'
+  axisTimezone: AxisTimezone
   /** Shown in the chart's corner so simulated data is never mistaken for market history. */
   watermark?: string
 }

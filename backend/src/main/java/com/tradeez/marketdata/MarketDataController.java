@@ -39,9 +39,10 @@ public class MarketDataController {
 	}
 
 	@GetMapping("/instruments")
-	@Operation(summary = "Every available instrument")
+	@Operation(summary = "The instruments the app offers",
+		description = "Simulated markets are withdrawn from this list (DEC-040) but still resolve by symbol.")
 	public List<InstrumentResponse> instruments() {
-		return service.listInstruments().stream().map(MarketDataController::toDto).toList();
+		return service.listInstruments().stream().map(this::toDto).toList();
 	}
 
 	@GetMapping("/instruments/{symbol}")
@@ -86,6 +87,7 @@ public class MarketDataController {
 			series.instrumentSymbol(),
 			series.timeframe().code(),
 			series.dataClass().name(),
+			series.source(),
 			series.seed(),
 			series.generatorVersion(),
 			series.dataClass() == DataClass.SIMULATED ? SIMULATED_DISCLAIMER : null,
@@ -96,10 +98,13 @@ public class MarketDataController {
 				.toList());
 	}
 
-	private static InstrumentResponse toDto(Instrument i) {
+	private InstrumentResponse toDto(Instrument i) {
+		Instant[] coverage = service.coverage(i);
 		return new InstrumentResponse(
 			i.getSymbol(), i.getDisplayName(), i.getExchange(), i.getCurrency(),
 			i.getTickSize(), i.getTickValueCents(), i.getDataClass().name(),
-			i.getExchangeTimezone());
+			i.getExchangeTimezone(),
+			coverage == null ? null : coverage[0].getEpochSecond(),
+			coverage == null ? null : coverage[1].getEpochSecond());
 	}
 }

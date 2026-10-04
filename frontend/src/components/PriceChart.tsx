@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
+import type { AxisTimezone } from '@/lib/chart/timeAxis'
 import { LightweightChartAdapter } from '@/lib/chart/lightweightAdapter'
 
 interface PriceChartProps {
   bars: DomainBar[]
   tickSize: number
   exchangeTimezone: string
-  axisTimezone: 'exchange' | 'utc'
+  axisTimezone: AxisTimezone
   /**
    * Rendered on top of the chart, given the live adapter.
    *

@@ -1392,6 +1392,24 @@ new importer's tests caught it, because they asked for one Monday's data an hour
 candles short. Now the app really sets UTC, and a test checks it. The lesson is in the bug log: a
 comment saying something is configured is not configuration.
 
+**Real NQ on screen.** With the key in place, the import ran: 697,003 one-minute candles of real NQ,
+from October 2024 to October 2026, in about eight minutes and at no cost. They were checked before
+anything else was built on them — no impossible candles, sessions opening at 18:00 New York time,
+every contract switch jumping by the few hundred points that separate one quarterly contract from the
+next, and the April 2025 crash low exactly where history put it.
+
+The chart now opens on that data instead of the simulated market, which is gone from the list (it is
+kept, clearly labelled, only for Practice and Drills until those can use real data safely). A learner
+can jump back a week, a month, three months, a year or two years, or pick any day — and the time axis
+shows New York time, the clock ICT is taught in. The proof that the clock is right is on the chart
+itself: on Friday 2 October 2026 the biggest candle of the morning sits at exactly 08:30, when the US
+jobs report was released.
+
+Clicking through it found one more thing the tests had not: "two years back" showed a single day,
+because the chart stopped its window one day after the first candle in the database. It now shows the
+first full window. Each chart also says where its data came from — "massive" — read from the import
+records rather than written into the code.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1402,9 +1420,9 @@ and looks the same, but is published with the code. Nothing was published, becau
 their files one by one. Since the mistake is easy to make again, a test now fails the build whenever
 the example file contains a key — and it names the setting without ever printing the key.
 
-**By the numbers:** backend tests 164 → 221 (two importers, the timezone fix, the key guard), one
-migration (V7: stored market bars, the import ledger, the real NQ instrument), four new decisions
-(DEC-040 to DEC-043), one curriculum document.
+**By the numbers:** backend tests 164 → 223, frontend tests 131 → 146, two migrations (V7: stored market
+bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
+real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document.
 
 ---
 

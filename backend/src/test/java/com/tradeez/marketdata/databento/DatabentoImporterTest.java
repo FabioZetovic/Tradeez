@@ -271,6 +271,7 @@ class DatabentoImporterTest extends AbstractIntegrationTest {
 				.param("to", String.valueOf(TO.getEpochSecond())))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.dataClass").value("IMPORTED_PRIVATE"))
+			.andExpect(jsonPath("$.source").value("databento"))
 			.andExpect(jsonPath("$.bars.length()").value(24))
 			.andExpect(jsonPath("$.seed").doesNotExist())
 			.andExpect(jsonPath("$.disclaimer").doesNotExist());

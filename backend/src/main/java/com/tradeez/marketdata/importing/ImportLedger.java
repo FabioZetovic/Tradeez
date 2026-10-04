@@ -3,6 +3,7 @@ package com.tradeez.marketdata.importing;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -48,6 +49,16 @@ public class ImportLedger {
 			      AND range_from <= ? AND range_to >= ?)""",
 			Boolean.class, instrumentId, resolution, Timestamp.from(from), Timestamp.from(to));
 		return Boolean.TRUE.equals(covered);
+	}
+
+	/** The sources whose finished imports overlap {@code [from, to)}, alphabetically. */
+	public List<String> sources(UUID instrumentId, String resolution, Instant from, Instant to) {
+		return jdbc.queryForList("""
+			SELECT DISTINCT source FROM market_data_import
+			WHERE instrument_id = ? AND resolution = ? AND status = 'DONE'
+			  AND range_from < ? AND range_to > ?
+			ORDER BY source""",
+			String.class, instrumentId, resolution, Timestamp.from(to), Timestamp.from(from));
 	}
 
 	public UUID start(Request request, BigDecimal estimatedCostUsd) {

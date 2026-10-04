@@ -3,7 +3,9 @@ import {
   createTickMarkFormatter,
   createTimeFormatter,
   formatSessionTime,
+  nextAxisTimezone,
   timezoneLabel,
+  zoneFor,
 } from './timeAxis'
 
 const CHICAGO = 'America/Chicago'
@@ -81,5 +83,32 @@ describe('createTickMarkFormatter (BUG-029)', () => {
     // 2024-01-01 00:00 UTC is still 31 Dec 2023 in Chicago.
     expect(tick(1704067200, 'year')).toBe('2023')
     expect(tick(1704067200, 'month')).toBe('Dec')
+  })
+})
+
+describe('New York time (T3, DEC-043)', () => {
+  // ICT states every window in New York time, so it is the chart's default clock.
+  it('renders New York time, one hour ahead of Chicago all year', () => {
+    // SUMMER is 14:00 UTC under EDT (UTC-4) → 10:00; WINTER is 14:00 UTC under EST (UTC-5) → 09:00.
+    expect(createTimeFormatter(CHICAGO, 'new-york')(SUMMER)).toBe('10:00')
+    expect(createTimeFormatter(CHICAGO, 'new-york')(WINTER)).toBe('09:00')
+    expect(createTickMarkFormatter(CHICAGO, 'new-york')(SUMMER, 'time')).toBe('10:00')
+  })
+
+  it('labels the toggle EDT or EST by the date, not by the instrument', () => {
+    expect(timezoneLabel(CHICAGO, 'new-york', new Date(SUMMER * 1000))).toBe('EDT')
+    expect(timezoneLabel(CHICAGO, 'new-york', new Date(WINTER * 1000))).toBe('EST')
+  })
+
+  it('cycles New York → exchange → UTC → New York', () => {
+    expect(nextAxisTimezone('new-york')).toBe('exchange')
+    expect(nextAxisTimezone('exchange')).toBe('utc')
+    expect(nextAxisTimezone('utc')).toBe('new-york')
+  })
+
+  it('maps each mode to its zone', () => {
+    expect(zoneFor(CHICAGO, 'new-york')).toBe('America/New_York')
+    expect(zoneFor(CHICAGO, 'exchange')).toBe(CHICAGO)
+    expect(zoneFor(CHICAGO, 'utc')).toBe('UTC')
   })
 })

@@ -2,6 +2,11 @@ package com.tradeez.marketdata.massive;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.sql.Timestamp;
 import java.time.DayOfWeek;
@@ -16,11 +21,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 
 import com.tradeez.AbstractIntegrationTest;
+import com.tradeez.identity.AppUserRepository;
+import com.tradeez.identity.CookieService;
+import com.tradeez.identity.RefreshTokenRepository;
 import com.tradeez.marketdata.BarSeries;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.Instrument;
@@ -73,6 +83,15 @@ class MassiveImporterTest extends AbstractIntegrationTest {
 
 	@Autowired
 	JdbcTemplate jdbc;
+
+	@Autowired
+	MockMvc mockMvc;
+
+	@Autowired
+	AppUserRepository users;
+
+	@Autowired
+	RefreshTokenRepository refreshTokens;
 
 	private Instrument nq;
 
@@ -255,5 +274,38 @@ class MassiveImporterTest extends AbstractIntegrationTest {
 		assertThat(fiveMinute.dataClass()).isEqualTo(DataClass.IMPORTED_PRIVATE);
 		assertThat(fiveMinute.bars()).hasSize(12);
 		assertThat(fiveMinute.bars().getFirst().openTicks()).isEqualTo(FAKE.openTicks("NQH5", FROM));
+	}
+
+	@Test
+	@DisplayName("the API reports NQ's real data range and names Massive as the source (INVARIANT 7)")
+	void chartApi() throws Exception {
+		importer.importRange(nq, "1m", FROM, TO, false);
+
+		refreshTokens.deleteAllInBatch();
+		users.deleteAllInBatch();
+		var cookie = mockMvc.perform(post("/api/auth/register").with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"massive@example.com\",\"password\":\"a-perfectly-fine-passphrase\","
+					+ "\"displayName\":\"T\"}"))
+			.andExpect(status().isCreated())
+			.andReturn().getResponse().getCookie(CookieService.ACCESS_TOKEN_COOKIE);
+
+		// The last stored minute opens at 23:59 UTC on 3 March, so the data runs until 00:00 on the 4th.
+		mockMvc.perform(get("/api/market/instruments").cookie(cookie))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.length()").value(1))
+			.andExpect(jsonPath("$[0].symbol").value("NQ"))
+			.andExpect(jsonPath("$[0].dataFrom").value((int) FROM.getEpochSecond()))
+			.andExpect(jsonPath("$[0].dataTo").value((int) TO.getEpochSecond()));
+
+		mockMvc.perform(get("/api/market/instruments/NQ/bars").cookie(cookie)
+				.param("timeframe", "15m")
+				.param("from", String.valueOf(FROM.getEpochSecond()))
+				.param("to", String.valueOf(FROM.getEpochSecond() + 3600)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.source").value("massive"))
+			.andExpect(jsonPath("$.dataClass").value("IMPORTED_PRIVATE"))
+			.andExpect(jsonPath("$.bars.length()").value(4))
+			.andExpect(jsonPath("$.disclaimer").doesNotExist());
 	}
 }
