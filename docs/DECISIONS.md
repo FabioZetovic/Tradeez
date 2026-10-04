@@ -461,6 +461,28 @@ movements to select trades."*
   concept: Tradeez grades adherence to its versioned reading of ICT, never that ICT works; a new
   Evidence mode shows how often each concept's claims held in the imported history, with sample sizes.
 
+**DEC-043 — The 2022 mentorship is the default ICT reading; killzones are the index-futures version**
+`AGREED` · Fabio, Session 017 (2026-10-04) · resolves Q-13 and Q-14
+
+ICT's definitions shift between teaching periods, so every rule needs a stated source. Fabio approved
+(*"yeah this all sounds good now. The project path is good"*):
+
+- **Where periods disagree, version 1.0.0 of a rule follows the 2022 mentorship.** It was taught on
+  index futures (ES/NQ), it is public (a learner or the jury can watch the same source), and its model
+  is a sequence of checkable steps: sweep → displacement with a market structure shift → entry in the
+  fair value gap → opposite liquidity. Concretely: an MSS requires a sweep and displacement; entries
+  are FVG-based; the daily reference is the New York midnight open; stops sit beyond the sweep's swing;
+  targets are opposing liquidity or standard deviations.
+- **Topics the 2022 material treats thinly come from the 2016–17 mentorship**, labelled as such: the
+  detailed block definitions (order, breaker, mitigation, rejection), the PD array matrix, IPDA data
+  ranges, weekly profiles, market maker models.
+- **`sessions-1.0.0` uses the index-futures killzones** of `ICT_CONCEPTS.md` ICT-51 (New York AM
+  08:30–11:00, London 02:00–05:00, Asia 20:00–00:00, New York PM 13:30–16:00). Forex variants may
+  become alternative versions, never silent edits.
+- **Every implemented rule names the lecture or period it follows**, and definitions marked "verify" in
+  `ICT_CONCEPTS.md` are checked against the source before they are locked.
+- "Default" is a documented choice, not a claim that this reading is the correct one (INVARIANT 8).
+
 **DEC-023 — Practice sessions and micro-drills are co-equal features** · `AGREED` · Fabio
 Fabio chose the ambitious scope deliberately. Both are first-class:
 
@@ -685,7 +707,7 @@ Never hand-edit the database. Seed only synthetic or permitted demo data.
 |---|---|---|
 | Q-03 | Is order flow / footprint in scope at all? Both analyses say it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** rather than build a fake footprint chart. *Session 017: DEC-041 puts it out of scope for v1 (not part of ICT); close it if Fabio agrees.* | Fabio |
 | Q-08 | Croatian or English UI for the presentation? | Fabio |
-| Q-13 | Default ICT reading: 2022 mentorship, or the 2016–17 material? (`ICT_CONCEPTS.md` Part 15 recommends the 2022 mentorship for models and windows.) | Fabio |
-| Q-14 | Which killzone table becomes `sessions-1.0.0`? (Recommended: the index-futures version, New York AM 08:30–11:00.) | Fabio |
+| ~~Q-13~~ | ~~Default ICT reading?~~ **Resolved → DEC-043** (2022 mentorship; thin topics from 2016–17, labelled). | closed |
+| ~~Q-14~~ | ~~Which killzone table becomes `sessions-1.0.0`?~~ **Resolved → DEC-043** (index-futures version). | closed |
 | Q-15 | Source of historical economic-calendar dates for news-linked concepts. | either LLM, when Level 6 is built |
 | Q-09 | Select and legally verify the real NQ/MNQ historical-data source before Tradeez claims real-market training or deploys vendor data. This is not a Phase 0 blocker. | Fabio + either LLM |

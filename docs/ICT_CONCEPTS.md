@@ -851,7 +851,7 @@ today?").
 
 **What.** The NQ day in sessions. The high and low of each session become liquidity (ICT-11).
 
-**`sessions-1.0.0` — proposed default (index futures):**
+**`sessions-1.0.0` — the default (index futures, DEC-043):**
 
 | Session / window | NY time | Note |
 |---|---|---|
@@ -1262,8 +1262,8 @@ minute, a few minutes of importing. It covers every concept in Levels 0–8 exce
 
 | ID | Question | Recommendation |
 |---|---|---|
-| Q-13 | Which ICT period is the default reading — the 2022 mentorship, or the more detailed 2016–17 material? | The 2022 mentorship for models and time windows (public, consistent, checkable); the PD-array definitions from the earlier material, versioned. |
-| Q-14 | Which killzone table is `sessions-1.0.0`? | The index-futures version in ICT-51 (New York AM 08:30–11:00). |
+| ~~Q-13~~ | Which ICT period is the default reading? | **Decided — DEC-043:** the 2022 mentorship; topics it treats thinly (blocks, PD array matrix, IPDA, weekly profiles, market maker models) from 2016–17, labelled. |
+| ~~Q-14~~ | Which killzone table is `sessions-1.0.0`? | **Decided — DEC-043:** the index-futures version in ICT-51. |
 | Q-15 | Where do historical news dates come from? | Decide when Level 6 is built; until then shade the fixed release times only. |
 | Q-08 | Croatian or English UI? (existing) | Unchanged — Fabio. Concept names stay English either way: ICT's vocabulary is English. |
 | Q-09 | Jury display rights (existing) | Massive's free plan is "individual use"; ask before showing real data to the jury. |

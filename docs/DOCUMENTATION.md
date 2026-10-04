@@ -1363,6 +1363,11 @@ are pure judgement), how the app should teach it, and what data it needs. The ro
 it (DEC-041): thirty-three tasks, combining Claude's and Codex's original plans, ordered so that every
 milestone ends with ICT a learner can actually see.
 
+**Which ICT?** Huddleston's definitions changed over the years, so the app needs a stated source. Fabio
+approved the 2022 mentorship as the default reading (DEC-043): it was taught on index futures like NQ,
+it is free for anyone — including the jury — to check, and its model is a short chain of steps a rule
+can verify. Topics it covers thinly come from his older 2016–17 material, labelled as such.
+
 **The same honesty, applied to ICT.** ICT is a popular methodology taught through videos, not a
 scientific result, and no independent evidence shows it gives traders an edge. Tradeez will not claim
 that it does. It teaches ICT's definitions exactly and grades whether the learner applied them — and it

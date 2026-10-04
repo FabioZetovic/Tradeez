@@ -183,7 +183,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T7 | **New York clock layer** | T3 | I-11, I-50–55, X §4 | Session strip, killzone shading, opening-price lines (midnight, 08:30, 09:30, weekly), PDH/PDL/PWH/PWL, session highs/lows. Rules `levels`, `opens`, `sessions` (Q-14). |
+| T7 | **New York clock layer** | T3 | I-11, I-50–55, X §4 | Session strip, killzone shading, opening-price lines (midnight, 08:30, 09:30, weekly), PDH/PDL/PWH/PWL, session highs/lows. Rules `levels`, `opens`, `sessions` (index killzones, DEC-043). |
 | T8 | **ICT drawing tools** | T3 | I-21, I-42–43, X §4 | Fibonacci with ICT preset; zone with CE line; labels. Extends DEC-037's four shapes — record the decision. |
 | T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
 | T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
@@ -255,6 +255,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-034 | Simulated setups are detector fixtures only; graded drills require permitted real data. |
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
+| DEC-043 | **Default ICT reading = the 2022 mentorship** (FVG entries after sweep + displacement MSS, midnight open); thin topics (blocks, PD matrix, IPDA, weekly profiles) from 2016–17, labelled; `sessions-1.0.0` = index-futures killzones. Every rule names its source. |
 | DEC-042 | **Massive's free plan first** (2 years of CME 1m, 5 req/min, per-contract tickers — Tradeez picks the front contract by previous-session volume); Databento later for deep history and 1s. Key `MASSIVE_API_KEY` only in `backend/.env`. |
 | DEC-040 ⚠️ | **Real NQ from Databento; the simulated market leaves the app.** Every download priced first, capped ($5/request, $100 total). Key only in `backend/.env`. `IMPORTED_PRIVATE` until display is licensed. |
 | DEC-039 | FVG rule `fvg-1.0.0`: consecutive candles, gap ≥ 25% of the prior 14 candles' average range. **Never tune the generator to produce patterns for drills** — refuse the drill instead (1m). |
@@ -322,8 +323,8 @@ Still open:
 | Q-03 | Order flow / footprint in scope at all? Both analyses agree it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** — more honest than a fake footprint chart. | 001 | Fabio |
 | Q-08 | Croatian or English UI for the presentation? | 001 | Fabio |
 | Q-09 | Before real NQ is deployed, select a provider and obtain **written** confirmation covering classroom use, jury demo, authenticated display, caching and replay. Not a Phase 0 blocker. *(017: Massive's free plan says "individual use".)* | 003 | Fabio + either LLM |
-| Q-13 | Default ICT reading: 2022 mentorship or 2016–17 material? (Recommended: 2022 for models and windows.) | 017 | Fabio |
-| Q-14 | Which killzone table becomes `sessions-1.0.0`? (Recommended: index version, NY AM 08:30–11:00.) | 017 | Fabio |
+| ~~Q-13~~ | ~~Default ICT reading?~~ **Resolved → DEC-043:** the 2022 mentorship. | 017 | closed |
+| ~~Q-14~~ | ~~Killzone table for `sessions-1.0.0`?~~ **Resolved → DEC-043:** index-futures version. | 017 | closed |
 | Q-15 | Source of historical economic-calendar dates (news-linked concepts ICT-35, ICT-56). | 017 | either LLM, at Level 6 |
 | ~~Q-12~~ | ~~Does Fabio's broker permit CSV export?~~ **CLOSED, Session 006.** Fabio has **no futures broker and has not begun trading** — he is building Tradeez to learn. There is no broker export to obtain, and no urgency: `DEMO-NQ` requires nothing. Re-open only if he opens an account. | 004 | closed |
 
@@ -1379,6 +1380,11 @@ Time windows and gap definitions were cross-checked against community summaries;
 disagree, the doc says so and versions the choice (Q-13, Q-14). New open questions Q-13–Q-15.
 
 No code changed in this part of the session. Next: T1 (Massive importer) on Fabio's go.
+
+**Later the same day — Fabio approved the roadmap and the default reading.** Asked to elaborate on "the
+2022 mentorship as the default", Claude compared the 2016–17 and 2022 material (market, style, entry
+tool, access) and listed what changes per topic. Fabio: *"yeah this all sounds good now. The project
+path is good."* Recorded as **DEC-043**; Q-13 and Q-14 closed. The roadmap T1–T33 stands as written.
 
 ---
 
