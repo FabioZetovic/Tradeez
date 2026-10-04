@@ -34,7 +34,10 @@ import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.Timeframe;
-import com.tradeez.marketdata.databento.DatabentoImporter.Outcome;
+import com.tradeez.marketdata.importing.ImportLedger;
+import com.tradeez.marketdata.importing.ImportReport;
+import com.tradeez.marketdata.importing.ImportReport.Outcome;
+import com.tradeez.marketdata.importing.OffGridPriceException;
 
 /**
  * DEC-040 — importing real bars, against {@link FakeDatabento} and a real PostgreSQL.
@@ -108,9 +111,9 @@ class DatabentoImporterTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("a dry run prices every chunk and downloads nothing")
 	void dryRun() {
-		DatabentoImporter.Report report = importer.importRange(nq, "1m", FROM, TO, true);
+		ImportReport report = importer.importRange(nq, "1m", FROM, TO, true);
 
-		assertThat(report.chunks()).extracting(DatabentoImporter.ChunkReport::outcome)
+		assertThat(report.chunks()).extracting(ImportReport.Chunk::outcome)
 			.containsExactly(Outcome.ESTIMATED, Outcome.ESTIMATED);
 		assertThat(report.costUsd()).isEqualByComparingTo("0.10");
 		assertThat(FAKE.costRequests).hasSize(2);
@@ -122,10 +125,10 @@ class DatabentoImporterTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("imports whole ticks, the contract each bar came from, and records what it cost")
 	void imports() {
-		DatabentoImporter.Report report = importer.importRange(nq, "1m", FROM, TO, false);
+		ImportReport report = importer.importRange(nq, "1m", FROM, TO, false);
 
 		assertThat(report.barsStored()).isEqualTo(120);
-		assertThat(report.chunks()).extracting(DatabentoImporter.ChunkReport::outcome)
+		assertThat(report.chunks()).extracting(ImportReport.Chunk::outcome)
 			.containsExactly(Outcome.IMPORTED, Outcome.IMPORTED);
 		assertThat(FAKE.barRequests.getFirst())
 			.containsEntry("symbols", "NQ.v.0")
@@ -158,9 +161,9 @@ class DatabentoImporterTest extends AbstractIntegrationTest {
 		FAKE.costRequests.clear();
 		FAKE.barRequests.clear();
 
-		DatabentoImporter.Report again = importer.importRange(nq, "1m", FROM, TO, false);
+		ImportReport again = importer.importRange(nq, "1m", FROM, TO, false);
 
-		assertThat(again.chunks()).extracting(DatabentoImporter.ChunkReport::outcome)
+		assertThat(again.chunks()).extracting(ImportReport.Chunk::outcome)
 			.containsExactly(Outcome.ALREADY_IMPORTED, Outcome.ALREADY_IMPORTED);
 		assertThat(FAKE.costRequests).isEmpty();
 		assertThat(FAKE.barRequests).isEmpty();
@@ -205,7 +208,7 @@ class DatabentoImporterTest extends AbstractIntegrationTest {
 			+ "20000000000000,20000250000000,5\n";
 
 		assertThatThrownBy(() -> importer.importRange(nq, "1m", FROM, MID, false))
-			.isInstanceOf(DatabentoImporter.OffGridPriceException.class);
+			.isInstanceOf(OffGridPriceException.class);
 
 		assertThat(storedBars()).isZero();
 		assertThat(ledgerStatuses()).containsExactly("FAILED");

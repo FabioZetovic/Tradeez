@@ -175,6 +175,10 @@ days back) and IEX Cloud (shut down 2024) were checked and rejected.
 - **The Databento importer stays** — built and tested in Session 017 — for when Fabio decides to pay
   for deeper history or one-second bars. That decision is his.
 
+*Implemented in Session 017 (task T1): `marketdata/massive/`. Checked against the real API before
+building: Massive answers a date outside the plan's window with "OK" and no results, so a month
+with no data is reported and never recorded as imported — a wider plan later can still fill it.*
+
 **DEC-040 — Real historical NQ from Databento; the simulated market leaves the app**
 `AGREED` · Fabio, Session 017 · ⚠️ **supersedes DEC-033 for everything a learner sees** · source
 order amended by **DEC-042** (Massive's free plan first)

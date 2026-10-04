@@ -2,9 +2,6 @@ package com.tradeez.marketdata.databento;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +16,13 @@ import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketBarStore;
 import com.tradeez.marketdata.MarketBarStore.StoredBar;
+import com.tradeez.marketdata.importing.ImportChunks;
+import com.tradeez.marketdata.importing.ImportLedger;
+import com.tradeez.marketdata.importing.ImportReport;
+import com.tradeez.marketdata.importing.ImportReport.Chunk;
+import com.tradeez.marketdata.importing.ImportReport.Outcome;
+import com.tradeez.marketdata.importing.MarketDataImporter;
+import com.tradeez.marketdata.importing.OffGridPriceException;
 
 /**
  * Downloads real bars from Databento into {@code market_bar} (DEC-040).
@@ -40,7 +44,7 @@ import com.tradeez.marketdata.MarketBarStore.StoredBar;
  * nothing it already has.
  */
 @Service
-public class DatabentoImporter {
+public class DatabentoImporter implements MarketDataImporter {
 
 	private static final Logger log = LoggerFactory.getLogger(DatabentoImporter.class);
 
@@ -66,14 +70,9 @@ public class DatabentoImporter {
 		this.store = store;
 	}
 
-	public enum Outcome { ALREADY_IMPORTED, ESTIMATED, IMPORTED }
-
-	public record ChunkReport(Instant from, Instant to, Outcome outcome, BigDecimal costUsd,
-			long barsStored) {
-	}
-
-	public record Report(boolean dryRun, List<ChunkReport> chunks, BigDecimal costUsd,
-			long barsStored) {
+	@Override
+	public String source() {
+		return SOURCE;
 	}
 
 	/**
@@ -83,7 +82,8 @@ public class DatabentoImporter {
 	 * @throws ImportRefusedException when a chunk would break a spending cap; nothing further is
 	 *                                fetched once that happens
 	 */
-	public Report importRange(Instrument instrument, String resolution, Instant from, Instant to,
+	@Override
+	public ImportReport importRange(Instrument instrument, String resolution, Instant from, Instant to,
 			boolean dryRun) {
 		if (instrument.getDataClass() == DataClass.SIMULATED) {
 			throw new IllegalArgumentException(instrument.getSymbol() + " is simulated; there is "
@@ -102,35 +102,35 @@ public class DatabentoImporter {
 		}
 
 		long tickNanos = instrument.getTickSize().movePointRight(9).longValueExact();
-		List<ChunkReport> reports = new ArrayList<>();
+		List<Chunk> reports = new ArrayList<>();
 		BigDecimal total = BigDecimal.ZERO;
 		long stored = 0;
 
-		for (Instant[] chunk : chunks(resolution, from, to)) {
+		for (Instant[] chunk : ImportChunks.of(resolution, from, to)) {
 			ImportLedger.Request request = new ImportLedger.Request(instrument.getId(), SOURCE,
 				settings.dataset(), symbol, resolution, chunk[0], chunk[1]);
 
 			if (ledger.covered(instrument.getId(), resolution, chunk[0], chunk[1])) {
-				reports.add(new ChunkReport(chunk[0], chunk[1], Outcome.ALREADY_IMPORTED,
-					BigDecimal.ZERO, 0));
+				reports.add(new Chunk(chunk[0], chunk[1], Outcome.ALREADY_IMPORTED,
+					BigDecimal.ZERO, 0, symbol));
 				continue;
 			}
 
 			BigDecimal cost = client.cost(symbol, schema, chunk[0], chunk[1]);
 			total = total.add(cost);
 			if (dryRun) {
-				reports.add(new ChunkReport(chunk[0], chunk[1], Outcome.ESTIMATED, cost, 0));
+				reports.add(new Chunk(chunk[0], chunk[1], Outcome.ESTIMATED, cost, 0, symbol));
 				continue;
 			}
 
 			refuseIfOverBudget(request, cost);
 			long bars = download(request, symbol, schema, tickNanos, cost);
 			stored += bars;
-			reports.add(new ChunkReport(chunk[0], chunk[1], Outcome.IMPORTED, cost, bars));
+			reports.add(new Chunk(chunk[0], chunk[1], Outcome.IMPORTED, cost, bars, symbol));
 			log.info("Imported {} {} bars for {} {} → {} (${})", bars, resolution,
 				instrument.getSymbol(), chunk[0], chunk[1], cost);
 		}
-		return new Report(dryRun, reports, total, stored);
+		return new ImportReport(SOURCE, dryRun, reports, total, stored);
 	}
 
 	private void refuseIfOverBudget(ImportLedger.Request request, BigDecimal cost) {
@@ -189,33 +189,8 @@ public class DatabentoImporter {
 		return fixedPrice / tickNanos;
 	}
 
-	/**
-	 * Fixed chunks, so a finished one is recognised on the next run: calendar months (UTC) for
-	 * one-minute bars, days for one-second bars. The first and last are trimmed to the range.
-	 */
-	static List<Instant[]> chunks(String resolution, Instant from, Instant to) {
-		List<Instant[]> chunks = new ArrayList<>();
-		Instant cursor = from;
-		while (cursor.isBefore(to)) {
-			LocalDate day = cursor.atZone(ZoneOffset.UTC).toLocalDate();
-			Instant next = "1m".equals(resolution)
-				? day.withDayOfMonth(1).plusMonths(1).atStartOfDay(ZoneOffset.UTC).toInstant()
-				: cursor.truncatedTo(ChronoUnit.DAYS).plus(1, ChronoUnit.DAYS);
-			Instant end = next.isBefore(to) ? next : to;
-			chunks.add(new Instant[] { cursor, end });
-			cursor = end;
-		}
-		return chunks;
-	}
-
 	public static class ImportRefusedException extends RuntimeException {
 		public ImportRefusedException(String message) {
-			super(message);
-		}
-	}
-
-	public static class OffGridPriceException extends RuntimeException {
-		public OffGridPriceException(String message) {
 			super(message);
 		}
 	}

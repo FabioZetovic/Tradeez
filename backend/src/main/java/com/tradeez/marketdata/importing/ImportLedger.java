@@ -1,4 +1,4 @@
-package com.tradeez.marketdata.databento;
+package com.tradeez.marketdata.importing;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -9,11 +9,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Every download and what it cost ({@code market_data_import}, V7).
+ * Every download and what it cost ({@code market_data_import}, V7), whichever source it came from.
  *
- * <p>The spending caps are enforced against this table, so the free credit is accounted for in the
- * database rather than remembered. An import that failed part-way still counts as spent: Databento
- * bills for bytes delivered, and a partial download delivered some.
+ * <p>Databento's spending caps are enforced against this table, so the free credit is accounted for
+ * in the database rather than remembered. An import that failed part-way still counts as spent:
+ * Databento bills for bytes delivered, and a partial download delivered some. Massive's free plan
+ * records a cost of zero (DEC-042).
+ *
+ * <p>Coverage is per instrument and resolution, not per source: once a month of NQ minutes is
+ * stored, no importer downloads it again.
  */
 @Repository
 public class ImportLedger {

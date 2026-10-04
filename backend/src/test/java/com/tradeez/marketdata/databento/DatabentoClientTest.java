@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.databento.DatabentoClient.DatabentoException;
 import com.tradeez.marketdata.databento.DatabentoClient.RawBar;
+import com.tradeez.marketdata.importing.ImportChunks;
+import com.tradeez.marketdata.importing.OffGridPriceException;
 
 /**
  * The Databento client, against {@link FakeDatabento} — no network, no account, no cost.
@@ -131,7 +133,7 @@ class DatabentoClientTest {
 		assertThat(DatabentoImporter.toTicks(20_000_250_000_000L, FakeDatabento.TICK, at))
 			.isEqualTo(80_001);
 		assertThatThrownBy(() -> DatabentoImporter.toTicks(20_000_100_000_000L, FakeDatabento.TICK, at))
-			.isInstanceOf(DatabentoImporter.OffGridPriceException.class)
+			.isInstanceOf(OffGridPriceException.class)
 			.hasMessageContaining("not a whole number of ticks");
 
 		Bar bar = DatabentoImporter.toBar(new RawBar(FROM.getEpochSecond() * 1_000_000_000L, 7,
@@ -143,14 +145,14 @@ class DatabentoClientTest {
 	@Test
 	@DisplayName("chunks by calendar month for minutes and by day for seconds, trimmed to the range")
 	void chunks() {
-		List<Instant[]> months = DatabentoImporter.chunks("1m",
+		List<Instant[]> months = ImportChunks.of("1m",
 			Instant.parse("2024-01-15T00:00:00Z"), Instant.parse("2024-03-10T00:00:00Z"));
 		assertThat(months).extracting(c -> c[0] + " " + c[1]).containsExactly(
 			"2024-01-15T00:00:00Z 2024-02-01T00:00:00Z",
 			"2024-02-01T00:00:00Z 2024-03-01T00:00:00Z",
 			"2024-03-01T00:00:00Z 2024-03-10T00:00:00Z");
 
-		List<Instant[]> days = DatabentoImporter.chunks("1s",
+		List<Instant[]> days = ImportChunks.of("1s",
 			Instant.parse("2024-03-13T12:00:00Z"), Instant.parse("2024-03-15T00:00:00Z"));
 		assertThat(days).extracting(c -> c[0] + " " + c[1]).containsExactly(
 			"2024-03-13T12:00:00Z 2024-03-14T00:00:00Z",

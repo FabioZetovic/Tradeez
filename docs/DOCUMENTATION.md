@@ -1375,14 +1375,36 @@ adds an *Evidence* view that shows how often each ICT claim actually held on rea
 the number of cases behind every figure. A learner who sees "ICT says this happens; on 500 real days it
 happened 62% of the time" learns more than one who is simply told it is true.
 
+**The free importer.** Massive delivers each quarterly NQ contract separately, so Tradeez stitches the
+continuous chart together itself, the way the professional feeds do: each day it follows whichever
+contract traded the most the day before. Using the day before matters — on the morning of a trading
+day, nobody can know that day's volume yet, and the app must not either. The importer also paces
+itself to the free plan's five requests a minute, and it was checked against the real service before
+it was written. That check turned up one trap: for dates outside the free plan's two years, Massive
+does not report an error, it just answers "nothing here". So an empty month is reported as empty and
+never recorded as done, and a wider plan later can still fill it.
+
+**A bug that had been hiding since the beginning.** The settings file said the application runs on
+UTC time, "set at the JVM level". Nothing actually set it, so the app ran on the clock of whatever
+computer it was on — Zagreb's, here. Timestamps were unaffected, which is why sixteen sessions never
+noticed. But the stored *times of day* came back shifted: NQ's 17:00 session open read as 18:00. The
+new importer's tests caught it, because they asked for one Monday's data an hour late and came up 120
+candles short. Now the app really sets UTC, and a test checks it. The lesson is in the bug log: a
+comment saying something is configured is not configuration.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
 reads it from there; nobody needs to see it.
 
-**By the numbers:** backend tests 164 → 183 (the importer), one migration (V7: stored market bars, the
-import ledger, the real NQ instrument), three new decisions (DEC-040 to DEC-042), one curriculum
-document.
+It then landed in the wrong file: the *example* settings file, which sits right next to the private one
+and looks the same, but is published with the code. Nothing was published, because commits here name
+their files one by one. Since the mistake is easy to make again, a test now fails the build whenever
+the example file contains a key — and it names the setting without ever printing the key.
+
+**By the numbers:** backend tests 164 → 221 (two importers, the timezone fix, the key guard), one
+migration (V7: stored market bars, the import ledger, the real NQ instrument), four new decisions
+(DEC-040 to DEC-043), one curriculum document.
 
 ---
 

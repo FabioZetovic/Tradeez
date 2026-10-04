@@ -46,6 +46,22 @@ Everything else is closed; each entry moved to [Fixed](#fixed) with its original
 
 ## Environment
 
+### ENV-005 🔴 A real API key was typed into the committed template file
+
+**Status:** verified (session 017) — caught before any commit
+
+`backend/.env` is gitignored; `backend/.env.example`, the template next to it, is committed. Fabio
+put his new Massive key in the template instead of the private file. Nothing pushed it: the next
+commit staged only the docs, by name. But one `git add -A` would have published the key to GitHub,
+and a key that reaches a remote has to be treated as leaked even after it is deleted.
+
+The two files differ by one word and look identical in an editor, so this mistake will recur.
+
+**Mitigation.** `EnvExampleTest` fails the backend build whenever any `*_API_KEY=` line in
+`.env.example` has a value, naming the variable but never printing the value. It failed exactly
+once, on Fabio's local file, and the committed template stays clean. Commits in this repository
+stage files by name, never `-A`.
+
 ### ENV-004 🟠 An interrupted session leaves its file claims behind
 
 **Status:** verified (session 013)
@@ -433,6 +449,35 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-036 🟠 The JVM was never set to UTC, so stored session times read back an hour late
+
+**Status:** verified — `MassiveImporterTest` failed on it, session 017
+**Found:** Session 017, building the Massive importer (T1)
+**Affects:** `TradeezApplication`, `application.yml`, every `LocalTime` / `LocalDate` read through
+Hibernate (today: `Instrument.sessionOpenLocal` / `sessionCloseLocal`)
+
+**What happened.** `application.yml` said the JVM timezone was "set at the JVM level so no code
+path can accidentally use the host timezone", under a property `tradeez.timezone: UTC`. Nothing
+read that property. The application, and the test suite, ran in the host's zone — Europe/Zagreb.
+Hibernate is configured to read SQL `TIME` values as UTC (`hibernate.jdbc.time_zone: UTC`) and
+converts them into the JVM's zone, so NQ's session open, stored as 17:00, came back as **18:00**
+(19:00 in summer).
+
+Nothing used those fields until the Massive importer, which computes each trading day's session
+window from them. Its test asked the fake server for Monday's minutes from 18:00 Chicago time
+instead of 17:00 and came up 120 bars short — the first hour of one session and the whole of the
+next were missing. Instants (`TIMESTAMPTZ`) were never affected, which is why sixteen sessions of
+timestamp-heavy code never showed it.
+
+**Lesson.** A configuration comment is not configuration. "Set at the JVM level" described an
+intention nobody implemented, and the property's name made it look done.
+
+**✅ FIXED — Session 017.** `TradeezApplication.useUtc()` sets the JVM default zone to UTC before
+Spring starts; `AbstractIntegrationTest` calls it too, because tests start Spring without
+`main()`. The dead property is gone and its comment says where the zone is really set.
+`InstrumentSessionTimesTest` asserts the JVM is UTC and that NQ's session reads back as exactly
+17:00–16:00 Chicago time.
 
 ### BUG-034 🟠 Two refreshes at the same instant still signed the user out
 

@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/fvg-drill merged 2026-09-30 as 2280d37 (no PR); PR #1 merged 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 164/164 (Testcontainers), frontend 131/131 + typecheck + build; lint: 7 known warnings (BUG-035)
+build_passing: true  # backend 221/221 on a clean checkout (Testcontainers), frontend 131/131 + typecheck + build; lint: 7 known warnings (BUG-035). Locally EnvExampleTest fails until Fabio moves his key out of .env.example (ENV-005) — by design.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -81,6 +81,9 @@ files_in_repo:
     config/      # SecurityConfig (CSRF, CORS, filter chain), OpenApiConfig
     identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
     marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015)
+      importing/ # shared: ImportLedger, ImportCommand (CLI), ImportReport, ImportChunks     (017)
+      databento/ # Databento client + cost-capped importer (DEC-040)                          (017)
+      massive/   # Massive client, request pacer, quarterly contracts, volume roll, importer (017, DEC-042)
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
@@ -110,7 +113,7 @@ not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
   - practice on real data (the service refuses it until DEC-025 date hiding exists)
 
-blocked_on: T2 needs MASSIVE_API_KEY in backend/.env (Fabio, after rotating the key he pasted in chat); T1 can start without it
+blocked_on: T2 — Fabio put the key in backend/.env.example (tracked!) instead of backend/.env. He must move it (ideally a regenerated one) and remove it from the example; then run T2.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -172,8 +175,8 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T1 | **Massive importer** | — (tests use a fake server) | F, D-042 | Per-contract 1m aggregates; front contract = highest previous-session volume; respects 5 requests/min; reuses `market_bar`, `market_data_import`, `ImportedMarketDataProvider`; key `MASSIVE_API_KEY` in `backend/.env` only. |
-| T2 | **Import 2 years of NQ, and ES** | T1 + Fabio's key in `backend/.env` | F, I-66 | ~700k NQ bars; ES for SMT later. |
+| T1 | ~~**Massive importer**~~ | — | F, D-042 | ✅ Session 017: `marketdata/massive/` — client (Bearer header, same-host `next_url` only, BigDecimal prices), 5/min pacer with 429 back-off, quarterly contracts, front by previous-session volume, monthly chunks, `NO_DATA` never marked covered. Shared `importing/` package; `--tradeez.import.source=massive` (default). Found and fixed BUG-036. |
+| T2 | **Import 2 years of NQ** | Fabio's key in `backend/.env` (ENV-005) | F | Dry run, then `--tradeez.import.from=2024-10-08 --tradeez.import.to=2026-10-03`. Start inside the 2-year window: a month only partly inside it would be marked done. ES moves to T20 — it needs an instrument row first. |
 | T3 | **Real NQ in the app** | T2 | F, X §4 | DEMO withdrawn (`listed = false`); go-to-date; session separators; New York time axis with DST tests (INVARIANT 4). |
 | T4 | **Practice on real data** | T3 | F, D-025 | Date hidden until reveal; moment picker (random, filterable by killzone/weekday); fills on minute bars with honest `AMBIGUOUS` (no 1s on the free plan). |
 | T5 | **Replay paper-trading mode** | T4 | F, C §5, X §5 | Fabio's core idea. Step / play / pause / speed; place orders at any moment (entry + stop + target), several trades per replay, each plan locked (INVARIANT 10); session summary in R. |
@@ -206,7 +209,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T17 | **Blocks** | T11, T12 | I-30–37 | Order block, breaker, mitigation, rejection, unicorn. |
 | T18 | **Ranges and Fibonacci** | T11 | I-40–44 | Dealing range, premium/discount, OTE, standard deviations. |
 | T19 | **Time models and profiles** | T7, T11 | I-53–57, I-62–65 | Silver Bullet and macro windows, IPDA ranges, power of three, Judas swing, daily and weekly profiles. |
-| T20 | **SMT divergence** | T2 (ES), T11 | I-66 | NQ vs ES. |
+| T20 | **SMT divergence** | T2, T11 | I-66 | NQ vs ES. First an ES instrument row (migration) and `ES` in `MassiveImporter.ROOTS`, then import ES like NQ. |
 | T21 | **Evidence views** | T10–T19 | I S-6 | How often each concept's claim held on real NQ, with sample size — never framed as an edge. |
 
 **M4 — Models and the exam**
@@ -1385,6 +1388,31 @@ No code changed in this part of the session. Next: T1 (Massive importer) on Fabi
 2022 mentorship as the default", Claude compared the 2016–17 and 2022 material (market, style, entry
 tool, access) and listed what changes per topic. Fabio: *"yeah this all sounds good now. The project
 path is good."* Recorded as **DEC-043**; Q-13 and Q-14 closed. The roadmap T1–T33 stands as written.
+
+**T1 — the Massive importer, built.** Fabio said "i pasted the key in there so we are good to go". The
+key was not in `backend/.env` but in `backend/.env.example` — the committed template (ENV-005). Not
+committed; the docs commit staged files by name. Claude read it into a shell variable, never printed,
+for five probing requests that settled what the docs left open: Bearer-header auth works, `next_url`
+is a cursor without the key, session bars carry per-contract volume, prices are quarter-point JSON
+decimals, and **a date outside the 2-year window returns 200 with no results** — so an empty month must
+never be marked done.
+
+Built: a shared `importing/` package (ledger, CLI command choosing the source, report, chunks,
+off-grid exception) that the Databento importer now uses too, and `marketdata/massive/`:
+`MassiveClient`, `RequestPacer` (5 requests per 61-second window, 429 back-off), `QuarterlyContract`
+(`NQZ4`-style tickers, third-Friday expiry, decade collisions refused), `RollSchedule` (front =
+highest previous-session volume, ties to the nearer expiry), `MassiveImporter`. Tests: `FakeMassive`
+(paging, opening-date session index, errors on demand), `MassiveClientTest` 11, `MassiveImporterTest`
+9 (a March→June 2025 roll across a month boundary), `RollScheduleTest` 9, `RequestPacerTest` 4,
+`ImportCommandTest` 2, `InstrumentSessionTimesTest` 2, `EnvExampleTest` 1. Backend 183 → 221.
+
+**BUG-036, found by the new tests and fixed now** (it blocked T1's correctness, so it could not wait for
+a batch): the JVM was never in UTC despite `application.yml` saying so, and Hibernate shifted `TIME`
+columns by the host offset — NQ's 17:00 open read as 18:00. `TradeezApplication.useUtc()`.
+
+**Waiting on Fabio:** move the key to `backend/.env` (regenerated, since the first one was in chat),
+remove it from `.env.example`. Then T2: dry run, import, and the empty `MASSIVE_API_KEY=` line with a
+comment goes into `.env.example`.
 
 ---
 

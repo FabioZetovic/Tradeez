@@ -37,9 +37,8 @@ server:
     include-stacktrace: never
 
 # INVARIANT 4: all timestamps are UTC. Converted to exchange time only at the presentation edge.
-# Set at the JVM level so no code path can accidentally use the host timezone.
+# The JVM zone is set to UTC in TradeezApplication.useUtc() — a property here never did it (BUG-036).
 tradeez:
-  timezone: UTC
 
   jwt:
     # DEC-032. Base64, 256-bit minimum. Generate with: openssl rand -base64 32
@@ -72,6 +71,13 @@ databento:
   dataset: GLBX.MDP3
   max-cost-per-request-usd: 5.00
   max-total-cost-usd: 100.00
+
+# DEC-042 — Massive's free plan: CME minute bars, ~2 years back, five requests a minute.
+massive:
+  api-key: ${MASSIVE_API_KEY:}
+  base-url: ${MASSIVE_BASE_URL:https://api.massive.com}
+  requests-per-minute: 5
+  page-limit: 50000
 
 management:
   endpoints:
