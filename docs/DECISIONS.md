@@ -110,6 +110,26 @@ JDK 26, and it stays deployable on hosting platforms whose Java buildpacks track
 
 Revisit once springdoc ships Boot 4 support. Until then, **do not bump the major version.**
 
+**DEC-044 — Tailwind CSS for all styling** · `IMPLEMENTED` · Fabio, Session 017 (2026-10-13)
+
+Fabio, on a screenshot of the sign-in page: *"this looks extremely ugly and nothing is positioned
+correctly"*, then *"use tailwind"* and *"rewrite whole css and make it in tailwind … delete the damn
+vite starter styles"*. (He recalled asking for Tailwind at the start; no record of that request
+exists in these docs or the transcripts Claude can read — it is recorded here.)
+
+- **Tailwind CSS 4** via `@tailwindcss/vite`. No hand-written stylesheets: `src/index.css` holds only
+  the Tailwind import, the **design tokens** (`@theme`: canvas, surface, raised, line, ink, subtle,
+  brand, up, down, warn) and two base rules (dark colour scheme, body defaults).
+- **One palette for page and chart.** The tokens are the colours `lightweightAdapter.ts` already
+  used, so the chart canvas and the UI around it cannot drift apart.
+- **A few shared pieces, not a component library.** `components/ui.tsx` (Button, Segmented, Panel,
+  Chip, Notice) and `lib/styles.ts` (`cx` and class strings for fields, labels, key–value lists).
+  Utilities otherwise live at the call site.
+- **No conflicting utilities.** Two classes for the same property are resolved by stylesheet order,
+  not class order, so a button's resting and active looks are separate complete sets, and a
+  `className` passed in is for layout only.
+- Font: Inter (variable), bundled from npm — no external font request.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and
@@ -149,6 +169,72 @@ use and redistribution. A third-party downloader's MIT software license does **n
 license to the market data it downloads. Tradeez will not teach futures by silently relabeling a
 CFD feed as NQ.
 
+**DEC-042 — Massive's free plan first; Databento later for deep history**
+`AGREED` · Fabio, Session 017 (2026-10-04) · amends the *source order* of DEC-040, nothing else
+
+Databento's sign-up asks for a payment card (billed only beyond its $125 credit). Fabio asked for a
+card-free start — *"for now lets take it one step at a time"* — and, after a comparison, signed up
+for **Massive** (formerly Polygon.io). Finnhub (no CME futures), Marketstack (stocks only), Nasdaq
+Data Link (continuous futures deprecated, daily only), Alpha Vantage (no futures), Yahoo (minutes only
+days back) and IEX Cloud (shut down 2024) were checked and rejected.
+
+- **What the free plan gives.** CME futures one-minute aggregates, about **two years back**, 5
+  requests a minute, up to 50,000 bars a request, "individual use". No card.
+- **What it does not.** No one-second bars (they start at $29/month), so practice fills run on
+  minute bars and report `AMBIGUOUS` more often — honestly, per DEC-008 and INVARIANT 6. History on
+  Massive starts in April 2017 even on its top plan, so "10 years back" still needs Databento.
+- **Contracts.** Massive serves each quarterly contract separately (`NQZ5`, `NQH6`); there is no
+  continuous symbol. Tradeez builds the continuous series itself: for each session, the front
+  contract is the one with the **highest volume in the previous session** — no lookahead, the same
+  idea as Databento's `NQ.v.0`. Bars keep their contract id (`market_bar.contract_id`), raw prices,
+  and the roll stays visible (DEC-010, DEC-024).
+- **Everything else in DEC-040 stands:** the key lives only in `backend/.env` (`MASSIVE_API_KEY`), the
+  data class is `IMPORTED_PRIVATE`, the simulated market leaves the app, and every import is
+  recorded in `market_data_import`. Massive's free plan costs nothing, so the cost cap has nothing to
+  price; the importer instead respects the request rate limit.
+- **The Databento importer stays** — built and tested in Session 017 — for when Fabio decides to pay
+  for deeper history or one-second bars. That decision is his.
+
+*Implemented in Session 017 (task T1): `marketdata/massive/`. Checked against the real API before
+building: Massive answers a date outside the plan's window with "OK" and no results, so a month
+with no data is reported and never recorded as imported — a wider plan later can still fill it.*
+
+**DEC-040 — Real historical NQ from Databento; the simulated market leaves the app**
+`AGREED` · Fabio, Session 017 · ⚠️ **supersedes DEC-033 for everything a learner sees** · source
+order amended by **DEC-042** (Massive's free plan first)
+
+Fabio, session 017: *"you can not mimic price action on your own, it needs to be a real historic
+chart data … from NQ from 10 years ago, 5 years ago, 3 months ago."* The premise of DEC-033 — that a
+generated market is an acceptable stand-in until real data was affordable — is rejected by the
+person the product is for.
+
+- **Source.** Databento's Historical API, dataset `GLBX.MDP3` (CME Globex), continuous symbol
+  `NQ.v.0` — the front contract by volume — with **raw, unadjusted prices**: the real jump at each
+  quarterly roll is kept, so drawings anchored to prices (DEC-024) stay valid. Chosen over FirstRate
+  Data (paid, one-minute only) and Yahoo (intraday history only weeks to two years back). A
+  TradingView-derived Kaggle dump (doubtful licence) and Dukascopy (a CFD, DEC-020) were rejected.
+- **Resolution.** One-minute bars for the whole history, stored in PostgreSQL (`market_bar`, V7);
+  every coarser timeframe is aggregated from them. One-second bars — what the fill engine walks
+  (DEC-008) — are fetched a trading day at a time, for the days practice actually uses.
+- **Money.** The €0 rule stands. New Databento accounts carry a $125 credit; every download is
+  priced with `metadata.get_cost` **before** it is fetched and refused above $5 per request or $100
+  in total (`application.yml`), and every attempt is recorded in `market_data_import`. Any large
+  import starts with a dry run. Raising a cap is Fabio's decision, not code's.
+- **The key.** `DATABENTO_API_KEY` lives in `backend/.env` (gitignored, loaded through
+  `spring.config.import`) — never in the repository, in chat, in a log line or in an error message.
+- **Data class.** `IMPORTED_PRIVATE` — local, one user — until written permission to show the data
+  to others (the jury) exists (DEC-035; Q-09 stays open). Under DEC-034 this class **may** back
+  graded drills.
+- **The simulated market** is withdrawn from the app once real data is in (`instrument.listed`),
+  not deleted; the generator stays in the test suite, where injected ground truth is exactly what a
+  test needs. *Implemented in Session 017 (T3, migration V8) for the chart; Practice and Drills keep
+  using the labelled simulated market until T4 and T13.*
+
+Before the switch, three things real data forces: practice must **hide the date** until the reveal
+(DEC-025 — a learner who knows the date knows the outcome); the fill engine must not read a quiet
+second as a market closure (real one-second bars are sparse: no trade, no bar); and drills on real
+data become gradable exercises rather than fixtures.
+
 **DEC-034 — Graded drills require real data; `SIMULATED` drills are developer fixtures only**
 `AGREED` · Claude, Session 004 · extends DEC-033 and DEC-026
 Detectors may run on `DEMO-NQ` — injected ground truth is exactly what unit-tests a detector. But a
@@ -178,6 +264,9 @@ and the intended use.
 
 **DEC-033 — Zero-cost development uses explicitly simulated futures data plus permitted import**
 · `AGREED` · Fabio's €0/no-crypto constraint, Codex decision
+
+> ⚠️ **Superseded by DEC-040 (session 017)** for everything a learner sees: Fabio requires real
+> historical NQ. The generated market remains a test fixture only.
 
 Phase 0 and the first vertical slice use deterministic datasets named `DEMO-NQ` and `DEMO-MNQ`.
 They are generated on the real 0.25-point tick grid with the real NQ/MNQ multiplier, exchange
@@ -372,6 +461,52 @@ An `audit` module recording domain events and reproducibility metadata.
 ---
 
 ### Product and learning
+
+**DEC-041 — Tradeez is an ICT trainer: paper trading on real historical charts**
+`AGREED` · Fabio, Session 017 (2026-10-04) · sharpens DEC-023, narrows the methodology tracks
+
+Fabio, session 017: *"i feel like we stirred too far away from the original idea of the app … my idea
+was to make an app that will help people trade ICT concepts"*, and *"the whole idea would be paper
+trading charts from long time ago. Since you can learn on historical charts based off of candle
+movements to select trades."*
+
+- **The product is ICT learning by paper trading on real history.** The practice replay (DEC-023's
+  sessions) is where ICT is *applied*; drills are where each ICT concept is *learned*. Both stay
+  co-equal.
+- **[`ICT_CONCEPTS.md`](ICT_CONCEPTS.md) is the curriculum specification**: every concept with its
+  meaning, draft rule, detectability, teaching modes and data needs. New detectors and drills are
+  specified there first.
+- **ICT is the only methodology track in v1.** The orderflow, generic price-action and session-
+  statistics tracks of Claude's analysis (§6.2) are dropped; price-action basics appear only as the
+  foundations ICT builds on (Level 0–1). Order flow (Q-03) is therefore out of scope.
+- **Every milestone must ship visible ICT content.** The project spent its first sixteen sessions on
+  foundations (auth, data, chart, fill engine, immutability) with one ICT concept to show; Fabio
+  noticed. The roadmap in `PATH.md` now interleaves engine work with concepts a learner can see.
+- **Nothing in the honesty decisions changes.** INVARIANT 8, DEC-026 and DEC-034 apply to every
+  concept: Tradeez grades adherence to its versioned reading of ICT, never that ICT works; a new
+  Evidence mode shows how often each concept's claims held in the imported history, with sample sizes.
+
+**DEC-043 — The 2022 mentorship is the default ICT reading; killzones are the index-futures version**
+`AGREED` · Fabio, Session 017 (2026-10-04) · resolves Q-13 and Q-14
+
+ICT's definitions shift between teaching periods, so every rule needs a stated source. Fabio approved
+(*"yeah this all sounds good now. The project path is good"*):
+
+- **Where periods disagree, version 1.0.0 of a rule follows the 2022 mentorship.** It was taught on
+  index futures (ES/NQ), it is public (a learner or the jury can watch the same source), and its model
+  is a sequence of checkable steps: sweep → displacement with a market structure shift → entry in the
+  fair value gap → opposite liquidity. Concretely: an MSS requires a sweep and displacement; entries
+  are FVG-based; the daily reference is the New York midnight open; stops sit beyond the sweep's swing;
+  targets are opposing liquidity or standard deviations.
+- **Topics the 2022 material treats thinly come from the 2016–17 mentorship**, labelled as such: the
+  detailed block definitions (order, breaker, mitigation, rejection), the PD array matrix, IPDA data
+  ranges, weekly profiles, market maker models.
+- **`sessions-1.0.0` uses the index-futures killzones** of `ICT_CONCEPTS.md` ICT-51 (New York AM
+  08:30–11:00, London 02:00–05:00, Asia 20:00–00:00, New York PM 13:30–16:00). Forex variants may
+  become alternative versions, never silent edits.
+- **Every implemented rule names the lecture or period it follows**, and definitions marked "verify" in
+  `ICT_CONCEPTS.md` are checked against the source before they are locked.
+- "Default" is a documented choice, not a claim that this reading is the correct one (INVARIANT 8).
 
 **DEC-023 — Practice sessions and micro-drills are co-equal features** · `AGREED` · Fabio
 Fabio chose the ambitious scope deliberately. Both are first-class:
@@ -595,6 +730,9 @@ Never hand-edit the database. Seed only synthetic or permitted demo data.
 
 | ID | Question | Owner |
 |---|---|---|
-| Q-03 | Is order flow / footprint in scope at all? Both analyses say it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** rather than build a fake footprint chart. | Fabio |
+| Q-03 | Is order flow / footprint in scope at all? Both analyses say it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** rather than build a fake footprint chart. *Session 017: DEC-041 puts it out of scope for v1 (not part of ICT); close it if Fabio agrees.* | Fabio |
 | Q-08 | Croatian or English UI for the presentation? | Fabio |
+| ~~Q-13~~ | ~~Default ICT reading?~~ **Resolved → DEC-043** (2022 mentorship; thin topics from 2016–17, labelled). | closed |
+| ~~Q-14~~ | ~~Which killzone table becomes `sessions-1.0.0`?~~ **Resolved → DEC-043** (index-futures version). | closed |
+| Q-15 | Source of historical economic-calendar dates for news-linked concepts. | either LLM, when Level 6 is built |
 | Q-09 | Select and legally verify the real NQ/MNQ historical-data source before Tradeez claims real-market training or deploys vendor data. This is not a Phase 0 blocker. | Fabio + either LLM |

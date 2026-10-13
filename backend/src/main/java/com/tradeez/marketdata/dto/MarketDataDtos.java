@@ -28,7 +28,13 @@ public final class MarketDataDtos {
 		long tickValueCents,
 		@Schema(description = "SIMULATED data must never affect a learner's score (DEC-034)")
 		String dataClass,
-		String exchangeTimezone) {
+		String exchangeTimezone,
+		@Schema(description = """
+			Real data only: first stored minute, UTC epoch seconds. Null when nothing is imported, \
+			and for simulated data, which has no edges.""")
+		Long dataFrom,
+		@Schema(description = "Real data only: end of the last stored minute, UTC epoch seconds")
+		Long dataTo) {
 	}
 
 	@Schema(description = """
@@ -52,6 +58,10 @@ public final class MarketDataDtos {
 		String timeframe,
 		@Schema(description = "SIMULATED | IMPORTED_PRIVATE | LICENSED_DEPLOYABLE")
 		String dataClass,
+		@Schema(description = """
+			Where the bars came from (INVARIANT 7): 'generated' for simulated data, the importing \
+			source(s) for real data, e.g. 'massive'.""")
+		String source,
 		@Schema(description = "Present only for generated data; replays the exact same series")
 		Long seed,
 		String generatorVersion,

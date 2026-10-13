@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError } from '@/lib/api/client'
+import { Button } from './ui'
+import { errorClass, fieldClass, labelClass } from '@/lib/styles'
 
 interface SignInFormProps {
   onLogin: (email: string, password: string) => Promise<void>
@@ -48,14 +50,15 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
   }
 
   return (
-    <section className="panel panel--narrow">
-      <h2>{isRegister ? 'Create an account' : 'Sign in'}</h2>
+    <section className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-2xl shadow-black/40">
+      <h2 className="mb-5 text-lg font-semibold text-ink">{isRegister ? 'Create an account' : 'Sign in'}</h2>
 
-      <form onSubmit={handleSubmit} className="form">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {isRegister && (
-          <label>
+          <label className={labelClass}>
             Display name
             <input
+              className={fieldClass}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
@@ -64,9 +67,10 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
           </label>
         )}
 
-        <label>
+        <label className={labelClass}>
           Email
           <input
+            className={fieldClass}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -75,9 +79,10 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
           />
         </label>
 
-        <label>
+        <label className={labelClass}>
           Password
           <input
+            className={fieldClass}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -85,30 +90,32 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
             minLength={isRegister ? 12 : undefined}
             autoComplete={isRegister ? 'new-password' : 'current-password'}
           />
-          {isRegister && <small>At least 12 characters. Length beats complexity.</small>}
+          {isRegister && (
+            <small className="font-normal">At least 12 characters. Length beats complexity.</small>
+          )}
         </label>
 
         {error && (
-          <p role="alert" className="error">
+          <p role="alert" className={errorClass}>
             {error}
           </p>
         )}
 
-        <button type="submit" disabled={busy}>
+        <Button type="submit" variant="primary" size="lg" disabled={busy} className="mt-1 w-full">
           {busy ? 'Working…' : isRegister ? 'Create account' : 'Sign in'}
-        </button>
+        </Button>
       </form>
 
-      <button
-        type="button"
-        className="link"
+      <Button
+        variant="link"
+        className="mt-4 w-full"
         onClick={() => {
           setMode(isRegister ? 'login' : 'register')
           setError(null)
         }}
       >
         {isRegister ? 'I already have an account' : 'Create an account instead'}
-      </button>
+      </Button>
     </section>
   )
 }

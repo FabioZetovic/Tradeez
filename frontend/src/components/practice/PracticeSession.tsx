@@ -20,6 +20,8 @@ import {
 } from '@/lib/drawing/store'
 import type { SnapMode } from '@/lib/drawing/snap'
 import type { Drawing, DrawingKind } from '@/lib/drawing/types'
+import { Button, Chip, Panel } from '../ui'
+import { errorClass, keyValueClass, panelTitle } from '@/lib/styles'
 import {
   defaultBracket,
   flipBracket,
@@ -38,6 +40,12 @@ interface PracticeSessionProps {
 
 /** How much of the history the chart opens on. Roughly a session's worth on 5m. */
 const RECENT_BARS = 120
+
+const STATUS_TONE = {
+  ANALYSING: 'neutral',
+  IN_TRADE: 'caution',
+  COMPLETE: 'good',
+} as const satisfies Record<PracticeState['status'], string>
 
 const STATUS_LABEL: Record<PracticeState['status'], string> = {
   ANALYSING: 'Analysing',
@@ -130,16 +138,18 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
 
   if (!state) {
     return (
-      <section className="practice">
-        <button type="button" className="link" onClick={onBack}>
+      <section className="flex flex-col items-start gap-3">
+        <Button variant="link" onClick={onBack}>
           ← Journal
-        </button>
+        </Button>
         {error ? (
-          <p role="alert" className="error">
+          <p role="alert" className={errorClass}>
             {error}
           </p>
         ) : (
-          <p role="status">Loading session…</p>
+          <p role="status" className="text-sm text-subtle">
+            Loading session…
+          </p>
         )}
       </section>
     )
@@ -157,30 +167,30 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   }
 
   return (
-    <section className="practice">
+    <section className="flex flex-col gap-4">
       <SimulatedDataBanner dataClass={state.dataClass} />
 
-      <div className="toolbar">
-        <button type="button" className="link" onClick={onBack}>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+        <Button variant="link" onClick={onBack}>
           ← Journal
-        </button>
+        </Button>
         <span>
           <strong>{state.instrument}</strong> · {state.timeframe}
         </span>
-        <span className={`chip chip--${state.status.toLowerCase()}`} data-testid="practice-status">
+        <Chip tone={STATUS_TONE[state.status]} data-testid="practice-status">
           {STATUS_LABEL[state.status]}
-        </span>
-        <span className="muted" data-testid="practice-cursor">
+        </Chip>
+        <span className="text-subtle" data-testid="practice-cursor">
           {formatSessionTime(state.cursor, state.exchangeTimezone)}
         </span>
         {lastBar && (
-          <span className="last-price" data-testid="last-price">
+          <span className="ml-auto text-xl font-semibold tabular-nums" data-testid="last-price">
             {formatPrice(lastBar.close, state.tickSize)}
           </span>
         )}
       </div>
 
-      <div className="chart-area">
+      <div className="flex min-w-0 items-start gap-2">
         <DrawingToolbar
           activeTool={activeTool}
           onSelectTool={setActiveTool}
@@ -216,33 +226,33 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
         />
       </div>
 
-      <div className="practice__panels">
-        <section className="panel" aria-label="Replay">
-          <h3>Replay</h3>
-          <div className="button-row">
-            <button type="button" disabled={busy || playing} onClick={() => void advance(1)}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] items-start gap-4">
+        <Panel aria-label="Replay">
+          <h3 className={panelTitle}>Replay</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={busy || playing} onClick={() => void advance(1)}>
               Next bar
-            </button>
-            <button type="button" disabled={busy || playing} onClick={() => void advance(10)}>
+            </Button>
+            <Button disabled={busy || playing} onClick={() => void advance(10)}>
               Next 10
-            </button>
+            </Button>
             {status !== 'COMPLETE' && (
-              <button type="button" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+              <Button active={playing} aria-pressed={playing} onClick={() => setPlaying(!playing)}>
                 {playing ? 'Pause' : 'Play'}
-              </button>
+              </Button>
             )}
             {status === 'IN_TRADE' && (
-              <button type="button" disabled={busy} onClick={() => void skip()}>
+              <Button disabled={busy} onClick={() => void skip()}>
                 Skip to result
-              </button>
+              </Button>
             )}
           </div>
           {error && (
-            <p role="alert" className="error">
+            <p role="alert" className={`mt-3 ${errorClass}`}>
               {error}
             </p>
           )}
-        </section>
+        </Panel>
 
         {status === 'ANALYSING' && (
           <PlanPanel
@@ -263,11 +273,11 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
         )}
 
         {status === 'IN_TRADE' && state.plan && (
-          <section className="panel" aria-label="Trade">
-            <h3>
+          <Panel aria-label="Trade">
+            <h3 className={panelTitle}>
               {state.plan.direction === 'LONG' ? 'Long' : 'Short'} {state.plan.contracts} — locked
             </h3>
-            <dl className="kv small">
+            <dl className={keyValueClass}>
               <dt>Entry</dt>
               <dd data-testid="trade-entry">
                 {state.entry
@@ -281,10 +291,10 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
               <dt>Reward : risk</dt>
               <dd>{state.plan.plannedRewardRisk.toFixed(2)}</dd>
             </dl>
-            <p className="muted small">
+            <p className="mt-3 text-xs text-subtle">
               The outcome was decided when you locked the plan. Step forward to watch it happen.
             </p>
-          </section>
+          </Panel>
         )}
 
         {status === 'COMPLETE' && state.result && (

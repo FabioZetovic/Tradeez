@@ -1317,4 +1317,129 @@ refused both attempts to grade or edit an answered drill.
 
 ---
 
+### Session 017 — 2026-09-30 to 10-04 — Real Data, and Back to ICT
+
+**Participant:** Claude Code
+**Type:** Feature (real market data) and product direction
+
+**"It needs to be real data."** Until now every chart in Tradeez came from a generator: a formula
+producing NQ-like prices, clearly labelled as simulated. Fabio rejected that outright. Price action
+cannot be invented, he said; a learner needs the real NQ of ten years ago, five years ago, three
+months ago. He was right, and two earlier decisions (simulated data as a stand-in, DEC-033) were
+superseded by a new one (DEC-040): Tradeez moves to real historical NQ, and the simulated market
+leaves the app. The generator stays only in the test suite, where invented data with known answers is
+exactly what a test needs.
+
+**An importer that cannot spend money by accident.** The first provider chosen, Databento, charges per
+download from a free starting credit. The importer built for it asks Databento what each download
+would cost *before* fetching it, refuses anything above $5 per request or $100 in total, records every
+attempt in a ledger table, can do a "dry run" that only prices, and skips months it already has. Real
+prices are stored exactly as the exchange printed them, in whole ticks; a price that does not sit on
+NQ's quarter-point grid stops the import instead of being rounded. It was tested entirely against a
+fake Databento server, so no test ever touches a real account — and one of those tests caught a real
+bug before it shipped (an error in the price data was being reported as a parsing problem).
+
+**A card, and a cheaper first step.** Databento's sign-up asked for a payment card. Its policy is to
+charge only beyond the free credit, but Fabio preferred to start without one. Seven alternatives were
+checked. Most had no futures data at all, or only daily candles, or minute data reaching back only
+days. One fit: **Massive** (formerly Polygon.io), whose free plan includes real CME futures in
+one-minute candles going back about two years. It has limits — no one-second candles, which makes the
+fill engine report "ambiguous" more often, and no history before 2017 even on paid plans — so the
+Databento importer is kept for when deeper history is worth paying for (DEC-042).
+
+**"We drifted from the original idea."** Then Fabio said something more important: the app had moved
+away from what he set out to build — *an app that helps people trade ICT concepts*, by paper trading
+on old charts. Looking back, he was right about the balance. Sixteen sessions had built the engine
+(accounts, data, chart, drawings, an honest fill engine, immutable trade records) and exactly one ICT
+concept, the fair value gap. The engine is what ICT learning needs, but a learner could not yet see
+much ICT in it.
+
+The answer is a new document, `ICT_CONCEPTS.md`: about seventy ICT concepts and structures — market
+structure, liquidity, fair value gaps, order blocks, premium and discount, killzones, the 2022 model
+and more — arranged in ten levels from candle basics to full entry models. Each concept says what it
+means, why ICT cares about it, how software could detect it as a written, versioned rule, how
+confidently it can be detected at all (some are exact geometry, some depend on chosen settings, some
+are pure judgement), how the app should teach it, and what data it needs. The roadmap was rebuilt from
+it (DEC-041): thirty-three tasks, combining Claude's and Codex's original plans, ordered so that every
+milestone ends with ICT a learner can actually see.
+
+**Which ICT?** Huddleston's definitions changed over the years, so the app needs a stated source. Fabio
+approved the 2022 mentorship as the default reading (DEC-043): it was taught on index futures like NQ,
+it is free for anyone — including the jury — to check, and its model is a short chain of steps a rule
+can verify. Topics it covers thinly come from his older 2016–17 material, labelled as such.
+
+**The same honesty, applied to ICT.** ICT is a popular methodology taught through videos, not a
+scientific result, and no independent evidence shows it gives traders an edge. Tradeez will not claim
+that it does. It teaches ICT's definitions exactly and grades whether the learner applied them — and it
+adds an *Evidence* view that shows how often each ICT claim actually held on real NQ history, with
+the number of cases behind every figure. A learner who sees "ICT says this happens; on 500 real days it
+happened 62% of the time" learns more than one who is simply told it is true.
+
+**The free importer.** Massive delivers each quarterly NQ contract separately, so Tradeez stitches the
+continuous chart together itself, the way the professional feeds do: each day it follows whichever
+contract traded the most the day before. Using the day before matters — on the morning of a trading
+day, nobody can know that day's volume yet, and the app must not either. The importer also paces
+itself to the free plan's five requests a minute, and it was checked against the real service before
+it was written. That check turned up one trap: for dates outside the free plan's two years, Massive
+does not report an error, it just answers "nothing here". So an empty month is reported as empty and
+never recorded as done, and a wider plan later can still fill it.
+
+**A bug that had been hiding since the beginning.** The settings file said the application runs on
+UTC time, "set at the JVM level". Nothing actually set it, so the app ran on the clock of whatever
+computer it was on — Zagreb's, here. Timestamps were unaffected, which is why sixteen sessions never
+noticed. But the stored *times of day* came back shifted: NQ's 17:00 session open read as 18:00. The
+new importer's tests caught it, because they asked for one Monday's data an hour late and came up 120
+candles short. Now the app really sets UTC, and a test checks it. The lesson is in the bug log: a
+comment saying something is configured is not configuration.
+
+**Real NQ on screen.** With the key in place, the import ran: 697,003 one-minute candles of real NQ,
+from October 2024 to October 2026, in about eight minutes and at no cost. They were checked before
+anything else was built on them — no impossible candles, sessions opening at 18:00 New York time,
+every contract switch jumping by the few hundred points that separate one quarterly contract from the
+next, and the April 2025 crash low exactly where history put it.
+
+The chart now opens on that data instead of the simulated market, which is gone from the list (it is
+kept, clearly labelled, only for Practice and Drills until those can use real data safely). A learner
+can jump back a week, a month, three months, a year or two years, or pick any day — and the time axis
+shows New York time, the clock ICT is taught in. The proof that the clock is right is on the chart
+itself: on Friday 2 October 2026 the biggest candle of the morning sits at exactly 08:30, when the US
+jobs report was released.
+
+Clicking through it found one more thing the tests had not: "two years back" showed a single day,
+because the chart stopped its window one day after the first candle in the database. It now shows the
+first full window. Each chart also says where its data came from — "massive" — read from the import
+records rather than written into the code.
+
+**A new look, and less code.** Fabio sent a screenshot of the sign-in page on his wide screen: a
+narrow boxed column with the form stuck to one side. The cause was older than any feature — the
+stylesheet that comes with Vite's starter template had never been deleted, and the app's own styles
+had been fighting it ever since. Two earlier bugs turned out to be symptoms of the same leftover,
+each patched where it showed. This time the cause went: both stylesheets, the template's logos and
+images, its README and its favicon were deleted, and every screen was rebuilt with Tailwind CSS
+(DEC-044). The colours are the chart's own, so the page and the chart now match exactly; the app has
+a top bar with its sections, a centred sign-in, and a chart that fills the screen.
+
+Fabio also asked for everything unneeded to be removed before the project grows further. A tool found
+the frontend's dead code — an unused routing library, two API calls nothing made, and helpers exported
+for no one — and a small scanner did the same for the backend: 64 lines of methods nothing called.
+Each finding was checked by hand before it was deleted, and one over-eager deletion (it would have
+taken a database field and a constructor with it) was caught and redone before anything ran. The
+README, which still described the simulated market as the chart, was brought up to date.
+
+**A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
+the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
+asked to generate a fresh one and place it in the project's private settings file himself. The app
+reads it from there; nobody needs to see it.
+
+It then landed in the wrong file: the *example* settings file, which sits right next to the private one
+and looks the same, but is published with the code. Nothing was published, because commits here name
+their files one by one. Since the mistake is easy to make again, a test now fails the build whenever
+the example file contains a key — and it names the setting without ever printing the key.
+
+**By the numbers:** backend tests 164 → 223, frontend tests 131 → 148, two migrations (V7: stored market
+bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
+real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document.
+
+---
+
 *Next session entry goes here.*

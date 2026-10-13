@@ -2,6 +2,11 @@ spring:
   application:
     name: tradeez-backend
 
+  # Reads backend/.env (KEY=VALUE lines) as properties when it exists. The file is gitignored, so
+  # secrets such as DATABENTO_API_KEY live on the machine and never in the repository (DEC-032).
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/tradeez}
     username: ${DATABASE_USER:tradeez}
@@ -32,9 +37,8 @@ server:
     include-stacktrace: never
 
 # INVARIANT 4: all timestamps are UTC. Converted to exchange time only at the presentation edge.
-# Set at the JVM level so no code path can accidentally use the host timezone.
+# The JVM zone is set to UTC in TradeezApplication.useUtc() — a property here never did it (BUG-036).
 tradeez:
-  timezone: UTC
 
   jwt:
     # DEC-032. Base64, 256-bit minimum. Generate with: openssl rand -base64 32
@@ -58,6 +62,22 @@ tradeez:
   cors:
     # DEC-032: strict CORS, explicit origins, credentials enabled. Never a wildcard.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+# DEC-040 — real NQ from Databento. Every download is priced first and refused above these caps, so
+# the free credit cannot be overrun by a mistake. Raising a cap is a decision for Fabio, not for code.
+databento:
+  api-key: ${DATABENTO_API_KEY:}
+  base-url: ${DATABENTO_BASE_URL:https://hist.databento.com}
+  dataset: GLBX.MDP3
+  max-cost-per-request-usd: 5.00
+  max-total-cost-usd: 100.00
+
+# DEC-042 — Massive's free plan: CME minute bars, ~2 years back, five requests a minute.
+massive:
+  api-key: ${MASSIVE_API_KEY:}
+  base-url: ${MASSIVE_BASE_URL:https://api.massive.com}
+  requests-per-minute: 5
+  page-limit: 50000
 
 management:
   endpoints:

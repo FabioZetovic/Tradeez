@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { Direction, PlanRequest } from '@/lib/api/practice'
 import { formatPrice, priceToTicks } from '@/lib/chart/priceFormat'
 import { formatCents, planNumbers, planProblem } from '@/lib/practice/plan'
+import { Button, Panel } from '../ui'
+import { errorClass, fieldClass, keyValueClass, panelTitle } from '@/lib/styles'
 
 interface PlanPanelProps {
   /** The plan as currently drawn, or null if no bracket has been placed yet. */
@@ -37,21 +39,22 @@ export function PlanPanel({
 }: PlanPanelProps) {
   if (!plan) {
     return (
-      <section className="panel" aria-label="Plan">
-        <h3>Plan a trade</h3>
-        <p className="muted">
-          Price is <strong>{formatPrice(referenceTicks, tickSize)}</strong>. Place a bracket, then
-          drag its stop and target on the chart. Or step the replay forward and wait for a setup.
+      <Panel aria-label="Plan">
+        <h3 className={panelTitle}>Plan a trade</h3>
+        <p className="text-sm text-subtle">
+          Price is <strong className="text-ink">{formatPrice(referenceTicks, tickSize)}</strong>. Place a
+          bracket, then drag its stop and target on the chart. Or step the replay forward and wait for a
+          setup.
         </p>
-        <div className="button-row">
-          <button type="button" className="buy" onClick={() => onPlace('LONG')}>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="buy" onClick={() => onPlace('LONG')}>
             Place long
-          </button>
-          <button type="button" className="sell" onClick={() => onPlace('SHORT')}>
+          </Button>
+          <Button variant="sell" onClick={() => onPlace('SHORT')}>
             Place short
-          </button>
+          </Button>
         </div>
-      </section>
+      </Panel>
     )
   }
 
@@ -59,17 +62,17 @@ export function PlanPanel({
   const numbers = planNumbers(plan, referenceTicks, tickValueCents)
 
   return (
-    <section className="panel" aria-label="Plan">
-      <h3>
+    <Panel aria-label="Plan">
+      <h3 className={panelTitle}>
         {plan.direction === 'LONG' ? 'Long' : 'Short'} at market{' '}
-        <button type="button" className="link" onClick={onFlip}>
+        <Button variant="link" className="ml-1 font-normal" onClick={onFlip}>
           flip to {plan.direction === 'LONG' ? 'short' : 'long'}
-        </button>
+        </Button>
       </h3>
 
-      <div className="plan-grid">
-        <span>Entry</span>
-        <span className="muted">
+      <div className="mb-4 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 text-sm">
+        <span className="text-subtle">Entry</span>
+        <span className="text-subtle">
           next price after {formatPrice(referenceTicks, tickSize)}
         </span>
         <PriceField
@@ -84,9 +87,12 @@ export function PlanPanel({
           tickSize={tickSize}
           onCommit={(t) => onChangeLevel('target', t)}
         />
-        <label htmlFor="plan-contracts">Contracts</label>
+        <label htmlFor="plan-contracts" className="text-subtle">
+          Contracts
+        </label>
         <input
           id="plan-contracts"
+          className={`${fieldClass} w-36`}
           type="number"
           min={1}
           max={100}
@@ -96,7 +102,7 @@ export function PlanPanel({
         />
       </div>
 
-      <dl className="kv small" data-testid="plan-numbers">
+      <dl className={keyValueClass} data-testid="plan-numbers">
         <dt>Risk</dt>
         <dd>
           {numbers.riskTicks} ticks · {formatCents(numbers.riskCents)}
@@ -110,24 +116,19 @@ export function PlanPanel({
       </dl>
 
       {problem && (
-        <p className="error" role="alert">
+        <p className={`mt-3 ${errorClass}`} role="alert">
           {problem}
         </p>
       )}
 
-      <p className="muted small">
+      <p className="my-3 text-xs text-subtle">
         Locking is final: the plan cannot be changed afterwards, and the outcome is decided the moment
         you lock it. The replay only reveals it.
       </p>
-      <button
-        type="button"
-        className="primary"
-        disabled={problem !== null || busy}
-        onClick={() => onLock(plan)}
-      >
+      <Button variant="primary" disabled={problem !== null || busy} onClick={() => onLock(plan)}>
         Lock plan
-      </button>
-    </section>
+      </Button>
+    </Panel>
   )
 }
 
@@ -167,9 +168,12 @@ function PriceField({
 
   return (
     <>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id} className="text-subtle">
+        {label}
+      </label>
       <input
         id={id}
+        className={`${fieldClass} w-36`}
         inputMode="decimal"
         value={text}
         onChange={(e) => setDraft(e.target.value)}

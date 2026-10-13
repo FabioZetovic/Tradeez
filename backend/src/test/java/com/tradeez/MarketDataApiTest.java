@@ -59,13 +59,39 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("the V2 migration seeds DEMO-NQ and DEMO-MNQ")
-	void seededInstrumentsArePresent() throws Exception {
+	@DisplayName("the app offers only real NQ; V8 withdrew the simulated markets (DEC-040)")
+	void onlyRealNqIsListed() throws Exception {
 		mockMvc.perform(get("/api/market/instruments").cookie(auth))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.length()").value(2))
-			.andExpect(jsonPath("$[0].symbol").value("DEMO-MNQ"))
-			.andExpect(jsonPath("$[1].symbol").value("DEMO-NQ"));
+			.andExpect(jsonPath("$.length()").value(1))
+			.andExpect(jsonPath("$[0].symbol").value("NQ"))
+			.andExpect(jsonPath("$[0].dataClass").value("IMPORTED_PRIVATE"));
+	}
+
+	@Test
+	@DisplayName("withdrawn simulated markets still resolve by symbol, for Practice and Drills")
+	void withdrawnStillResolve() throws Exception {
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ").cookie(auth))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.dataClass").value("SIMULATED"))
+			// Simulated data has no edges, so no coverage is claimed.
+			.andExpect(jsonPath("$.dataFrom").doesNotExist())
+			.andExpect(jsonPath("$.dataTo").doesNotExist());
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
+				.param("timeframe", "5m").param("from", "1710334800").param("to", "1710338400"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.source").value("generated"));
+	}
+
+	@Test
+	@DisplayName("NQ is the real CME contract, and says it is private until licensed (DEC-035, DEC-040)")
+	void realNqSaysWhatItIs() throws Exception {
+		mockMvc.perform(get("/api/market/instruments/NQ").cookie(auth))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.exchange").value("CME"))
+			.andExpect(jsonPath("$.tickSize").value(0.25))
+			.andExpect(jsonPath("$.tickValueCents").value(500))
+			.andExpect(jsonPath("$.dataClass").value("IMPORTED_PRIVATE"));
 	}
 
 	@Test
@@ -93,7 +119,7 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("an unknown symbol is a 404, not an empty series")
 	void unknownSymbolIsNotFound() throws Exception {
-		mockMvc.perform(get("/api/market/instruments/NQ").cookie(auth))
+		mockMvc.perform(get("/api/market/instruments/NOPE").cookie(auth))
 			.andExpect(status().isNotFound());
 	}
 

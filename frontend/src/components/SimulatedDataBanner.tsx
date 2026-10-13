@@ -10,8 +10,11 @@ export function SimulatedDataBanner({ dataClass = 'SIMULATED' }: { dataClass?: s
   if (dataClass !== 'SIMULATED') return null
 
   return (
-    <aside className="banner banner--simulated" role="note">
-      <strong>SIMULATED DATA — NOT MARKET HISTORY</strong>
+    <aside
+      role="note"
+      className="flex flex-col gap-1 rounded-lg border border-warn/50 bg-warn/10 px-4 py-3 text-sm text-warn"
+    >
+      <strong className="tracking-wide">SIMULATED DATA — NOT MARKET HISTORY</strong>
       <span>
         Prices shown are deterministically generated for development. They are not NQ, and not any
         real market.

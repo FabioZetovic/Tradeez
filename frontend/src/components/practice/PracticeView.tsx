@@ -10,6 +10,8 @@ import {
 } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatCents, formatR, outcomeLabel } from '@/lib/practice/plan'
+import { Button, Panel, Segmented } from '../ui'
+import { errorClass, panelTitle } from '@/lib/styles'
 
 interface PracticeViewProps {
   adapterFactory?: () => ChartAdapter
@@ -70,45 +72,42 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   }
 
   return (
-    <section className="practice">
-      <section className="panel" aria-label="New session">
-        <h2>Practice</h2>
-        <p className="muted">
+    <section className="flex flex-col gap-4">
+      <Panel aria-label="New session">
+        <h2 className="mb-2 text-lg font-semibold">Practice</h2>
+        <p className="max-w-3xl text-sm text-subtle">
           You get a chart that stops at a random, hidden moment. Read it, decide, and lock a trade
           with a stop and a target — or step forward and wait. Then watch what the market did. The
           result is recorded as it happened, and cannot be changed.
         </p>
-        <div className="button-row">
-          <div className="timeframes" role="group" aria-label="Practice timeframe">
-            {PRACTICE_TIMEFRAMES.map((tf) => (
-              <button
-                key={tf}
-                type="button"
-                aria-pressed={tf === timeframe}
-                className={tf === timeframe ? 'tf tf--active' : 'tf'}
-                onClick={() => setTimeframe(tf)}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="primary" disabled={starting} onClick={() => void start()}>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Segmented<string>
+            options={PRACTICE_TIMEFRAMES}
+            value={timeframe}
+            onChange={setTimeframe}
+            label="Practice timeframe"
+          />
+          <Button variant="primary" disabled={starting} onClick={() => void start()}>
             {starting ? 'Finding a moment…' : 'Start a session'}
-          </button>
+          </Button>
         </div>
         {error && (
-          <p role="alert" className="error">
+          <p role="alert" className={`mt-3 ${errorClass}`}>
             {error}
           </p>
         )}
-      </section>
+      </Panel>
 
-      <section className="panel" aria-label="Journal">
-        <h3>Journal</h3>
-        {journal === null && <p role="status">Loading…</p>}
-        {journal?.length === 0 && <p className="muted">No sessions yet.</p>}
+      <Panel aria-label="Journal">
+        <h3 className={panelTitle}>Journal</h3>
+        {journal === null && (
+          <p role="status" className="text-sm text-subtle">
+            Loading…
+          </p>
+        )}
+        {journal?.length === 0 && <p className="text-sm text-subtle">No sessions yet.</p>}
         {journal && journal.length > 0 && (
-          <table className="journal">
+          <table className="w-full border-collapse text-sm tabular-nums [&_td]:border-b [&_td]:border-line/60 [&_td]:px-2 [&_td]:py-2 [&_th]:border-b [&_th]:border-line [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-subtle">
             <thead>
               <tr>
                 <th>Started</th>
@@ -140,16 +139,16 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
                   <td>{row.rMultiple !== undefined ? formatR(row.rMultiple) : ''}</td>
                   <td>{row.netPnlCents !== undefined ? formatCents(row.netPnlCents) : ''}</td>
                   <td>
-                    <button type="button" className="link" onClick={() => setOpenId(row.id)}>
+                    <Button variant="link" onClick={() => setOpenId(row.id)}>
                       {row.status === 'COMPLETE' ? 'Review' : 'Resume'}
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </section>
+      </Panel>
     </section>
   )
 }

@@ -8,7 +8,7 @@ import type { DomainBar } from '../chart/types'
  * answered are optional: the server leaves null fields out of the JSON entirely.
  */
 
-export interface RuleView {
+interface RuleView {
   detector: string
   version: string
   parameters: Record<string, number>
@@ -18,7 +18,7 @@ export interface RuleView {
 }
 
 /** The numbers the rule decided on. Explanations are rendered from these, never hand-written. */
-export interface FvgEvidence {
+interface FvgEvidence {
   candle1Time: number
   candle1HighTicks: number
   candle1LowTicks: number
@@ -78,9 +78,6 @@ export const DRILL_TIMEFRAMES = ['5m', '15m'] as const
 
 export const startDrill = (body: { kind?: string; instrument?: string; timeframe?: string }) =>
   apiFetch<DrillResponse>('/api/drills', { method: 'POST', body: JSON.stringify(body) })
-
-export const getDrill = (id: string) =>
-  apiFetch<DrillResponse>(`/api/drills/${encodeURIComponent(id)}`)
 
 export const answerDrill = (id: string, marks: number[]) =>
   apiFetch<DrillResponse>(`/api/drills/${encodeURIComponent(id)}/answer`, {

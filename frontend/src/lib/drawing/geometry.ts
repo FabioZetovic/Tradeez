@@ -13,9 +13,9 @@ export const HIT_TOLERANCE = 6
 
 /** Handle squares drawn at each anchor when a drawing is selected. */
 export const HANDLE_SIZE = 7
-export const HANDLE_HIT_TOLERANCE = 8
+const HANDLE_HIT_TOLERANCE = 8
 
-export function distance(a: Point, b: Point): number {
+function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 

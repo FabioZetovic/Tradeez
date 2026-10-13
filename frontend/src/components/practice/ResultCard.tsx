@@ -2,6 +2,8 @@ import type { PracticeState, ResultView } from '@/lib/api/practice'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { formatCents, formatR, outcomeLabel } from '@/lib/practice/plan'
+import { Notice, Panel } from '../ui'
+import { keyValueClass, panelTitle } from '@/lib/styles'
 
 /**
  * What happened, and everything needed to check it.
@@ -15,26 +17,28 @@ export function ResultCard({ state, result }: { state: PracticeState; result: Re
   const plan = state.plan
   const risk = plan ? Math.abs(plan.referenceTicks - plan.stopTicks) : 0
   const tz = state.exchangeTimezone
-  const tone =
-    result.netPnlCents > 0 ? 'result--win' : result.netPnlCents < 0 ? 'result--loss' : ''
+  const tone = result.netPnlCents > 0 ? 'text-up' : result.netPnlCents < 0 ? 'text-down' : 'text-ink'
 
   return (
-    <section className={`panel result ${tone}`} aria-label="Result">
-      <h3 data-testid="result-outcome">{outcomeLabel(result.outcome)}</h3>
+    <Panel aria-label="Result">
+      <h3 className={panelTitle} data-testid="result-outcome">
+        {outcomeLabel(result.outcome)}
+      </h3>
 
+      {/* INVARIANT 6: an assumed outcome is labelled as one, where it cannot be missed. */}
       {result.assumption && (
-        <p className="assumption" role="note">
+        <Notice role="note" className="mb-3">
           {result.assumption}
-        </p>
+        </Notice>
       )}
 
-      <p className="result__headline">
+      <p className={`mb-3 text-2xl font-semibold tabular-nums ${tone}`}>
         <span data-testid="result-net">{formatCents(result.netPnlCents)}</span>
-        <span className="muted"> net · </span>
+        <span className="text-base font-normal text-subtle"> net · </span>
         <span data-testid="result-r">{formatR(result.rMultiple)}</span>
       </p>
 
-      <dl className="kv small">
+      <dl className={keyValueClass}>
         <dt>Entry</dt>
         <dd>
           {formatPrice(result.entryTicks, state.tickSize)} · {formatSessionTime(result.entryTime, tz)}
@@ -62,25 +66,28 @@ export function ResultCard({ state, result }: { state: PracticeState; result: Re
       </dl>
 
       {result.gapExit && (
-        <p className="muted small">
+        <p className="mt-3 text-xs text-subtle">
           The market opened beyond your order, so it filled at the opening price rather than at your
           level. Real stops do this too.
         </p>
       )}
 
-      <details className="provenance">
-        <summary>How this was decided</summary>
-        <p className="small">
+      <details className="mt-4 text-xs">
+        <summary className="cursor-pointer text-subtle">How this was decided</summary>
+        <p className="mt-2">
           Resolved on one-second bars ({result.resolution}) by {result.engineVersion} with{' '}
           {result.fillModelVersion}: stops slip one tick, commission per contract per round trip,
           flat at the session close. Market {state.generatorVersion}, seed{' '}
-          <code data-testid="result-seed">{state.seed}</code>.
+          <code data-testid="result-seed" className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono">
+            {state.seed}
+          </code>
+          .
         </p>
-        <p className="small muted">
+        <p className="mt-2 text-subtle">
           Simulated data. This is practice at reading a chart and committing to a plan, not evidence
           about any real market.
         </p>
       </details>
-    </section>
+    </Panel>
   )
 }

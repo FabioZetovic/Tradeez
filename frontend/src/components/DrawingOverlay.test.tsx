@@ -177,6 +177,38 @@ describe('DrawingOverlay', () => {
     expect(latest.past).toHaveLength(1)
   })
 
+  it('BUG-038: a slow drag moves the shape as far as a fast one, on a chart that snaps to bars', () => {
+    // The real chart turns a pixel into the nearest bar's time. Each bar here is 10px wide (100s).
+    // Moving a drawing by re-snapping its last preview after every pointermove lost any step under
+    // half a bar, so a drag of 1px per event never moved it sideways at all.
+    const snapping = new FakeChartAdapter()
+    snapping.getProjection = vi.fn(() => ({
+      timeToX: (time: number) => (time - 1000) / 10,
+      priceToY: (ticks: number) => 500 - (ticks - 80_000),
+      xToTime: (x: number) => Math.round(x / 10) * 100 + 1000,
+      yToPrice: (y: number) => 80_000 + (500 - Math.round(y)),
+    }))
+    let latest: DrawingState = initialDrawingState
+    render(
+      <Harness
+        adapter={snapping}
+        initial={{ ...initialDrawingState, drawings: [existing] }}
+        onState={(s) => (latest = s)}
+      />,
+    )
+    const canvas = screen.getByTestId('drawing-overlay')
+    stubRect(canvas)
+
+    // Grab the line (time 1200 → x 20, price 80_000 → y 500) and drag it 30px right, 1px at a time.
+    pointer(canvas, 'pointerdown', 20, 500)
+    for (let x = 21; x <= 50; x++) pointer(canvas, 'pointermove', x, 500)
+    pointer(canvas, 'pointerup', 50, 500)
+
+    // 30px is three bars: 1200 + 300.
+    expect(latest.drawings[0].anchors[0].time).toBe(1500)
+    expect(latest.drawings[0].anchors[0].priceTicks).toBe(80_000)
+  })
+
   it('stays transparent to the pointer when there is nothing to interact with', () => {
     // The crux of overlaying a canvas on a chart: if it always captured events, panning and zooming
     // would stop working entirely.

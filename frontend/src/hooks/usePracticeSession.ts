@@ -12,7 +12,7 @@ import {
 import type { DomainBar } from '@/lib/chart/types'
 
 /** Milliseconds between bars while playing. Slow enough to watch, quick enough not to bore. */
-export const PLAY_INTERVAL_MS = 600
+const PLAY_INTERVAL_MS = 600
 
 /**
  * One practice session: what has been revealed, and the actions that reveal more.

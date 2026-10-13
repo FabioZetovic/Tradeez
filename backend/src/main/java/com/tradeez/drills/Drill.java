@@ -185,10 +185,6 @@ public class Drill {
 		return marks;
 	}
 
-	public Instant getAnsweredAt() {
-		return answeredAt;
-	}
-
 	public Instant getCreatedAt() {
 		return createdAt;
 	}

@@ -17,34 +17,28 @@
 
 ## Open
 
-### BUG-035 🟡 Seven lint warnings predate the practice slice
-
-**Status:** verified — `npm run lint` (oxlint), session 015
-**Affects:** `PriceChart.tsx` (2), `useDrawings.ts` (2), `DrawingOverlay.tsx` (2), `ChartWorkspace.tsx` (1)
-
-Found while double-checking the practice PR, which is the first time anyone ran the project's own
-`lint` script. The PR had added seven warnings of its own; those were fixed before merging, leaving
-exactly the seven that `master` already had:
-
-- six `react(refs)` — the "latest value" pattern, `someRef.current = value` written during
-  render. React 19 may discard a render, which can leave a ref holding a value from a render that
-  never committed;
-- one `react(set-state-in-effect)` — `ChartWorkspace` resets loading and error state
-  synchronously at the start of its bars effect.
-
-**Why not fixed with the rest.** Two of the refs are the drawing overlay's gesture state, read by
-pointer handlers during a drag. Moving the assignment into an effect changes *when* a handler sees
-the new value, and if a render has not committed between two pointer moves, a dragged shape could
-jump. That needs hands-on browser testing of drags, which the session-015 browser pane could not
-provide (it was not rendering frames). Deferred to the next batch rather than changed blind.
-
----
-
-Everything else is closed; each entry moved to [Fixed](#fixed) with its original description intact.
+*No open bugs.* BUG-035, the last one, was fixed in session 017 before the merge of
+`feat/real-nq-data`. Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
 
 ## Environment
+
+### ENV-005 🔴 A real API key was typed into the committed template file
+
+**Status:** verified (session 017) — caught before any commit
+
+`backend/.env` is gitignored; `backend/.env.example`, the template next to it, is committed. Fabio
+put his new Massive key in the template instead of the private file. Nothing pushed it: the next
+commit staged only the docs, by name. But one `git add -A` would have published the key to GitHub,
+and a key that reaches a remote has to be treated as leaked even after it is deleted.
+
+The two files differ by one word and look identical in an editor, so this mistake will recur.
+
+**Mitigation.** `EnvExampleTest` fails the backend build whenever any `*_API_KEY=` line in
+`.env.example` has a value, naming the variable but never printing the value. It failed exactly
+once, on Fabio's local file, and the committed template stays clean. Commits in this repository
+stage files by name, never `-A`.
 
 ### ENV-004 🟠 An interrupted session leaves its file claims behind
 
@@ -172,7 +166,11 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 |---|---|---|
 | Auth | ~~No login or registration **UI**~~ | *Out of date since task 4, which shipped both screens. Struck through rather than deleted (session 014).* |
 | Auth | No email verification or password reset | Out of scope for the vertical slice |
-| Market data | No real NQ data anywhere in the project | DEC-033 — `DEMO-NQ` only, and real data needs written permission (DEC-020, DEC-035) |
+| Market data | ~~No real NQ data anywhere in the project~~ | *Out of date since session 017: 697,003 real NQ one-minute bars from Massive (DEC-042), in the local database only. Struck through rather than deleted.* |
+| Market data | Real NQ covers about two years (Oct 2024 →), one-minute bars only | Massive's free plan (DEC-042). Five or ten years back and one-second bars need Databento or a paid plan — Fabio's decision |
+| Market data | Real data is local and private (`IMPORTED_PRIVATE`) | DEC-035 / Q-09: showing it to others, the jury included, needs the provider's written permission. Massive's free plan says "individual use" |
+| Chart | Coarser timeframes are aggregated from minutes on every request | A 1-hour window reads ~220,000 stored minutes (≈0.4 s locally); 1m and 5m answer in under 60 ms. Stored aggregates are the upgrade path if it ever matters |
+| Chart | No infinite scroll into older history | Each view loads a fixed window ending at the chosen date; the date picker and the 1W–2Y jumps move it |
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |
 | Fill engine | `AMBIGUOUS` is a legitimate outcome, not a failure | DEC-008 — candle data genuinely cannot always say which of TP/SL came first |
 | Order flow | Not implemented, likely never | Impossible without licensed depth data (open question Q-03) |
@@ -433,6 +431,114 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-038 🟠 A slow drag did not move a drawing sideways at all
+
+**Status:** verified — found while testing BUG-035's fix in the browser, session 017; a test fails on the old code
+**Affects:** `frontend/src/components/DrawingOverlay.tsx` (moving a drawing)
+
+**What happened.** Moving a drawing translated its *last preview* by the few pixels of each
+pointermove, and the chart's projection snaps a pixel to the nearest bar's time. A step smaller than
+half a bar therefore rounded straight back to the same bar, every time: a drag of a pixel or two per
+event — an ordinary slow drag — never moved the shape sideways. Faster drags drifted instead,
+accumulating the rounding: in the browser, the same 100px drag moved a rectangle 17 bars in one burst
+and 20 bars in ten steps.
+
+**How it was found.** The BUG-035 fix needed proof that drags were unchanged, so the same scripted
+drag (a burst of 10 moves, then 10 paced moves) was run on the old and the new code. Both gave
+identical results — the fix was safe — and both showed the burst and the paced drag disagreeing.
+
+**✅ FIXED — Session 017.** A move is now measured from where the drag started, against the anchors as
+they were then: `translateAnchors(origin, totalDx, totalDy)`, so rounding happens once, not per
+event. In the browser the burst, the paced drag and a 100 × 1px drag all move the full distance. The
+test projection used by the overlay tests never snapped, which is why no test caught it; the new test
+uses one that snaps to 10px bars and fails on the old code (`expected 1200 to be 1500`).
+
+### BUG-035 🟡 Seven lint warnings predate the practice slice
+
+**Status:** verified — `npm run lint` (oxlint), session 015
+**Affects:** `PriceChart.tsx` (2), `useDrawings.ts` (2), `DrawingOverlay.tsx` (2), `ChartWorkspace.tsx` (1)
+
+Found while double-checking the practice PR, which is the first time anyone ran the project's own
+`lint` script. The PR had added seven warnings of its own; those were fixed before merging, leaving
+exactly the seven that `master` already had:
+
+- six `react(refs)` — the "latest value" pattern, `someRef.current = value` written during
+  render. React 19 may discard a render, which can leave a ref holding a value from a render that
+  never committed;
+- one `react(set-state-in-effect)` — `ChartWorkspace` resets loading and error state
+  synchronously at the start of its bars effect.
+
+**Why not fixed with the rest.** Two of the refs are the drawing overlay's gesture state, read by
+pointer handlers during a drag. Moving the assignment into an effect changes *when* a handler sees
+the new value, and if a render has not committed between two pointer moves, a dragged shape could
+jump. That needs hands-on browser testing of drags, which the session-015 browser pane could not
+provide (it was not rendering frames). Deferred to the next batch rather than changed blind.
+
+**✅ FIXED — Session 017, before the merge of `feat/real-nq-data`.** All seven warnings are gone and
+`npm run lint` now runs `oxlint --deny-warnings`, so a new one fails the check.
+
+- *Refs written during render* (`DrawingOverlay`, `useDrawings`, `PriceChart`): each ref is now
+  written in a `useLayoutEffect` — at commit, before any passive effect reads it. The overlay writes
+  its two refs **together**, because a drag reads them as a pair (the gesture's position and the
+  drawing it moves); one newer than the other is exactly the jump this entry worried about.
+- *setState inside an effect* (`ChartWorkspace`): loading and error are no longer stored. Each bars
+  response is tagged with the request it answers, and "loading" is derived as "the newest response is
+  not for the current request".
+- **Drag behaviour checked in the browser** with the same scripted drags on the old and the new code:
+  identical results. That comparison is what exposed BUG-038.
+
+### BUG-037 🟠 The Vite starter template's stylesheet was never removed
+
+**Status:** verified — Fabio's screenshot, session 017 (2026-10-13)
+**Affects:** `frontend/src/index.css`, `App.css`, every screen
+
+**What happened.** The frontend was scaffolded from Vite's React template in session 006 and its
+`index.css` was never deleted. It pinned `#root` to a 1126px column with borders on both sides,
+centred all text, set 56px headings and switched palettes on the OS light/dark setting. The app's own
+`App.css` was written on top and fought it rule by rule. On Fabio's 1920px screen the result was a
+boxed column, a sign-in card stranded on the left of it and an indented title: *"this looks extremely
+ugly and nothing is positioned correctly."*
+
+**Lesson.** Two earlier bugs were symptoms of this same leftover — BUG-031 (the title vanished on a
+light-mode machine because the template coloured headings) and BUG-032 (a sideways scroll because the
+template made `#root` a flex column). Each was patched where it showed instead of removing the
+cause. Scaffolding has to be cleared in the session that creates it.
+
+**✅ FIXED — Session 017.** Both stylesheets deleted along with the template's assets (Vite and React
+logos, `hero.png`, an icon sheet, the template README, the Vite favicon) and the unused
+`react-router-dom`. All styling is Tailwind now (DEC-044). `styles.test.ts` fails if `#root`,
+centred text, the 1126px column or an OS-dependent palette ever returns; the BUG-032 width rule is
+asserted on the rendered `<main>` in `App.test.tsx`.
+
+### BUG-036 🟠 The JVM was never set to UTC, so stored session times read back an hour late
+
+**Status:** verified — `MassiveImporterTest` failed on it, session 017
+**Found:** Session 017, building the Massive importer (T1)
+**Affects:** `TradeezApplication`, `application.yml`, every `LocalTime` / `LocalDate` read through
+Hibernate (today: `Instrument.sessionOpenLocal` / `sessionCloseLocal`)
+
+**What happened.** `application.yml` said the JVM timezone was "set at the JVM level so no code
+path can accidentally use the host timezone", under a property `tradeez.timezone: UTC`. Nothing
+read that property. The application, and the test suite, ran in the host's zone — Europe/Zagreb.
+Hibernate is configured to read SQL `TIME` values as UTC (`hibernate.jdbc.time_zone: UTC`) and
+converts them into the JVM's zone, so NQ's session open, stored as 17:00, came back as **18:00**
+(19:00 in summer).
+
+Nothing used those fields until the Massive importer, which computes each trading day's session
+window from them. Its test asked the fake server for Monday's minutes from 18:00 Chicago time
+instead of 17:00 and came up 120 bars short — the first hour of one session and the whole of the
+next were missing. Instants (`TIMESTAMPTZ`) were never affected, which is why sixteen sessions of
+timestamp-heavy code never showed it.
+
+**Lesson.** A configuration comment is not configuration. "Set at the JVM level" described an
+intention nobody implemented, and the property's name made it look done.
+
+**✅ FIXED — Session 017.** `TradeezApplication.useUtc()` sets the JVM default zone to UTC before
+Spring starts; `AbstractIntegrationTest` calls it too, because tests start Spring without
+`main()`. The dead property is gone and its comment says where the zone is really set.
+`InstrumentSessionTimesTest` asserts the JVM is UTC and that NQ's session reads back as exactly
+17:00–16:00 Chicago time.
 
 ### BUG-034 🟠 Two refreshes at the same instant still signed the user out
 

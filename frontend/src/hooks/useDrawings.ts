@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { deleteDrawing, listDrawings, saveDrawing } from '@/lib/api/drawings'
 import {
   canRedo as canRedoOf,
@@ -41,7 +41,6 @@ export function useDrawings(symbol: string) {
   // re-uploading every shape on every gesture.
   const persistedRef = useRef<Map<string, string>>(new Map())
   const symbolRef = useRef(symbol)
-  symbolRef.current = symbol
 
   useEffect(() => {
     let cancelled = false
@@ -73,7 +72,13 @@ export function useDrawings(symbol: string) {
   }, [symbol, loadAttempt])
 
   const stateRef = useRef(state)
-  stateRef.current = state
+
+  // Latest values for commit(), which runs later and asynchronously. Written at commit rather than
+  // during render (BUG-035), so a discarded render cannot leave them pointing at state that never was.
+  useLayoutEffect(() => {
+    symbolRef.current = symbol
+    stateRef.current = state
+  })
 
   /**
    * Pushes local changes to the server.

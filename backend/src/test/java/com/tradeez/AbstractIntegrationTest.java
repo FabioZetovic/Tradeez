@@ -30,6 +30,8 @@ public abstract class AbstractIntegrationTest {
 	static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
 
 	static {
+		// Tests start Spring without main(), so they set the JVM zone themselves (BUG-036).
+		TradeezApplication.useUtc();
 		DockerCheck.require(() -> DockerClientFactory.instance().isDockerAvailable());
 		POSTGRES.start();
 	}

@@ -35,7 +35,7 @@ export const login = (input: LoginInput) =>
 
 export const logout = () => apiFetch<void>('/api/auth/logout', { method: 'POST' })
 
-export const getMe = () => apiFetch<User>('/api/me')
+const getMe = () => apiFetch<User>('/api/me')
 
 /** Rotates the refresh cookie. Called on a 401, never speculatively. */
 const refresh = () => apiFetch<User>('/api/auth/refresh', { method: 'POST' })
