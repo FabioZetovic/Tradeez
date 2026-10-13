@@ -44,13 +44,13 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   // Real NQ by default (DEC-040); the simulated markets are no longer listed.
   const [symbol, setSymbol] = useState<string>('NQ')
   const [timeframe, setTimeframe] = useState<TimeframeCode>('5m')
-  const [series, setSeries] = useState<BarSeries | null>(null)
+  // The latest bars response, tagged with the request it answers (see `requestKey` below).
+  const [loaded, setLoaded] = useState<{ key: string; series?: BarSeries; error?: string } | null>(null)
   // ICT states every time in New York time (DEC-043).
   const [axisTimezone, setAxisTimezone] = useState<AxisTimezone>('new-york')
   // Where the window ends: null follows the newest imported minute.
   const [end, setEnd] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [instrumentsError, setInstrumentsError] = useState<string | null>(null)
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
 
@@ -83,7 +83,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
           list.length === 0 || list.some((i) => i.symbol === current) ? current : list[0].symbol,
         )
       })
-      .catch(() => setError('Could not load instruments.'))
+      .catch(() => setInstrumentsError('Could not load instruments.'))
   }, [])
 
   const instrument = instruments.find((i) => i.symbol === symbol)
@@ -96,28 +96,31 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       : clampEnd(end ?? dataTo, dataFrom, dataTo, windowDays(timeframe) * DAY)
   const noHistory = instrument !== undefined && dataTo === undefined
 
+  // Loading and error are derived, not stored: a response counts only for the request it answers, so
+  // "loading" is simply "the newest response is not for the current request yet". Nothing has to be
+  // reset when a request starts (BUG-035: no synchronous setState inside an effect).
+  const requestKey = windowEnd === null ? null : `${symbol}|${timeframe}|${windowEnd}`
   useEffect(() => {
-    if (windowEnd === null) return
+    if (windowEnd === null || requestKey === null) return
     let cancelled = false
-    setLoading(true)
-    setError(null)
-
     const { from, to } = chartWindow(timeframe, windowEnd)
     getBars({ symbol, timeframe, from, to })
       .then((result) => {
-        if (!cancelled) setSeries(result)
+        if (!cancelled) setLoaded({ key: requestKey, series: result })
       })
       .catch(() => {
-        if (!cancelled) setError('Could not load bars.')
+        if (!cancelled) setLoaded({ key: requestKey, error: 'Could not load bars.' })
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
     return () => {
       cancelled = true
     }
-  }, [symbol, timeframe, windowEnd])
+  }, [symbol, timeframe, windowEnd, requestKey])
+
+  const current = loaded !== null && loaded.key === requestKey ? loaded : null
+  const loading = requestKey === null ? !noHistory : current === null
+  const error = instrumentsError ?? current?.error ?? null
+  // The previous chart stays up while the next window loads, instead of flashing empty.
+  const series = current ? (current.series ?? null) : (loaded?.series ?? null)
 
   const lastBar = series?.bars.at(-1)
 
@@ -274,7 +277,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
         </div>
       )}
 
-      {loading && !noHistory && (
+      {loading && (
         <p role="status" className="text-sm text-subtle">
           Loading…
         </p>

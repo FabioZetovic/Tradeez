@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import type { AxisTimezone } from '@/lib/chart/timeAxis'
 import { LightweightChartAdapter } from '@/lib/chart/lightweightAdapter'
@@ -53,14 +53,19 @@ export function PriceChart({
   // to write it — remounted the chart on every parent render. During a replay the parent re-renders
   // on every bar, so the user's zoom and pan would be discarded continuously. A test caught this.
   const factoryRef = useRef(adapterFactory)
-  factoryRef.current = adapterFactory
 
   // The latest bars, readable from inside the mount effect. A remount builds a fresh chart with no
   // data, and the data effect below does not re-run because `bars` did not change — so without
   // seeding here, toggling the timezone left the user staring at an empty chart. Found by clicking
   // the toggle, not by the suite; there is a test for it now.
   const barsRef = useRef(bars)
-  barsRef.current = bars
+
+  // Both written at commit, before the mount effect below reads them — layout effects run first
+  // (BUG-035: never assign a ref during render).
+  useLayoutEffect(() => {
+    factoryRef.current = adapterFactory
+    barsRef.current = bars
+  })
 
   // What the mounted chart is currently displaying, so a data change can tell an append (a replay
   // step) from a different series (a new instrument or timeframe).

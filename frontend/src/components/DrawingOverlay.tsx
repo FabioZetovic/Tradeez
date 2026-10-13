@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import { hitTest, translateAnchors } from '@/lib/drawing/geometry'
 import { renderDrawings } from '@/lib/drawing/render'
@@ -29,7 +29,8 @@ interface DrawingOverlayProps {
 type Gesture =
   | { kind: 'idle' }
   | { kind: 'creating'; drawing: Drawing; placed: number }
-  | { kind: 'moving'; drawingId: string; lastX: number; lastY: number }
+  // A move is measured from where the drag started, against the anchors as they were then (BUG-038).
+  | { kind: 'moving'; drawingId: string; startX: number; startY: number; origin: Anchor[] }
   | { kind: 'reshaping'; drawingId: string; anchorIndex: number }
 
 /**
@@ -54,10 +55,18 @@ export function DrawingOverlay({
   const [gesture, setGesture] = useState<Gesture>({ kind: 'idle' })
 
   // Read inside callbacks that must not be recreated on every state change.
+  //
+  // BUG-035: both are written at commit, together, never during render. A drag reads them as a pair —
+  // the gesture's last pointer position and the drawing it applies the next delta to. Were one ever
+  // newer than the other, the next pointermove would apply a delta to the wrong position and the
+  // shape would jump. Updating them in the same layout effect keeps the pair consistent, and a render
+  // React discards can no longer leave a ref holding state that never committed.
   const stateRef = useRef(state)
-  stateRef.current = state
   const gestureRef = useRef(gesture)
-  gestureRef.current = gesture
+  useLayoutEffect(() => {
+    stateRef.current = state
+    gestureRef.current = gesture
+  })
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -198,10 +207,19 @@ export function DrawingOverlay({
         dispatch({ type: 'select', id: hit.drawingId })
         setGesture({ kind: 'reshaping', drawingId: hit.drawingId, anchorIndex: hit.anchorIndex })
         break
-      case 'body':
+      case 'body': {
+        const grabbed = state.drawings.find((d) => d.id === hit.drawingId)
+        if (!grabbed) break
         dispatch({ type: 'select', id: hit.drawingId })
-        setGesture({ kind: 'moving', drawingId: hit.drawingId, lastX: point.x, lastY: point.y })
+        setGesture({
+          kind: 'moving',
+          drawingId: hit.drawingId,
+          startX: point.x,
+          startY: point.y,
+          origin: grabbed.anchors,
+        })
         break
+      }
       case 'none':
         dispatch({ type: 'select', id: null })
         break
@@ -237,14 +255,17 @@ export function DrawingOverlay({
       const drawing = find(current.drawingId)
       if (!drawing) return
 
+      // BUG-038: always offset the anchors the drag started from by the total distance travelled.
+      // Translating the previous preview by each step's few pixels re-snapped the shape to the
+      // nearest bar every time, so a slow drag — under half a bar per event — never moved sideways,
+      // and a faster one drifted by the accumulated rounding.
       const anchors = translateAnchors(
-        drawing.anchors,
-        point.x - current.lastX,
-        point.y - current.lastY,
+        current.origin,
+        point.x - current.startX,
+        point.y - current.startY,
         projection,
       )
       dispatch({ type: 'preview', drawing: { ...drawing, anchors } })
-      setGesture({ ...current, lastX: point.x, lastY: point.y })
       return
     }
 

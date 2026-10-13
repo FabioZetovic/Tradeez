@@ -17,30 +17,8 @@
 
 ## Open
 
-### BUG-035 🟡 Seven lint warnings predate the practice slice
-
-**Status:** verified — `npm run lint` (oxlint), session 015
-**Affects:** `PriceChart.tsx` (2), `useDrawings.ts` (2), `DrawingOverlay.tsx` (2), `ChartWorkspace.tsx` (1)
-
-Found while double-checking the practice PR, which is the first time anyone ran the project's own
-`lint` script. The PR had added seven warnings of its own; those were fixed before merging, leaving
-exactly the seven that `master` already had:
-
-- six `react(refs)` — the "latest value" pattern, `someRef.current = value` written during
-  render. React 19 may discard a render, which can leave a ref holding a value from a render that
-  never committed;
-- one `react(set-state-in-effect)` — `ChartWorkspace` resets loading and error state
-  synchronously at the start of its bars effect.
-
-**Why not fixed with the rest.** Two of the refs are the drawing overlay's gesture state, read by
-pointer handlers during a drag. Moving the assignment into an effect changes *when* a handler sees
-the new value, and if a render has not committed between two pointer moves, a dragged shape could
-jump. That needs hands-on browser testing of drags, which the session-015 browser pane could not
-provide (it was not rendering frames). Deferred to the next batch rather than changed blind.
-
----
-
-Everything else is closed; each entry moved to [Fixed](#fixed) with its original description intact.
+*No open bugs.* BUG-035, the last one, was fixed in session 017 before the merge of
+`feat/real-nq-data`. Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
 
@@ -453,6 +431,62 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-038 🟠 A slow drag did not move a drawing sideways at all
+
+**Status:** verified — found while testing BUG-035's fix in the browser, session 017; a test fails on the old code
+**Affects:** `frontend/src/components/DrawingOverlay.tsx` (moving a drawing)
+
+**What happened.** Moving a drawing translated its *last preview* by the few pixels of each
+pointermove, and the chart's projection snaps a pixel to the nearest bar's time. A step smaller than
+half a bar therefore rounded straight back to the same bar, every time: a drag of a pixel or two per
+event — an ordinary slow drag — never moved the shape sideways. Faster drags drifted instead,
+accumulating the rounding: in the browser, the same 100px drag moved a rectangle 17 bars in one burst
+and 20 bars in ten steps.
+
+**How it was found.** The BUG-035 fix needed proof that drags were unchanged, so the same scripted
+drag (a burst of 10 moves, then 10 paced moves) was run on the old and the new code. Both gave
+identical results — the fix was safe — and both showed the burst and the paced drag disagreeing.
+
+**✅ FIXED — Session 017.** A move is now measured from where the drag started, against the anchors as
+they were then: `translateAnchors(origin, totalDx, totalDy)`, so rounding happens once, not per
+event. In the browser the burst, the paced drag and a 100 × 1px drag all move the full distance. The
+test projection used by the overlay tests never snapped, which is why no test caught it; the new test
+uses one that snaps to 10px bars and fails on the old code (`expected 1200 to be 1500`).
+
+### BUG-035 🟡 Seven lint warnings predate the practice slice
+
+**Status:** verified — `npm run lint` (oxlint), session 015
+**Affects:** `PriceChart.tsx` (2), `useDrawings.ts` (2), `DrawingOverlay.tsx` (2), `ChartWorkspace.tsx` (1)
+
+Found while double-checking the practice PR, which is the first time anyone ran the project's own
+`lint` script. The PR had added seven warnings of its own; those were fixed before merging, leaving
+exactly the seven that `master` already had:
+
+- six `react(refs)` — the "latest value" pattern, `someRef.current = value` written during
+  render. React 19 may discard a render, which can leave a ref holding a value from a render that
+  never committed;
+- one `react(set-state-in-effect)` — `ChartWorkspace` resets loading and error state
+  synchronously at the start of its bars effect.
+
+**Why not fixed with the rest.** Two of the refs are the drawing overlay's gesture state, read by
+pointer handlers during a drag. Moving the assignment into an effect changes *when* a handler sees
+the new value, and if a render has not committed between two pointer moves, a dragged shape could
+jump. That needs hands-on browser testing of drags, which the session-015 browser pane could not
+provide (it was not rendering frames). Deferred to the next batch rather than changed blind.
+
+**✅ FIXED — Session 017, before the merge of `feat/real-nq-data`.** All seven warnings are gone and
+`npm run lint` now runs `oxlint --deny-warnings`, so a new one fails the check.
+
+- *Refs written during render* (`DrawingOverlay`, `useDrawings`, `PriceChart`): each ref is now
+  written in a `useLayoutEffect` — at commit, before any passive effect reads it. The overlay writes
+  its two refs **together**, because a drag reads them as a pair (the gesture's position and the
+  drawing it moves); one newer than the other is exactly the jump this entry worried about.
+- *setState inside an effect* (`ChartWorkspace`): loading and error are no longer stored. Each bars
+  response is tagged with the request it answers, and "loading" is derived as "the newest response is
+  not for the current request".
+- **Drag behaviour checked in the browser** with the same scripted drags on the old and the new code:
+  identical results. That comparison is what exposed BUG-038.
 
 ### BUG-037 🟠 The Vite starter template's stylesheet was never removed
 
