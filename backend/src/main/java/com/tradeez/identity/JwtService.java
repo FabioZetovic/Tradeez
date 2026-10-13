@@ -109,10 +109,6 @@ public class JwtService {
 		}
 	}
 
-	public Duration getAccessTokenTtl() {
-		return accessTokenTtl;
-	}
-
 	public Duration getRefreshTokenTtl() {
 		return refreshTokenTtl;
 	}

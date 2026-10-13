@@ -1,8 +1,9 @@
 # Tradeez
 
-A futures day-trading practice platform. Replay a moment in market history with the outcome
-hidden, commit to a trade plan, watch it play out, and get graded on the **quality of the
-decision** — not just the profit.
+Learn to trade with **ICT concepts** by paper trading real NQ futures history (DEC-041). Replay a
+moment with the outcome hidden, commit to a trade plan, watch it play out, and get feedback on the
+**quality of the decision** — not just the profit. The curriculum is specified concept by concept in
+[docs/ICT_CONCEPTS.md](docs/ICT_CONCEPTS.md).
 
 > **Educational software.** Not financial advice, and not a trading venue. Simulated results do not
 > guarantee live results. Futures are leveraged instruments; most retail day traders lose money.
@@ -13,11 +14,13 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 ### What works today
 
 - **Accounts:** register and sign in. Sessions use HttpOnly cookies with rotating refresh tokens.
-- **Chart:** a simulated E-mini Nasdaq market (`DEMO-NQ`, `DEMO-MNQ`, clearly labelled as
-  simulated), from 1-minute to 1-hour candles, with times shown in exchange time.
+- **Chart:** two years of **real NQ** one-minute history (Oct 2024 →), from Massive's free plan
+  (DEC-042), aggregated to 3-minute … 1-hour candles. Jump to any date or 1W–2Y back; times in New
+  York time, the clock ICT is taught in. Every series names its source.
 - **Drawing tools:** horizontal line, trend line, rectangle and position (risk/reward). They are
   saved per account, with undo and redo.
-- **Practice:** a session opens at a random hidden moment. You place a bracket trade and lock it,
+- **Practice** (still on the labelled simulated market until its date can be hidden — T4): a
+  session opens at a random hidden moment. You place a bracket trade and lock it,
   then step the replay forward bar by bar.
   - Each trade is resolved on one-second data, and a genuinely undecidable one is reported as
     *ambiguous*, not guessed.
@@ -27,8 +30,8 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   detector and is withheld until you check; each gap is explained in the detector's own numbers. On
   simulated data a drill is labelled a developer fixture and never graded.
 
-**Not built yet:** graded drills (they need permitted real data), other drill types, any score or
-rating, real market data, and CSV import.
+**Not built yet:** practice and drills on real data, the ICT detectors beyond fair value gaps,
+graded drills, any score or rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 
 ---
@@ -53,6 +56,7 @@ work.
 |---|---|
 | **[docs/DECISIONS.md](docs/DECISIONS.md)** | ⭐ **Authoritative.** The architecture decision record. Supersedes everything else. |
 | [docs/PATH.md](docs/PATH.md) | LLM handoff — current state, file claims, next task, invariants |
+| [docs/ICT_CONCEPTS.md](docs/ICT_CONCEPTS.md) | The ICT curriculum: every concept, its draft rule, how it is taught |
 | [docs/DATA_STRATEGY.md](docs/DATA_STRATEGY.md) | Required before touching market data or the drill engine |
 | [docs/BUGS.md](docs/BUGS.md) | Known defects, deliberate limitations, and lessons from fixed bugs |
 | [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) | Human-readable project history, session by session |
@@ -77,12 +81,13 @@ work.
 | Layer | Choice | Why |
 |---|---|---|
 | Frontend | React 19 + TypeScript + Vite | |
+| Styling | Tailwind CSS 4, design tokens in `src/index.css` | DEC-044 |
 | Backend | Java 21 + Spring Boot 3.5 | Not Boot 4 — see DEC-036 |
 | Database | PostgreSQL 17 | DEC-001 |
 | Migrations | Flyway | DEC-030 |
 | API contract | springdoc-openapi → `openapi-typescript` | DEC-007 |
 | Auth | JWT in HttpOnly cookies, CSRF, strict CORS | DEC-032 |
-| Market data | Generated `DEMO-NQ` / `DEMO-MNQ` (local CSV import planned) | DEC-033 |
+| Market data | Real NQ via Massive (free plan); Databento importer for deeper history; simulated `DEMO-NQ` only behind Practice and Drills | DEC-040, DEC-042 |
 
 ---
 
@@ -112,6 +117,23 @@ cd frontend && npm install && npm run dev
 
 Open the app, create an account, and you land on the chart. The **Practice** tab runs replay
 sessions.
+
+**4 — Import real NQ history** (once; free)
+
+Put a Massive API key in `backend/.env` — the gitignored file, **not** `.env.example`:
+
+```
+MASSIVE_API_KEY=your-key
+```
+
+Then, from `backend/`, dry-run first (it lists what it would fetch), then import:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.main.web-application-type=none --tradeez.import.symbol=NQ --tradeez.import.from=2024-10-08 --tradeez.import.to=2026-10-03 --tradeez.import.dry-run=true"
+```
+
+Run it again with `--tradeez.import.dry-run=false`. About 45 requests at the free plan's five a
+minute; finished months are skipped on a rerun.
 
 If ports 8080 or 5173 are taken (Docker Desktop holds both on some machines, see ENV-002), run the
 backend with `PORT=8081 ./mvnw spring-boot:run` and the frontend with
@@ -144,16 +166,11 @@ running. If it is not, the tests say so in plain words rather than failing with 
 error (ENV-001). An in-memory database would pass while hiding migration and schema-validation
 failures.
 
-### Regenerating the API types
+### API types
 
-With the backend running:
-
-```bash
-cd frontend && npm run api:types
-```
-
-`src/lib/api/schema.d.ts` is generated and gitignored — never hand-edit it, and never hand-write a
-server payload type on the client.
+DEC-007 makes the OpenAPI document the contract, and `npm run api:types` (backend running) generates
+`src/lib/api/schema.d.ts` from it. **Not wired in yet:** the payload types in `src/lib/api/*.ts`
+are still hand-written mirrors of the backend DTOs — keep them in step until they are replaced.
 
 ---
 
@@ -162,8 +179,8 @@ server payload type on the client.
 ```
 Tradeez/
 ├── backend/           Spring Boot — com.tradeez.{identity,marketdata,charting,practice,analysis,drills,common,config}
-│   └── src/main/resources/db/migration/   Flyway migrations (V1–V6)
-├── frontend/          React + Vite
+│   └── src/main/resources/db/migration/   Flyway migrations (V1–V8)
+├── frontend/          React + Vite + Tailwind
 │   └── src/{components,hooks,lib/{api,chart,drawing,practice,drills},test}/
 ├── docs/              Decisions, strategy, history, handoff
 └── docker-compose.yml Local PostgreSQL

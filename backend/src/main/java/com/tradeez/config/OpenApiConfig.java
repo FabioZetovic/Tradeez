@@ -26,8 +26,9 @@ public class OpenApiConfig {
 				Educational software. Not financial advice, and not a trading venue. Simulated \
 				results do not guarantee live results (DEC-015).
 
-				Market data served by this API is SIMULATED unless explicitly labelled otherwise \
-				(DEC-033). This service is not a market-data redistributor (INVARIANT 7).""")
+				Market data is real CME history imported for private, local use (IMPORTED_PRIVATE, \
+				DEC-040) or simulated and labelled as such (DEC-033); every series names its \
+				dataClass and source. This service is not a market-data redistributor (INVARIANT 7).""")
 			.license(new License().name("Academic project — Tradeez")));
 	}
 }

@@ -70,10 +70,6 @@ public class TradePlan {
 		this.submittedAt = Instant.now();
 	}
 
-	public FillEngine.Plan toEnginePlan() {
-		return new FillEngine.Plan(direction, stopTicks, targetTicks, contracts);
-	}
-
 	public UUID getId() {
 		return id;
 	}
@@ -106,7 +102,4 @@ public class TradePlan {
 		return submittedCursor;
 	}
 
-	public Instant getSubmittedAt() {
-		return submittedAt;
-	}
 }

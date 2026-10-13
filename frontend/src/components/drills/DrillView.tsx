@@ -12,6 +12,8 @@ import {
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { explainFvg, toggleMark } from '@/lib/drills/fvg'
+import { Button, Chip, Notice, Panel, Segmented } from '../ui'
+import { errorClass, panelTitle } from '@/lib/styles'
 
 interface DrillViewProps {
   adapterFactory?: () => ChartAdapter
@@ -64,61 +66,56 @@ export function DrillView({ adapterFactory }: DrillViewProps) {
   const toggle = useCallback((time: number) => setMarks((current) => toggleMark(current, time)), [])
 
   return (
-    <section className="practice">
-      <section className="panel" aria-label="Drills">
-        <h2>Drills</h2>
-        <p className="muted">
+    <section className="flex flex-col gap-4">
+      <Panel aria-label="Drills">
+        <h2 className="mb-2 text-lg font-semibold">Drills</h2>
+        <p className="max-w-3xl text-sm text-subtle">
           Short exercises on one idea at a time. The first: find every fair value gap in a stretch of
           chart. Mark the middle candle of each one, then check.
         </p>
-        <div className="button-row">
-          <div className="timeframes" role="group" aria-label="Drill timeframe">
-            {DRILL_TIMEFRAMES.map((tf) => (
-              <button
-                key={tf}
-                type="button"
-                aria-pressed={tf === timeframe}
-                className={tf === timeframe ? 'tf tf--active' : 'tf'}
-                onClick={() => setTimeframe(tf)}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="primary" disabled={busy} onClick={() => void start()}>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Segmented<string>
+            options={DRILL_TIMEFRAMES}
+            value={timeframe}
+            onChange={setTimeframe}
+            label="Drill timeframe"
+          />
+          <Button variant="primary" disabled={busy} onClick={() => void start()}>
             {drill ? 'Next drill' : 'Start a drill'}
-          </button>
+          </Button>
         </div>
         {error && (
-          <p role="alert" className="error">
+          <p role="alert" className={`mt-3 ${errorClass}`}>
             {error}
           </p>
         )}
-      </section>
+      </Panel>
 
       {drill && (
         <>
           <SimulatedDataBanner dataClass={drill.dataClass} />
           {drill.fixture && (
-            <p className="assumption" role="note" data-testid="fixture-notice">
+            <Notice role="note" data-testid="fixture-notice">
               {drill.fixtureNotice}
-            </p>
+            </Notice>
           )}
 
-          <section className="panel" aria-label="Task">
-            <h3>Fair value gaps · {drill.instrument} · {drill.timeframe}</h3>
-            <p>{drill.instructions}</p>
-            <details className="provenance">
-              <summary>The rule ({drill.rule.version})</summary>
-              <p className="small">{drill.rule.definition}</p>
-              <p className="small muted">
+          <Panel aria-label="Task">
+            <h3 className={panelTitle}>
+              Fair value gaps · {drill.instrument} · {drill.timeframe}
+            </h3>
+            <p className="text-sm">{drill.instructions}</p>
+            <details className="mt-3 text-xs">
+              <summary className="cursor-pointer text-subtle">The rule ({drill.rule.version})</summary>
+              <p className="mt-2">{drill.rule.definition}</p>
+              <p className="mt-2 text-subtle">
                 {drill.rule.methodologySource}. Reproducible under this rule — not proof that a gap
                 matters, or that the method it comes from is right.
               </p>
             </details>
-          </section>
+          </Panel>
 
-          <div className="chart-area">
+          <div className="flex min-w-0 items-start gap-2">
             <PriceChart
               bars={drill.bars}
               tickSize={drill.tickSize}
@@ -138,45 +135,43 @@ export function DrillView({ adapterFactory }: DrillViewProps) {
           </div>
 
           {!answered && (
-            <section className="panel" aria-label="Answer">
-              <div className="button-row">
-                <span data-testid="mark-count">
+            <Panel aria-label="Answer">
+              <div className="flex flex-wrap items-center gap-3">
+                <span data-testid="mark-count" className="text-sm text-subtle">
                   {marks.length === 1 ? '1 candle marked' : `${marks.length} candles marked`}
                 </span>
-                <button type="button" disabled={busy || marks.length === 0} onClick={() => setMarks([])}>
+                <Button disabled={busy || marks.length === 0} onClick={() => setMarks([])}>
                   Clear marks
-                </button>
-                <button type="button" className="primary" disabled={busy} onClick={() => void check()}>
+                </Button>
+                <Button variant="primary" disabled={busy} onClick={() => void check()}>
                   Check answer
-                </button>
+                </Button>
               </div>
-            </section>
+            </Panel>
           )}
 
           {drill.result && (
-            <section className="panel" aria-label="Result">
-              <h3 data-testid="drill-summary">
+            <Panel aria-label="Result">
+              <h3 className={panelTitle} data-testid="drill-summary">
                 Found {drill.result.found} of {drill.result.found + drill.result.missed}
                 {drill.result.extra > 0 &&
                   ` · ${drill.result.extra} extra ${drill.result.extra === 1 ? 'mark' : 'marks'}`}
               </h3>
-              <p className="small muted">Feedback on this chart, not a grade.</p>
-              <ol className="drill-gaps">
+              <p className="mb-3 text-xs text-subtle">Feedback on this chart, not a grade.</p>
+              <ol className="list-decimal space-y-3 pl-5 text-sm">
                 {drill.result.setups.map((setup) => (
                   <li key={setup.id} data-testid="drill-gap">
                     <strong>
                       {setup.direction === 'BULLISH' ? 'Bullish' : 'Bearish'} gap ·{' '}
                       {formatSessionTime(setup.anchorTime, drill.exchangeTimezone)}
                     </strong>{' '}
-                    <span className={setup.found ? 'chip chip--complete' : 'chip chip--in_trade'}>
-                      {setup.found ? 'found' : 'missed'}
-                    </span>
+                    <Chip tone={setup.found ? 'good' : 'caution'}>{setup.found ? 'found' : 'missed'}</Chip>
                     {explainFvg(
                       setup,
                       drill.tickSize,
                       drill.rule.parameters.minGapPercentOfAverageRange,
                     ).map((line) => (
-                      <p key={line} className="small">
+                      <p key={line} className="mt-1 text-xs text-subtle">
                         {line}
                       </p>
                     ))}
@@ -184,7 +179,7 @@ export function DrillView({ adapterFactory }: DrillViewProps) {
                 ))}
               </ol>
               {drill.result.extraMarks.length > 0 && (
-                <p className="small" data-testid="drill-extra">
+                <p className="mt-3 text-xs" data-testid="drill-extra">
                   Marked, but not the middle candle of a gap under this rule:{' '}
                   {drill.result.extraMarks
                     .map((t) => formatSessionTime(t, drill.exchangeTimezone))
@@ -192,7 +187,7 @@ export function DrillView({ adapterFactory }: DrillViewProps) {
                   .
                 </p>
               )}
-            </section>
+            </Panel>
           )}
         </>
       )}

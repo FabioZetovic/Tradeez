@@ -12,7 +12,7 @@ import type { DomainBar } from '../chart/types'
  */
 
 export type Direction = 'LONG' | 'SHORT'
-export type PracticeStatus = 'ANALYSING' | 'IN_TRADE' | 'COMPLETE'
+type PracticeStatus = 'ANALYSING' | 'IN_TRADE' | 'COMPLETE'
 export type Outcome = 'TARGET' | 'STOP' | 'AMBIGUOUS' | 'TIME_EXIT'
 
 export interface PlanView {
@@ -27,7 +27,7 @@ export interface PlanView {
   plannedRewardRisk: number
 }
 
-export interface EntryView {
+interface EntryView {
   time: number
   ticks: number
 }

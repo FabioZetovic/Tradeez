@@ -126,6 +126,14 @@ describe('App — signed in', () => {
     expect(await screen.findByText('Fabio')).toBeInTheDocument()
   })
 
+  it('BUG-032: the page has a definite width, so the chart cannot hold it wider than the window', async () => {
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await screen.findByText('Fabio')
+    const main = screen.getByRole('main')
+    expect(main).toHaveClass('w-full')
+    expect(main).toHaveClass('min-w-0')
+  })
+
   it('renders the chart with the fetched bars', async () => {
     const adapter = new FakeChartAdapter()
     render(<App adapterFactory={() => adapter} />)

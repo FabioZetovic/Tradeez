@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import type { AxisTimezone } from '@/lib/chart/timeAxis'
 import { LightweightChartAdapter } from '@/lib/chart/lightweightAdapter'
+import { cx } from '@/lib/styles'
 
 interface PriceChartProps {
   bars: DomainBar[]
@@ -27,6 +28,8 @@ interface PriceChartProps {
    * history is days long and the decision is about the last hour or two.
    */
   recentBars?: number
+  /** The chart's height, as Tailwind classes. The renderer fills whatever box it is given. */
+  heightClass?: string
 }
 
 export function PriceChart({
@@ -37,6 +40,7 @@ export function PriceChart({
   adapterFactory,
   overlay,
   recentBars,
+  heightClass = 'h-[30rem]',
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ChartAdapter | null>(null)
@@ -112,8 +116,12 @@ export function PriceChart({
   // The overlay is positioned against this frame, and pointer events on the chart bubble up to it —
   // which is what lets the overlay hit-test while remaining transparent to the pointer.
   return (
-    <div className="chart-frame">
-      <div ref={containerRef} className="chart" data-testid="price-chart" />
+    <div className="relative min-w-0 flex-1">
+      <div
+        ref={containerRef}
+        className={cx('overflow-hidden rounded-lg border border-line bg-surface', heightClass)}
+        data-testid="price-chart"
+      />
       {overlay?.(mountedAdapter)}
     </div>
   )

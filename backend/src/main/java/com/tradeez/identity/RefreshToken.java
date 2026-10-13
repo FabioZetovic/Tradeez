@@ -104,15 +104,8 @@ public class RefreshToken {
 		return user;
 	}
 
-	public Instant getExpiresAt() {
-		return expiresAt;
-	}
-
 	public Instant getRevokedAt() {
 		return revokedAt;
 	}
 
-	public UUID getReplacedBy() {
-		return replacedBy;
-	}
 }

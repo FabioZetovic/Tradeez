@@ -454,6 +454,29 @@ structure out of a formula.
 
 ---
 
+### BUG-037 🟠 The Vite starter template's stylesheet was never removed
+
+**Status:** verified — Fabio's screenshot, session 017 (2026-10-13)
+**Affects:** `frontend/src/index.css`, `App.css`, every screen
+
+**What happened.** The frontend was scaffolded from Vite's React template in session 006 and its
+`index.css` was never deleted. It pinned `#root` to a 1126px column with borders on both sides,
+centred all text, set 56px headings and switched palettes on the OS light/dark setting. The app's own
+`App.css` was written on top and fought it rule by rule. On Fabio's 1920px screen the result was a
+boxed column, a sign-in card stranded on the left of it and an indented title: *"this looks extremely
+ugly and nothing is positioned correctly."*
+
+**Lesson.** Two earlier bugs were symptoms of this same leftover — BUG-031 (the title vanished on a
+light-mode machine because the template coloured headings) and BUG-032 (a sideways scroll because the
+template made `#root` a flex column). Each was patched where it showed instead of removing the
+cause. Scaffolding has to be cleared in the session that creates it.
+
+**✅ FIXED — Session 017.** Both stylesheets deleted along with the template's assets (Vite and React
+logos, `hero.png`, an icon sheet, the template README, the Vite favicon) and the unused
+`react-router-dom`. All styling is Tailwind now (DEC-044). `styles.test.ts` fails if `#root`,
+centred text, the 1126px column or an OS-dependent palette ever returns; the BUG-032 width rule is
+asserted on the rendered `<main>` in `App.test.tsx`.
+
 ### BUG-036 🟠 The JVM was never set to UTC, so stored session times read back an hour late
 
 **Status:** verified — `MassiveImporterTest` failed on it, session 017

@@ -1410,6 +1410,22 @@ because the chart stopped its window one day after the first candle in the datab
 first full window. Each chart also says where its data came from — "massive" — read from the import
 records rather than written into the code.
 
+**A new look, and less code.** Fabio sent a screenshot of the sign-in page on his wide screen: a
+narrow boxed column with the form stuck to one side. The cause was older than any feature — the
+stylesheet that comes with Vite's starter template had never been deleted, and the app's own styles
+had been fighting it ever since. Two earlier bugs turned out to be symptoms of the same leftover,
+each patched where it showed. This time the cause went: both stylesheets, the template's logos and
+images, its README and its favicon were deleted, and every screen was rebuilt with Tailwind CSS
+(DEC-044). The colours are the chart's own, so the page and the chart now match exactly; the app has
+a top bar with its sections, a centred sign-in, and a chart that fills the screen.
+
+Fabio also asked for everything unneeded to be removed before the project grows further. A tool found
+the frontend's dead code — an unused routing library, two API calls nothing made, and helpers exported
+for no one — and a small scanner did the same for the backend: 64 lines of methods nothing called.
+Each finding was checked by hand before it was deleted, and one over-eager deletion (it would have
+taken a database field and a constructor with it) was caught and redone before anything ran. The
+README, which still described the simulated market as the chart, was brought up to date.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1420,7 +1436,7 @@ and looks the same, but is published with the code. Nothing was published, becau
 their files one by one. Since the mistake is easy to make again, a test now fails the build whenever
 the example file contains a key — and it names the setting without ever printing the key.
 
-**By the numbers:** backend tests 164 → 223, frontend tests 131 → 146, two migrations (V7: stored market
+**By the numbers:** backend tests 164 → 223, frontend tests 131 → 148, two migrations (V7: stored market
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document.
 

@@ -110,6 +110,26 @@ JDK 26, and it stays deployable on hosting platforms whose Java buildpacks track
 
 Revisit once springdoc ships Boot 4 support. Until then, **do not bump the major version.**
 
+**DEC-044 — Tailwind CSS for all styling** · `IMPLEMENTED` · Fabio, Session 017 (2026-10-13)
+
+Fabio, on a screenshot of the sign-in page: *"this looks extremely ugly and nothing is positioned
+correctly"*, then *"use tailwind"* and *"rewrite whole css and make it in tailwind … delete the damn
+vite starter styles"*. (He recalled asking for Tailwind at the start; no record of that request
+exists in these docs or the transcripts Claude can read — it is recorded here.)
+
+- **Tailwind CSS 4** via `@tailwindcss/vite`. No hand-written stylesheets: `src/index.css` holds only
+  the Tailwind import, the **design tokens** (`@theme`: canvas, surface, raised, line, ink, subtle,
+  brand, up, down, warn) and two base rules (dark colour scheme, body defaults).
+- **One palette for page and chart.** The tokens are the colours `lightweightAdapter.ts` already
+  used, so the chart canvas and the UI around it cannot drift apart.
+- **A few shared pieces, not a component library.** `components/ui.tsx` (Button, Segmented, Panel,
+  Chip, Notice) and `lib/styles.ts` (`cx` and class strings for fields, labels, key–value lists).
+  Utilities otherwise live at the call site.
+- **No conflicting utilities.** Two classes for the same property are resolved by stylesheet order,
+  not class order, so a button's resting and active looks are separate complete sets, and a
+  `className` passed in is for layout only.
+- Font: Inter (variable), bundled from npm — no external font request.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and

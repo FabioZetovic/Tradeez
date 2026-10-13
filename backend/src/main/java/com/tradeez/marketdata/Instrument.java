@@ -50,9 +50,6 @@ public class Instrument {
 	@Column(name = "tick_value_cents", nullable = false)
 	private long tickValueCents;
 
-	@Column(name = "point_multiplier_cents", nullable = false)
-	private long pointMultiplierCents;
-
 	@Column(name = "exchange_timezone", nullable = false)
 	private String exchangeTimezone;
 
@@ -61,9 +58,6 @@ public class Instrument {
 
 	@Column(name = "session_close_local", nullable = false)
 	private LocalTime sessionCloseLocal;
-
-	@Column(name = "maintenance_break_minutes", nullable = false)
-	private int maintenanceBreakMinutes;
 
 	@Enumerated(EnumType.STRING)
 	@JdbcTypeCode(SqlTypes.NAMED_ENUM)
@@ -79,22 +73,6 @@ public class Instrument {
 
 	protected Instrument() {
 		// for JPA
-	}
-
-	/** Renders a tick count as a price. The only place ticks become a decimal. */
-	public BigDecimal ticksToPrice(long ticks) {
-		return tickSize.multiply(BigDecimal.valueOf(ticks));
-	}
-
-	/**
-	 * Exact P&L in cents for a movement of {@code ticks}.
-	 *
-	 * <p>Integer arithmetic throughout — this is the reason prices are stored as ticks at all
-	 * (INVARIANT 3). No rounding, no accumulated floating-point drift, no result a trader cannot
-	 * reconcile by hand.
-	 */
-	public long pnlCents(long ticks, int contracts) {
-		return ticks * tickValueCents * contracts;
 	}
 
 	public UUID getId() {
@@ -125,10 +103,6 @@ public class Instrument {
 		return tickValueCents;
 	}
 
-	public long getPointMultiplierCents() {
-		return pointMultiplierCents;
-	}
-
 	public String getExchangeTimezone() {
 		return exchangeTimezone;
 	}
@@ -141,10 +115,6 @@ public class Instrument {
 		return sessionCloseLocal;
 	}
 
-	public int getMaintenanceBreakMinutes() {
-		return maintenanceBreakMinutes;
-	}
-
 	public DataClass getDataClass() {
 		return dataClass;
 	}
@@ -153,7 +123,4 @@ public class Instrument {
 		return createdAt;
 	}
 
-	public boolean isListed() {
-		return listed;
-	}
 }

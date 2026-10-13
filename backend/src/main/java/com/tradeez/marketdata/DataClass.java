@@ -21,15 +21,5 @@ public enum DataClass {
 
 	SIMULATED,
 	IMPORTED_PRIVATE,
-	LICENSED_DEPLOYABLE;
-
-	/** Whether a learner's score may be affected by data of this class (DEC-034). */
-	public boolean isTeachable() {
-		return this != SIMULATED;
-	}
-
-	/** Whether a publicly deployed instance may serve this data (DEC-035). */
-	public boolean isDeployable() {
-		return this == SIMULATED || this == LICENSED_DEPLOYABLE;
-	}
+	LICENSED_DEPLOYABLE
 }

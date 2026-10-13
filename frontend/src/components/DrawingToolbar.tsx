@@ -1,5 +1,8 @@
 import type { SnapMode } from '@/lib/drawing/snap'
 import type { DrawingKind } from '@/lib/drawing/types'
+import { Button } from './ui'
+
+const Divider = () => <span className="mx-1 my-0.5 h-px bg-line" />
 
 interface DrawingToolbarProps {
   activeTool: DrawingKind | null
@@ -42,62 +45,63 @@ export function DrawingToolbar({
   onDelete,
 }: DrawingToolbarProps) {
   return (
-    <div className="drawing-toolbar" role="toolbar" aria-label="Drawing tools">
-      <button
-        type="button"
-        className={activeTool === null ? 'tool tool--active' : 'tool'}
+    <div
+      role="toolbar"
+      aria-label="Drawing tools"
+      className="flex flex-col gap-1 rounded-lg border border-line bg-surface p-1"
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        active={activeTool === null}
         aria-pressed={activeTool === null}
         title="Select and move (Esc)"
         onClick={() => onSelectTool(null)}
       >
         ⌖
-      </button>
+      </Button>
 
-      <span className="drawing-toolbar__divider" />
+      <Divider />
 
       {TOOLS.map((tool) => (
-        <button
+        <Button
           key={tool.kind}
-          type="button"
-          className={activeTool === tool.kind ? 'tool tool--active' : 'tool'}
+          variant="ghost"
+          size="icon"
+          active={activeTool === tool.kind}
           aria-pressed={activeTool === tool.kind}
           aria-label={tool.hint}
           title={tool.hint}
           onClick={() => onSelectTool(activeTool === tool.kind ? null : tool.kind)}
         >
           {tool.label}
-        </button>
+        </Button>
       ))}
 
-      <span className="drawing-toolbar__divider" />
+      <Divider />
 
-      <button
-        type="button"
-        className={snapMode === 'magnet' ? 'tool tool--active' : 'tool'}
+      <Button
+        variant="ghost"
+        size="icon"
+        active={snapMode === 'magnet'}
         aria-pressed={snapMode === 'magnet'}
         title="Magnet — snap to bar highs, lows, opens and closes"
         onClick={onToggleSnap}
       >
         🧲
-      </button>
+      </Button>
 
-      <span className="drawing-toolbar__divider" />
+      <Divider />
 
-      <button type="button" className="tool" disabled={!canUndo} title="Undo (Ctrl+Z)" onClick={onUndo}>
+      <Button variant="ghost" size="icon" disabled={!canUndo} title="Undo (Ctrl+Z)" onClick={onUndo}>
         ↶
-      </button>
-      <button type="button" className="tool" disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onClick={onRedo}>
+      </Button>
+      <Button variant="ghost" size="icon" disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onClick={onRedo}>
         ↷
-      </button>
-      <button
-        type="button"
-        className="tool"
-        disabled={!hasSelection}
-        title="Delete selected (Del)"
-        onClick={onDelete}
-      >
+      </Button>
+      <Button variant="ghost" size="icon" disabled={!hasSelection} title="Delete selected (Del)" onClick={onDelete}>
         🗑
-      </button>
+      </Button>
     </div>
   )
 }

@@ -283,7 +283,7 @@ export function DrawingOverlay({
   return (
     <canvas
       ref={canvasRef}
-      className="drawing-overlay"
+      className="absolute inset-0 z-[2]"
       data-testid="drawing-overlay"
       data-interactive={interactive}
       style={{

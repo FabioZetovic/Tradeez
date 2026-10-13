@@ -57,7 +57,7 @@
 ```yaml
 last_session: 017   # in progress — real data imported, chart switched (T1–T3)
 last_author: CLAUDE
-last_updated: 2026-10-04
+last_updated: 2026-10-13
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
@@ -65,12 +65,12 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/fvg-drill merged 2026-09-30 as 2280d37 (no PR); PR #1 merged 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 223/223 (Testcontainers), frontend 146/146 + typecheck; lint: 7 known warnings (BUG-035), none new
+build_passing: true  # backend 223/223 (Testcontainers), frontend 148/148 + typecheck + build; knip clean; lint: 7 known warnings (BUG-035), none new
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
   backend:  Spring Boot 3.5.16 / Java 21 (JDK 26 installed, targets 21)
-  frontend: React 19 / Vite 8 / TypeScript 6
+  frontend: React 19 / Vite 8 / TypeScript 6 / Tailwind CSS 4 (DEC-044)
   database: PostgreSQL 17 via docker-compose
 
 files_in_repo:
@@ -95,7 +95,8 @@ files_in_repo:
     lib/drawing/  # geometry, hit testing, snapping, undo store, renderer
     lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
     lib/drills/   # candle picking, marks, explanations generated from detector evidence
-    components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar
+    components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar; ui.tsx = shared Button/Segmented/Panel/Chip/Notice
+    lib/styles.ts # cx() and shared Tailwind class strings (DEC-044); tokens live in src/index.css @theme
     components/practice/  # journal, session screen, plan panel, result card
     components/drills/    # drill screen and click overlay
     hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession
@@ -258,6 +259,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-034 | Simulated setups are detector fixtures only; graded drills require permitted real data. |
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
+| DEC-044 | **Tailwind CSS 4 for all styling.** Tokens in `src/index.css` (`@theme`), shared with the chart; `components/ui.tsx` + `lib/styles.ts`; no other CSS. Never give one element two utilities for the same property. |
 | DEC-043 | **Default ICT reading = the 2022 mentorship** (FVG entries after sweep + displacement MSS, midnight open); thin topics (blocks, PD matrix, IPDA, weekly profiles) from 2016–17, labelled; `sessions-1.0.0` = index-futures killzones. Every rule names its source. |
 | DEC-042 | **Massive's free plan first** (2 years of CME 1m, 5 req/min, per-contract tickers — Tradeez picks the front contract by previous-session volume); Databento later for deep history and 1s. Key `MASSIVE_API_KEY` only in `backend/.env`. |
 | DEC-040 ⚠️ | **Real NQ from Databento; the simulated market leaves the app.** Every download priced first, capped ($5/request, $100 total). Key only in `backend/.env`. `IMPORTED_PRIVATE` until display is licensed. |
@@ -1435,3 +1437,36 @@ shows up to its 17:00 ET close, DST-correct) and jumps; New York axis by default
 "2Y" first showed a single day — the window end was clamped one day after the first minute — so the
 clamp now keeps a full window (found by clicking, test added). 1h reads ~220k minutes per request
 (~0.4 s) — recorded as a limitation. Backend 221 → 223, frontend 131 → 146.
+
+**2026-10-13 — Tailwind, and a cleanup of the whole repository (DEC-044, BUG-037).** Fabio sent a
+screenshot of the sign-in page on a 1920px screen — boxed column, card stranded left — and asked for
+Tailwind, the Vite starter styles deleted, and everything unneeded removed, file by file.
+
+- **Cause of the look:** the Vite template's `index.css` had never been deleted (BUG-037; BUG-031 and
+  BUG-032 were earlier symptoms of it). Deleted, with `App.css` and the template's assets, README and
+  favicon. Page title is now "Tradeez", with a candlestick favicon.
+- **Tailwind 4** (`@tailwindcss/vite`), tokens in `src/index.css` matching the chart's colours, Inter
+  font from npm. Shared pieces: `components/ui.tsx` (Button, Segmented, Panel, Chip, Notice) and
+  `lib/styles.ts`. Every component rewritten: top bar with section tabs, centred sign-in, a chart
+  that fills the screen height, practice and drill panels. Texts, roles, aria labels and test ids
+  unchanged — no test needed a selector change.
+- **Caught before shipping:** a button carrying both its resting and active colour utilities (Tailwind
+  resolves by stylesheet order, not class order) — now separate sets; `ui.tsx` exporting constants
+  broke fast refresh (one new lint warning) — split into `lib/styles.ts`.
+- **Checked in the browser** at 1600×900 and the pane's own size: sign-in card centred to the pixel
+  (608px each side), chart, practice session, plan panel, drills. The console's 500s were Vite failing
+  to resolve the deleted `App.css` for the few seconds before `App.tsx` was rewritten (its log shows
+  it); the backend logged no errors.
+- **Cleanup.** Frontend: knip found the unused `react-router-dom`, dead `getHealth` and `getDrill`,
+  and 9 exports used only in their own file (un-exported); knip is now clean. Backend: a reference
+  scanner found 64 lines of unused members — `DataClass.isTeachable/isDeployable`,
+  `Instrument.ticksToPrice/pnlCents/isListed` and two mapped columns nothing read, `TradePlan.toEnginePlan`,
+  unused getters on `TradePlan`, `JwtService`, `RefreshToken`, `Drill`. (A first attempt at the deletion
+  matched doc comments greedily and took the `listed` field and the JPA constructor with it; reverted
+  and redone line by line before anything ran.) Kept on purpose: test-observability hooks, `Bar.isUp`/
+  `bodyTicks` (needed by T11/T17), the Databento importer (DEC-042). Every `application.yml` key is
+  read. Stale text fixed: the OpenAPI description ("SIMULATED unless labelled"), the README (what
+  works, stack, how to import, migrations V1–V8). Not removed: `npm run api:types` — DEC-007 requires
+  generated types and they were never wired in; the README now says so instead of claiming otherwise.
+  Stale build output (`target/` probe classes from session 016) deleted.
+- Backend 223/223, frontend 146 → 148, typecheck, production build (CSS 24 KB), `npm audit` 0.

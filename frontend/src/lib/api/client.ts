@@ -72,13 +72,3 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   return payload as T
 }
-
-/** Shape of GET /api/health. Replace with the generated type once schema.d.ts is wired in. */
-export interface HealthResponse {
-  status: string
-  database: string
-  timestamp: string
-  application: string
-}
-
-export const getHealth = () => apiFetch<HealthResponse>('/api/health')

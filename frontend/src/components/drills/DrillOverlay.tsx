@@ -145,7 +145,7 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, result }: DrillOv
   return (
     <canvas
       ref={canvasRef}
-      className="drawing-overlay"
+      className="absolute inset-0 z-[2]"
       data-testid="drill-overlay"
       style={{ pointerEvents: 'none', cursor: result ? 'default' : 'pointer' }}
     />
