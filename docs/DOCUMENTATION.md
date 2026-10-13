@@ -1426,6 +1426,14 @@ Each finding was checked by hand before it was deleted, and one over-eager delet
 taken a database field and a constructor with it) was caught and redone before anything ran. The
 README, which still described the simulated market as the chart, was brought up to date.
 
+**Into master.** Before merging, the one remaining known bug was fixed: seven code-quality warnings
+about how the chart and the drawing layer kept their working values. The risky part was dragging
+drawings, so drags were tested in the browser with the same scripted mouse movements on the old and
+the new code — the results were identical. The same test exposed an older bug nobody had noticed:
+dragging a drawing slowly did not move it sideways at all, because each tiny step was rounded back to
+the nearest candle. Drags are now measured from where they started. With every check passing from a
+fresh copy of the repository, the branch was merged into master.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app

@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/fvg-drill merged 2026-09-30 as 2280d37 (no PR); PR #1 merged 2026-09-29 as d6747e4
+branch: master                                    # feat/real-nq-data merged 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 223/223 (Testcontainers), frontend 148/148 + typecheck + build; knip clean; lint: 7 known warnings (BUG-035), none new
+build_passing: true  # backend 223/223 (Testcontainers), frontend 149/149 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Verified from a fresh clone before the 2026-10-13 merge.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -181,7 +181,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T3 | ~~**Real NQ in the app**~~ | — | F, X §4 | ✅ Session 017: V8 withdraws DEMO from the list (still resolves by symbol for Practice/Drills); instruments carry `dataFrom`/`dataTo`; series carry their real `source`; chart opens on the newest data, date picker + Latest/1W/1M/3M/1Y/2Y; New York time axis by default (toggle NY → exchange → UTC). Session separators moved to T7. |
 | T4 | **Practice on real data** | T3 | F, D-025 | Date hidden until reveal; moment picker (random, filterable by killzone/weekday); fills on minute bars with honest `AMBIGUOUS` (no 1s on the free plan). |
 | T5 | **Replay paper-trading mode** | T4 | F, C §5, X §5 | Fabio's core idea. Step / play / pause / speed; place orders at any moment (entry + stop + target), several trades per replay, each plan locked (INVARIANT 10); session summary in R. |
-| T6 | **Bug batch, then merge `feat/real-nq-data`** | T3 | process | Working agreement: fix known bugs before a merge; fresh-clone lint/typecheck/build. |
+| T6 | ~~**Bug batch, then merge `feat/real-nq-data`**~~ | — | process | ✅ Session 017, 2026-10-13: BUG-035 and BUG-038 fixed, fresh clone green, **merged into `master` as `80014ad`** (no PR). No open bugs. |
 
 **M1 — ICT on the chart**
 
@@ -1470,3 +1470,16 @@ Tailwind, the Vite starter styles deleted, and everything unneeded removed, file
   generated types and they were never wired in; the README now says so instead of claiming otherwise.
   Stale build output (`target/` probe classes from session 016) deleted.
 - Backend 223/223, frontend 146 → 148, typecheck, production build (CSS 24 KB), `npm audit` 0.
+
+**2026-10-13 — T6: the bug batch and the merge.** Fabio: "merge it and then do T4". Only BUG-035 was
+open (7 lint warnings). Fixed: refs written at commit in layout effects (the overlay's gesture and
+state refs together, because a drag reads them as a pair), and ChartWorkspace's loading/error derived
+from a request-tagged response instead of being reset inside the effect; lint now denies warnings.
+The drag risk the entry named was tested in the browser with scripted drags — a burst of 10
+pointermoves and the same drag paced — on the old and the new code: identical. That comparison
+exposed **BUG-038**: drags re-snapped their last preview to the nearest bar on every event, so a slow
+drag never moved sideways; now measured from the grab point (test with a snapping projection fails on
+the old code). Fresh clone of the pushed branch: frontend lint/typecheck/149 tests/build, backend
+223/223 without any `.env`. Merged with `--no-ff` as `80014ad`. The untracked
+`gymnastics_puzzle_collage.jpg` in the repo root was deleted at Fabio's request. Next: T4 on a new
+branch, `feat/practice-real-data`.
