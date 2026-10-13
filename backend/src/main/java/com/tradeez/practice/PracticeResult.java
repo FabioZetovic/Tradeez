@@ -80,11 +80,17 @@ public class PracticeResult {
 	@Column(name = "fill_model_version", nullable = false, updatable = false)
 	private String fillModelVersion;
 
-	@Column(name = "generator_version", nullable = false, updatable = false)
+	/** Simulated data only. */
+	@Column(name = "generator_version", updatable = false)
 	private String generatorVersion;
 
-	@Column(name = "seed", nullable = false, updatable = false)
-	private long seed;
+	/** Simulated data only. */
+	@Column(name = "seed", updatable = false)
+	private Long seed;
+
+	/** Real data only: where the bars came from (V9). */
+	@Column(name = "data_source", updatable = false)
+	private String dataSource;
 
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
@@ -94,7 +100,7 @@ public class PracticeResult {
 	}
 
 	public PracticeResult(UUID sessionId, Fill fill, int contracts, long tickValueCents,
-			FillModel model, String generatorVersion, long seed) {
+			FillModel model, String generatorVersion, Long seed, String dataSource) {
 		this.sessionId = sessionId;
 		this.outcome = fill.outcome();
 		this.entryTime = fill.entryTime();
@@ -112,6 +118,7 @@ public class PracticeResult {
 		this.fillModelVersion = model.version();
 		this.generatorVersion = generatorVersion;
 		this.seed = seed;
+		this.dataSource = dataSource;
 		this.createdAt = Instant.now();
 	}
 

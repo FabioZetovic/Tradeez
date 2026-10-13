@@ -19,6 +19,7 @@ import com.tradeez.practice.FillEngine.Fill;
 import com.tradeez.practice.FillEngine.FillModel;
 import com.tradeez.practice.FillEngine.Outcome;
 import com.tradeez.practice.FillEngine.Plan;
+import com.tradeez.practice.FillEngine.Resolution;
 
 /**
  * The fill engine, tested by hand and against an independent oracle.
@@ -202,18 +203,33 @@ class FillEngineTest {
 		}
 
 		@Test
-		@DisplayName("the market closing flattens the trade at the last close")
-		void sessionCloseEndsTheTrade() {
-			// A hole in the one-second series is the market closing. The trade does not survive
-			// into the next session, where it could be filled on the reopen gap.
+		@DisplayName("a missing bar is a quiet stretch, not a closure (fill-1.1.0)")
+		void quietStretchIsNotAClosure() {
+			// Real data is sparse: a minute with no trades has no bar. fill-1.0.0 read any hole as the
+			// session closing and flattened the trade — on real data, early and for no reason. The
+			// caller now ends the bars at the session's close, so a hole inside them is just quiet.
 			Fill f = FillEngine.resolve(longTrade(900, 1200), List.of(
 				s(0, 1000, 1010, 995, 1004),
 				s(1, 1004, 1012, 1001, 1008),
-				s(3600, 1300, 1310, 1290, 1305)), NO_COSTS);  // an hour later: next session
+				s(300, 1100, 1205, 1090, 1150)), NO_COSTS);  // five quiet minutes later
 
-			assertThat(f.outcome()).isEqualTo(Outcome.TIME_EXIT);
-			assertThat(f.exitTicks()).isEqualTo(1008);
-			assertThat(f.exitTime()).isEqualTo(T0.plusSeconds(1));
+			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(f.exitTime()).isEqualTo(T0.plusSeconds(300));
+		}
+
+		@Test
+		@DisplayName("records the resolution it walked, so a one-minute result says so")
+		void recordsResolution() {
+			List<Bar> minutes = List.of(
+				s(0, 1000, 1010, 995, 1004),
+				s(60, 1004, 1205, 890, 1100));  // one minute spans both levels
+
+			Fill f = FillEngine.resolve(longTrade(900, 1200), minutes, NO_COSTS, Resolution.M1);
+
+			assertThat(f.resolution()).isEqualTo(Resolution.M1);
+			assertThat(f.outcome()).isEqualTo(Outcome.AMBIGUOUS);
+			assertThat(FillEngine.resolve(longTrade(900, 1200), minutes, NO_COSTS).resolution())
+				.isEqualTo(Resolution.S1);
 		}
 
 		@Test
@@ -329,9 +345,8 @@ class FillEngineTest {
 
 		/**
 		 * A second implementation, written as naively as possible: scan until the first second that
-		 * touches either level, and report which. No excursions, no slippage, no gap handling beyond
-		 * the session break. Its only job is to be obviously right about <i>which second</i> and
-		 * <i>which outcome</i>.
+		 * touches either level, and report which. No excursions, no slippage, no gap handling. Its only
+		 * job is to be obviously right about <i>which second</i> and <i>which outcome</i>.
 		 */
 		private record Expected(Outcome outcome, Instant exitTime) {
 		}
@@ -340,10 +355,6 @@ class FillEngineTest {
 			boolean isLong = plan.direction() == Direction.LONG;
 			for (int i = 0; i < seconds.size(); i++) {
 				Bar b = seconds.get(i);
-				if (i > 0 && b.openTime().getEpochSecond()
-						- seconds.get(i - 1).openTime().getEpochSecond() > 1) {
-					return new Expected(Outcome.TIME_EXIT, seconds.get(i - 1).openTime());
-				}
 				boolean stop = isLong ? b.lowTicks() <= plan.stopTicks()
 					: b.highTicks() >= plan.stopTicks();
 				boolean target = isLong ? b.highTicks() >= plan.targetTicks()
@@ -372,6 +383,18 @@ class FillEngineTest {
 			return new Expected(Outcome.TIME_EXIT, seconds.getLast().openTime());
 		}
 
+		private static List<Bar> upToFirstClosure(List<Bar> generated) {
+			List<Bar> out = new ArrayList<>();
+			for (Bar b : generated) {
+				if (!out.isEmpty() && b.openTime().getEpochSecond()
+						- out.getLast().openTime().getEpochSecond() > 1) {
+					break;
+				}
+				out.add(b);
+			}
+			return out;
+		}
+
 		@Test
 		@DisplayName("agrees with a naive scan across 2,000 random brackets")
 		void agreesWithNaiveScan() {
@@ -384,7 +407,9 @@ class FillEngineTest {
 				// A random weekday moment and a random bracket, 4 to 120 ticks each side.
 				Instant start = Instant.parse("2024-03-11T00:00:00Z")
 					.plusSeconds(random.nextInt(4 * 86_400));
-				List<Bar> seconds = new ArrayList<>(
+				// Ends at the first closure, as the practice service ends its window at the session's
+				// close: the engine is given one session, never two (fill-1.1.0).
+				List<Bar> seconds = upToFirstClosure(
 					generator.generateSeconds(random.nextLong(), start, start.plusSeconds(3_600)));
 				if (seconds.isEmpty()) {
 					continue;

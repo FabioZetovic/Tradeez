@@ -1434,6 +1434,28 @@ dragging a drawing slowly did not move it sideways at all, because each tiny ste
 the nearest candle. Drags are now measured from where they started. With every check passing from a
 fresh copy of the repository, the branch was merged into master.
 
+**Practice on real history, with the date hidden.** This was the feature the whole project points
+at: paper trading on real NQ at a moment you have never seen. The hard part is honesty about time. If
+you know a chart is from 7 April 2025, you know a crash is coming — so the date has to stay secret.
+Not just off the screen: an earlier decision says that someone reading the raw network data must not
+learn it either. So during a session the app never sends a real timestamp. Every time is moved onto a
+made-up week in January 2000 that keeps exactly what a trader needs — the weekday and the New York
+clock time, which is what ICT's session windows are measured in — and drops everything else, down to
+whether it is summer or winter time. The real date appears only on the result card, after the trade
+is over.
+
+Two more things changed underneath. The engine that decides when a stop or target was hit used to
+treat any gap in the data as the market closing; real data has gaps whenever a minute passes without a
+single trade, so real trades would have been closed early. It now relies on knowing when the session
+actually ends. And the engine works on one-minute candles when no finer data exists, saying
+"ambiguous" — rather than guessing — when a single minute touched both levels. A learner can also ask
+for a moment in a particular ICT session, say London on a Tuesday.
+
+Tried on the real data: a London session on a Tuesday opened at 04:40 New York time; every candle the
+browser received was dated January 2000; the long trade placed there was stopped out five minutes
+later, exactly where the stored prices say it should have been; and only then did the app reveal that
+it had been Tuesday 31 March 2026.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app

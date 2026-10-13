@@ -50,8 +50,11 @@ public class PracticeController {
 	public SessionResponse create(
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@RequestBody(required = false) CreateSessionRequest body) {
-		CreateSessionRequest request = body == null ? new CreateSessionRequest(null, null) : body;
-		return practice.create(principal.id(), request.instrument(), request.timeframe());
+		CreateSessionRequest request = body == null
+			? new CreateSessionRequest(null, null, null, null)
+			: body;
+		return practice.create(principal.id(), request.instrument(), request.timeframe(),
+			request.killzone(), request.weekday());
 	}
 
 	@GetMapping

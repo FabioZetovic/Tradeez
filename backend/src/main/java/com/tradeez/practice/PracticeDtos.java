@@ -16,7 +16,12 @@ import jakarta.validation.constraints.NotNull;
  *
  * <p>Every field that could reveal the future is nullable and documented as such. The rule for
  * each is the same: it is null until the replay cursor has moved past the moment it describes
- * (DEC-009), or — for the seed — until the session is complete (DEC-038).
+ * (DEC-009), or — for the seed and a real session's date — until the session is complete (DEC-038,
+ * DEC-025).
+ *
+ * <p>Times on a real session are shown on a fictional week ({@code timeBasis} =
+ * {@code NEW_YORK_WALL_CLOCK}): New York wall-clock time written as if it were UTC, weekday kept,
+ * date hidden ({@link PracticeClock}).
  */
 public final class PracticeDtos {
 
@@ -25,8 +30,12 @@ public final class PracticeDtos {
 
 	@Schema(description = "Start a practice session at a hidden moment")
 	public record CreateSessionRequest(
-		@Schema(description = "Defaults to DEMO-NQ") String instrument,
-		@Schema(description = "1m, 5m or 15m. Defaults to 5m") String timeframe) {
+		@Schema(description = "Defaults to NQ, real history") String instrument,
+		@Schema(description = "1m, 5m or 15m. Defaults to 5m") String timeframe,
+		@Schema(description = "Optional: ASIA, LONDON, NEW_YORK_AM or NEW_YORK_PM (ICT killzones, New York time)")
+		String killzone,
+		@Schema(description = "Optional: MONDAY … FRIDAY, the New York weekday of the hidden moment")
+		String weekday) {
 	}
 
 	@Schema(description = """
@@ -95,6 +104,11 @@ public final class PracticeDtos {
 		@Schema(description = "ANALYSING | IN_TRADE | COMPLETE") String status,
 		long startTime,
 		@Schema(description = "Nothing at or after this instant has been revealed") long cursor,
+		@Schema(description = """
+			UTC: times are real epoch seconds. NEW_YORK_WALL_CLOCK: New York wall-clock time written \
+			as UTC on a fictional date — render in UTC, label it New York, never show the date \
+			(DEC-025).""")
+		String timeBasis,
 		String dataClass,
 		String disclaimer,
 		PlanView plan,
@@ -105,7 +119,14 @@ public final class PracticeDtos {
 			64-bit seed does not survive being a JSON number: JavaScript rounds anything above 2^53, \
 			and a rounded seed reproduces a different market (BUG-028).""")
 		String seed,
-		String generatorVersion) {
+		@Schema(description = "Simulated data only")
+		String generatorVersion,
+		@Schema(description = "Real data only: where the bars came from, e.g. massive")
+		String dataSource,
+		@Schema(description = """
+			Real data only, and only once COMPLETE: the hidden moment's real time, UTC epoch \
+			seconds — the date reveal (DEC-025).""")
+		Long revealedStartTime) {
 	}
 
 	@Schema(description = "A session with every bar revealed so far")

@@ -178,7 +178,10 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Rate limiting | In-memory, therefore per-instance | A second replica would allow the full quota again. A speed bump, not a guarantee; a shared store is the upgrade path if this is ever scaled out |
 | `X-Forwarded-For` | Trusted as a best effort | The header is client-supplied and forgeable, so per-IP limits can be evaded by rotating it. The real fix belongs to the deployment's proxy, which must overwrite it — verify that wherever this is hosted |
 | Deployment | Local only | DEC-002 — nothing is hosted yet, and nothing costs money |
-| Practice | Simulated instruments only | Real data would need its date hidden until the reveal (DEC-025); the service refuses a non-simulated instrument rather than run a session whose timestamps give the answer away |
+| Practice | ~~Simulated instruments only~~ | *Out of date since T4 (DEC-045): practice runs on real NQ behind a hidden date. Struck through rather than deleted.* |
+| Practice | Real sessions resolve on one-minute bars | Massive's free plan has no one-second bars (DEC-042). A minute that touches both stop and target is reported `AMBIGUOUS` — more often than on seconds. One-second data is T32 |
+| Practice | The price level hints at the era | NQ at 20,000 is late 2024, at 30,000 mid-2026. The date, weekday-to-date mapping and season are hidden (DEC-045); the level is not, because shifting real prices would change the levels ICT reads |
+| Practice | A determined learner could find the moment on the Chart tab | By scrolling the same imported history for the same pattern. The app does not try to stop that: it is self-deception, not a leak through the API |
 | Practice | Drawings on a practice chart are not saved | They are analysis of a market the learner cannot otherwise see; saving them to the instrument would put them on the public chart |
 | Practice | One bracket trade per session, entered at market | The vertical slice's scope. Limit entries, scaling and multiple trades are later work |
 | Practice | A replay steps at most 3 days past its start; 60 new sessions per user per hour; journal lists the latest 50 | Each bounds how much data one request has to generate |

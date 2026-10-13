@@ -1,9 +1,15 @@
 package com.tradeez.practice;
 
 import java.security.SecureRandom;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,10 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.tradeez.marketdata.Bar;
+import com.tradeez.marketdata.BarSeries;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.InstrumentRepository;
+import com.tradeez.marketdata.Killzone;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.SessionCalendar;
 import com.tradeez.marketdata.Timeframe;
@@ -30,6 +38,7 @@ import com.tradeez.practice.FillEngine.Direction;
 import com.tradeez.practice.FillEngine.Fill;
 import com.tradeez.practice.FillEngine.FillModel;
 import com.tradeez.practice.FillEngine.Outcome;
+import com.tradeez.practice.FillEngine.Resolution;
 import com.tradeez.practice.PracticeDtos.AdvanceResponse;
 import com.tradeez.practice.PracticeDtos.EntryView;
 import com.tradeez.practice.PracticeDtos.PlanRequest;
@@ -50,6 +59,11 @@ import com.tradeez.practice.PracticeSession.Status;
  * generated — resolving a plan — produces a result row and nothing else, and that row is withheld
  * until the cursor passes its exit.
  *
+ * <h2>On real data, the date is part of the future (DEC-025)</h2>
+ * A learner who knows the date can look up what happened next. So every time a real session sends —
+ * bars, cursor, entry, exit — goes through its {@link PracticeClock}, which keeps the weekday and the
+ * New York wall-clock time and hides the date. The real date is revealed with the result.
+ *
  * <h2>Why the result is computed at submission</h2>
  * INVARIANT 2: an outcome is written once. Resolving the trade the moment the plan is locked means
  * the replay is purely a reveal. Nothing the learner does while watching — pausing, reloading,
@@ -58,10 +72,11 @@ import com.tradeez.practice.PracticeSession.Status;
 @Service
 public class PracticeService {
 
-	/** Timeframes a session can be watched on. The engine always resolves at one second. */
+	/** Timeframes a session can be watched on. The engine resolves on the finest bars that exist. */
 	static final Set<Timeframe> TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M5, Timeframe.M15);
 
-	static final String DEFAULT_INSTRUMENT = "DEMO-NQ";
+	/** Real NQ (DEC-040, T4). Simulated markets remain available by symbol. */
+	static final String DEFAULT_INSTRUMENT = "NQ";
 	static final Timeframe DEFAULT_TIMEFRAME = Timeframe.M5;
 
 	/** Visible history before the hidden moment. Four days so a Monday start still sees Friday. */
@@ -97,9 +112,10 @@ public class PracticeService {
 
 	private static final String SIMULATED_DISCLAIMER = "SIMULATED DATA — NOT MARKET HISTORY";
 
-	private static final String AMBIGUOUS_ASSUMPTION = "The stop and the target were both touched "
-		+ "inside the same second, so which came first cannot be known from this data. The result "
-		+ "assumes the worst case: the stop.";
+	/** Real data: how much trading a candidate moment needs around it to be worth practising on. */
+	private static final int MIN_MINUTES_BEFORE = 30;
+	private static final int MIN_MINUTES_AFTER = 60;
+	private static final int PICK_ATTEMPTS = 2_000;
 
 	private final SecureRandom random = new SecureRandom();
 
@@ -151,7 +167,14 @@ public class PracticeService {
 	// Commands
 	// ---------------------------------------------------------------------------------------------
 
-	public SessionResponse create(UUID userId, String symbol, String timeframeCode) {
+	/**
+	 * Starts a session at a random hidden moment.
+	 *
+	 * @param killzoneCode optional: only moments inside this ICT killzone ({@link Killzone})
+	 * @param weekdayCode  optional: only moments on this New York weekday, e.g. {@code TUESDAY}
+	 */
+	public SessionResponse create(UUID userId, String symbol, String timeframeCode,
+			String killzoneCode, String weekdayCode) {
 		Instrument instrument = marketData.requireInstrument(
 			symbol == null || symbol.isBlank() ? DEFAULT_INSTRUMENT : symbol);
 		Timeframe timeframe = timeframeCode == null || timeframeCode.isBlank()
@@ -162,26 +185,39 @@ public class PracticeService {
 			throw new IllegalArgumentException("Practice runs on "
 				+ TIMEFRAMES.stream().map(Timeframe::code).toList() + " charts.");
 		}
-		// Real data needs its date hidden (DEC-025), which this slice does not do yet. Refusing is
-		// better than quietly running a session whose timestamps give the answer away.
-		if (instrument.getDataClass() != DataClass.SIMULATED) {
-			throw new IllegalArgumentException(
-				"Practice currently runs on simulated instruments only.");
+		Killzone killzone = parseEnum(Killzone.class, killzoneCode, "killzone");
+		DayOfWeek weekday = parseEnum(DayOfWeek.class, weekdayCode, "weekday");
+
+		if (instrument.getDataClass() == DataClass.SIMULATED) {
+			Instant start = pickStart(timeframe, killzone, weekday);
+			PracticeSession session = saveCapped(userId, new PracticeSession(
+				userId, instrument.getId(), timeframe.code(), newSeed(),
+				DemoSeriesGenerator.GENERATOR_VERSION, start.minus(HISTORY), start));
+			// Generated after the commit, with no connection held (BUG-033).
+			return new SessionResponse(state(session, instrument, null, null),
+				visibleBars(session, instrument));
 		}
-		Instant start = pickStart(timeframe);
-		PracticeSession session = writeTx.execute(tx -> {
+
+		// Real history: a moment where the market really traded, behind a hidden date (DEC-025).
+		Instant start = pickRealStart(instrument, timeframe, killzone, weekday);
+		BarSeries history = marketData.internalBars(instrument, timeframe, start.minus(HISTORY), start,
+			0);
+		PracticeClock clock = PracticeClock.hidingDateOf(start);
+		PracticeSession session = saveCapped(userId, PracticeSession.onRealData(userId,
+			instrument.getId(), timeframe.code(), history.source(), clock, start.minus(HISTORY), start));
+		return new SessionResponse(state(session, instrument, null, null),
+			toDto(history.bars(), clock));
+	}
+
+	/** Saves a new session unless the user has started too many this hour. */
+	private PracticeSession saveCapped(UUID userId, PracticeSession session) {
+		return writeTx.execute(tx -> {
 			if (sessions.countByUserIdAndCreatedAtAfter(userId,
 					Instant.now().minus(Duration.ofHours(1))) >= MAX_SESSIONS_PER_HOUR) {
 				throw new TooManySessionsException();
 			}
-			return sessions.save(new PracticeSession(
-				userId, instrument.getId(), timeframe.code(), newSeed(),
-				DemoSeriesGenerator.GENERATOR_VERSION, start.minus(HISTORY), start));
+			return sessions.save(session);
 		});
-
-		// Generated after the commit, with no connection held (BUG-033).
-		return new SessionResponse(state(session, instrument, null, null),
-			visibleBars(session, instrument));
 	}
 
 	/**
@@ -202,16 +238,26 @@ public class PracticeService {
 			throw new MarketClosedException();
 		}
 
-		long reference = lastVisibleClose(session, instrument);
+		// The finest bars from the cursor to the end of the trading session: one-second where they
+		// exist, otherwise one-minute (real data on Massive's free plan, DEC-042). The engine exits at
+		// the close if neither level is reached, so nothing beyond it can matter.
+		Instant cursor = session.getCursorTime();
+		Resolution resolution = Resolution.S1;
+		List<Bar> bars = fine(session, instrument, Resolution.S1, cursor, sessionEnd(cursor));
+		if (bars.isEmpty() && instrument.getDataClass() != DataClass.SIMULATED) {
+			resolution = Resolution.M1;
+			bars = fine(session, instrument, resolution, cursor, sessionEnd(cursor));
+		}
+		if (bars.isEmpty()) {
+			throw new MarketClosedException();
+		}
+
+		long reference = lastVisibleClose(session, instrument, resolution);
 		validateBracket(request, reference);
 
-		// Every one-second bar from the cursor to the end of the trading session. The engine exits
-		// at the close if neither level is reached, so nothing beyond it can matter.
-		List<Bar> seconds = marketData.internalBars(instrument, Timeframe.S1,
-			session.getCursorTime(), sessionEnd(session.getCursorTime()), session.getSeed()).bars();
 		FillModel model = FillModel.DEFAULT;
 		Fill fill = FillEngine.resolve(new FillEngine.Plan(request.direction(), request.stopTicks(),
-			request.targetTicks(), request.contracts()), seconds, model);
+			request.targetTicks(), request.contracts()), bars, model, resolution);
 
 		return writeTx.execute(tx -> {
 			// The fill was computed for the cursor in the snapshot. If the session moved since —
@@ -222,7 +268,7 @@ public class PracticeService {
 				current.getCursorTime()));
 			PracticeResult result = results.save(new PracticeResult(current.getId(), fill,
 				plan.getContracts(), instrument.getTickValueCents(), model,
-				current.getGeneratorVersion(), current.getSeed()));
+				current.getGeneratorVersion(), current.getSeed(), current.getDataSource()));
 			current.setStatus(Status.IN_TRADE);
 			sessions.saveAndFlush(current);
 			return state(current, instrument, plan, result);
@@ -287,7 +333,8 @@ public class PracticeService {
 			// The snapshot's plan and result are still current: writing either bumps the session's
 			// version, and requireUnchanged has just confirmed it did not move.
 			return new AdvanceResponse(
-				state(current, seen.instrument(), seen.plan(), seen.result()), toDto(bars));
+				state(current, seen.instrument(), seen.plan(), seen.result()),
+				toDto(bars, current.getClock()));
 		});
 	}
 
@@ -342,11 +389,12 @@ public class PracticeService {
 	private PracticeState state(PracticeSession session, Instrument instrument, TradePlan plan,
 			PracticeResult result) {
 		boolean complete = session.getStatus() == Status.COMPLETE;
+		PracticeClock clock = session.getClock();
 
 		// The entry is the open of the first bar after the plan was locked. It is revealed with that
-		// bar, not before: the price a market order will fill at is itself one second of the future.
+		// bar, not before: the price a market order will fill at is itself the future.
 		EntryView entry = result != null && session.getCursorTime().isAfter(result.getEntryTime())
-			? new EntryView(result.getEntryTime().getEpochSecond(), result.getEntryTicks())
+			? new EntryView(clock.show(result.getEntryTime()), result.getEntryTicks())
 			: null;
 
 		return new PracticeState(
@@ -357,32 +405,38 @@ public class PracticeService {
 			instrument.getExchangeTimezone(),
 			session.getTimeframe(),
 			session.getStatus().name(),
-			session.getStartTime().getEpochSecond(),
-			session.getCursorTime().getEpochSecond(),
+			clock.show(session.getStartTime()),
+			clock.show(session.getCursorTime()),
+			clock.basis(),
 			instrument.getDataClass().name(),
 			instrument.getDataClass() == DataClass.SIMULATED ? SIMULATED_DISCLAIMER : null,
-			plan == null ? null : planView(plan),
+			plan == null ? null : planView(plan, clock),
 			entry,
-			complete && result != null ? resultView(result, plan) : null,
-			complete ? Long.toString(session.getSeed()) : null,
-			session.getGeneratorVersion());
+			complete && result != null ? resultView(result, plan, clock) : null,
+			complete && session.getSeed() != null ? Long.toString(session.getSeed()) : null,
+			session.getGeneratorVersion(),
+			session.getDataSource(),
+			// DEC-025: the real date, revealed with the result and not a moment before.
+			complete && clock.hidesDate() ? session.getStartTime().getEpochSecond() : null);
 	}
 
-	private static PlanView planView(TradePlan plan) {
+	private static PlanView planView(TradePlan plan, PracticeClock clock) {
 		long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
 		long reward = Math.abs(plan.getTargetTicks() - plan.getReferenceTicks());
 		return new PlanView(plan.getDirection(), plan.getStopTicks(), plan.getTargetTicks(),
-			plan.getContracts(), plan.getReferenceTicks(), plan.getSubmittedCursor().getEpochSecond(),
+			plan.getContracts(), plan.getReferenceTicks(), clock.show(plan.getSubmittedCursor()),
 			round2((double) reward / risk));
 	}
 
-	private static ResultView resultView(PracticeResult result, TradePlan plan) {
+	private static ResultView resultView(PracticeResult result, TradePlan plan, PracticeClock clock) {
 		return new ResultView(
 			result.getOutcome().name(),
-			result.getOutcome() == Outcome.AMBIGUOUS ? AMBIGUOUS_ASSUMPTION : null,
-			result.getEntryTime().getEpochSecond(),
+			result.getOutcome() == Outcome.AMBIGUOUS
+				? ambiguousAssumption(Resolution.valueOf(result.getResolution()))
+				: null,
+			clock.show(result.getEntryTime()),
 			result.getEntryTicks(),
-			result.getExitTime().getEpochSecond(),
+			clock.show(result.getExitTime()),
 			result.getExitTicks(),
 			result.getPnlTicks(),
 			result.getNetPnlCents(),
@@ -394,6 +448,13 @@ public class PracticeService {
 			result.getResolution(),
 			result.getEngineVersion(),
 			result.getFillModelVersion());
+	}
+
+	/** INVARIANT 6: an assumed outcome says so, in the unit of the bars that could not decide it. */
+	static String ambiguousAssumption(Resolution resolution) {
+		return "The stop and the target were both touched inside the same " + resolution.unit()
+			+ ", so which came first cannot be known from this data. The result assumes the worst "
+			+ "case: the stop.";
 	}
 
 	/**
@@ -459,24 +520,43 @@ public class PracticeService {
 	private List<BarResponse> visibleBars(PracticeSession session, Instrument instrument) {
 		Timeframe timeframe = Timeframe.fromCode(session.getTimeframe());
 		return toDto(generate(session, instrument, timeframe, session.getHistoryFrom(),
-			session.getCursorTime()));
+			session.getCursorTime()), session.getClock());
 	}
 
 	private List<Bar> generate(PracticeSession session, Instrument instrument, Timeframe timeframe,
 			Instant from, Instant to) {
-		return marketData.internalBars(instrument, timeframe, from, to, session.getSeed()).bars();
+		return marketData.internalBars(instrument, timeframe, from, to, seedOf(session)).bars();
 	}
 
-	/** The close of the last one-second bar before the cursor: the price the learner is looking at. */
-	private long lastVisibleClose(PracticeSession session, Instrument instrument) {
+	/** Bars at the fill engine's resolution. */
+	private List<Bar> fine(PracticeSession session, Instrument instrument, Resolution resolution,
+			Instant from, Instant to) {
+		Timeframe timeframe = resolution == Resolution.S1 ? Timeframe.S1 : Timeframe.M1;
+		return marketData.internalBars(instrument, timeframe, from, to, seedOf(session)).bars();
+	}
+
+	/** Real sessions have no seed; the providers that serve them ignore the argument. */
+	private static long seedOf(PracticeSession session) {
+		return session.getSeed() == null ? 0 : session.getSeed();
+	}
+
+	/**
+	 * The last traded price before the cursor: what the learner is looking at. Looks back one bar of
+	 * the chart's timeframe on simulated data, which never pauses, and up to an hour on real data,
+	 * where a quiet stretch has no bars.
+	 */
+	private long lastVisibleClose(PracticeSession session, Instrument instrument,
+			Resolution resolution) {
 		Timeframe timeframe = Timeframe.fromCode(session.getTimeframe());
 		Instant cursor = session.getCursorTime();
-		List<Bar> lastBar = marketData.internalBars(instrument, Timeframe.S1,
-			cursor.minus(timeframe.duration()), cursor, session.getSeed()).bars();
-		if (lastBar.isEmpty()) {
+		Duration lookback = instrument.getDataClass() == DataClass.SIMULATED
+			? timeframe.duration()
+			: Duration.ofHours(1);
+		List<Bar> recent = fine(session, instrument, resolution, cursor.minus(lookback), cursor);
+		if (recent.isEmpty()) {
 			throw new IllegalStateException("No visible price before the cursor at " + cursor);
 		}
-		return lastBar.getLast().closeTicks();
+		return recent.getLast().closeTicks();
 	}
 
 	private static void validateBracket(PlanRequest request, long reference) {
@@ -508,19 +588,88 @@ public class PracticeService {
 	}
 
 	/** A random, bar-aligned instant with open market just before it and for a while after. */
-	private Instant pickStart(Timeframe timeframe) {
-		long span = LATEST_START.getEpochSecond() - EARLIEST_START.getEpochSecond();
-		long step = timeframe.seconds();
+	private Instant pickStart(Timeframe timeframe, Killzone killzone, DayOfWeek weekday) {
 		for (int attempt = 0; attempt < 10_000; attempt++) {
-			long second = EARLIEST_START.getEpochSecond() + random.nextLong(span);
-			Instant start = Instant.ofEpochSecond(second - Math.floorMod(second, step));
-			if (SessionCalendar.isOpenThroughout(start.minus(timeframe.duration()),
-					start.plus(MIN_SESSION_LEFT))) {
+			Instant start = candidate(EARLIEST_START, LATEST_START, timeframe, killzone);
+			if (matches(start, weekday) && SessionCalendar.isOpenThroughout(
+					start.minus(timeframe.duration()), start.plus(MIN_SESSION_LEFT))) {
 				return start;
 			}
 		}
 		// The market is open ~70% of the week; ten thousand misses in a row does not happen.
 		throw new IllegalStateException("Could not find an open-market start");
+	}
+
+	/**
+	 * A random moment in the imported history where the market really traded: open by the calendar,
+	 * and with bars around it — the calendar knows the hours, not the holidays (T4).
+	 */
+	private Instant pickRealStart(Instrument instrument, Timeframe timeframe, Killzone killzone,
+			DayOfWeek weekday) {
+		Instant[] coverage = marketData.coverage(instrument);
+		if (coverage == null) {
+			throw new IllegalArgumentException("No real " + instrument.getSymbol()
+				+ " history has been imported yet, so there is nothing to practise on.");
+		}
+		Instant earliest = coverage[0].plus(HISTORY);
+		Instant latest = coverage[1].minus(MIN_SESSION_LEFT);
+		if (!earliest.isBefore(latest)) {
+			throw new IllegalArgumentException("Too little " + instrument.getSymbol()
+				+ " history has been imported to practise on.");
+		}
+		for (int attempt = 0; attempt < PICK_ATTEMPTS; attempt++) {
+			Instant start = candidate(earliest, latest, timeframe, killzone);
+			if (!matches(start, weekday) || start.isBefore(earliest) || start.isAfter(latest)
+					|| !SessionCalendar.isOpenThroughout(start.minus(timeframe.duration()),
+						start.plus(MIN_SESSION_LEFT))) {
+				continue;
+			}
+			// Only now the database: most candidates fail the cheap checks above.
+			if (marketData.storedMinutes(instrument, start.minus(Duration.ofHours(1)), start)
+					>= MIN_MINUTES_BEFORE
+				&& marketData.storedMinutes(instrument, start, start.plus(MIN_SESSION_LEFT))
+					>= MIN_MINUTES_AFTER) {
+				return start;
+			}
+		}
+		throw new IllegalArgumentException("No moment in the imported history matches those filters.");
+	}
+
+	/**
+	 * A random bar-aligned instant in {@code [from, to)} — inside {@code killzone} when one is given,
+	 * by choosing a day and then a minute of the window, rather than hoping to land in it.
+	 */
+	private Instant candidate(Instant from, Instant to, Timeframe timeframe, Killzone killzone) {
+		long step = timeframe.seconds();
+		if (killzone == null) {
+			long second = from.getEpochSecond()
+				+ random.nextLong(to.getEpochSecond() - from.getEpochSecond());
+			return Instant.ofEpochSecond(second - Math.floorMod(second, step));
+		}
+		LocalDate first = from.atZone(Killzone.NEW_YORK).toLocalDate();
+		long days = Math.max(1, ChronoUnit.DAYS.between(first, to.atZone(Killzone.NEW_YORK).toLocalDate()));
+		LocalDate day = first.plusDays(random.nextLong(days));
+		long stepMinutes = Math.max(1, step / 60);
+		long slots = Math.max(1, killzone.minutes() / stepMinutes);
+		LocalTime time = killzone.start().plusMinutes(random.nextLong(slots) * stepMinutes);
+		return ZonedDateTime.of(day, time, Killzone.NEW_YORK).toInstant();
+	}
+
+	/** True when no weekday is asked for, or {@code start} falls on it in New York. */
+	private static boolean matches(Instant start, DayOfWeek weekday) {
+		return weekday == null || start.atZone(Killzone.NEW_YORK).getDayOfWeek() == weekday;
+	}
+
+	/** An optional enum parameter: null or blank is "any", anything else must name a value. */
+	private static <E extends Enum<E>> E parseEnum(Class<E> type, String code, String what) {
+		if (code == null || code.isBlank()) {
+			return null;
+		}
+		try {
+			return Enum.valueOf(type, code.trim().toUpperCase(Locale.ROOT).replace('-', '_'));
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgumentException("Unknown " + what + " '" + code + "'.");
+		}
 	}
 
 	/** The first closed minute at or after {@code from}: where a trade entered at {@code from} ends. */
@@ -573,9 +722,9 @@ public class PracticeService {
 		return Math.round(value * 100.0) / 100.0;
 	}
 
-	private static List<BarResponse> toDto(List<Bar> bars) {
+	private static List<BarResponse> toDto(List<Bar> bars, PracticeClock clock) {
 		return bars.stream()
-			.map(b -> new BarResponse(b.openTime().getEpochSecond(),
+			.map(b -> new BarResponse(clock.show(b.openTime()),
 				b.openTicks(), b.highTicks(), b.lowTicks(), b.closeTicks(), b.volume()))
 			.toList();
 	}

@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/real-nq-data merged 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 223/223 (Testcontainers), frontend 149/149 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Verified from a fresh clone before the 2026-10-13 merge.
+build_passing: true  # backend 234/234 (Testcontainers), frontend 155/155 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). master verified from a fresh clone 2026-10-13; feat/practice-real-data (T4) green locally.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -88,7 +88,7 @@ files_in_repo:
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -112,9 +112,8 @@ files_in_repo:
 
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
-  - practice on real data (the service refuses it until DEC-025 date hiding exists)
 
-blocked_on: nothing — local DB holds 697,003 real NQ 1m bars (2024-10-08 → 2026-10-02, Massive). Next: T4 (practice on real data).
+blocked_on: nothing — T4 done on feat/practice-real-data (not merged). Next: T5 (replay paper-trading mode), or merge T4 first.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -179,7 +178,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T1 | ~~**Massive importer**~~ | — | F, D-042 | ✅ Session 017: `marketdata/massive/` — client (Bearer header, same-host `next_url` only, BigDecimal prices), 5/min pacer with 429 back-off, quarterly contracts, front by previous-session volume, monthly chunks, `NO_DATA` never marked covered. Shared `importing/` package; `--tradeez.import.source=massive` (default). Found and fixed BUG-036. |
 | T2 | ~~**Import 2 years of NQ**~~ | — | F | ✅ Session 017: 697,003 real 1m bars, 2024-10-08 → 2026-10-02, 25 months, 9 contracts, $0, ~8 min. Rolls the week before each expiry; prices checked against known events (April 2025 crash low 16,460). Local DB only (`IMPORTED_PRIVATE`). ES moved to T20. |
 | T3 | ~~**Real NQ in the app**~~ | — | F, X §4 | ✅ Session 017: V8 withdraws DEMO from the list (still resolves by symbol for Practice/Drills); instruments carry `dataFrom`/`dataTo`; series carry their real `source`; chart opens on the newest data, date picker + Latest/1W/1M/3M/1Y/2Y; New York time axis by default (toggle NY → exchange → UTC). Session separators moved to T7. |
-| T4 | **Practice on real data** | T3 | F, D-025 | Date hidden until reveal; moment picker (random, filterable by killzone/weekday); fills on minute bars with honest `AMBIGUOUS` (no 1s on the free plan). |
+| T4 | ~~**Practice on real data**~~ | — | F, D-025 | ✅ Session 017 on `feat/practice-real-data` (DEC-045): real NQ by default; hidden-date clock (fictional week, NY wall clock, date revealed with the result); moment picker by killzone and weekday; `fill-1.1.0` on minute bars, no gap-means-closed rule; V9 provenance. Played end to end on the real import. |
 | T5 | **Replay paper-trading mode** | T4 | F, C §5, X §5 | Fabio's core idea. Step / play / pause / speed; place orders at any moment (entry + stop + target), several trades per replay, each plan locked (INVARIANT 10); session summary in R. |
 | T6 | ~~**Bug batch, then merge `feat/real-nq-data`**~~ | — | process | ✅ Session 017, 2026-10-13: BUG-035 and BUG-038 fixed, fresh clone green, **merged into `master` as `80014ad`** (no PR). No open bugs. |
 
@@ -259,6 +258,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-034 | Simulated setups are detector fixtures only; graded drills require permitted real data. |
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
+| DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
 | DEC-044 | **Tailwind CSS 4 for all styling.** Tokens in `src/index.css` (`@theme`), shared with the chart; `components/ui.tsx` + `lib/styles.ts`; no other CSS. Never give one element two utilities for the same property. |
 | DEC-043 | **Default ICT reading = the 2022 mentorship** (FVG entries after sweep + displacement MSS, midnight open); thin topics (blocks, PD matrix, IPDA, weekly profiles) from 2016–17, labelled; `sessions-1.0.0` = index-futures killzones. Every rule names its source. |
 | DEC-042 | **Massive's free plan first** (2 years of CME 1m, 5 req/min, per-contract tickers — Tradeez picks the front contract by previous-session volume); Databento later for deep history and 1s. Key `MASSIVE_API_KEY` only in `backend/.env`. |
@@ -1483,3 +1483,31 @@ the old code). Fresh clone of the pushed branch: frontend lint/typecheck/149 tes
 223/223 without any `.env`. Merged with `--no-ff` as `80014ad`. The untracked
 `gymnastics_puzzle_collage.jpg` in the repo root was deleted at Fabio's request. Next: T4 on a new
 branch, `feat/practice-real-data`.
+
+**2026-10-13 — T4: practice on real NQ (DEC-045).** Read the whole practice path first: the service
+refused real instruments outright, and the fill engine both walked only one-second bars and read any
+gap in them as the market closing — on real minute data a quiet minute has no bar, so real trades
+would have been closed early. Built:
+- **`PracticeClock`** — DEC-025 says a learner reading the network tab must not learn the date either,
+  so a real session's times are mapped onto a fictional week in January 2000 keeping weekday and New
+  York wall-clock time, sent with `timeBasis = NEW_YORK_WALL_CLOCK` and rendered by the client in UTC
+  labelled "NY" (EST/EDT would leak the season). Per-session shift stored server-side
+  (`clock_day_shift`, V9); `revealedStartTime` sent only at COMPLETE. DST changes happen while CME is
+  closed, so wall-clock times cannot collide — tested across 9 March 2025.
+- **`fill-1.1.0`** — resolves on the finest bars stored (S1, else M1, recorded on the result); the
+  gap rule is gone because the service ends the bars at the session close. FillEngineTest's oracle
+  now trims its generated data at the first closure, as the service does.
+- **Picker** — random moment in the imported history, open by the calendar and with ≥30 bars in the
+  hour before and ≥60 in the two after (holidays have none), optionally in a killzone
+  (`marketdata.Killzone`, the sessions-1.0.0 table) and on a New York weekday; candidates are drawn
+  inside the killzone rather than rejection-sampled.
+- **V9** — seed and generator nullable, `data_source` on session and result, CHECK seed-or-source.
+- Frontend: Session/Day pickers, "date hidden" chip, `wall-clock` axis mode, result card reveals
+  "This was Tuesday 31 March 2026, 04:40" and names the source and resolution. (Node formats long
+  dates as "Monday, 7 April 2025 at 10:05"; the reveal is assembled from parts so ICU versions agree.)
+- Default instrument for practice is now NQ; tests that relied on the default name `DEMO-NQ`.
+- **Played in the app on the real import:** London, Tuesday → "Tue 04:40 NY", 404 bars all dated
+  2000, no real year in the payload, no seed; long → stopped out −1.15R on M1 by fill-1.1.0; reveal
+  "Tuesday 31 March 2026, 04:40" = the stored start (08:40 UTC); the 04:45 minute's low 23,301.75
+  broke the 23,304 stop, exit 23,303.75 with one tick of slippage.
+- Backend 223 → 234, frontend 149 → 155; lint zero, knip clean.

@@ -46,12 +46,24 @@ public class PracticeSession {
 	@Column(name = "timeframe", nullable = false, updatable = false)
 	private String timeframe;
 
-	/** DEC-038 — the key to this market's future. Never leaves the server before COMPLETE. */
-	@Column(name = "seed", nullable = false, updatable = false)
-	private long seed;
+	/**
+	 * DEC-038 — the key to a simulated market's future. Never leaves the server before COMPLETE.
+	 * Null on real data, which has no seed: the market is what it was.
+	 */
+	@Column(name = "seed", updatable = false)
+	private Long seed;
 
-	@Column(name = "generator_version", nullable = false, updatable = false)
+	/** Simulated data only. */
+	@Column(name = "generator_version", updatable = false)
 	private String generatorVersion;
+
+	/** Real data only: where the bars came from, e.g. {@code massive} (DEC-012, V9). */
+	@Column(name = "data_source", updatable = false)
+	private String dataSource;
+
+	/** Real data only: the secret behind the hidden date (DEC-025, {@link PracticeClock}). */
+	@Column(name = "clock_day_shift", updatable = false)
+	private Integer clockDayShift;
 
 	@Column(name = "history_from", nullable = false, updatable = false)
 	private Instant historyFrom;
@@ -84,13 +96,29 @@ public class PracticeSession {
 		// for JPA
 	}
 
+	/** A session on a simulated market. */
 	public PracticeSession(UUID userId, UUID instrumentId, String timeframe, long seed,
 			String generatorVersion, Instant historyFrom, Instant startTime) {
+		this(userId, instrumentId, timeframe, historyFrom, startTime);
+		this.seed = seed;
+		this.generatorVersion = generatorVersion;
+	}
+
+	/** A session on real history, its date hidden behind {@code clock} until the result. */
+	static PracticeSession onRealData(UUID userId, UUID instrumentId, String timeframe,
+			String dataSource, PracticeClock clock, Instant historyFrom, Instant startTime) {
+		PracticeSession session = new PracticeSession(userId, instrumentId, timeframe, historyFrom,
+			startTime);
+		session.dataSource = dataSource;
+		session.clockDayShift = clock.dayShift();
+		return session;
+	}
+
+	private PracticeSession(UUID userId, UUID instrumentId, String timeframe, Instant historyFrom,
+			Instant startTime) {
 		this.userId = userId;
 		this.instrumentId = instrumentId;
 		this.timeframe = timeframe;
-		this.seed = seed;
-		this.generatorVersion = generatorVersion;
 		this.historyFrom = historyFrom;
 		this.startTime = startTime;
 		this.cursorTime = startTime;
@@ -134,8 +162,19 @@ public class PracticeSession {
 		return timeframe;
 	}
 
-	public long getSeed() {
+	/** Null on real data. */
+	public Long getSeed() {
 		return seed;
+	}
+
+	/** Real data only. */
+	public String getDataSource() {
+		return dataSource;
+	}
+
+	/** How this session's times are shown: the real ones, or behind a hidden date (DEC-025). */
+	PracticeClock getClock() {
+		return PracticeClock.of(clockDayShift);
 	}
 
 	public String getGeneratorVersion() {

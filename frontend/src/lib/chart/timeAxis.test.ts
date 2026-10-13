@@ -112,3 +112,18 @@ describe('New York time (T3, DEC-043)', () => {
     expect(zoneFor(CHICAGO, 'utc')).toBe('UTC')
   })
 })
+
+describe('the hidden-date clock (T4, DEC-025)', () => {
+  // Monday 09:35 on the fictional week: New York wall-clock time written as UTC.
+  const SHOWN = Date.UTC(2000, 0, 10, 9, 35) / 1000
+
+  it('renders the time as given, labelled NY, with no EST/EDT to give the season away', () => {
+    expect(createTimeFormatter(CHICAGO, 'wall-clock')(SHOWN)).toBe('09:35')
+    expect(timezoneLabel(CHICAGO, 'wall-clock', new Date(SHOWN * 1000))).toBe('NY')
+    expect(formatSessionTime(SHOWN, CHICAGO, 'NEW_YORK_WALL_CLOCK')).toBe('Mon 09:35 NY')
+  })
+
+  it('has no other clock to switch to', () => {
+    expect(nextAxisTimezone('wall-clock')).toBe('wall-clock')
+  })
+})

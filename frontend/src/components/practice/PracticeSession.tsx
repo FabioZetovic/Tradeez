@@ -10,7 +10,7 @@ import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import type { Direction, PlanView, PracticeState, SessionResponse } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
-import { formatSessionTime, type AxisTimezone } from '@/lib/chart/timeAxis'
+import { formatSessionTime } from '@/lib/chart/timeAxis'
 import {
   canRedo,
   canUndo,
@@ -68,7 +68,6 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   const [drawingState, rawDispatch] = useReducer(drawingReducer, initialDrawingState)
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
-  const [axisTimezone] = useState<AxisTimezone>('exchange')
   const [contracts, setContracts] = useState(1)
 
   const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined
@@ -181,8 +180,14 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
           {STATUS_LABEL[state.status]}
         </Chip>
         <span className="text-subtle" data-testid="practice-cursor">
-          {formatSessionTime(state.cursor, state.exchangeTimezone)}
+          {formatSessionTime(state.cursor, state.exchangeTimezone, state.timeBasis)}
         </span>
+        {/* DEC-025: on real data the date is the answer; it is revealed with the result. */}
+        {state.timeBasis === 'NEW_YORK_WALL_CLOCK' && state.status !== 'COMPLETE' && (
+          <Chip data-testid="date-hidden" title="The date is revealed with the result">
+            date hidden
+          </Chip>
+        )}
         {lastBar && (
           <span className="ml-auto text-xl font-semibold tabular-nums" data-testid="last-price">
             {formatPrice(lastBar.close, state.tickSize)}
@@ -207,7 +212,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
           bars={bars}
           tickSize={state.tickSize}
           exchangeTimezone={state.exchangeTimezone}
-          axisTimezone={axisTimezone}
+          axisTimezone={state.timeBasis === 'NEW_YORK_WALL_CLOCK' ? 'wall-clock' : 'exchange'}
           adapterFactory={adapterFactory}
           recentBars={RECENT_BARS}
           overlay={(adapter) => (
@@ -281,7 +286,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
               <dt>Entry</dt>
               <dd data-testid="trade-entry">
                 {state.entry
-                  ? `${formatPrice(state.entry.ticks, state.tickSize)} · ${formatSessionTime(state.entry.time, state.exchangeTimezone)}`
+                  ? `${formatPrice(state.entry.ticks, state.tickSize)} · ${formatSessionTime(state.entry.time, state.exchangeTimezone, state.timeBasis)}`
                   : 'at the next price'}
               </dd>
               <dt>Stop</dt>
