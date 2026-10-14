@@ -192,7 +192,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("a trade resolves on one-minute bars, and the result reveals the real date")
+	@DisplayName("a trade resolves on one-minute bars; the real date is revealed when the session ends")
 	void resolvesOnMinutesAndRevealsTheDate() throws Exception {
 		JsonNode session = created("{\"timeframe\":\"5m\"}");
 		String id = session.at("/state/id").asText();
@@ -204,12 +204,12 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 				.content("{\"direction\":\"LONG\",\"stopTicks\":%d,\"targetTicks\":%d,\"contracts\":1}"
 					.formatted(reference - 60, reference + 60)))
 			.andExpect(status().isOk());
-		JsonNode done = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/skip")
+		JsonNode closed = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/skip")
 				.cookie(alice).with(csrf()))
 			.andExpect(status().isOk())).get("state");
 
-		assertThat(done.get("status").asText()).isEqualTo("COMPLETE");
-		JsonNode result = done.get("result");
+		assertThat(closed.get("status").asText()).isEqualTo("ANALYSING");
+		JsonNode result = closed.at("/trades/0/result");
 		assertThat(result.get("resolution").asText()).isEqualTo("M1");
 		assertThat(result.get("engineVersion").asText()).isEqualTo("fill-1.1.0");
 		assertThat(result.get("entryTime").asLong()).isBetween(YEAR_2000, YEAR_2001);
@@ -217,7 +217,16 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 		if ("AMBIGUOUS".equals(result.get("outcome").asText())) {
 			assertThat(result.get("assumption").asText()).contains("same minute");
 		}
+		// The trade is over but the session is not: another trade could still use the date.
+		assertThat(closed.has("revealedStartTime")).isFalse();
+		assertThat(json.writeValueAsString(closed))
+			.doesNotContain(Long.toString(realStart(session).getEpochSecond()));
+
+		JsonNode done = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/end")
+				.cookie(alice).with(csrf()))
+			.andExpect(status().isOk()));
 		// DEC-025: now, and only now, the real date.
+		assertThat(done.get("status").asText()).isEqualTo("COMPLETE");
 		assertThat(done.get("revealedStartTime").asLong()).isEqualTo(realStart(session).getEpochSecond());
 		assertThat(done.has("seed")).isFalse();
 

@@ -11,7 +11,7 @@ import {
   type SessionSummary,
 } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
-import { formatCents, formatR, outcomeLabel } from '@/lib/practice/plan'
+import { formatCents, formatR, STATUS_LABEL } from '@/lib/practice/plan'
 import { Button, Panel, Segmented } from '../ui'
 import { errorClass, fieldClass, panelTitle } from '@/lib/styles'
 
@@ -87,9 +87,10 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         <h2 className="mb-2 text-lg font-semibold">Practice</h2>
         <p className="max-w-3xl text-sm text-subtle">
           You get real NQ history that stops at a random, hidden moment — its date hidden too, because
-          knowing the date means knowing what happened. Read it, decide, and lock a trade with a stop
-          and a target, or step forward and wait. Then watch what the market did. The result, and the
-          date, are revealed at the end, and the record cannot be changed.
+          knowing the date means knowing what happened. Then replay it bar by bar, at your own pace.
+          Whenever you see a setup, lock a trade with a stop and a target and watch it play out; when
+          it is over, look for the next. End the session to see your score in R and the date. Every
+          trade is recorded, and the record cannot be changed.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Segmented<string>
@@ -145,39 +146,37 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
               <tr>
                 <th>Started</th>
                 <th>Chart</th>
-                <th>Trade</th>
-                <th>Outcome</th>
+                <th>Status</th>
+                <th>Trades</th>
+                <th>Win rate</th>
                 <th>R</th>
                 <th>Net</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {journal.map((row) => (
-                <tr key={row.id} data-testid="journal-row">
-                  <td>{new Date(row.createdAt * 1000).toLocaleString()}</td>
-                  <td>
-                    {row.instrument} · {row.timeframe}
-                  </td>
-                  <td>{row.direction ? row.direction.toLowerCase() : '—'}</td>
-                  {/* The server leaves these out until COMPLETE. An unfinished trade shows its
-                      status here, never a partial or guessed outcome. */}
-                  <td>
-                    {row.outcome
-                      ? outcomeLabel(row.outcome)
-                      : row.status === 'IN_TRADE'
-                        ? 'In trade'
-                        : 'Analysing'}
-                  </td>
-                  <td>{row.rMultiple !== undefined ? formatR(row.rMultiple) : ''}</td>
-                  <td>{row.netPnlCents !== undefined ? formatCents(row.netPnlCents) : ''}</td>
-                  <td>
-                    <Button variant="link" onClick={() => setOpenId(row.id)}>
-                      {row.status === 'COMPLETE' ? 'Review' : 'Resume'}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {journal.map((row) => {
+                // The score counts closed trades only: a running trade's outcome is the future.
+                const { closedTrades, wins, totalR, netPnlCents } = row.score
+                return (
+                  <tr key={row.id} data-testid="journal-row">
+                    <td>{new Date(row.createdAt * 1000).toLocaleString()}</td>
+                    <td>
+                      {row.instrument} · {row.timeframe}
+                    </td>
+                    <td>{STATUS_LABEL[row.status]}</td>
+                    <td>{row.trades}</td>
+                    <td>{closedTrades > 0 ? `${Math.round((100 * wins) / closedTrades)}%` : ''}</td>
+                    <td>{closedTrades > 0 ? formatR(totalR) : ''}</td>
+                    <td>{closedTrades > 0 ? formatCents(netPnlCents) : ''}</td>
+                    <td>
+                      <Button variant="link" onClick={() => setOpenId(row.id)}>
+                        {row.status === 'COMPLETE' ? 'Review' : 'Resume'}
+                      </Button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}

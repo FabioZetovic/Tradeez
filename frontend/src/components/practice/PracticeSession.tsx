@@ -5,9 +5,10 @@ import { DrawingToolbar } from '../DrawingToolbar'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
 import { PlanPanel } from './PlanPanel'
 import { ResultCard } from './ResultCard'
-import { usePracticeSession } from '@/hooks/usePracticeSession'
+import { TradeLog } from './TradeLog'
+import { SPEEDS, usePracticeSession, type Speed } from '@/hooks/usePracticeSession'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
-import type { Direction, PlanView, PracticeState, SessionResponse } from '@/lib/api/practice'
+import type { Direction, PracticeState, SessionResponse } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
@@ -20,14 +21,19 @@ import {
 } from '@/lib/drawing/store'
 import type { SnapMode } from '@/lib/drawing/snap'
 import type { Drawing, DrawingKind } from '@/lib/drawing/types'
-import { Button, Chip, Panel } from '../ui'
+import { Button, Chip, Panel, Segmented } from '../ui'
 import { errorClass, keyValueClass, panelTitle } from '@/lib/styles'
 import {
+  closedTradeDrawing,
   defaultBracket,
   flipBracket,
+  lockedBracket,
   pinEntry,
   PLAN_DRAWING_ID,
   planFromDrawing,
+  STATUS_LABEL,
+  timeframeSeconds,
+  TRADE_DRAWING_PREFIX,
 } from '@/lib/practice/plan'
 
 interface PracticeSessionProps {
@@ -47,53 +53,66 @@ const STATUS_TONE = {
   COMPLETE: 'good',
 } as const satisfies Record<PracticeState['status'], string>
 
-const STATUS_LABEL: Record<PracticeState['status'], string> = {
-  ANALYSING: 'Analysing',
-  IN_TRADE: 'In trade',
-  COMPLETE: 'Complete',
-}
+const SPEED_LABELS = SPEEDS.map((s) => `${s}×`)
 
 /**
- * One practice session: the hidden moment, the plan, the replay, the result.
+ * One replay: a hidden moment played forward, with trades placed along the way (DEC-046).
  *
  * Drawings here are local and unsaved. They are analysis for this moment only, and saving them to
  * the instrument's chart would put marks from a market the learner cannot otherwise see onto the
- * public one. The one drawing with meaning is the plan — the position tool, id
- * {@link PLAN_DRAWING_ID} — whose entry is pinned to the market price and which freezes when locked.
+ * public one. Two kinds of drawing carry meaning: the plan — the position tool, id
+ * {@link PLAN_DRAWING_ID} — whose entry is pinned to the market price and which freezes when locked;
+ * and each finished trade, drawn from entry to exit, which is the record and never editable.
  */
 export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: PracticeSessionProps) {
-  const { state, bars, error, busy, playing, setPlaying, advance, skip, lockPlan } =
-    usePracticeSession(sessionId, initial)
+  const {
+    state,
+    bars,
+    error,
+    busy,
+    playing,
+    setPlaying,
+    speed,
+    setSpeed,
+    advance,
+    skip,
+    lockPlan,
+    end,
+  } = usePracticeSession(sessionId, initial)
 
   const [drawingState, rawDispatch] = useReducer(drawingReducer, initialDrawingState)
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
   const [contracts, setContracts] = useState(1)
+  const [selectedTrade, setSelectedTrade] = useState<number | undefined>(undefined)
+  const [confirmingEnd, setConfirmingEnd] = useState(false)
 
   const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined
   const status = state?.status
+  const trades = state?.trades ?? []
+  const openTrade = status === 'IN_TRADE' ? trades[trades.length - 1] : undefined
+  // A plan can be drawn only while flat. Running or ended, the bracket is not the learner's to move.
   const locked = status !== undefined && status !== 'ANALYSING'
 
-  // The price a market order is priced against, and the bar the bracket starts from. Before the
-  // plan is locked that is the latest bar; after, it is what the server recorded at the lock.
-  const referenceTicks = state?.plan?.referenceTicks ?? lastBar?.close ?? 0
+  // The price a market order is priced against, and the bar the bracket starts from. While flat that
+  // is the latest bar; in a trade, it is what the server recorded at the lock.
+  const referenceTicks = openTrade?.plan.referenceTicks ?? lastBar?.close ?? 0
   const anchorTime =
-    state?.plan && state.timeframe
-      ? state.plan.lockedAt - timeframeSeconds(state.timeframe)
+    openTrade && state
+      ? openTrade.plan.lockedAt - timeframeSeconds(state.timeframe)
       : (lastBar?.time ?? 0)
 
   /**
    * Every drawing action passes through here. Actions on the plan drawing are rewritten to keep its
-   * entry on the market price, and dropped entirely once the plan is locked — the server would
+   * entry on the market price, and dropped entirely while it cannot change — the server would
    * refuse a change anyway (DEC-013), and a chart that let the learner drag a locked stop would be
-   * showing a trade that does not exist.
+   * showing a trade that does not exist. Finished trades are never touched at all.
    */
   const dispatch = useCallback(
     (action: DrawingAction) => {
-      const touchesPlan =
-        ('drawing' in action && action.drawing.id === PLAN_DRAWING_ID) ||
-        ('id' in action && action.id === PLAN_DRAWING_ID)
-      if (touchesPlan && locked) return
+      const id = 'drawing' in action ? action.drawing.id : 'id' in action ? action.id : null
+      if (id?.startsWith(TRADE_DRAWING_PREFIX)) return
+      if (id === PLAN_DRAWING_ID && locked) return
 
       if ('drawing' in action && action.drawing.id === PLAN_DRAWING_ID) {
         rawDispatch({ ...action, drawing: pinEntry(action.drawing, referenceTicks, anchorTime) })
@@ -105,17 +124,20 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   )
 
   // What the chart shows, derived on every render rather than written back into the drawing store
-  // by effects. While analysing, the bracket's entry follows the market price as the replay moves.
-  // Once locked, the bracket is the server's plan — not whatever was last drawn — and it stays that
-  // way through undo and redo, which only ever see the learner's own edits.
-  const serverPlan = state?.plan
+  // by effects. While flat, the bracket's entry follows the market price as the replay moves. In a
+  // trade, the bracket is the server's plan — not whatever was last drawn — and it stays that way
+  // through undo and redo, which only ever see the learner's own edits.
   const storedPlan = drawingState.drawings.find((d) => d.id === PLAN_DRAWING_ID)
-  const planDrawing: Drawing | undefined = serverPlan
-    ? lockedBracket(serverPlan, anchorTime)
-    : storedPlan && pinEntry(storedPlan, referenceTicks, anchorTime)
+  const planDrawing: Drawing | undefined = openTrade
+    ? lockedBracket(openTrade.plan, anchorTime)
+    : !locked && storedPlan
+      ? pinEntry(storedPlan, referenceTicks, anchorTime)
+      : undefined
   const shownState = {
     ...drawingState,
     drawings: [
+      // First, so the learner's own analysis draws over them and wins every click.
+      ...(state ? trades.flatMap((t) => closedTradeDrawing(t, state.timeframe) ?? []) : []),
       ...drawingState.drawings.filter((d) => d.id !== PLAN_DRAWING_ID),
       ...(planDrawing ? [planDrawing] : []),
     ],
@@ -165,6 +187,10 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     dispatch({ type: 'update', drawing: { ...planDrawing, anchors } })
   }
 
+  // The trade whose details are open: the one picked in the log, else the latest to finish.
+  const closed = trades.filter((t) => t.result)
+  const shownTrade = closed.find((t) => t.number === selectedTrade) ?? closed[closed.length - 1]
+
   return (
     <section className="flex flex-col gap-4">
       <SimulatedDataBanner dataClass={state.dataClass} />
@@ -182,9 +208,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
         <span className="text-subtle" data-testid="practice-cursor">
           {formatSessionTime(state.cursor, state.exchangeTimezone, state.timeBasis)}
         </span>
-        {/* DEC-025: on real data the date is the answer; it is revealed with the result. */}
+        {/* DEC-025: on real data the date is the answer; it is revealed when the session ends. */}
         {state.timeBasis === 'NEW_YORK_WALL_CLOCK' && state.status !== 'COMPLETE' && (
-          <Chip data-testid="date-hidden" title="The date is revealed with the result">
+          <Chip data-testid="date-hidden" title="The date is revealed when the session ends">
             date hidden
           </Chip>
         )}
@@ -234,7 +260,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] items-start gap-4">
         <Panel aria-label="Replay">
           <h3 className={panelTitle}>Replay</h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button disabled={busy || playing} onClick={() => void advance(1)}>
               Next bar
             </Button>
@@ -246,12 +272,51 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
                 {playing ? 'Pause' : 'Play'}
               </Button>
             )}
+            {status !== 'COMPLETE' && (
+              <Segmented<string>
+                options={SPEED_LABELS}
+                value={`${speed}×`}
+                onChange={(label) => setSpeed(Number(label.slice(0, -1)) as Speed)}
+                label="Replay speed, bars per second"
+              />
+            )}
             {status === 'IN_TRADE' && (
               <Button disabled={busy} onClick={() => void skip()}>
                 Skip to result
               </Button>
             )}
           </div>
+
+          {status === 'ANALYSING' && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+              {confirmingEnd ? (
+                <>
+                  <span className="text-sm">
+                    End the session? No more trades{state.timeBasis === 'NEW_YORK_WALL_CLOCK' && ', and the date is revealed'}.
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={busy}
+                    onClick={() => {
+                      setConfirmingEnd(false)
+                      void end()
+                    }}
+                  >
+                    End session
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmingEnd(false)}>
+                    Keep trading
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmingEnd(true)}>
+                  End session…
+                </Button>
+              )}
+            </div>
+          )}
+
           {error && (
             <p role="alert" className={`mt-3 ${errorClass}`}>
               {error}
@@ -272,29 +337,33 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
             onChangeContracts={setContracts}
             onLock={(plan) => {
               setPlaying(false)
-              void lockPlan(plan)
+              void lockPlan(plan).then((ok) => {
+                // The draft became the trade; the next one starts from a fresh bracket.
+                if (ok) rawDispatch({ type: 'remove', id: PLAN_DRAWING_ID })
+              })
             }}
           />
         )}
 
-        {status === 'IN_TRADE' && state.plan && (
+        {openTrade && (
           <Panel aria-label="Trade">
             <h3 className={panelTitle}>
-              {state.plan.direction === 'LONG' ? 'Long' : 'Short'} {state.plan.contracts} — locked
+              Trade {openTrade.number} · {openTrade.plan.direction === 'LONG' ? 'Long' : 'Short'}{' '}
+              {openTrade.plan.contracts} — locked
             </h3>
             <dl className={keyValueClass}>
               <dt>Entry</dt>
               <dd data-testid="trade-entry">
-                {state.entry
-                  ? `${formatPrice(state.entry.ticks, state.tickSize)} · ${formatSessionTime(state.entry.time, state.exchangeTimezone, state.timeBasis)}`
+                {openTrade.entry
+                  ? `${formatPrice(openTrade.entry.ticks, state.tickSize)} · ${formatSessionTime(openTrade.entry.time, state.exchangeTimezone, state.timeBasis)}`
                   : 'at the next price'}
               </dd>
               <dt>Stop</dt>
-              <dd>{formatPrice(state.plan.stopTicks, state.tickSize)}</dd>
+              <dd>{formatPrice(openTrade.plan.stopTicks, state.tickSize)}</dd>
               <dt>Target</dt>
-              <dd>{formatPrice(state.plan.targetTicks, state.tickSize)}</dd>
+              <dd>{formatPrice(openTrade.plan.targetTicks, state.tickSize)}</dd>
               <dt>Reward : risk</dt>
-              <dd>{state.plan.plannedRewardRisk.toFixed(2)}</dd>
+              <dd>{openTrade.plan.plannedRewardRisk.toFixed(2)}</dd>
             </dl>
             <p className="mt-3 text-xs text-subtle">
               The outcome was decided when you locked the plan. Step forward to watch it happen.
@@ -302,28 +371,14 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
           </Panel>
         )}
 
-        {status === 'COMPLETE' && state.result && (
-          <ResultCard state={state} result={state.result} />
+        {shownTrade?.result && (
+          <ResultCard state={state} trade={shownTrade} result={shownTrade.result} />
         )}
       </div>
+
+      {(trades.length > 0 || status === 'COMPLETE') && (
+        <TradeLog state={state} selected={shownTrade?.number} onSelect={setSelectedTrade} />
+      )}
     </section>
   )
-}
-
-/** The locked plan as a position drawing, anchored to the bar that was last visible at the lock. */
-function lockedBracket(plan: PlanView, time: number): Drawing {
-  return {
-    ...defaultBracket(plan.direction, plan.referenceTicks, time),
-    anchors: [
-      { time, priceTicks: plan.referenceTicks },
-      { time, priceTicks: plan.stopTicks },
-      { time, priceTicks: plan.targetTicks },
-    ],
-  }
-}
-
-function timeframeSeconds(code: string): number {
-  const unit = code.slice(-1)
-  const n = Number(code.slice(0, -1))
-  return unit === 'm' ? n * 60 : unit === 'h' ? n * 3600 : unit === 's' ? n : n * 86_400
 }

@@ -70,7 +70,7 @@ public final class PracticeDtos {
 	public record EntryView(long time, long ticks) {
 	}
 
-	@Schema(description = "What happened. Present only once the session is COMPLETE.")
+	@Schema(description = "What happened. Present only once the replay has passed the exit.")
 	public record ResultView(
 		@Schema(description = "TARGET | STOP | AMBIGUOUS | TIME_EXIT") String outcome,
 		@Schema(description = """
@@ -93,6 +93,25 @@ public final class PracticeDtos {
 		String fillModelVersion) {
 	}
 
+	@Schema(description = "One trade of the replay (DEC-046)")
+	public record TradeView(
+		@Schema(description = "1, 2, 3… in the order the trades were locked") int number,
+		PlanView plan,
+		EntryView entry,
+		@Schema(description = "Null until the replay has passed the exit") ResultView result) {
+	}
+
+	@Schema(description = """
+		The trades whose results have been revealed, added up. A running trade counts for nothing \
+		until its exit is shown.""")
+	public record ScoreView(
+		int closedTrades,
+		@Schema(description = "Trades that made ticks before commission") int wins,
+		int losses,
+		@Schema(description = "Sum of the closed trades' R multiples") double totalR,
+		long netPnlCents) {
+	}
+
 	public record PracticeState(
 		UUID id,
 		String instrument,
@@ -101,7 +120,10 @@ public final class PracticeDtos {
 		@Schema(description = "IANA zone for labelling times, e.g. America/Chicago")
 		String exchangeTimezone,
 		String timeframe,
-		@Schema(description = "ANALYSING | IN_TRADE | COMPLETE") String status,
+		@Schema(description = """
+			ANALYSING (flat: no trade running) | IN_TRADE | COMPLETE (ended: no more trades; the seed \
+			or the real date is revealed)""")
+		String status,
 		long startTime,
 		@Schema(description = "Nothing at or after this instant has been revealed") long cursor,
 		@Schema(description = """
@@ -111,9 +133,9 @@ public final class PracticeDtos {
 		String timeBasis,
 		String dataClass,
 		String disclaimer,
-		PlanView plan,
-		EntryView entry,
-		ResultView result,
+		@Schema(description = "Every trade so far, in order. Only the last can still be running.")
+		List<TradeView> trades,
+		ScoreView score,
 		@Schema(description = """
 			Withheld until COMPLETE: the seed IS the future (DEC-038). A decimal STRING, because a \
 			64-bit seed does not survive being a JSON number: JavaScript rounds anything above 2^53, \
@@ -137,16 +159,14 @@ public final class PracticeDtos {
 	public record AdvanceResponse(PracticeState state, List<BarResponse> bars) {
 	}
 
-	@Schema(description = "A journal row. Outcome fields are null until the session is COMPLETE.")
+	@Schema(description = "A journal row. The score counts only trades whose exit has been revealed.")
 	public record SessionSummary(
 		UUID id,
 		String instrument,
 		String timeframe,
 		String status,
 		long createdAt,
-		FillEngine.Direction direction,
-		String outcome,
-		Long netPnlCents,
-		Double rMultiple) {
+		@Schema(description = "Trades placed, the running one included") int trades,
+		ScoreView score) {
 	}
 }

@@ -17,8 +17,8 @@
 
 ## Open
 
-*No open bugs.* BUG-035, the last one, was fixed in session 017 before the merge of
-`feat/real-nq-data`. Every closed entry is under [Fixed](#fixed) with its original description intact.
+*No open bugs.* BUG-039, the latest, was found and fixed in session 017 while building T5. Every
+closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
 
@@ -183,13 +183,15 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Practice | The price level hints at the era | NQ at 20,000 is late 2024, at 30,000 mid-2026. The date, weekday-to-date mapping and season are hidden (DEC-045); the level is not, because shifting real prices would change the levels ICT reads |
 | Practice | A determined learner could find the moment on the Chart tab | By scrolling the same imported history for the same pattern. The app does not try to stop that: it is self-deception, not a leak through the API |
 | Practice | Drawings on a practice chart are not saved | They are analysis of a market the learner cannot otherwise see; saving them to the instrument would put them on the public chart |
-| Practice | One bracket trade per session, entered at market | The vertical slice's scope. Limit entries, scaling and multiple trades are later work |
-| Practice | A replay steps at most 3 days past its start; 60 new sessions per user per hour; journal lists the latest 50 | Each bounds how much data one request has to generate |
+| Practice | ~~One bracket trade per session~~ | *Out of date since T5 (DEC-046): a replay holds up to 50 trades, one at a time. Struck through rather than deleted.* |
+| Practice | Bracket orders at market only, one trade running at a time | No limit entries, no scaling in or out, no partial targets (T28), no moving a stop once locked (DEC-013's revision log is later work) |
+| Practice | A replay steps at most 3 days past its start; 50 trades per replay; 60 new sessions per user per hour; journal lists the latest 50 | Each bounds how much data one request has to generate |
+| Practice | Playback is one request per bar | At 8× the server's response time, not the timer, sets the pace. Fine locally; a WebSocket stream (DEC-014) is the upgrade if it ever is not |
 | Chart | Day ticks on the time axis sit at UTC midnight | Labelled with their true exchange-local weekday and time (e.g. *Wed 18:00*). Moving them to local midnight would mean shifting every timestamp handed to the renderer, which breaks where the zone's offset changes (BUG-029) |
 | Drills | On simulated data every drill is a developer fixture: labelled, never graded, no rating | DEC-034, enforced by a CHECK constraint. Graded drills need permitted real data |
 | Drills | FVG identification only, on 5m and 15m | One-minute drills are refused: the simulated market produces almost no qualifying gaps there, and it is deliberately not tuned to (DEC-039) |
 | Drills | No drill history or statistics screen | Nothing may be aggregated into a score from fixture drills (DEC-034); answered drills are stored and immutable |
-| Practice | Results on simulated data are practice, not evidence | Stated on the result card. No aggregate score exists yet; when one does, DEC-034 applies |
+| Practice | Results on simulated data are practice, not evidence | Stated when the session ends. A replay's own score (T5) is per session; no cross-session score exists yet, and when one does (T23), DEC-034 applies |
 
 ---
 
@@ -434,6 +436,22 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-039 🟡 The total R disagreed with the R column it summed
+
+**Status:** verified — seen in the browser while playing T5 on real NQ, session 017; a test fails on the old code
+**Affects:** `backend/.../practice/PracticeService.java` (`score`)
+
+**What happened.** The replay's score added up its trades' R multiples *unrounded*, then rounded the
+total; each trade's R is shown rounded to two decimals. On the first real two-trade session the log
+read −1.07R and +1.98R, and the total read **+0.90R** — while anyone adding the column gets +0.91R.
+(−43 and +79 ticks on 40 ticks of risk are −1.075R and +1.975R; unrounded they sum to exactly 0.9.)
+The unrounded total is arguably more precise, but a learner checking the arithmetic sees a wrong sum,
+and a scorecard that does not add up is not trusted.
+
+**✅ FIXED — Session 017.** The total is now the sum of the R column as shown. In the browser the
+same session reads +0.91R in the log and in the journal. `PracticeApiTest.totalMatchesTheColumn`
+writes exactly those two trades and fails on the old code (`expected: 0.91 but was: 0.9`).
 
 ### BUG-038 🟠 A slow drag did not move a drawing sideways at all
 

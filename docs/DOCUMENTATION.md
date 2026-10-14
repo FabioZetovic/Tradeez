@@ -1456,6 +1456,32 @@ browser received was dated January 2000; the long trade placed there was stopped
 later, exactly where the stored prices say it should have been; and only then did the app reveal that
 it had been Tuesday 31 March 2026.
 
+**A replay, not a single trade.** Fabio's idea was never one trade and done: it was sitting in front of
+an old chart and trading it the way you would trade live — watching the candles come in, taking a
+trade when the setup appears, and looking for the next one when it is over. So a practice session
+became a replay. It plays forward candle by candle, at one to eight candles a second, or a step at a
+time. Whenever the learner sees something, they lock a trade with a stop and a target; when the replay
+reaches its exit they see what happened, and they are free to take another. One trade runs at a time,
+and every trade is still fixed the moment it is locked.
+
+The interesting question was *when* each secret can be told. A trade's result can be shown as soon as
+the replay has passed its exit — that is the past now. But the date of a real chart, or the seed of a
+simulated one, is the whole future: knowing it would let a learner look up what comes after the next
+trade. So those wait until the session ends, either because the learner ends it or because the replay
+runs out. The score follows the same rule: it counts only trades that are over, so a trade still
+running never shows up in it, not even in the list of past sessions.
+
+Finished trades stay on the chart, drawn from where they were entered to where they left, so a session
+can be read back afterwards. The database change was made without touching a single stored trade: old
+sessions simply became sessions with one trade, numbered one.
+
+Tried on the real data: a New York morning on a Friday; a long stopped out a minute after entry, a
+short that hit its target in the next candle; playback at full speed stopped by itself the moment that
+trade closed. Ending the session revealed Friday 18 September 2026. The same test turned up one small
+bug: the total in R was +0.90 under a column that adds up to +0.91, because the total was computed
+before rounding and the column after. A total a learner cannot check by hand is not one they will
+trust, so it now adds up exactly what is shown.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1468,7 +1494,9 @@ the example file contains a key — and it names the setting without ever printi
 
 **By the numbers:** backend tests 164 → 223, frontend tests 131 → 148, two migrations (V7: stored market
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
-real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document.
+real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
+session (practice on real data, then the replay): backend 223 → 241, frontend 148 → 165, V9 and V10,
+DEC-044 to DEC-046.*
 
 ---
 

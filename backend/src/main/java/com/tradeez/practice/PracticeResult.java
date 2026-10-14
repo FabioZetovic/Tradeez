@@ -37,6 +37,10 @@ public class PracticeResult {
 	@Column(name = "session_id", nullable = false, updatable = false)
 	private UUID sessionId;
 
+	/** The number of the plan this is the result of (V10). */
+	@Column(name = "seq", nullable = false, updatable = false)
+	private int seq;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "outcome", nullable = false, updatable = false)
 	private Outcome outcome;
@@ -99,9 +103,11 @@ public class PracticeResult {
 		// for JPA
 	}
 
-	public PracticeResult(UUID sessionId, Fill fill, int contracts, long tickValueCents,
-			FillModel model, String generatorVersion, Long seed, String dataSource) {
-		this.sessionId = sessionId;
+	public PracticeResult(TradePlan plan, Fill fill, long tickValueCents, FillModel model,
+			String generatorVersion, Long seed, String dataSource) {
+		int contracts = plan.getContracts();
+		this.sessionId = plan.getSessionId();
+		this.seq = plan.getSeq();
 		this.outcome = fill.outcome();
 		this.entryTime = fill.entryTime();
 		this.entryTicks = fill.entryTicks();
@@ -124,6 +130,10 @@ public class PracticeResult {
 
 	public UUID getSessionId() {
 		return sessionId;
+	}
+
+	public int getSeq() {
+		return seq;
 	}
 
 	public Outcome getOutcome() {

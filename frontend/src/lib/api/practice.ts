@@ -12,6 +12,7 @@ import type { DomainBar } from '../chart/types'
  */
 
 export type Direction = 'LONG' | 'SHORT'
+/** ANALYSING is flat: no trade running. COMPLETE is ended: no more trades (DEC-046). */
 type PracticeStatus = 'ANALYSING' | 'IN_TRADE' | 'COMPLETE'
 export type Outcome = 'TARGET' | 'STOP' | 'AMBIGUOUS' | 'TIME_EXIT'
 
@@ -56,6 +57,27 @@ export interface ResultView {
   fillModelVersion: string
 }
 
+/** One trade of the replay. Only the last can still be running. */
+export interface TradeView {
+  /** 1, 2, 3… in the order the trades were locked. */
+  number: number
+  plan: PlanView
+  /** Absent until the replay reveals the bar the trade was entered in. */
+  entry?: EntryView
+  /** Absent until the replay has passed the exit. */
+  result?: ResultView
+}
+
+/** The trades whose results have been revealed, added up. A running trade counts for nothing. */
+export interface ScoreView {
+  closedTrades: number
+  /** Trades that made ticks before commission. */
+  wins: number
+  losses: number
+  totalR: number
+  netPnlCents: number
+}
+
 export interface PracticeState {
   id: string
   instrument: string
@@ -76,11 +98,8 @@ export interface PracticeState {
   timeBasis: TimeBasis
   dataClass: string
   disclaimer?: string
-  plan?: PlanView
-  /** Absent until the replay reveals the bar the trade was entered in. */
-  entry?: EntryView
-  /** Absent until COMPLETE. */
-  result?: ResultView
+  trades: TradeView[]
+  score: ScoreView
   /**
    * Absent until COMPLETE — the seed is the future (DEC-038). A decimal string, never parsed to a
    * number: a 64-bit seed above 2^53 would be silently rounded, and a rounded seed reproduces a
@@ -106,10 +125,9 @@ export interface SessionSummary {
   timeframe: string
   status: PracticeStatus
   createdAt: number
-  direction?: Direction
-  outcome?: Outcome
-  netPnlCents?: number
-  rMultiple?: number
+  /** Trades placed, the running one included. */
+  trades: number
+  score: ScoreView
 }
 
 export interface PlanRequest {
@@ -163,5 +181,11 @@ export const advanceSession = (id: string, bars: number) =>
 
 export const skipToResult = (id: string) =>
   apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/skip`, {
+    method: 'POST',
+  })
+
+/** Only while flat. Reveals the seed or the real date; ending twice changes nothing. */
+export const endSession = (id: string) =>
+  apiFetch<PracticeState>(`/api/practice/sessions/${encodeURIComponent(id)}/end`, {
     method: 'POST',
   })

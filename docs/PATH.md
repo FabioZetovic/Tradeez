@@ -55,17 +55,17 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — real data imported, chart switched (T1–T3)
+last_session: 017   # in progress — T1–T4 merged; T5 (replay with several trades) built on feat/replay-trading
 last_author: CLAUDE
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/practice-real-data (T4) merged 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: feat/replay-trading                       # T5, not merged. master: feat/practice-real-data (T4) merged 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 234/234 (Testcontainers), frontend 155/155 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). T4 verified from a fresh clone and merged 2026-10-14.
+build_passing: true  # feat/replay-trading: backend 241/241 (Testcontainers), frontend 165/165 + typecheck; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c0707a4 green 2026-10-14 (lint, typecheck, 165, build; backend 241 without .env) — ready to merge on Fabio's word.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -88,7 +88,7 @@ files_in_repo:
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -97,7 +97,7 @@ files_in_repo:
     lib/drills/   # candle picking, marks, explanations generated from detector evidence
     components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar; ui.tsx = shared Button/Segmented/Panel/Chip/Notice
     lib/styles.ts # cx() and shared Tailwind class strings (DEC-044); tokens live in src/index.css @theme
-    components/practice/  # journal, session screen, plan panel, result card
+    components/practice/  # journal, replay screen, plan panel, trade result card, trade log + score
     components/drills/    # drill screen and click overlay
     hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession
   docs/:
@@ -113,7 +113,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — next is T5 (replay paper-trading mode) on feat/replay-trading.
+blocked_on: nothing — T5 is built on feat/replay-trading; next is Fabio's call (merge it, then T7 New York clock layer is the roadmap's next item).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -141,7 +141,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — real NQ data from Databento, on branch feat/real-nq-data (2026-09-30)
+claimed_files:      # session 017 (CLAUDE) — T5 replay trading, on branch feat/replay-trading (2026-10-14)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -157,8 +157,8 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
-(014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · R1 Databento importer (017, on
-`feat/real-nq-data`, not merged).
+(014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
+practice on real NQ (017, merged) · T5 replay with several trades (017, on `feat/replay-trading`).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -179,7 +179,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T2 | ~~**Import 2 years of NQ**~~ | — | F | ✅ Session 017: 697,003 real 1m bars, 2024-10-08 → 2026-10-02, 25 months, 9 contracts, $0, ~8 min. Rolls the week before each expiry; prices checked against known events (April 2025 crash low 16,460). Local DB only (`IMPORTED_PRIVATE`). ES moved to T20. |
 | T3 | ~~**Real NQ in the app**~~ | — | F, X §4 | ✅ Session 017: V8 withdraws DEMO from the list (still resolves by symbol for Practice/Drills); instruments carry `dataFrom`/`dataTo`; series carry their real `source`; chart opens on the newest data, date picker + Latest/1W/1M/3M/1Y/2Y; New York time axis by default (toggle NY → exchange → UTC). Session separators moved to T7. |
 | T4 | ~~**Practice on real data**~~ | — | F, D-025 | ✅ Session 017, **merged 2026-10-14 as `c128237`** (DEC-045): real NQ by default; hidden-date clock (fictional week, NY wall clock, date revealed with the result); moment picker by killzone and weekday; `fill-1.1.0` on minute bars, no gap-means-closed rule; V9 provenance. Played end to end on the real import. |
-| T5 | **Replay paper-trading mode** | T4 | F, C §5, X §5 | Fabio's core idea. Step / play / pause / speed; place orders at any moment (entry + stop + target), several trades per replay, each plan locked (INVARIANT 10); session summary in R. |
+| T5 | ~~**Replay paper-trading mode**~~ | T4 | F, C §5, X §5 | ✅ Session 017, 2026-10-14, on `feat/replay-trading` (**not merged yet**, DEC-046): step / play at 1–8 bars a second / pause; a bracket at any moment, several trades per replay, one at a time, each locked; finished trades drawn on the chart; score in R; End session reveals the seed or the date (V10). |
 | T6 | ~~**Bug batch, then merge `feat/real-nq-data`**~~ | — | process | ✅ Session 017, 2026-10-13: BUG-035 and BUG-038 fixed, fresh clone green, **merged into `master` as `80014ad`** (no PR). No open bugs. |
 
 **M1 — ICT on the chart**
@@ -259,6 +259,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
 | DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
+| DEC-046 ⚠️ | **A session is a replay with several trades, one at a time.** Flat → in trade → flat; each trade numbered and immutable (V10); its result revealed when the replay passes its exit; the seed or date only when the session **ends** (learner ends it while flat, or a flat replay hits its limit); score over closed trades only. |
 | DEC-044 | **Tailwind CSS 4 for all styling.** Tokens in `src/index.css` (`@theme`), shared with the chart; `components/ui.tsx` + `lib/styles.ts`; no other CSS. Never give one element two utilities for the same property. |
 | DEC-043 | **Default ICT reading = the 2022 mentorship** (FVG entries after sweep + displacement MSS, midnight open); thin topics (blocks, PD matrix, IPDA, weekly profiles) from 2016–17, labelled; `sessions-1.0.0` = index-futures killzones. Every rule names its source. |
 | DEC-042 | **Massive's free plan first** (2 years of CME 1m, 5 req/min, per-contract tickers — Tradeez picks the front contract by previous-session volume); Databento later for deep history and 1s. Key `MASSIVE_API_KEY` only in `backend/.env`. |
@@ -1515,3 +1516,30 @@ would have been closed early. Built:
 **2026-10-14 — T4 merged.** Fabio: "continue with what you were doing". No open bugs; fresh clone of
 `feat/practice-real-data`: frontend lint/typecheck/155/build, backend 234/234. Merged `--no-ff` as
 `c128237`. Next: T5 on `feat/replay-trading`.
+
+**2026-10-14 — T5: replay paper trading, several trades per session (DEC-046).** The practice slice
+was one trade per session: `UNIQUE (session_id)` on plan and result, COMPLETE the moment the exit was
+revealed, seed and date shown with that one result. Rebuilt as a replay:
+- **States:** ANALYSING is *flat*, IN_TRADE as before, COMPLETE is *ended*. A revealed exit returns
+  the session to flat (`settle`); `POST /{id}/end` ends it (only while flat; idempotent); a flat
+  replay that reaches its 3-day limit ends by itself. Advancing over a closed market to the limit now
+  moves the cursor with no bars instead of refusing — otherwise a replay whose last hours were a
+  weekend could never end.
+- **V10:** `seq` on `trade_plan` and `practice_result`, `UNIQUE (session_id, seq)` on both, composite
+  FK result → plan. Existing rows became trade 1 without an UPDATE (constant default), so the
+  immutability triggers were never touched; the local database migrated with its T4 session intact.
+- **API:** `PracticeState.trades[]` (number, plan, entry once revealed, result once the exit is
+  passed) and `score` (closed trades, wins, losses, total R, net) replace `plan/entry/result`; the
+  journal row carries `trades` and `score`. Seed and `revealedStartTime` only at COMPLETE. Max 50
+  trades per replay. New refusals: trade running (end), session ended (plan), too many trades.
+- **Frontend:** speed control (1×/2×/4×/8× bars per second); play stops by itself when a trade
+  closes; the locked draft is cleared so the next trade starts from a fresh bracket; finished trades
+  drawn entry → exit (`Drawing.endTime`, `positionRight`) and never selectable; `TradeLog` (score,
+  trades table, end reveal and provenance) and a per-trade `ResultCard`; End session asks once more.
+- **Played on real NQ:** NY AM → "Fri 10:55 NY". Long stopped out a minute later (−1.07R), short hit
+  its target in the next bar (+1.98R); play at 8× stopped on the close by itself; date hidden
+  throughout; End session → "Friday 18 September 2026, 10:55", matching the stored start. Seq 1 and 2
+  in the database. Layout checked at 1920px: centred, no horizontal overflow.
+- **BUG-039** found there and fixed: the total read +0.90R under a column reading −1.07R and +1.98R.
+- Backend 234 → 241, frontend 155 → 165; lint zero, knip clean. Pushed as `c0707a4`; fresh clone green
+  (frontend lint/typecheck/165/build, backend 241/241 without `.env`). Not merged: waiting for Fabio.

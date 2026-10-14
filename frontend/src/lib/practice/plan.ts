@@ -1,4 +1,11 @@
-import type { Direction, Outcome, PlanRequest } from '../api/practice'
+import type {
+  Direction,
+  Outcome,
+  PlanRequest,
+  PlanView,
+  PracticeState,
+  TradeView,
+} from '../api/practice'
 import type { Anchor, Drawing } from '../drawing/types'
 import { DEFAULT_STYLES } from '../drawing/types'
 
@@ -46,6 +53,50 @@ export function pinEntry(drawing: Drawing, referenceTicks: number, time: number)
   anchors[1] = { ...anchors[1], time }
   anchors[2] = { ...anchors[2], time }
   return { ...drawing, anchors }
+}
+
+/** The running trade's plan as a position drawing, anchored to the bar last visible at the lock. */
+export function lockedBracket(plan: PlanView, time: number): Drawing {
+  return {
+    ...defaultBracket(plan.direction, plan.referenceTicks, time),
+    anchors: [
+      { time, priceTicks: plan.referenceTicks },
+      { time, priceTicks: plan.stopTicks },
+      { time, priceTicks: plan.targetTicks },
+    ],
+  }
+}
+
+/** Drawings of finished trades start with this. They are the record, not analysis: never edited. */
+export const TRADE_DRAWING_PREFIX = 'practice-trade-'
+
+/**
+ * A finished trade on the chart, from the bar it was entered in to the bar it left in — at the
+ * price it was really filled, with the stop and target it was planned with. Null while it runs.
+ */
+export function closedTradeDrawing(trade: TradeView, timeframe: string): Drawing | null {
+  const result = trade.result
+  if (!result) return null
+  const step = timeframeSeconds(timeframe)
+  const start = result.entryTime - (result.entryTime % step)
+  return {
+    id: `${TRADE_DRAWING_PREFIX}${trade.number}`,
+    kind: 'position',
+    anchors: [
+      { time: start, priceTicks: result.entryTicks },
+      { time: start, priceTicks: trade.plan.stopTicks },
+      { time: start, priceTicks: trade.plan.targetTicks },
+    ],
+    style: DEFAULT_STYLES.position,
+    endTime: result.exitTime - (result.exitTime % step),
+  }
+}
+
+/** "5m" → 300. */
+export function timeframeSeconds(code: string): number {
+  const unit = code.slice(-1)
+  const n = Number(code.slice(0, -1))
+  return unit === 'm' ? n * 60 : unit === 'h' ? n * 3600 : unit === 's' ? n : n * 86_400
 }
 
 /** Mirrors the bracket through the entry: a long becomes the equivalent short, and back. */
@@ -132,6 +183,13 @@ export function formatCents(cents: number): string {
 export function formatR(r: number): string {
   const sign = r > 0 ? '+' : r < 0 ? '−' : ''
   return `${sign}${Math.abs(r).toFixed(2)}R`
+}
+
+/** What to call a session's status. Flat is the trader's word for holding nothing. */
+export const STATUS_LABEL: Record<PracticeState['status'], string> = {
+  ANALYSING: 'Flat',
+  IN_TRADE: 'In trade',
+  COMPLETE: 'Ended',
 }
 
 /**

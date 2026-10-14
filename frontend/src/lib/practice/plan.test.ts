@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  closedTradeDrawing,
   defaultBracket,
   directionOf,
   flipBracket,
@@ -12,10 +13,66 @@ import {
   planFromDrawing,
   planNumbers,
   planProblem,
+  timeframeSeconds,
+  TRADE_DRAWING_PREFIX,
 } from './plan'
 
 const REF = 80_000
 const T = 1_710_338_400
+
+describe('finished trades on the chart (DEC-046)', () => {
+  const plan = {
+    direction: 'LONG' as const,
+    stopTicks: REF - 40,
+    targetTicks: REF + 80,
+    contracts: 1,
+    referenceTicks: REF,
+    lockedAt: T,
+    plannedRewardRisk: 2,
+  }
+
+  it('draws nothing for a trade still running: its exit is the future', () => {
+    expect(closedTradeDrawing({ number: 1, plan, entry: { time: T, ticks: REF + 1 } }, '5m')).toBeNull()
+  })
+
+  it('spans entry bar to exit bar, at the real fill, with the planned stop and target', () => {
+    const drawing = closedTradeDrawing(
+      {
+        number: 3,
+        plan,
+        result: {
+          outcome: 'TARGET',
+          entryTime: T + 7,
+          entryTicks: REF + 1,
+          exitTime: T + 1234,
+          exitTicks: REF + 80,
+          pnlTicks: 79,
+          netPnlCents: 39_250,
+          commissionCents: 250,
+          maeTicks: 10,
+          mfeTicks: 80,
+          gapExit: false,
+          rMultiple: 1.98,
+          resolution: 'M1',
+          engineVersion: 'fill-1.1.0',
+          fillModelVersion: 'slip-1t/comm-250c',
+        },
+      },
+      '5m',
+    )
+    expect(drawing?.id).toBe(`${TRADE_DRAWING_PREFIX}3`)
+    // Snapped to the five-minute bars the chart draws: 09:00:07 → 09:00, 09:20:34 → 09:20.
+    expect(drawing?.anchors.map((a) => a.time)).toEqual([T, T, T])
+    expect(drawing?.endTime).toBe(T + 1200)
+    expect(drawing?.anchors.map((a) => a.priceTicks)).toEqual([REF + 1, REF - 40, REF + 80])
+  })
+
+  it('reads timeframe codes', () => {
+    expect(timeframeSeconds('1m')).toBe(60)
+    expect(timeframeSeconds('15m')).toBe(900)
+    expect(timeframeSeconds('1h')).toBe(3600)
+  })
+})
 
 describe('practice plan helpers', () => {
   it('places a 2R bracket on the correct sides for each direction', () => {

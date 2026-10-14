@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.List;
@@ -45,12 +47,19 @@ import com.tradeez.practice.PracticeDtos.PlanRequest;
 import com.tradeez.practice.PracticeDtos.PlanView;
 import com.tradeez.practice.PracticeDtos.PracticeState;
 import com.tradeez.practice.PracticeDtos.ResultView;
+import com.tradeez.practice.PracticeDtos.ScoreView;
 import com.tradeez.practice.PracticeDtos.SessionResponse;
 import com.tradeez.practice.PracticeDtos.SessionSummary;
+import com.tradeez.practice.PracticeDtos.TradeView;
 import com.tradeez.practice.PracticeSession.Status;
 
 /**
- * The practice loop: a hidden moment, a committed plan, a replay that reveals what happened.
+ * The replay: a hidden moment, played forward, with trades placed along the way (DEC-046).
+ *
+ * <p>A session is flat ({@code ANALYSING}), in a trade ({@code IN_TRADE}), or over
+ * ({@code COMPLETE}). Locking a plan opens a trade; the replay passing its exit closes it and leaves
+ * the learner flat to place the next. One trade runs at a time. The session ends when the learner
+ * ends it, or when a flat replay reaches its limit.
  *
  * <h2>The one rule (DEC-009)</h2>
  * Nothing at or after the session's cursor leaves this class. That is enforced structurally rather
@@ -62,7 +71,8 @@ import com.tradeez.practice.PracticeSession.Status;
  * <h2>On real data, the date is part of the future (DEC-025)</h2>
  * A learner who knows the date can look up what happened next. So every time a real session sends —
  * bars, cursor, entry, exit — goes through its {@link PracticeClock}, which keeps the weekday and the
- * New York wall-clock time and hides the date. The real date is revealed with the result.
+ * New York wall-clock time and hides the date. The real date is revealed when the session ends — not
+ * with a trade's result, because another trade could follow it.
  *
  * <h2>Why the result is computed at submission</h2>
  * INVARIANT 2: an outcome is written once. Resolving the trade the moment the plan is locked means
@@ -101,6 +111,9 @@ public class PracticeService {
 
 	/** Sessions a user may start per rolling hour. Each one generates days of one-second data. */
 	static final int MAX_SESSIONS_PER_HOUR = 60;
+
+	/** Trades one replay may hold. Each resolves against hours of fine bars when it is locked. */
+	static final int MAX_TRADES = 50;
 
 	/**
 	 * The range hidden moments are drawn from. The dates of a simulated market carry no meaning —
@@ -158,9 +171,40 @@ public class PracticeService {
 		this.readTx.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
 	}
 
-	/** A session and everything attached to it, read in one transaction. Plan and result may be null. */
-	private record Snapshot(PracticeSession session, Instrument instrument, TradePlan plan,
-			PracticeResult result) {
+	/** A plan and its result. Written together, so neither exists without the other. */
+	private record Trade(TradePlan plan, PracticeResult result) {
+
+		/** True once the replay has passed the exit: the result is the past now. */
+		boolean closedBy(Instant cursor) {
+			return cursor.isAfter(result.getExitTime());
+		}
+
+		/**
+		 * The result in units of what the learner planned to risk.
+		 *
+		 * <p>Measured against the plan's reference price, not the fill: R is a statement about the
+		 * decision the learner made, and they made it looking at the reference.
+		 */
+		double r() {
+			long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
+			return (double) result.getPnlTicks() / risk;
+		}
+	}
+
+	/** A session and everything attached to it, read in one transaction. Trades in order. */
+	private record Snapshot(PracticeSession session, Instrument instrument, List<Trade> trades) {
+
+		/** The running trade's result, or null when the learner is flat or the session is over. */
+		PracticeResult openResult() {
+			if (session.getStatus() != Status.IN_TRADE) {
+				return null;
+			}
+			if (trades.isEmpty()) {
+				throw new IllegalStateException(
+					"Session " + session.getId() + " is IN_TRADE without a trade");
+			}
+			return trades.getLast().result();
+		}
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -194,7 +238,7 @@ public class PracticeService {
 				userId, instrument.getId(), timeframe.code(), newSeed(),
 				DemoSeriesGenerator.GENERATOR_VERSION, start.minus(HISTORY), start));
 			// Generated after the commit, with no connection held (BUG-033).
-			return new SessionResponse(state(session, instrument, null, null),
+			return new SessionResponse(state(session, instrument, List.of()),
 				visibleBars(session, instrument));
 		}
 
@@ -205,7 +249,7 @@ public class PracticeService {
 		PracticeClock clock = PracticeClock.hidingDateOf(start);
 		PracticeSession session = saveCapped(userId, PracticeSession.onRealData(userId,
 			instrument.getId(), timeframe.code(), history.source(), clock, start.minus(HISTORY), start));
-		return new SessionResponse(state(session, instrument, null, null),
+		return new SessionResponse(state(session, instrument, List.of()),
 			toDto(history.bars(), clock));
 	}
 
@@ -221,7 +265,7 @@ public class PracticeService {
 	}
 
 	/**
-	 * Locks the plan and resolves it.
+	 * Locks a plan and resolves it: the next trade of the replay.
 	 *
 	 * <p>This is the only method that generates data past the cursor, and none of it is returned:
 	 * the response is the state, which withholds the result until the replay reaches it.
@@ -231,8 +275,17 @@ public class PracticeService {
 		PracticeSession session = seen.session();
 		Instrument instrument = seen.instrument();
 
-		if (session.getStatus() != Status.ANALYSING || seen.plan() != null) {
+		if (session.getStatus() == Status.COMPLETE) {
+			throw new SessionEndedException();
+		}
+		if (session.getStatus() == Status.IN_TRADE) {
 			throw new PlanLockedException();
+		}
+		if (seen.trades().size() >= MAX_TRADES) {
+			throw new TooManyTradesException();
+		}
+		if (!session.getCursorTime().isBefore(replayEnd(session))) {
+			throw new ReplayEndException();
 		}
 		if (!SessionCalendar.isOpen(session.getCursorTime())) {
 			throw new MarketClosedException();
@@ -263,15 +316,17 @@ public class PracticeService {
 			// The fill was computed for the cursor in the snapshot. If the session moved since —
 			// a step in another tab — it is a fill for a moment the learner is no longer at.
 			PracticeSession current = requireUnchanged(userId, session);
-			TradePlan plan = plans.save(new TradePlan(current.getId(), request.direction(),
-				request.stopTicks(), request.targetTicks(), request.contracts(), reference,
-				current.getCursorTime()));
-			PracticeResult result = results.save(new PracticeResult(current.getId(), fill,
-				plan.getContracts(), instrument.getTickValueCents(), model,
-				current.getGeneratorVersion(), current.getSeed(), current.getDataSource()));
+			TradePlan plan = plans.save(new TradePlan(current.getId(), seen.trades().size() + 1,
+				request.direction(), request.stopTicks(), request.targetTicks(), request.contracts(),
+				reference, current.getCursorTime()));
+			PracticeResult result = results.save(new PracticeResult(plan, fill,
+				instrument.getTickValueCents(), model, current.getGeneratorVersion(), current.getSeed(),
+				current.getDataSource()));
 			current.setStatus(Status.IN_TRADE);
 			sessions.saveAndFlush(current);
-			return state(current, instrument, plan, result);
+			List<Trade> trades = new ArrayList<>(seen.trades());
+			trades.add(new Trade(plan, result));
+			return state(current, instrument, trades);
 		});
 	}
 
@@ -301,39 +356,65 @@ public class PracticeService {
 			bars = generate(session, instrument, timeframe, cursor, to);
 		}
 		if (bars.isEmpty()) {
-			throw new ReplayEndException();
+			// Closed market all the way to {@code to}: nothing to show, but the replay still moves
+			// over it — or a flat session whose last hours are a weekend could never reach its end.
+			return reveal(userId, seen, to, bars);
 		}
 		List<Bar> revealed = bars.size() > count ? bars.subList(0, count) : bars;
 		return reveal(userId, seen, revealed.getLast().openTime().plus(timeframe.duration()), revealed);
 	}
 
-	/** Jumps straight to the bar in which the trade ended. */
+	/** Jumps straight to the bar in which the running trade ended. */
 	public AdvanceResponse skipToResult(UUID userId, UUID sessionId) {
 		Snapshot seen = snapshot(userId, sessionId);
-		if (seen.session().getStatus() != Status.IN_TRADE) {
+		PracticeResult open = seen.openResult();
+		if (open == null) {
 			throw new NotInTradeException();
 		}
 		Timeframe timeframe = Timeframe.fromCode(seen.session().getTimeframe());
-		Instant end = endOfBarContaining(requireResult(seen).getExitTime(), timeframe);
+		Instant end = endOfBarContaining(open.getExitTime(), timeframe);
 		List<Bar> bars = generate(seen.session(), seen.instrument(), timeframe,
 			seen.session().getCursorTime(), end);
 		return reveal(userId, seen, end, bars);
 	}
 
 	/**
-	 * The write half of advance and skip: move the cursor, complete the session if the exit is now
-	 * revealed. Refuses if the session changed after the bars were generated for it.
+	 * Ends the session. No more trades — and now that nothing can be traded on it, the seed of a
+	 * simulated market and the date of a real one are revealed. Ending an ended session changes
+	 * nothing, so a double-click is harmless.
+	 */
+	public PracticeState end(UUID userId, UUID sessionId) {
+		Snapshot seen = snapshot(userId, sessionId);
+		switch (seen.session().getStatus()) {
+			case IN_TRADE -> throw new TradeRunningException();
+			case COMPLETE -> {
+				return state(seen.session(), seen.instrument(), seen.trades());
+			}
+			case ANALYSING -> {
+				// Flat: nothing to wait for.
+			}
+		}
+		return writeTx.execute(tx -> {
+			PracticeSession current = requireUnchanged(userId, seen.session());
+			current.setStatus(Status.COMPLETE);
+			sessions.saveAndFlush(current);
+			return state(current, seen.instrument(), seen.trades());
+		});
+	}
+
+	/**
+	 * The write half of advance and skip: move the cursor, then {@link #settle} the session. Refuses
+	 * if the session changed after the bars were generated for it.
 	 */
 	private AdvanceResponse reveal(UUID userId, Snapshot seen, Instant newCursor, List<Bar> bars) {
 		return writeTx.execute(tx -> {
 			PracticeSession current = requireUnchanged(userId, seen.session());
 			current.moveCursorTo(newCursor);
-			completeIfExitRevealed(current, seen.result());
+			settle(current, seen.openResult());
 			sessions.saveAndFlush(current);
-			// The snapshot's plan and result are still current: writing either bumps the session's
-			// version, and requireUnchanged has just confirmed it did not move.
-			return new AdvanceResponse(
-				state(current, seen.instrument(), seen.plan(), seen.result()),
+			// The snapshot's trades are still current: locking one bumps the session's version, and
+			// requireUnchanged has just confirmed it did not move.
+			return new AdvanceResponse(state(current, seen.instrument(), seen.trades()),
 				toDto(bars, current.getClock()));
 		});
 	}
@@ -345,8 +426,7 @@ public class PracticeService {
 	public SessionResponse get(UUID userId, UUID sessionId) {
 		Snapshot seen = snapshot(userId, sessionId);
 		// Generated outside the snapshot's transaction (BUG-033).
-		return new SessionResponse(
-			state(seen.session(), seen.instrument(), seen.plan(), seen.result()),
+		return new SessionResponse(state(seen.session(), seen.instrument(), seen.trades()),
 			visibleBars(seen.session(), seen.instrument()));
 	}
 
@@ -354,30 +434,26 @@ public class PracticeService {
 	public List<SessionSummary> journal(UUID userId) {
 		List<PracticeSession> recent = sessions.findTop50ByUserIdOrderByCreatedAtDesc(userId);
 		List<UUID> ids = recent.stream().map(PracticeSession::getId).toList();
-		Map<UUID, TradePlan> planBySession = plans.findAllBySessionIdIn(ids).stream()
-			.collect(Collectors.toMap(TradePlan::getSessionId, Function.identity()));
-		Map<UUID, PracticeResult> resultBySession = results.findAllBySessionIdIn(ids).stream()
-			.collect(Collectors.toMap(PracticeResult::getSessionId, Function.identity()));
+		Map<UUID, List<TradePlan>> plansBySession = plans.findAllBySessionIdIn(ids).stream()
+			.collect(Collectors.groupingBy(TradePlan::getSessionId));
+		Map<UUID, List<PracticeResult>> resultsBySession = results.findAllBySessionIdIn(ids).stream()
+			.collect(Collectors.groupingBy(PracticeResult::getSessionId));
 		Map<UUID, String> symbols = instruments.findAll().stream()
 			.collect(Collectors.toMap(Instrument::getId, Instrument::getSymbol));
 
 		return recent.stream().map(s -> {
-			TradePlan plan = planBySession.get(s.getId());
+			List<Trade> trades = pair(plansBySession.getOrDefault(s.getId(), List.of()),
+				resultsBySession.getOrDefault(s.getId(), List.of()));
 			// The journal is a listing, and a listing is an easy place to leak an outcome by
-			// accident. Same rule as everywhere else: nothing about the result before COMPLETE.
-			PracticeResult result = s.getStatus() == Status.COMPLETE
-				? resultBySession.get(s.getId())
-				: null;
+			// accident. Same rule as everywhere else: a trade counts once its exit is revealed.
 			return new SessionSummary(
 				s.getId(),
 				symbols.get(s.getInstrumentId()),
 				s.getTimeframe(),
 				s.getStatus().name(),
 				s.getCreatedAt().getEpochSecond(),
-				plan == null ? null : plan.getDirection(),
-				result == null ? null : result.getOutcome().name(),
-				result == null ? null : result.getNetPnlCents(),
-				result == null || plan == null ? null : rMultiple(result, plan));
+				trades.size(),
+				score(trades, s.getCursorTime()));
 		}).toList();
 	}
 
@@ -386,16 +462,10 @@ public class PracticeService {
 	// ---------------------------------------------------------------------------------------------
 
 	/** Built from rows already read — no queries here, so it is safe outside a transaction. */
-	private PracticeState state(PracticeSession session, Instrument instrument, TradePlan plan,
-			PracticeResult result) {
+	private PracticeState state(PracticeSession session, Instrument instrument, List<Trade> trades) {
 		boolean complete = session.getStatus() == Status.COMPLETE;
 		PracticeClock clock = session.getClock();
-
-		// The entry is the open of the first bar after the plan was locked. It is revealed with that
-		// bar, not before: the price a market order will fill at is itself the future.
-		EntryView entry = result != null && session.getCursorTime().isAfter(result.getEntryTime())
-			? new EntryView(clock.show(result.getEntryTime()), result.getEntryTicks())
-			: null;
+		Instant cursor = session.getCursorTime();
 
 		return new PracticeState(
 			session.getId(),
@@ -406,18 +476,52 @@ public class PracticeService {
 			session.getTimeframe(),
 			session.getStatus().name(),
 			clock.show(session.getStartTime()),
-			clock.show(session.getCursorTime()),
+			clock.show(cursor),
 			clock.basis(),
 			instrument.getDataClass().name(),
 			instrument.getDataClass() == DataClass.SIMULATED ? SIMULATED_DISCLAIMER : null,
-			plan == null ? null : planView(plan, clock),
-			entry,
-			complete && result != null ? resultView(result, plan, clock) : null,
+			trades.stream().map(t -> tradeView(t, cursor, clock)).toList(),
+			score(trades, cursor),
+			// DEC-038 and DEC-025: the seed and the real date are the whole future, revealed only
+			// once the session has ended and no trade can use them.
 			complete && session.getSeed() != null ? Long.toString(session.getSeed()) : null,
 			session.getGeneratorVersion(),
 			session.getDataSource(),
-			// DEC-025: the real date, revealed with the result and not a moment before.
 			complete && clock.hidesDate() ? session.getStartTime().getEpochSecond() : null);
+	}
+
+	private static TradeView tradeView(Trade trade, Instant cursor, PracticeClock clock) {
+		PracticeResult result = trade.result();
+		// The entry is the open of the first bar after the plan was locked. It is revealed with that
+		// bar, not before: the price a market order will fill at is itself the future.
+		EntryView entry = cursor.isAfter(result.getEntryTime())
+			? new EntryView(clock.show(result.getEntryTime()), result.getEntryTicks())
+			: null;
+		return new TradeView(trade.plan().getSeq(), planView(trade.plan(), clock), entry,
+			trade.closedBy(cursor) ? resultView(trade, clock) : null);
+	}
+
+	/** The trades the replay has passed the exit of, added up. */
+	private static ScoreView score(List<Trade> trades, Instant cursor) {
+		int closed = 0;
+		int wins = 0;
+		int losses = 0;
+		double totalR = 0;
+		long net = 0;
+		for (Trade trade : trades) {
+			if (!trade.closedBy(cursor)) {
+				continue;
+			}
+			closed++;
+			long ticks = trade.result().getPnlTicks();
+			wins += ticks > 0 ? 1 : 0;
+			losses += ticks < 0 ? 1 : 0;
+			// The sum of the R column as the learner sees it, so adding it up by hand agrees with
+			// the total. Summing the unrounded values could differ in the last digit (BUG-039).
+			totalR += round2(trade.r());
+			net += trade.result().getNetPnlCents();
+		}
+		return new ScoreView(closed, wins, losses, round2(totalR), net);
 	}
 
 	private static PlanView planView(TradePlan plan, PracticeClock clock) {
@@ -428,7 +532,8 @@ public class PracticeService {
 			round2((double) reward / risk));
 	}
 
-	private static ResultView resultView(PracticeResult result, TradePlan plan, PracticeClock clock) {
+	private static ResultView resultView(Trade trade, PracticeClock clock) {
+		PracticeResult result = trade.result();
 		return new ResultView(
 			result.getOutcome().name(),
 			result.getOutcome() == Outcome.AMBIGUOUS
@@ -444,7 +549,7 @@ public class PracticeService {
 			result.getMaeTicks(),
 			result.getMfeTicks(),
 			result.isGapExit(),
-			rMultiple(result, plan),
+			round2(trade.r()),
 			result.getResolution(),
 			result.getEngineVersion(),
 			result.getFillModelVersion());
@@ -455,17 +560,6 @@ public class PracticeService {
 		return "The stop and the target were both touched inside the same " + resolution.unit()
 			+ ", so which came first cannot be known from this data. The result assumes the worst "
 			+ "case: the stop.";
-	}
-
-	/**
-	 * The result in units of what the learner planned to risk.
-	 *
-	 * <p>Measured against the plan's reference price, not the fill: R is a statement about the
-	 * decision the learner made, and they made it looking at the reference.
-	 */
-	private static double rMultiple(PracticeResult result, TradePlan plan) {
-		long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
-		return round2((double) result.getPnlTicks() / risk);
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -483,14 +577,30 @@ public class PracticeService {
 				"Session " + session.getId() + " refers to a missing instrument"));
 	}
 
-	/** Reads a session with its plan, result and instrument as one consistent snapshot. */
+	/** Reads a session with its trades and instrument as one consistent snapshot. */
 	private Snapshot snapshot(UUID userId, UUID sessionId) {
 		return readTx.execute(tx -> {
 			PracticeSession session = require(userId, sessionId);
 			return new Snapshot(session, instrumentOf(session),
-				plans.findBySessionId(session.getId()).orElse(null),
-				results.findBySessionId(session.getId()).orElse(null));
+				pair(plans.findAllBySessionId(session.getId()),
+					results.findAllBySessionId(session.getId())));
 		});
+	}
+
+	/** Each plan with its result, in the order the plans were locked. */
+	private static List<Trade> pair(List<TradePlan> plans, List<PracticeResult> results) {
+		Map<Integer, PracticeResult> bySeq = results.stream()
+			.collect(Collectors.toMap(PracticeResult::getSeq, Function.identity()));
+		return plans.stream()
+			.sorted(Comparator.comparingInt(TradePlan::getSeq))
+			.map(plan -> {
+				PracticeResult result = bySeq.get(plan.getSeq());
+				if (result == null) {
+					throw new IllegalStateException("Plan " + plan.getId() + " has no result");
+				}
+				return new Trade(plan, result);
+			})
+			.toList();
 	}
 
 	/**
@@ -503,14 +613,6 @@ public class PracticeService {
 			throw new SessionChangedException();
 		}
 		return current;
-	}
-
-	private static PracticeResult requireResult(Snapshot seen) {
-		if (seen.result() == null) {
-			throw new IllegalStateException(
-				"Session " + seen.session().getId() + " is IN_TRADE without a result");
-		}
-		return seen.result();
 	}
 
 	/**
@@ -682,28 +784,35 @@ public class PracticeService {
 		return t;
 	}
 
+	/** Where a replay stops: no new trade from here, and a flat session here is over. */
+	private static Instant replayEnd(PracticeSession session) {
+		return session.getStartTime().plus(MAX_REPLAY);
+	}
+
 	/**
 	 * How far this session may be stepped. A running trade can always be watched to its end, even
 	 * past the usual limit, or the learner could be left unable to see how it finished.
 	 */
 	private static Instant replayLimit(Snapshot seen, Timeframe timeframe) {
-		Instant limit = seen.session().getStartTime().plus(MAX_REPLAY);
-		if (seen.session().getStatus() == Status.IN_TRADE) {
-			Instant exitBarEnd = endOfBarContaining(requireResult(seen).getExitTime(), timeframe);
+		Instant limit = replayEnd(seen.session());
+		PracticeResult open = seen.openResult();
+		if (open != null) {
+			Instant exitBarEnd = endOfBarContaining(open.getExitTime(), timeframe);
 			return exitBarEnd.isAfter(limit) ? exitBarEnd : limit;
 		}
 		return limit;
 	}
 
-	private static void completeIfExitRevealed(PracticeSession session, PracticeResult result) {
-		if (session.getStatus() != Status.IN_TRADE) {
-			return;
+	/**
+	 * After the cursor moves: a running trade whose exit is now revealed is closed, leaving the
+	 * learner flat for the next one; and a flat session at the end of its replay is over.
+	 */
+	private static void settle(PracticeSession session, PracticeResult open) {
+		if (open != null && session.getCursorTime().isAfter(open.getExitTime())) {
+			session.setStatus(Status.ANALYSING);
 		}
-		if (result == null) {
-			throw new IllegalStateException(
-				"Session " + session.getId() + " is IN_TRADE without a result");
-		}
-		if (session.getCursorTime().isAfter(result.getExitTime())) {
+		if (session.getStatus() == Status.ANALYSING
+				&& !session.getCursorTime().isBefore(replayEnd(session))) {
 			session.setStatus(Status.COMPLETE);
 		}
 	}
@@ -742,7 +851,27 @@ public class PracticeService {
 
 	public static class PlanLockedException extends RuntimeException {
 		public PlanLockedException() {
-			super("This session already has a plan, and a plan cannot be changed once submitted.");
+			super("A trade is already running, and a locked plan cannot be changed. Watch it to its "
+				+ "end, or skip to the result, before placing the next one.");
+		}
+	}
+
+	public static class TradeRunningException extends RuntimeException {
+		public TradeRunningException() {
+			super("Your trade is still running. Watch it to its end, or skip to the result, before "
+				+ "ending the session.");
+		}
+	}
+
+	public static class SessionEndedException extends RuntimeException {
+		public SessionEndedException() {
+			super("This session has ended. Start a new one to keep trading.");
+		}
+	}
+
+	public static class TooManyTradesException extends RuntimeException {
+		public TooManyTradesException() {
+			super("A session holds at most " + MAX_TRADES + " trades. End this one and start another.");
 		}
 	}
 

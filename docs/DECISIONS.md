@@ -371,6 +371,36 @@ Known limits, stated rather than hidden: the price level hints at the era (NQ at
 and a determined learner could search the Chart tab for the same pattern. Neither gives the next
 candle; both are in BUGS.md's known limitations.
 
+*Refined by DEC-046:* "COMPLETE" now means the session has **ended**, not that a trade has. The date
+is revealed then, and no sooner, because a second trade could use it.
+
+**DEC-046 — A practice session is a replay with several trades, one at a time**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-14), T5 — Fabio's core idea (DEC-041): paper trading
+historical charts, taking trades whenever the candles say so
+
+- **The session is a replay.** It starts flat (`ANALYSING`) at a hidden moment and is played forward
+  bar by bar — stepped, played at 1–8 bars a second, paused. Whenever the learner sees a setup they
+  lock a bracket (`IN_TRADE`). When the replay passes its exit the result is revealed and they are
+  flat again, free to take the next. **One trade runs at a time**: a second plan while one runs is
+  refused, as before (DEC-013).
+- **Each trade is written once, at its lock** (INVARIANT 2), numbered within the session
+  (`trade_plan.seq`, V10); its result carries the same number, and a composite foreign key ties the
+  two. Locked plans and written results stay immutable in the database (V5's triggers, untouched).
+- **A trade's result is revealed when the replay passes its exit — the session's secrets when it
+  ends.** The seed of a simulated market and the date of a real one (DEC-038, DEC-025) are the
+  *whole* future, so they wait until no trade can use them: the learner ends the session (only while
+  flat; ending twice is harmless), or a flat replay reaches its limit and ends by itself — moving over
+  a closed market to get there if it has to.
+- **The score counts closed trades only:** count, wins, losses, total R and net P&L. A running trade's
+  outcome exists on the server and counts for nothing until its exit is shown, in the session and in
+  the journal alike. The total R is the sum of the R column as displayed (BUG-039).
+- **Finished trades stay on the chart,** drawn entry to exit at the real fill with the planned stop
+  and target. They are the record: never selectable, never editable.
+- **Bounds:** at most 50 trades a replay; the 3-day replay limit and the hourly session cap stand.
+
+Not in this decision: limit entries, scaling, partial targets (T28), and moving a stop after the
+lock — DEC-013's revision log is where that belongs.
+
 **DEC-038 — A simulated market's seed is a secret; the public endpoint serves one fixed market**
 `AGREED` · Claude, Session 014, at Fabio's instruction ⚠️ critical
 
@@ -458,6 +488,9 @@ Store prices as integer tick counts and convert only at the presentation edge. P
 The original plan is locked on submission. Later modifications append to a revision/event history
 rather than mutating the plan, so review cannot rewrite the past — and so that moving a stop
 becomes *measurable behaviour to study* rather than merely forbidden.
+
+*Session 017 (DEC-046):* a session now holds several plans, numbered, one running at a time. Each is
+as immutable as the single plan was; the revision history is still to be built.
 
 **DEC-012 — Every result stores full reproducibility metadata** · `AGREED` · Codex
 Data source + version, contract, replay seed, engine version, fill-model version, curriculum/rubric
