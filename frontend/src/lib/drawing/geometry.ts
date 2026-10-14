@@ -1,4 +1,5 @@
 import type { Anchor, Drawing, HitTarget, Point, Projection } from './types'
+import { ceHalfTicks, fibLevelTicks, ICT_FIB_LEVELS, LABEL_FONT_PX, labelWidth } from './ict'
 
 /**
  * Hit testing and measurement.
@@ -149,6 +150,39 @@ function hitsBody(
       return (
         withinSpan &&
         [p0, p1, p2].some((p) => Math.abs(point.y - p.y) <= HIT_TOLERANCE)
+      )
+    }
+
+    case 'fibonacci': {
+      // Any level, from the leg's earlier end to the right edge, or the leg itself.
+      const left = Math.min(p0.x, p1.x) - HIT_TOLERANCE
+      if (distanceToSegment(point, p0, p1) <= HIT_TOLERANCE) return true
+      if (point.x < left || point.x > chartWidth) return false
+      return ICT_FIB_LEVELS.some(({ ratio }) => {
+        const y = projection.priceToY(fibLevelTicks(drawing.anchors, ratio))
+        return y !== null && Math.abs(point.y - y) <= HIT_TOLERANCE
+      })
+    }
+
+    case 'zone': {
+      // The outline, like a rectangle, or the consequent-encroachment line across it.
+      if (distanceToRectOutline(point, p0, p1) <= HIT_TOLERANCE) return true
+      const ce = projection.priceToY(ceHalfTicks(drawing.anchors) / 2)
+      return (
+        ce !== null &&
+        Math.abs(point.y - ce) <= HIT_TOLERANCE &&
+        point.x >= Math.min(p0.x, p1.x) &&
+        point.x <= Math.max(p0.x, p1.x)
+      )
+    }
+
+    case 'label': {
+      // The text box to the right of the point. Estimated: there is no canvas here to measure on.
+      const half = LABEL_FONT_PX
+      return (
+        point.x >= p0.x - HIT_TOLERANCE &&
+        point.x <= p0.x + labelWidth(drawing.text ?? '') &&
+        Math.abs(point.y - p0.y) <= half
       )
     }
 

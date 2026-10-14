@@ -120,6 +120,32 @@ describe('painting the clock', () => {
     expect(calls.find((c) => c.op === 'fillText')?.args[0]).toBe('PDH 30.00')
   })
 
+  it('BUG-048: two labels that would overlap do not — the more important keeps its place', () => {
+    // As seen on the real chart: the 09:30 open fifteen ticks under PDH, both ending at 17:00.
+    const crowded: ClockLayer = {
+      ...LAYER,
+      windows: [],
+      lines: [
+        { kind: 'OPEN', label: '09:30 open', from: 0, to: 3900, priceTicks: 117 },
+        { kind: 'PREVIOUS_DAY', label: 'PDH', from: 0, to: 3900, priceTicks: 120 },
+      ],
+    }
+    const { ctx, calls } = recorder()
+    renderClock(ctx, crowded, BARS, projection, {
+      width: 300,
+      height: 200,
+      pane: { width: 240, height: 170 },
+      shown: new Set(['opens', 'previousDay']),
+      step: STEP,
+      tickSize: 0.25,
+    })
+    const written = calls.filter((c) => c.op === 'fillText').map((c) => [c.args[0], c.args[2]])
+    // PDH first, where it belongs (its line at y=80.5); the open a line above, not on top of it.
+    expect(written[0]).toEqual(['PDH 30.00', 73.5])
+    expect(written[1][0]).toBe('09:30 open 29.25')
+    expect(written[1][1]).toBeLessThan(73.5 - 10)
+  })
+
   it('keeps to the plotting area, off the price and time scales', () => {
     const calls = render(['days'])
     expect(calls.find((c) => c.op === 'rect')?.args).toEqual([0, 0, 240, 170])

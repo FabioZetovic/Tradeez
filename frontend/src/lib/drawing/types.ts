@@ -14,7 +14,15 @@
  * free — an anchor cannot represent an off-grid price.
  */
 
-export type DrawingKind = 'horizontal-line' | 'trend-line' | 'rectangle' | 'position'
+export type DrawingKind =
+  | 'horizontal-line'
+  | 'trend-line'
+  | 'rectangle'
+  | 'position'
+  // DEC-048 (T8): ICT's own tools.
+  | 'fibonacci'
+  | 'zone'
+  | 'label'
 
 /** A point in market space: when, and at what price. */
 export interface Anchor {
@@ -39,6 +47,9 @@ export interface DrawingStyle {
  * - `trend-line` — 2 (both ends)
  * - `rectangle` — 2 (opposite corners)
  * - `position` — 3, in a fixed order: **entry, stop, target**
+ * - `fibonacci` — 2: the leg's **start, end** (level 1 at the start, 0 at the end — ICT-43)
+ * - `zone` — 2 (opposite corners), with its consequent encroachment at 50% (ICT-21)
+ * - `label` — 1, with its words in `text`
  *
  * The position tool is the one that earns its place twice: it is a risk/reward measurement here,
  * and it is the Practice tab's trade-entry UI later. Building it now means the Practice slice
@@ -54,13 +65,20 @@ export interface Drawing {
    * edge — a plan still open. Present, it is a practice trade that has ended, drawn entry to exit.
    */
   endTime?: number
+  /** A label's words, or a zone's name. At most {@link MAX_TEXT} characters. */
+  text?: string
 }
+
+export const MAX_TEXT = 80
 
 export const ANCHOR_COUNT: Record<DrawingKind, number> = {
   'horizontal-line': 1,
   'trend-line': 2,
   rectangle: 2,
   position: 3,
+  fibonacci: 2,
+  zone: 2,
+  label: 1,
 }
 
 export const DEFAULT_STYLES: Record<DrawingKind, DrawingStyle> = {
@@ -68,7 +86,13 @@ export const DEFAULT_STYLES: Record<DrawingKind, DrawingStyle> = {
   'trend-line': { color: '#58a6ff', lineWidth: 2 },
   rectangle: { color: '#d29922', lineWidth: 1, fill: 'rgba(210, 153, 34, 0.12)' },
   position: { color: '#8b949e', lineWidth: 1 },
+  fibonacci: { color: '#8b949e', lineWidth: 1 },
+  zone: { color: '#39c5cf', lineWidth: 1, fill: 'rgba(57, 197, 207, 0.12)' },
+  label: { color: '#e6edf3', lineWidth: 1 },
 }
+
+/** Kinds whose words can be edited by double-clicking them. */
+export const TEXT_KINDS: ReadonlySet<DrawingKind> = new Set(['label', 'zone'])
 
 /** Screen-space point. Only ever produced by projecting an anchor, never stored. */
 export interface Point {

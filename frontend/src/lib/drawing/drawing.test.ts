@@ -205,7 +205,13 @@ describe('geometry', () => {
         { fillRect: (...r: number[]) => fills.push(r), measureText: () => ({ width: 0 }) },
         { get: (target, key) => (key in target ? target[key as keyof typeof target] : () => {}) },
       ) as unknown as CanvasRenderingContext2D
-      const options = { width: CHART_WIDTH, height: 600, selectedId: null, tickValueCents: 500 }
+      const options = {
+        width: CHART_WIDTH,
+        height: 600,
+        selectedId: null,
+        tickValueCents: 500,
+        tickSize: 0.25,
+      }
 
       renderDrawings(ctx, [drawing({ id: 'p', kind: 'position', anchors, endTime: 1400 })], projection, options)
       // Reward zone then risk zone, both from x = 100 (time 1100) to x = 400 (time 1400).
@@ -256,6 +262,28 @@ describe('store', () => {
     const s = drawingReducer(initialDrawingState, { type: 'add', drawing: d1 })
     expect(s.drawings).toEqual([d1])
     expect(s.selectedId).toBe('a')
+  })
+
+  it('BUG-047: undo after a drag puts the drawing back where the drag began', () => {
+    // What the overlay dispatches for a drag: previews while moving, one update at the end.
+    const moved = { ...d1, anchors: [{ time: 1, priceTicks: 15 }] }
+    let s = drawingReducer(initialDrawingState, { type: 'add', drawing: d1 })
+    s = drawingReducer(s, { type: 'preview', drawing: { ...d1, anchors: [{ time: 1, priceTicks: 12 }] } })
+    s = drawingReducer(s, { type: 'preview', drawing: moved })
+    s = drawingReducer(s, { type: 'update', drawing: moved, from: d1 })
+    expect(s.drawings).toEqual([moved])
+
+    s = drawingReducer(s, { type: 'undo' })
+    expect(s.drawings).toEqual([d1]) // where it was, not where the last preview left it
+    s = drawingReducer(s, { type: 'redo' })
+    expect(s.drawings).toEqual([moved])
+  })
+
+  it('BUG-047: a click that moves nothing adds no undo step', () => {
+    let s = drawingReducer(initialDrawingState, { type: 'add', drawing: d1 })
+    const before = s.past.length
+    s = drawingReducer(s, { type: 'update', drawing: d1, from: d1 })
+    expect(s.past).toHaveLength(before)
   })
 
   it('BUG-041: forgets a drawing from the present and all of history, keeping the rest', () => {

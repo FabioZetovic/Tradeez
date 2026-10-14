@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useReducer } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { DrawingOverlay } from './DrawingOverlay'
@@ -35,12 +35,14 @@ function Harness({
   initial,
   onState,
   onToolFinished = () => {},
+  onCommit = () => {},
 }: {
   adapter: FakeChartAdapter
   activeTool?: DrawingKind | null
   initial?: DrawingState
   onState: (s: DrawingState) => void
   onToolFinished?: () => void
+  onCommit?: () => void
 }) {
   const [state, dispatch] = useReducer(drawingReducer, initial ?? initialDrawingState)
   onState(state)
@@ -56,7 +58,8 @@ function Harness({
         bars={bars}
         snapMode="off"
         tickValueCents={500}
-        onCommit={() => {}}
+        tickSize={0.25}
+        onCommit={onCommit}
       />
     </div>
   )
@@ -259,5 +262,134 @@ describe('DrawingOverlay', () => {
 
     expect(adapter.onViewportChange).toHaveBeenCalled()
     expect(() => adapter.emitViewportChange()).not.toThrow()
+  })
+})
+
+describe('DrawingOverlay — the ICT tools (DEC-048)', () => {
+  it('creates a Fibonacci by dragging along a leg, as one undo step (BUG-047)', () => {
+    const adapter = new FakeChartAdapter()
+    let latest: DrawingState = initialDrawingState
+    render(<Harness adapter={adapter} activeTool="fibonacci" onState={(s) => (latest = s)} />)
+    const canvas = screen.getByTestId('drawing-overlay')
+    stubRect(canvas)
+
+    // From a low at y=500 (80,000) to a high at y=100 (80,400).
+    pointer(canvas, 'pointerdown', 100, 500)
+    pointer(canvas, 'pointermove', 300, 100)
+    pointer(canvas, 'pointerup', 300, 100)
+
+    expect(latest.drawings[0].kind).toBe('fibonacci')
+    expect(latest.drawings[0].anchors.map((a) => a.priceTicks)).toEqual([80_000, 80_400])
+    expect(latest.past).toEqual([[]])
+  })
+
+  it('BUG-049: a click with a two-point tool, never dragged, leaves nothing behind', () => {
+    for (const tool of ['fibonacci', 'zone', 'trend-line', 'rectangle'] as const) {
+      const adapter = new FakeChartAdapter()
+      const onCommit = vi.fn()
+      let latest: DrawingState = initialDrawingState
+      const { unmount } = render(
+        <Harness adapter={adapter} activeTool={tool} onState={(s) => (latest = s)} onCommit={onCommit} />,
+      )
+      const canvas = screen.getByTestId('drawing-overlay')
+      stubRect(canvas)
+
+      pointer(canvas, 'pointerdown', 300, 300)
+      pointer(canvas, 'pointerup', 300, 300)
+
+      expect(latest.drawings, tool).toEqual([])
+      expect(latest.past, tool).toEqual([])
+      expect(onCommit, tool).not.toHaveBeenCalled()
+      unmount()
+    }
+  })
+
+  it('still gives the position tool its bracket from a single click', () => {
+    const adapter = new FakeChartAdapter()
+    let latest: DrawingState = initialDrawingState
+    render(<Harness adapter={adapter} activeTool="position" onState={(s) => (latest = s)} />)
+    const canvas = screen.getByTestId('drawing-overlay')
+    stubRect(canvas)
+    pointer(canvas, 'pointerdown', 300, 300)
+    pointer(canvas, 'pointerup', 300, 300)
+    expect(latest.drawings).toHaveLength(1)
+  })
+
+  it('places a label, asks for its words, and saves it once they are typed', () => {
+    const adapter = new FakeChartAdapter()
+    const onCommit = vi.fn()
+    let latest: DrawingState = initialDrawingState
+    render(
+      <Harness adapter={adapter} activeTool="label" onState={(s) => (latest = s)} onCommit={onCommit} />,
+    )
+    const canvas = screen.getByTestId('drawing-overlay')
+    stubRect(canvas)
+
+    pointer(canvas, 'pointerdown', 400, 500)
+    pointer(canvas, 'pointerup', 400, 500)
+    // Not saved yet: a label without words is not finished.
+    expect(onCommit).not.toHaveBeenCalled()
+
+    const editor = screen.getByTestId('drawing-text-editor')
+    fireEvent.change(editor, { target: { value: '  Asia high taken  ' } })
+    fireEvent.keyDown(editor, { key: 'Enter' })
+
+    expect(latest.drawings[0]).toMatchObject({ kind: 'label', text: 'Asia high taken' })
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    // The words belong to the label's one undo step.
+    expect(latest.past).toEqual([[]])
+    expect(screen.queryByTestId('drawing-text-editor')).not.toBeInTheDocument()
+  })
+
+  it('leaves no trace of a label abandoned with Escape', () => {
+    const adapter = new FakeChartAdapter()
+    let latest: DrawingState = initialDrawingState
+    render(<Harness adapter={adapter} activeTool="label" onState={(s) => (latest = s)} />)
+    const canvas = screen.getByTestId('drawing-overlay')
+    stubRect(canvas)
+
+    pointer(canvas, 'pointerdown', 400, 500)
+    pointer(canvas, 'pointerup', 400, 500)
+    fireEvent.keyDown(screen.getByTestId('drawing-text-editor'), { key: 'Escape' })
+
+    expect(latest.drawings).toEqual([])
+    expect(latest.past).toEqual([])
+  })
+
+  it('renames a zone on double-click, as an undoable step', () => {
+    const zone: Drawing = {
+      id: 'zone',
+      kind: 'zone',
+      // x 200–300, prices 80,000–80,040: the consequent encroachment is at 80,020, y=480.
+      anchors: [
+        { time: 1200, priceTicks: 80_000 },
+        { time: 1300, priceTicks: 80_040 },
+      ],
+      style: DEFAULT_STYLES.zone,
+      text: 'FVG',
+    }
+    const adapter = new FakeChartAdapter()
+    const onCommit = vi.fn()
+    let latest: DrawingState = initialDrawingState
+    render(
+      <Harness
+        adapter={adapter}
+        initial={{ ...initialDrawingState, drawings: [zone] }}
+        onState={(s) => (latest = s)}
+        onCommit={onCommit}
+      />,
+    )
+    const canvas = screen.getByTestId('drawing-overlay')
+    stubRect(canvas)
+
+    fireEvent.doubleClick(canvas, { clientX: 250, clientY: 480 })
+    const editor = screen.getByTestId('drawing-text-editor') as HTMLInputElement
+    expect(editor.value).toBe('FVG')
+    fireEvent.change(editor, { target: { value: 'BISI 5m' } })
+    fireEvent.keyDown(editor, { key: 'Enter' })
+
+    expect(latest.drawings[0].text).toBe('BISI 5m')
+    expect(latest.past).toHaveLength(1)
+    expect(onCommit).toHaveBeenCalledTimes(1)
   })
 })

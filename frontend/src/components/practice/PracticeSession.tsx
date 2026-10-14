@@ -299,6 +299,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
                 bars={bars}
                 snapMode={snapMode}
                 tickValueCents={state.tickValueCents}
+                tickSize={state.tickSize}
                 onCommit={() => {}}
               />
             </>

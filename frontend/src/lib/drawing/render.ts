@@ -1,4 +1,14 @@
+import { LabelSpace } from '../chart/labelSpace'
 import { HANDLE_SIZE, positionMetrics, positionRight, project } from './geometry'
+import {
+  ceHalfTicks,
+  fibLevelTicks,
+  formatFibLevel,
+  formatHalfTicks,
+  ICT_FIB_LEVELS,
+  LABEL_FONT_PX,
+  OTE,
+} from './ict'
 import type { Drawing, Projection } from './types'
 
 /**
@@ -15,6 +25,8 @@ export interface RenderOptions {
   selectedId: string | null
   /** Used to label the position tool in currency rather than ticks. */
   tickValueCents: number
+  /** Used to print prices on the Fibonacci and zone tools. */
+  tickSize: number
 }
 
 export function renderDrawings(
@@ -44,6 +56,15 @@ export function renderDrawings(
         break
       case 'position':
         drawPosition(ctx, drawing, projection, options)
+        break
+      case 'fibonacci':
+        drawFibonacci(ctx, drawing, projection, options)
+        break
+      case 'zone':
+        drawZone(ctx, drawing, projection, options)
+        break
+      case 'label':
+        drawLabel(ctx, drawing, projection)
         break
     }
 
@@ -160,6 +181,143 @@ function drawPosition(
   ctx.fillStyle = '#e6edf3'
   ctx.font = '11px system-ui, sans-serif'
   ctx.fillText(label, left + 6, Math.min(entry.y, stop.y, target.y) - 6)
+}
+
+/**
+ * ICT's Fibonacci (ICT-43): every level from the leg's earlier end to the right edge — the targets lie
+ * in the future, and a replay walks into them — with the OTE band (ICT-42) shaded and its 0.705
+ * drawn heavier. The leg itself is a faint dashed diagonal, so it is clear which way it was drawn.
+ */
+function drawFibonacci(
+  ctx: CanvasRenderingContext2D,
+  drawing: Drawing,
+  projection: Projection,
+  options: RenderOptions,
+): void {
+  const a = project(drawing.anchors[0], projection)
+  const b = project(drawing.anchors[1], projection)
+  if (!a || !b) return
+  const left = Math.min(a.x, b.x)
+  const right = options.width
+  const y = (ratio: number) => projection.priceToY(fibLevelTicks(drawing.anchors, ratio))
+
+  const oteTop = y(OTE.from)
+  const oteBottom = y(OTE.to)
+  if (oteTop !== null && oteBottom !== null) {
+    ctx.fillStyle = 'rgba(88, 166, 255, 0.10)'
+    ctx.fillRect(left, Math.min(oteTop, oteBottom), right - left, Math.abs(oteBottom - oteTop))
+  }
+
+  ctx.setLineDash([3, 4])
+  ctx.strokeStyle = 'rgba(139, 148, 158, 0.6)'
+  ctx.beginPath()
+  ctx.moveTo(a.x, a.y)
+  ctx.lineTo(b.x, b.y)
+  ctx.stroke()
+
+  ctx.font = '11px system-ui, sans-serif'
+  const labels: Array<{ ratio: number; text: string; y: number; color: string }> = []
+  for (const level of ICT_FIB_LEVELS) {
+    const ly = y(level.ratio)
+    if (ly === null) continue
+    const { color, dash, width } = fibStyle(level.ratio)
+    ctx.strokeStyle = color
+    ctx.lineWidth = width
+    ctx.setLineDash(dash)
+    ctx.beginPath()
+    ctx.moveTo(left, ly)
+    ctx.lineTo(right, ly)
+    ctx.stroke()
+    const price = formatFibLevel(fibLevelTicks(drawing.anchors, level.ratio), options.tickSize)
+    labels.push({ ratio: level.ratio, text: `${level.label}  ${price}`, y: ly, color })
+  }
+  ctx.setLineDash([])
+
+  // On a short leg the levels crowd together; the ones that matter most keep their words (BUG-048).
+  const space = new LabelSpace()
+  labels.sort((a, b) => FIB_LABEL_PRIORITY.indexOf(a.ratio) - FIB_LABEL_PRIORITY.indexOf(b.ratio))
+  for (const label of labels) {
+    const baseline = space.place(left + 4, label.y - 3, ctx.measureText(label.text).width, 0)
+    if (baseline === null) continue
+    ctx.fillStyle = label.color
+    ctx.fillText(label.text, left + 4, baseline)
+  }
+}
+
+/** Which levels keep their labels when there is room for only some: the OTE's heart first. */
+const FIB_LABEL_PRIORITY = [0.705, 0.5, 1, 0, -1, -2, 0.62, 0.79, -0.27, -0.62]
+
+function fibStyle(ratio: number): { color: string; dash: number[]; width: number } {
+  if (ratio < 0) return { color: '#3fb950', dash: [6, 3], width: 1 } // targets
+  if (ratio === OTE.sweetSpot) return { color: '#58a6ff', dash: [], width: 2 }
+  if (ratio >= OTE.from && ratio <= OTE.to) return { color: '#58a6ff', dash: [], width: 1 }
+  if (ratio === 0.5) return { color: '#e6edf3', dash: [4, 4], width: 1 } // equilibrium
+  return { color: '#8b949e', dash: [], width: 1 } // 0 and 1, the leg's ends
+}
+
+/**
+ * A zone — a gap or a block — with its consequent encroachment (ICT-21): the exact middle, dashed,
+ * and faint quarter lines. Its name, if it has one, sits inside the top-left corner, and the CE's
+ * price at the right end of its line, to the half-tick.
+ */
+function drawZone(
+  ctx: CanvasRenderingContext2D,
+  drawing: Drawing,
+  projection: Projection,
+  options: RenderOptions,
+): void {
+  drawRectangle(ctx, drawing, projection)
+  const a = project(drawing.anchors[0], projection)
+  const b = project(drawing.anchors[1], projection)
+  if (!a || !b) return
+  const left = Math.min(a.x, b.x)
+  const right = Math.max(a.x, b.x)
+  const top = Math.min(a.y, b.y)
+  const halfTicks = ceHalfTicks(drawing.anchors)
+
+  const line = (y: number | null, dash: number[], alpha: number) => {
+    if (y === null) return
+    ctx.globalAlpha = alpha
+    ctx.setLineDash(dash)
+    ctx.beginPath()
+    ctx.moveTo(left, y)
+    ctx.lineTo(right, y)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+  const low = Math.min(drawing.anchors[0].priceTicks, drawing.anchors[1].priceTicks)
+  const high = Math.max(drawing.anchors[0].priceTicks, drawing.anchors[1].priceTicks)
+  line(projection.priceToY(low + (high - low) * 0.25), [2, 4], 0.5)
+  line(projection.priceToY(low + (high - low) * 0.75), [2, 4], 0.5)
+  const ce = projection.priceToY(halfTicks / 2)
+  line(ce, [6, 4], 1)
+  ctx.setLineDash([])
+
+  ctx.font = '11px system-ui, sans-serif'
+  ctx.fillStyle = drawing.style.color
+  if (drawing.text) ctx.fillText(drawing.text, left + 4, top + 13)
+  if (ce !== null) {
+    const text = `CE ${formatHalfTicks(halfTicks, options.tickSize)}`
+    const width = ctx.measureText(text).width
+    if (right - left > width + 8) ctx.fillText(text, right - width - 4, ce - 3)
+  }
+}
+
+/** A note at a point: a dot, and the words on a dark backing so they read over candles. */
+function drawLabel(ctx: CanvasRenderingContext2D, drawing: Drawing, projection: Projection): void {
+  const p = project(drawing.anchors[0], projection)
+  if (!p) return
+  const text = drawing.text ?? ''
+  ctx.font = `${LABEL_FONT_PX}px system-ui, sans-serif`
+  const width = ctx.measureText(text).width
+  ctx.fillStyle = 'rgba(13, 17, 23, 0.8)'
+  ctx.fillRect(p.x + 6, p.y - LABEL_FONT_PX / 2 - 4, width + 10, LABEL_FONT_PX + 8)
+  ctx.fillStyle = drawing.style.color
+  ctx.beginPath()
+  ctx.arc(p.x, p.y, 3, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, p.x + 11, p.y)
 }
 
 function drawHandles(

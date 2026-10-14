@@ -18,18 +18,28 @@ interface DrawingToolbarProps {
 }
 
 /**
- * The five tools of the DEC-004 drawing proof — and no more.
+ * The four shapes of the DEC-004 drawing proof, and the three ICT tools DEC-048 added — no more.
  *
- * The scope limit is the point. DEC-004 names this layer as the project's largest schedule risk,
- * so the plan is deliberately four shapes plus the shared machinery (select, drag, reshape, snap,
- * undo, persist), then a decision about whether to keep building by hand or adopt KLineChart. A
- * half-finished catalogue of sixty-eight tools would be worth less than a finished Practice loop.
+ * The scope limit is the point. DEC-004 names this layer as the project's largest schedule risk, and
+ * DEC-037 kept it at four shapes until a curriculum needed more. ICT's needed three: its Fibonacci
+ * levels (ICT-42, ICT-43), the consequent encroachment of every zone (ICT-21), and words on a chart.
  */
 const TOOLS: Array<{ kind: DrawingKind; label: string; hint: string }> = [
   { kind: 'horizontal-line', label: '─', hint: 'Horizontal line — mark a level' },
   { kind: 'trend-line', label: '╱', hint: 'Trend line' },
-  { kind: 'rectangle', label: '▭', hint: 'Rectangle — order blocks and fair value gaps' },
+  { kind: 'rectangle', label: '▭', hint: 'Rectangle' },
   { kind: 'position', label: '⇅', hint: 'Position — risk/reward, entry, stop and target' },
+  {
+    kind: 'fibonacci',
+    label: 'Φ',
+    hint: 'ICT Fibonacci — drag from the start of a leg to its end: OTE 0.62–0.79, targets −0.27 to −2',
+  },
+  {
+    kind: 'zone',
+    label: '▤',
+    hint: 'Zone — a gap or a block, with its 50% (consequent encroachment). Double-click to name it',
+  },
+  { kind: 'label', label: 'T', hint: 'Label — a note on the chart. Double-click to edit' },
 ]
 
 export function DrawingToolbar({

@@ -69,10 +69,73 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 			.andReturn().getResponse().getCookie(CookieService.ACCESS_TOKEN_COOKIE);
 	}
 
+	/** Anchors per kind, as the client draws them (DEC-048 checks the count). */
+	private static final java.util.Map<String, Integer> ANCHORS = java.util.Map.of(
+		"horizontal-line", 1, "label", 1, "position", 3);
+
+	/** A drawing of {@code kind} with every anchor at one point — enough for the API. */
 	private String body(UUID id, String kind, long time, long ticks) {
+		return body(id, kind, ANCHORS.getOrDefault(kind, 2), time, ticks, null);
+	}
+
+	private String body(UUID id, String kind, int anchors, long time, long ticks, String text) {
+		String anchor = "{\"time\":%d,\"priceTicks\":%d}".formatted(time, ticks);
 		return """
-			{"id":"%s","kind":"%s","anchors":[{"time":%d,"priceTicks":%d}],"style":{"color":"#58a6ff"}}"""
-			.formatted(id, kind, time, ticks);
+			{"id":"%s","kind":"%s","anchors":[%s],"style":{"color":"#58a6ff"}%s}"""
+			.formatted(id, kind, String.join(",", java.util.Collections.nCopies(anchors, anchor)),
+				text == null ? "" : ",\"text\":" + json(text));
+	}
+
+	private static String json(String text) {
+		return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+	}
+
+	private org.springframework.test.web.servlet.ResultActions save(String content, UUID id)
+			throws Exception {
+		return mockMvc.perform(put("/api/charts/DEMO-NQ/drawings/" + id).cookie(alice).with(csrf())
+			.contentType(MediaType.APPLICATION_JSON).content(content));
+	}
+
+	@Test
+	@DisplayName("DEC-048: the ICT tools save — a Fibonacci, a named zone, a label with its words")
+	void ictTools() throws Exception {
+		UUID fib = UUID.randomUUID();
+		UUID zone = UUID.randomUUID();
+		UUID label = UUID.randomUUID();
+		save(body(fib, "fibonacci", 2, 1710338400L, 80_000L, null), fib).andExpect(status().isCreated());
+		save(body(zone, "zone", 2, 1710338400L, 80_000L, "  BISI 5m  "), zone).andExpect(status().isCreated());
+		save(body(label, "label", 1, 1710338400L, 80_000L, "Sweep of Asia high"), label)
+			.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/charts/DEMO-NQ/drawings").cookie(alice))
+			.andExpect(jsonPath("$.length()").value(3))
+			.andExpect(jsonPath("$[0].kind").value("fibonacci"))
+			.andExpect(jsonPath("$[0].text").doesNotExist())
+			// Trimmed: what is stored is what is shown.
+			.andExpect(jsonPath("$[1].text").value("BISI 5m"))
+			.andExpect(jsonPath("$[2].text").value("Sweep of Asia high"));
+	}
+
+	@Test
+	@DisplayName("DEC-048: a shape with the wrong number of anchors is refused, before it can break a chart")
+	void anchorCountIsChecked() throws Exception {
+		UUID id = UUID.randomUUID();
+		save(body(id, "position", 2, 1710338400L, 80_000L, null), id)
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("3 anchors")));
+		save(body(id, "fibonacci", 1, 1710338400L, 80_000L, null), id).andExpect(status().isBadRequest());
+		save(body(id, "horizontal-line", 2, 1710338400L, 80_000L, null), id).andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("DEC-048: text belongs to labels and zones only, a label must have some, and it is short")
+	void textRules() throws Exception {
+		UUID id = UUID.randomUUID();
+		save(body(id, "label", 1, 1710338400L, 80_000L, null), id).andExpect(status().isBadRequest());
+		save(body(id, "label", 1, 1710338400L, 80_000L, "   "), id).andExpect(status().isBadRequest());
+		save(body(id, "rectangle", 2, 1710338400L, 80_000L, "note"), id).andExpect(status().isBadRequest());
+		save(body(id, "label", 1, 1710338400L, 80_000L, "x".repeat(81)), id).andExpect(status().isBadRequest());
+		save(body(id, "label", 1, 1710338400L, 80_000L, "x".repeat(80)), id).andExpect(status().isCreated());
 	}
 
 	@Test

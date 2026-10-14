@@ -98,6 +98,9 @@ export function useDrawings(symbol: string) {
     const work: Promise<boolean>[] = []
 
     for (const drawing of current) {
+      // A label still waiting for its words is not finished: the server would refuse it, and the
+      // editor commits it the moment it has some.
+      if (drawing.kind === 'label' && !drawing.text) continue
       const serialised = JSON.stringify(drawing)
       if (persisted.get(drawing.id) !== serialised) {
         work.push(

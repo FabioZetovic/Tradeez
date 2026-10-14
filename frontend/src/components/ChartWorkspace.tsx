@@ -308,6 +308,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
                   bars={series.bars}
                   snapMode={snapMode}
                   tickValueCents={instrument.tickValueCents}
+                  tickSize={instrument.tickSize}
                   onCommit={() => void commit()}
                 />
               </>

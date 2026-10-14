@@ -739,6 +739,39 @@ still worth less than a finished Practice loop, and DEC-004's warning stands: th
 the schedule goes to die if it is allowed to. New tools are added when a curriculum needs them,
 not because they would look good in a toolbar.
 
+*Extended by DEC-048 (Session 017, T8):* the ICT curriculum needed three — and the marginal cost
+argued above held: each was a hit test and a draw function, plus one shared text editor.
+
+**DEC-048 — Three ICT drawing tools: Fibonacci, zone, label** `IMPLEMENTED` · Claude, Session 017
+(2026-10-14), T8 — ICT-21, ICT-42, ICT-43
+
+DEC-037 kept the drawing layer at four shapes "until a curriculum needs them". ICT's needs three:
+
+- **Fibonacci with ICT's own levels** (ICT-43): 0, 0.5, 0.62, 0.705, 0.79, 1, and the targets −0.27,
+  −0.62, −1, −2. Drawn from the start of a leg to its end: level 1 at the start, 0 at the end — so a
+  bullish leg drawn low → high puts the optimal trade entry (0.62–0.79, ICT-42) below the high, shaded,
+  with 0.705 drawn heavier, and the targets above it. The way ICT draws it, and the way TradingView
+  does. Levels run to the chart's right edge: the targets lie in the future, and a replay walks into
+  them. A level's price is printed on the tick grid (an order cannot be placed at 0.705 of a tick).
+- **Zone with consequent encroachment** (ICT-21): a box — a gap, a block — with its exact middle
+  dashed and faint quarter lines. The CE is kept in half-ticks, so a zone an odd number of ticks tall
+  keeps an exact integer midpoint (INVARIANT 3), printed with one more decimal (NQ's x.125). A zone
+  can carry a name ("BISI 5m").
+- **Label**: words at a point, for marking what was seen ("Asia high swept").
+
+Words are typed in a field over the chart — on placing a label, or by double-clicking a label or a
+zone — at most 80 characters. A label with no words is not kept. Text is stored in its own column
+(V11), not in `style`; the server checks it belongs to a label or zone and that a label has some.
+
+Two guards came with it. The server now checks every drawing has the anchor count its kind needs
+(a malformed shape stored would break its chart on every load; V11 adds the same CHECK). And a
+creation that is never dragged — a click with a two-point tool — leaves nothing behind (BUG-049),
+because a Fibonacci of no length prints all ten levels at one price.
+
+Not in this decision: user-editable level sets, extending levels left, colours per drawing, and
+the detector side of ICT-21/42 (`ote-1.0.0`, T18), which grades against rules rather than drawing.
+
+
 **Reconsider if** a future tool needs something the overlay genuinely cannot express — text
 editing in place, or a shape that must interleave with the candle rendering rather than sit above
 it.

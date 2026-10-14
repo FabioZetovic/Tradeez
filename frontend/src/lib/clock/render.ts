@@ -1,5 +1,6 @@
 import type { ClockLayer, ClockLine, ClockWindow } from '../api/clock'
 import type { DomainBar } from '../chart/types'
+import { LabelSpace } from '../chart/labelSpace'
 import { formatPrice } from '../chart/priceFormat'
 import type { Projection } from '../drawing/types'
 import { killzoneColor, lineLayer, windowLayer, type ClockLayerKey } from './layers'
@@ -105,14 +106,46 @@ export function renderClock(
     const at = span(window.from, window.to)
     if (at) drawWindow(ctx, window, at, pane)
   }
+  const labels: LineLabel[] = []
   for (const line of layer.lines) {
     if (!shown.has(lineLayer(line))) continue
     const at = span(line.from, line.to)
     const y = projection.priceToY(line.priceTicks)
-    if (at && y !== null && y >= 0 && y <= pane.height) drawLine(ctx, line, at, y, options.tickSize)
+    if (at && y !== null && y >= 0 && y <= pane.height) {
+      labels.push(drawLine(ctx, line, at, y, options.tickSize))
+    }
+  }
+  // Words after lines, most important first, each into free space (BUG-048).
+  const space = new LabelSpace()
+  labels.sort((a, b) => LABEL_PRIORITY[a.kind] - LABEL_PRIORITY[b.kind])
+  for (const label of labels) {
+    const width = ctx.measureText(label.text).width
+    if (label.room < width + 8) continue
+    const x = label.right - width - 4
+    const baseline = space.place(x, label.y - 7, width)
+    if (baseline === null) continue
+    ctx.fillStyle = label.color
+    ctx.fillText(label.text, x, baseline)
   }
 
   ctx.restore()
+}
+
+interface LineLabel {
+  kind: ClockLine['kind']
+  text: string
+  color: string
+  right: number
+  room: number
+  y: number
+}
+
+/** Liquidity first: the levels ICT expects price to run for, then the clock's own prices. */
+const LABEL_PRIORITY: Record<ClockLine['kind'], number> = {
+  PREVIOUS_WEEK: 0,
+  PREVIOUS_DAY: 1,
+  SESSION: 2,
+  OPEN: 3,
 }
 
 function drawWindow(
@@ -156,13 +189,15 @@ function drawWindow(
   }
 }
 
+/** Draws the line; its label — at its right end, where the eye arrives from the newest candles — is
+ * returned to be placed once every line is down. */
 function drawLine(
   ctx: CanvasRenderingContext2D,
   line: ClockLine,
   [x0, x1]: [number, number],
   y: number,
   tickSize: number,
-): void {
+): LineLabel {
   const { color, dash, width } = lineStyle(line)
   const yy = Math.round(y) + 0.5
   ctx.strokeStyle = color
@@ -173,13 +208,13 @@ function drawLine(
   ctx.lineTo(x1, yy)
   ctx.stroke()
   ctx.setLineDash([])
-
-  // Labelled at its right end, where the eye arrives from the newest candles.
-  const text = `${line.label} ${formatPrice(line.priceTicks, tickSize)}`
-  const textWidth = ctx.measureText(text).width
-  if (x1 - x0 > textWidth + 8) {
-    ctx.fillStyle = color
-    ctx.fillText(text, x1 - textWidth - 4, yy - 7)
+  return {
+    kind: line.kind,
+    text: `${line.label} ${formatPrice(line.priceTicks, tickSize)}`,
+    color,
+    right: x1,
+    room: x1 - x0,
+    y: yy,
   }
 }
 
