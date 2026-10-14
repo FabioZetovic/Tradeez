@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: feat/ny-clock                             # T7, not merged. master: feat/replay-trading (T5) merged 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/ny-clock (T7 + bug batch BUG-040–043): backend 260/260 (Testcontainers), frontend 189/189 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh-clone check of the batch still to do before the merge.
+build_passing: true  # feat/ny-clock (T7 + bug batch BUG-040–043): backend 260/260 (Testcontainers), frontend 189/189 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of aa2b753 green 2026-10-14 (lint, typecheck, 189, build; backend 260 without .env) — ready to merge on Fabio's word.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1591,4 +1591,4 @@ and four were found and fixed on `feat/ny-clock`, each with a test that fails on
 - **BUG-043 🟠** one request could keep the server busy for 21 s (399 days of hourly DEMO-NQ bars;
   11 s for the new clock endpoint): simulated markets are served at most 14 days at a time.
 - ENV-006 mitigated (no `sed -i` on sources while a dev server runs). Backend 259 → 260, frontend
-  177 → 189.
+  177 → 189. Pushed as `aa2b753`; fresh clone green (frontend 189 + build, backend 260 without `.env`).
