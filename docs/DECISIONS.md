@@ -401,6 +401,38 @@ historical charts, taking trades whenever the candles say so
 Not in this decision: limit entries, scaling, partial targets (T28), and moving a stop after the
 lock — DEC-013's revision log is where that belongs.
 
+**DEC-047 — The New York clock layer: three versioned rules, computed from minutes, never ahead of
+the cursor**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-14), T7 — ICT-11 and ICT-50 to ICT-54
+
+- **What it is.** An overlay on every chart — the Chart tab and every replay — that shows the day the
+  way ICT reads it: trading-day separators at 18:00, the four killzones (DEC-043's index-futures
+  times), the Silver Bullet hours, the macros; and the prices read off the clock — the midnight,
+  08:30, 09:30 and weekly opens, PDH/PDL, PWH/PWL, and each killzone's high and low. Each part can be
+  switched on and off; the choice is remembered in the browser.
+- **Three versioned rules** (DEC-026), exactly as written in `ICT_CONCEPTS.md`: `sessions-1.0.0`,
+  `opens-1.0.0`, `levels-1.0.0`. Every response names them. The day is the CME trading day, 18:00 to
+  17:00 New York (`dayBoundary = CME`). The macro schedule is the commonly cited one and the spec
+  flags it for checking; a correction will be a new version, not an edit.
+- **Computed on the server from one-minute bars, not from the chart's candles.** On an hourly chart
+  the 08:30 boundary falls inside the 08:00 candle, so a session high read off hourly candles would
+  include half an hour that is not in the session. Nothing is stored: a layer is a cheap pure function
+  of the minutes and the rule versions.
+- **Never ahead of the cursor (DEC-009).** The builder is handed only bars before an instant and
+  refuses any other. A level appears once its period has closed, an opening price once its minute has
+  printed. Window and line *ends* may lie past the cursor — they are clock times, not prices. A replay
+  is told when its layer can next change (`nextChange`) and asks again only then, not on every bar.
+  On real data every time goes through the session's hidden-date clock (DEC-045).
+- **Honest about missing and joined data.** No level is measured from a period the data did not see
+  from its start (the start of the import, or of what was read). No level is drawn across a contract
+  roll: one measured on the old contract is left out, and one whose span crosses a roll stops at it —
+  NQ's next contract trades a few hundred points away.
+- **Drawn in the frontend** on its own canvas under the drawings and above the candles, faintly, and
+  never over the price or time scale. Times between bars are placed by proportion inside their bar.
+
+Not yet: London close and lunch shading, overnight/RTH/monthly levels, CBDR (ICT-55), and whether a
+level has been taken (`liquidity-1.0.0`, T12).
+
 **DEC-038 — A simulated market's seed is a secret; the public endpoint serves one fixed market**
 `AGREED` · Claude, Session 014, at Fabio's instruction ⚠️ critical
 

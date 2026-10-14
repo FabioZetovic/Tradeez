@@ -67,12 +67,26 @@ function mockApi(routes: Record<string, { status?: number; body: unknown }>) {
   )
 }
 
+/** The New York clock over the window (T7): one killzone and the previous day's high. */
+const CLOCK = {
+  rules: { sessions: 'sessions-1.0.0', opens: 'opens-1.0.0', levels: 'levels-1.0.0' },
+  windows: [{ kind: 'KILLZONE', label: 'NY AM', from: DATA_TO - 3600, to: DATA_TO }],
+  lines: [{ kind: 'PREVIOUS_DAY', label: 'PDH', from: DATA_TO - 3600, to: DATA_TO, priceTicks: 80_100 }],
+}
+
 const signedOut = { '/api/me': { status: 401, body: {} }, '/api/auth/refresh': { status: 401, body: {} } }
 const signedIn = {
   '/api/me': { body: USER },
   '/api/market/instruments/NQ/bars': { body: SERIES },
+  '/api/market/instruments/NQ/clock': { body: CLOCK },
   '/api/market/instruments': { body: INSTRUMENTS },
   '/api/charts/NQ/drawings': { body: [] },
+}
+
+function requests(path: string): URL[] {
+  return (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+    .map(([url]) => new URL(String(url), 'http://test'))
+    .filter((url) => url.pathname.endsWith(path))
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -140,6 +154,34 @@ describe('App — signed in', () => {
 
     await waitFor(() => expect(adapter.bars).toHaveLength(1))
     expect(adapter.mountOptions?.tickSize).toBe(0.25)
+  })
+
+  it('asks for the New York clock over exactly the window the bars cover (T7)', async () => {
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    await waitFor(() => expect(requests('/clock')).toHaveLength(1))
+
+    const [bars] = requests('/bars')
+    const [clock] = requests('/clock')
+    expect(clock.searchParams.get('from')).toBe(bars.searchParams.get('from'))
+    expect(clock.searchParams.get('to')).toBe(bars.searchParams.get('to'))
+    expect(await screen.findByTestId('clock-overlay')).toBeInTheDocument()
+  })
+
+  it('shows the day, the killzones, the opens and PDH/PDL at first, and remembers a change', async () => {
+    localStorage.removeItem('tradeez.clockLayers')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    const clock = await screen.findByRole('group', { name: 'New York clock' })
+    const pressed = (name: string) => screen.getByRole('button', { name }).getAttribute('aria-pressed')
+
+    expect(pressed('Killzones')).toBe('true')
+    expect(pressed('PDH/PDL')).toBe('true')
+    expect(pressed('Macros')).toBe('false')
+    expect(clock).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Macros' }))
+    expect(pressed('Macros')).toBe('true')
+    expect(JSON.parse(localStorage.getItem('tradeez.clockLayers') ?? '[]')).toContain('macros')
   })
 
   it('labels real data with its source and shows no simulated-data banner (INVARIANT 7)', async () => {

@@ -8,6 +8,7 @@ import type {
 } from '../api/practice'
 import type { Anchor, Drawing } from '../drawing/types'
 import { DEFAULT_STYLES } from '../drawing/types'
+import { timeframeSeconds } from '../chart/dateNavigation'
 
 /**
  * The practice plan, as the learner builds it on the chart.
@@ -90,13 +91,6 @@ export function closedTradeDrawing(trade: TradeView, timeframe: string): Drawing
     style: DEFAULT_STYLES.position,
     endTime: result.exitTime - (result.exitTime % step),
   }
-}
-
-/** "5m" → 300. */
-export function timeframeSeconds(code: string): number {
-  const unit = code.slice(-1)
-  const n = Number(code.slice(0, -1))
-  return unit === 'm' ? n * 60 : unit === 'h' ? n * 3600 : unit === 's' ? n : n * 86_400
 }
 
 /** Mirrors the bracket through the entry: a long becomes the equivalent short, and back. */

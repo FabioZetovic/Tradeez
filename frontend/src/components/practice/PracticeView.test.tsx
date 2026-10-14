@@ -220,7 +220,7 @@ describe('Practice — a replay', () => {
     expect(screen.getByTestId('practice-status')).toHaveTextContent('Flat')
     expect(screen.getByRole('note')).toHaveTextContent(/SIMULATED DATA/)
     expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/sessions'))).toHaveLength(1)
-    expect(calls.some((c) => c.method === 'GET' && c.url.includes(ID))).toBe(false)
+    expect(calls.some((c) => c.method === 'GET' && c.url.endsWith(`/sessions/${ID}`))).toBe(false)
     // Nothing to log until a trade is placed.
     expect(screen.queryByRole('region', { name: 'Trades' })).not.toBeInTheDocument()
   })
@@ -397,6 +397,50 @@ describe('Practice — playing', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument())
     await new Promise((resolve) => setTimeout(resolve, 300))
     expect(calls.filter((c) => is(c, 'POST', '/advance'))).toHaveLength(1)
+  })
+})
+
+describe('Practice — the New York clock (T7)', () => {
+  it('asks for the clock once, then again only when the replay reaches its next change', async () => {
+    const server = happyServer()
+    let asked = 0
+    let cursor = CURSOR
+    mockApi((call) => {
+      if (is(call, 'GET', '/clock')) {
+        asked++
+        // The first layer can change at the next bar; the second not for a long while.
+        return {
+          body: {
+            rules: { sessions: 'sessions-1.0.0', opens: 'opens-1.0.0', levels: 'levels-1.0.0' },
+            windows: [],
+            lines: [],
+            nextChange: asked === 1 ? CURSOR + 300 : CURSOR + 99_999,
+          },
+        }
+      }
+      if (is(call, 'POST', '/advance')) {
+        cursor += 300
+        return {
+          body: {
+            state: { ...ANALYSING, cursor },
+            bars: [{ time: cursor - 300, open: 80_006, high: 80_012, low: 80_004, close: 80_010, volume: 10 }],
+          },
+        }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await waitFor(() => expect(asked).toBe(1))
+    expect(screen.getByRole('group', { name: 'New York clock' })).toBeInTheDocument()
+
+    // The cursor reaches the change: asked again. Past it, with a later change, not again.
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(asked).toBe(2))
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(screen.getByTestId('practice-cursor')).toBeInTheDocument())
+    expect(asked).toBe(2)
   })
 })
 

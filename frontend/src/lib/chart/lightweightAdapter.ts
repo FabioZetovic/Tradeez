@@ -142,6 +142,10 @@ export class LightweightChartAdapter implements ChartAdapter {
     }
   }
 
+  getPaneSize(): { width: number; height: number } | null {
+    return this.chart ? this.chart.paneSize() : null
+  }
+
   onViewportChange(listener: () => void): () => void {
     const chart = this.chart
     if (!chart) return () => {}

@@ -24,6 +24,13 @@ export const WINDOW_DAYS: Record<string, number> = {
   '1h': 160,
 }
 
+/** "5m" → 300. */
+export function timeframeSeconds(code: string): number {
+  const unit = code.slice(-1)
+  const n = Number(code.slice(0, -1))
+  return unit === 'm' ? n * 60 : unit === 'h' ? n * 3600 : unit === 's' ? n : n * 86_400
+}
+
 export function windowDays(timeframe: string): number {
   return WINDOW_DAYS[timeframe] ?? 14
 }

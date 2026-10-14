@@ -1,5 +1,7 @@
-import { useCallback, useReducer, useState } from 'react'
+import { useCallback, useEffect, useReducer, useState } from 'react'
 import { PriceChart } from '../PriceChart'
+import { ClockOverlay } from '../ClockOverlay'
+import { ClockToggles } from '../ClockToggles'
 import { DrawingOverlay } from '../DrawingOverlay'
 import { DrawingToolbar } from '../DrawingToolbar'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
@@ -7,11 +9,14 @@ import { PlanPanel } from './PlanPanel'
 import { ResultCard } from './ResultCard'
 import { TradeLog } from './TradeLog'
 import { SPEEDS, usePracticeSession, type Speed } from '@/hooks/usePracticeSession'
+import { useClockLayers } from '@/hooks/useClockLayers'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import type { Direction, PracticeState, SessionResponse } from '@/lib/api/practice'
+import { getPracticeClock, type ClockLayer } from '@/lib/api/clock'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
+import { timeframeSeconds } from '@/lib/chart/dateNavigation'
 import {
   canRedo,
   canUndo,
@@ -32,7 +37,6 @@ import {
   PLAN_DRAWING_ID,
   planFromDrawing,
   STATUS_LABEL,
-  timeframeSeconds,
   TRADE_DRAWING_PREFIX,
 } from '@/lib/practice/plan'
 
@@ -86,6 +90,29 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   const [contracts, setContracts] = useState(1)
   const [selectedTrade, setSelectedTrade] = useState<number | undefined>(undefined)
   const [confirmingEnd, setConfirmingEnd] = useState(false)
+
+  // The New York clock up to the cursor (T7). The server says when it can next change; it is asked
+  // again only once the replay gets there, not on every bar. A failure costs only the overlay.
+  const [clock, setClock] = useState<ClockLayer | null>(null)
+  const { shown: clockShown, toggle: toggleClock } = useClockLayers()
+  const cursor = state?.cursor
+  const clockStale =
+    cursor !== undefined &&
+    (clock === null || (clock.nextChange !== undefined && cursor >= clock.nextChange))
+  useEffect(() => {
+    if (!clockStale) return
+    let cancelled = false
+    getPracticeClock(sessionId)
+      .then((layer) => {
+        if (!cancelled) setClock(layer)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+    // `clock` too: a layer that comes back already stale, because the replay moved on while it was
+    // being built, is asked for again.
+  }, [clockStale, sessionId, clock])
 
   const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined
   const status = state?.status
@@ -221,6 +248,10 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
         )}
       </div>
 
+      <div className="self-start">
+        <ClockToggles shown={clockShown} onToggle={toggleClock} />
+      </div>
+
       <div className="flex min-w-0 items-start gap-2">
         <DrawingToolbar
           activeTool={activeTool}
@@ -242,17 +273,27 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
           adapterFactory={adapterFactory}
           recentBars={RECENT_BARS}
           overlay={(adapter) => (
-            <DrawingOverlay
-              adapter={adapter}
-              state={shownState}
-              dispatch={dispatch}
-              activeTool={activeTool}
-              onToolFinished={() => setActiveTool(null)}
-              bars={bars}
-              snapMode={snapMode}
-              tickValueCents={state.tickValueCents}
-              onCommit={() => {}}
-            />
+            <>
+              <ClockOverlay
+                adapter={adapter}
+                layer={clock}
+                bars={bars}
+                timeframe={state.timeframe}
+                tickSize={state.tickSize}
+                shown={clockShown}
+              />
+              <DrawingOverlay
+                adapter={adapter}
+                state={shownState}
+                dispatch={dispatch}
+                activeTool={activeTool}
+                onToolFinished={() => setActiveTool(null)}
+                bars={bars}
+                snapMode={snapMode}
+                tickValueCents={state.tickValueCents}
+                onCommit={() => {}}
+              />
+            </>
           )}
         />
       </div>

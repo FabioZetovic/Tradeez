@@ -73,6 +73,17 @@ public class MarketDataService {
 		return barStore.count(instrument.getId(), "1m", from, to);
 	}
 
+	/**
+	 * Contract rolls in {@code [from, to)}: when the stored front contract changes. A simulated market
+	 * is one continuous series and never rolls.
+	 */
+	public List<Instant> rolls(Instrument instrument, Instant from, Instant to) {
+		if (instrument.getDataClass() == DataClass.SIMULATED) {
+			return List.of();
+		}
+		return barStore.contractChanges(instrument.getId(), "1m", from, to);
+	}
+
 	public Instrument requireInstrument(String symbol) {
 		return instruments.findBySymbolIgnoreCase(symbol)
 			.orElseThrow(() -> new InstrumentNotFoundException(symbol));

@@ -24,6 +24,21 @@ closed entry is under [Fixed](#fixed) with its original description intact.
 
 ## Environment
 
+### ENV-006 🟡 The Vite dev server can serve a file from before its last edit
+
+**Status:** verified (session 017, T7)
+
+Checking T7 in the browser, the Practice screen had the clock overlay but not the clock switches,
+though both were in the source. The switches had been added by a shell `sed -i`, which replaces a
+file rather than writing into it; on Windows, Vite's watcher can miss that and keep serving the old
+module. Restarting the dev server fixed it. Not a code bug: tests, typecheck and the production build
+read the files on disk.
+
+Two lessons. When the browser disagrees with the source, restart the dev server before debugging the
+code. And when checking what Vite serves, remember it serves compiled JavaScript: JSX such as
+`<ClockToggles shown=` appears as `_jsxDEV(ClockToggles, { shown:`, so searching for the JSX text
+finds nothing even when the module is current.
+
 ### ENV-005 🔴 A real API key was typed into the committed template file
 
 **Status:** verified (session 017) — caught before any commit
@@ -170,6 +185,10 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Market data | Real NQ covers about two years (Oct 2024 →), one-minute bars only | Massive's free plan (DEC-042). Five or ten years back and one-second bars need Databento or a paid plan — Fabio's decision |
 | Market data | Real data is local and private (`IMPORTED_PRIVATE`) | DEC-035 / Q-09: showing it to others, the jury included, needs the provider's written permission. Massive's free plan says "individual use" |
 | Chart | Coarser timeframes are aggregated from minutes on every request | A 1-hour window reads ~220,000 stored minutes (≈0.4 s locally); 1m and 5m answer in under 60 ms. Stored aggregates are the upgrade path if it ever matters |
+| Chart | The New York clock takes ~0.65 s on the widest window (1h, 160 days) | Built from every stored minute in the window plus two weeks before it, on each request, in parallel with the bars — it appears a moment after the candles. 14 days on 5m: 0.16 s. Same upgrade path as the bars: stored daily aggregates |
+| Chart | Around a contract roll, the clock shows fewer levels | A level measured on the old contract is not drawn over the new one, and the week's open and PWH/PWL stop at the roll (DEC-047). Correct, but the roll week looks bare |
+| Chart | The macro times are the commonly cited schedule | `ICT_CONCEPTS.md` ICT-54 flags them for checking against ICT's own lectures; a correction will be `sessions-1.1.0` |
+| Chart | Levels do not yet show whether they have been taken | That is `liquidity-1.0.0` (T12). Until then a level runs to the end of its span even after price has traded through it |
 | Chart | No infinite scroll into older history | Each view loads a fixed window ending at the chosen date; the date picker and the 1W–2Y jumps move it |
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |
 | Fill engine | `AMBIGUOUS` is a legitimate outcome, not a failure | DEC-008 — candle data genuinely cannot always say which of TP/SL came first |

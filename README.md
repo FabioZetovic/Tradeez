@@ -17,6 +17,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Chart:** two years of **real NQ** one-minute history (Oct 2024 →), from Massive's free plan
   (DEC-042), aggregated to 3-minute … 1-hour candles. Jump to any date or 1W–2Y back; times in New
   York time, the clock ICT is taught in. Every series names its source.
+- **New York clock** over every chart (DEC-047): trading-day separators, ICT killzones, Silver Bullet
+  hours and macros shaded; midnight, 08:30, 09:30 and weekly opens, PDH/PDL, PWH/PWL and killzone
+  highs/lows drawn — each switchable, computed from one-minute bars under versioned rules, never
+  ahead of a replay's cursor and never across a contract roll.
 - **Drawing tools:** horizontal line, trend line, rectangle and position (risk/reward). They are
   saved per account, with undo and redo.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from

@@ -80,6 +80,12 @@ export interface ChartAdapter {
   getProjection(): import('../drawing/types').Projection | null
 
   /**
+   * The plotting area, without the price and time scales, from the container's top-left corner.
+   * Shading a time window stops at its edges rather than tinting the axes. Null if not mounted.
+   */
+  getPaneSize(): { width: number; height: number } | null
+
+  /**
    * Fires whenever the visible range changes — pan, zoom, or a resize.
    *
    * The overlay is a separate canvas, so nothing redraws it automatically; without this the
