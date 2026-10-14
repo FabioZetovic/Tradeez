@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T5 merged; T7 (New York clock layer) built on feat/ny-clock
+last_session: 017   # in progress — T1–T7 merged; T8 (ICT drawing tools) next
 last_author: CLAUDE
 last_updated: 2026-10-14
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: feat/ny-clock                             # T7, not merged. master: feat/replay-trading (T5) merged 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/ny-clock (T7 + bug batch BUG-040–043): backend 260/260 (Testcontainers), frontend 189/189 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of aa2b753 green 2026-10-14 (lint, typecheck, 189, build; backend 260 without .env) — ready to merge on Fabio's word.
+build_passing: true  # backend 261/261 (Testcontainers), frontend 191/191 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 9b5e4dd green 2026-10-14; merged as 6d09763.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -115,7 +115,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T7 and the BUG-040–043 batch are on feat/ny-clock; next is Fabio's call (merge it; T8 ICT drawing tools is the roadmap's next item).
+blocked_on: nothing — T8 (ICT drawing tools) in progress on feat/ict-drawings.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -143,7 +143,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T7 New York clock layer, on branch feat/ny-clock (2026-10-14)
+claimed_files:      # session 017 (CLAUDE) — T8 ICT drawing tools, on branch feat/ict-drawings (2026-10-14)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -160,7 +160,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, on `feat/ny-clock`).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -188,7 +188,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, 2026-10-14, on `feat/ny-clock` (**not merged yet**, DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
+| T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, **merged 2026-10-14 as `6d09763`** (DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
 | T8 | **ICT drawing tools** | T3 | I-21, I-42–43, X §4 | Fibonacci with ICT preset; zone with CE line; labels. Extends DEC-037's four shapes — record the decision. |
 | T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
 | T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
@@ -1605,4 +1605,8 @@ with the date reveal — with no failed request. Three more, each with a test th
   trade stayed hidden behind an earlier pick. Both now remember when they were set and lapse.
 - Docker Desktop had stopped again (ENV-001) and was restarted; it also brought back another project's
   container on port 5173, so the frontend preview moved to 5174.
-- Backend 260 → 261, frontend 189 → 191.
+- Backend 260 → 261, frontend 189 → 191. Fresh clone of `9b5e4dd` green (frontend 191 + build, backend
+  261 without `.env`).
+
+**2026-10-14 — T7 merged.** Merged `--no-ff` as `6d09763` with the bug fixes BUG-040 to BUG-046.
+Next: T8 (ICT drawing tools) on `feat/ict-drawings`.
