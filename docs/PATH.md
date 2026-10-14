@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: feat/ict-drawings                         # T8, not merged. master: feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/ict-drawings: backend 264/264 (Testcontainers), frontend 215/215 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh-clone check still to do before the merge.
+build_passing: true  # feat/ict-drawings: backend 264/264 (Testcontainers), frontend 215/215 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 0f72da6 green 2026-10-14 (lint, typecheck, 215, build; backend 264 without .env) — ready to merge on Fabio's word.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1635,4 +1635,5 @@ curriculum would have to:
   high drew its levels and OTE and saved. The window kept going hidden, so the zone and label were
   checked by the overlay tests, not by eye. Test drawings removed from the test account afterwards.
 - Docker Desktop had stopped (ENV-001) and was restarted.
-- Backend 261 → 264, frontend 191 → 215.
+- Backend 261 → 264, frontend 191 → 215. Pushed as `0f72da6`; fresh clone green (frontend 215 + build,
+  backend 264 without `.env`). Not merged: waiting for Fabio.
