@@ -17,8 +17,9 @@
 
 ## Open
 
-*No open bugs.* BUG-039, the latest, was found and fixed in session 017 while building T5. Every
-closed entry is under [Fixed](#fixed) with its original description intact.
+*No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
+and none was open — found four that had never been logged (BUG-040 to BUG-043); all four are fixed.
+Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
 
@@ -38,6 +39,10 @@ Two lessons. When the browser disagrees with the source, restart the dev server 
 code. And when checking what Vite serves, remember it serves compiled JavaScript: JSX such as
 `<ClockToggles shown=` appears as `_jsxDEV(ClockToggles, { shown:`, so searching for the JSX text
 finds nothing even when the module is current.
+
+**✅ MITIGATED — Session 017.** Source files are no longer edited with `sed -i` while a dev server
+runs: edits go through the editor tool or a script that writes the file in place, and Vite picks both
+up (checked: the layout change that followed was served at once).
 
 ### ENV-005 🔴 A real API key was typed into the committed template file
 
@@ -185,7 +190,7 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Market data | Real NQ covers about two years (Oct 2024 →), one-minute bars only | Massive's free plan (DEC-042). Five or ten years back and one-second bars need Databento or a paid plan — Fabio's decision |
 | Market data | Real data is local and private (`IMPORTED_PRIVATE`) | DEC-035 / Q-09: showing it to others, the jury included, needs the provider's written permission. Massive's free plan says "individual use" |
 | Chart | Coarser timeframes are aggregated from minutes on every request | A 1-hour window reads ~220,000 stored minutes (≈0.4 s locally); 1m and 5m answer in under 60 ms. Stored aggregates are the upgrade path if it ever matters |
-| Chart | The New York clock takes ~0.65 s on the widest window (1h, 160 days) | Built from every stored minute in the window plus two weeks before it, on each request, in parallel with the bars — it appears a moment after the candles. 14 days on 5m: 0.16 s. Same upgrade path as the bars: stored daily aggregates |
+| Chart | The New York clock takes ~0.65 s on the widest window (1h, 160 days) | Built from every stored minute in the window plus two weeks before it, on each request, in parallel with the bars — it appears a moment after the candles. 14 days on 5m: 0.16 s. Same upgrade path as the bars: stored daily aggregates. On an old simulated (DEMO) practice session the first clock request takes ~1 s while three weeks of seconds are generated; later ones ~35 ms |
 | Chart | Around a contract roll, the clock shows fewer levels | A level measured on the old contract is not drawn over the new one, and the week's open and PWH/PWL stop at the roll (DEC-047). Correct, but the roll week looks bare |
 | Chart | The macro times are the commonly cited schedule | `ICT_CONCEPTS.md` ICT-54 flags them for checking against ICT's own lectures; a correction will be `sessions-1.1.0` |
 | Chart | Levels do not yet show whether they have been taken | That is `liquidity-1.0.0` (T12). Until then a level runs to the end of its span even after price has traded through it |
@@ -455,6 +460,76 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-040 🔴 The app stopped working fifteen minutes after it was opened
+
+**Status:** verified — hit repeatedly in the browser during session 017 (every request answered 401
+until a reload); found in an audit Fabio asked for ("fix all the bugs you tracked"), never logged
+before
+**Affects:** `frontend/src/lib/api/client.ts`, `lib/api/auth.ts`, `hooks/useSession.ts`
+
+**What happened.** The access token lives fifteen minutes; the refresh token thirty days. The client
+refreshed only once, when the page loaded (`restoreSession`), although its own comment said refresh
+was "called on a 401". After fifteen minutes every request — the next bar of a replay, a plan, a
+drawing save — failed with 401 and the app showed generic errors while still looking signed in. A
+reload fixed it, which is why it looked like flakiness. For a replay, which can easily last half an
+hour, it was a hard stop in the middle of a session.
+
+**✅ FIXED — Session 017.** `apiFetch` answers a 401 by refreshing once and sending the request again
+(with its body, and the CSRF cookie as it is after the refresh). Requests that fail together share one
+refresh — two racing refreshes is how BUG-034 signed users out. Sign-in, registration, refresh and
+logout are never retried: none uses an access token, so their 401 is an answer. Only a refused refresh
+(401/403) ends the session; a network failure or a server error does not. When it does end, the app
+returns to the sign-in form and says so ("You were signed out… your practice sessions and drawings are
+saved") — but only for someone who was signed in, not a fresh visitor. `client.test.ts` (7 tests) and
+`App.test` cover each case; run against the old client, five of the seven fail (the other two check
+that nothing happens, which the old client also got right).
+
+### BUG-041 🟡 Undo after a trade brought its old bracket back
+
+**Status:** verified — found in the same audit; `PracticeView.test` fails on the old code
+**Affects:** `frontend/src/components/practice/PracticeSession.tsx`, `lib/drawing/store.ts`
+
+**What happened.** Locking a plan removed its draft bracket with an ordinary `remove`, which is an undo
+step. Once the trade closed and the learner was flat, pressing Undo restored the old draft — pinned to
+the current price, ready to lock again — and the bracket edits made before the lock were still in the
+history behind it. Undo is for the learner's own analysis; a locked plan is history, not a draft.
+
+**✅ FIXED — Session 017.** A new store action, `forget`, removes a drawing from the present *and* from
+every past and future step, adding none, and drops steps that became identical so no undo is spent
+changing nothing. Locking a plan forgets the draft. The first test checked only after four undos — by
+then history had walked past the draft to the empty start — and passed on the broken code; it now
+checks after every undo, and fails on the old code at the first.
+
+### BUG-042 🟡 A trade's details could be opened only with a mouse
+
+**Status:** verified by reading — found in the same audit
+**Affects:** `frontend/src/components/practice/TradeLog.tsx`
+
+**What happened.** Rows of the trade log opened their trade on click, but a table row cannot take
+keyboard focus, so a keyboard user could not reach any trade's details; and `aria-selected` on a plain
+table row is not valid ARIA.
+
+**✅ FIXED — Session 017.** Each finished trade's number is a real button (`aria-pressed`, "Show trade
+N"); clicking anywhere on the row still works as a convenience. `TradeLog.test` opens a trade with
+Enter.
+
+### BUG-043 🟠 One request could keep the server busy for twenty seconds
+
+**Status:** verified — measured in the browser during the same audit
+**Affects:** `backend/.../marketdata/MarketDataService.java`, `clock/ClockService.java`
+
+**What happened.** A simulated market is generated one second at a time, so a request's cost is the
+time it covers, not the bars it returns. The public bars endpoint allowed 400 days: 399 days of hourly
+`DEMO-NQ` bars is under the bar cap and took **21 seconds** of server time; the new clock endpoint
+(200 days, plus two weeks of lookback) took **11 seconds**. Any signed-in user could repeat either in a
+loop. The limits were set when the simulated market was the Chart tab's main market; since V8 nothing
+in the app asks for more than a few days of it.
+
+**✅ FIXED — Session 017.** `MarketDataService.requireAffordable`: the public endpoints serve a
+simulated market at most 14 days at a time (`MAX_SIMULATED_RANGE`), checked before anything is
+generated; real data is read, not generated, and keeps its limits. Practice and Drills generate through
+`internalBars`, which bound their own ranges. `MarketDataApiTest.simulatedRangeIsBounded`.
 
 ### BUG-039 🟡 The total R disagreed with the R column it summed
 

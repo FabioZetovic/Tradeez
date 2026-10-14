@@ -319,6 +319,25 @@ describe('Practice — a replay', () => {
     expect(rows[1]).toHaveTextContent('Running')
   })
 
+  it('BUG-041: undo after a trade never brings its old bracket back', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await screen.findByTestId('result-outcome')
+    expect(screen.queryByTestId('plan-numbers')).not.toBeInTheDocument()
+
+    // Undo and redo are for the learner's own analysis. The bracket became trade 1; it is history,
+    // not a draft to step back into.
+    // Checked after every step: each undo walks back through the history one entry at a time.
+    for (let i = 0; i < 3; i++) {
+      await user.click(screen.getByTitle('Undo (Ctrl+Z)'))
+      expect(screen.queryByTestId('plan-numbers')).not.toBeInTheDocument()
+    }
+    expect(screen.getByText(/Place a bracket/i)).toBeInTheDocument()
+  })
+
   it('ends only when asked twice, and only then shows the seed', async () => {
     const user = userEvent.setup()
     renderPractice()

@@ -258,6 +258,26 @@ describe('store', () => {
     expect(s.selectedId).toBe('a')
   })
 
+  it('BUG-041: forgets a drawing from the present and all of history, keeping the rest', () => {
+    const moved = { ...d1, anchors: [{ time: 1, priceTicks: 11 }] }
+    let s = drawingReducer(initialDrawingState, { type: 'add', drawing: d1 }) // past: []
+    s = drawingReducer(s, { type: 'add', drawing: d2 }) // past: [], [a]
+    s = drawingReducer(s, { type: 'update', drawing: moved }) // past: [], [a], [a, b]
+    s = drawingReducer(s, { type: 'forget', id: 'a' })
+
+    expect(s.drawings).toEqual([d2])
+    expect(s.selectedId).toBe('b') // still there, still selected
+    // [a] and [] were the same once a is gone, and so were [a, b] and the present: one step is left.
+    expect(s.past).toEqual([[]])
+    expect(s.future).toEqual([])
+
+    s = drawingReducer(s, { type: 'undo' })
+    expect(s.drawings).toEqual([])
+    s = drawingReducer(s, { type: 'redo' })
+    expect(s.drawings).toEqual([d2])
+    expect(canUndo(drawingReducer(s, { type: 'undo' }))).toBe(false)
+  })
+
   it('undoes and redoes an add', () => {
     let s = drawingReducer(initialDrawingState, { type: 'add', drawing: d1 })
     s = drawingReducer(s, { type: 'add', drawing: d2 })

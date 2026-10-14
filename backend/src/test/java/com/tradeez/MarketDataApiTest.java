@@ -188,6 +188,28 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("BUG-043: a simulated market is served at most 14 days at a time — it is generated second by second")
+	void simulatedRangeIsBounded() throws Exception {
+		// 399 days of hourly bars is under the bar cap, and took 21 seconds of server time to generate.
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
+				.param("timeframe", "1h")
+				.param("from", "1710338400")
+				.param("to", String.valueOf(1710338400L + 399L * 86400)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("14 days")));
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/clock").cookie(auth)
+				.param("from", "1710338400")
+				.param("to", String.valueOf(1710338400L + 30L * 86400)))
+			.andExpect(status().isBadRequest());
+		// Fourteen days is fine.
+		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)
+				.param("timeframe", "1h")
+				.param("from", "1710338400")
+				.param("to", String.valueOf(1710338400L + 14L * 86400)))
+			.andExpect(status().isOk());
+	}
+
+	@Test
 	@DisplayName("an inverted range is rejected")
 	void invertedRangeIsRejected() throws Exception {
 		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/bars").cookie(auth)

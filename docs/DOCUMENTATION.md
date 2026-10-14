@@ -1503,6 +1503,23 @@ wrong number on the new one. Levels are therefore never carried across a roll. E
 against the stored data directly: the previous day's high, London's range, the 09:30 open, on two
 different real days.
 
+**An audit instead of a list.** Fabio asked for every tracked bug to be fixed. There were none open:
+all thirty-nine logged so far had been fixed. So the code was searched for bugs that had never been
+logged, and four turned up. The worst had been hiding in plain sight: the app stopped working fifteen
+minutes after it was opened. Sign-in hands out a short-lived pass and a long-lived one; the app used
+the long-lived one to get a new short pass only when the page first loaded, never again. Every check in
+the browser during this session had run into it, and every time it had been mistaken for an expired
+test login and fixed by reloading. A learner half an hour into a replay would simply have seen errors.
+Now the app renews the pass the moment a request is refused and tries again, and if the long-lived
+pass is gone too, it says so and shows the sign-in form.
+
+The other three were smaller: pressing Undo after a trade could bring the traded bracket back as a
+draft; a trade's details could only be opened with a mouse; and one request for more than a year of
+the simulated market could keep the server busy for twenty seconds. Each now has a test that fails on
+the old code — and one of those tests first passed on the broken code, because it pressed Undo four
+times and only looked at the end, by which point it had stepped past the problem. It now looks after
+every press.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1516,7 +1533,8 @@ the example file contains a key — and it names the setting without ever printi
 **By the numbers:** backend tests 164 → 223, frontend tests 131 → 148, two migrations (V7: stored market
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
-session (practice on real data, the replay, the New York clock): backend 223 → 259, frontend 148 → 177, V9 and V10,
+session (practice on real data, the replay, the New York clock, the bug audit): backend 223 → 260,
+frontend 148 → 189, V9 and V10,
 DEC-044 to DEC-047.*
 
 ---

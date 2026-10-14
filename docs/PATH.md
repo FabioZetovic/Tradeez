@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: feat/ny-clock                             # T7, not merged. master: feat/replay-trading (T5) merged 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/ny-clock: backend 259/259 (Testcontainers), frontend 177/177 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of ca812ad green 2026-10-14 (lint, typecheck, 177, build; backend 259 without .env) — ready to merge on Fabio's word.
+build_passing: true  # feat/ny-clock (T7 + bug batch BUG-040–043): backend 260/260 (Testcontainers), frontend 189/189 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh-clone check of the batch still to do before the merge.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -115,7 +115,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T7 is built on feat/ny-clock; next is Fabio's call (merge it; T8 ICT drawing tools is the roadmap's next item).
+blocked_on: nothing — T7 and the BUG-040–043 batch are on feat/ny-clock; next is Fabio's call (merge it; T8 ICT drawing tools is the roadmap's next item).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -1575,3 +1575,20 @@ separators" were never built. Built:
 - ENV-006: Vite served a stale module after a `sed -i` edit; restarting the dev server fixed it.
 - Backend 241 → 259, frontend 165 → 177; lint zero, knip clean. Pushed as `ca812ad`; fresh clone green
   (frontend lint/typecheck/177/build, backend 259/259 without `.env`). Not merged: waiting for Fabio.
+
+**2026-10-14 — Bug batch: BUG-040 to BUG-043.** Fabio: "fix all the bugs you tracked until now".
+None was open — BUG-001 to BUG-039 all carry a fix — so the code was audited for bugs never logged,
+and four were found and fixed on `feat/ny-clock`, each with a test that fails on the old code:
+- **BUG-040 🔴** the app stopped working fifteen minutes after it was opened: the client refreshed
+  the access token only at page load. `apiFetch` now refreshes once on a 401 (one shared refresh for
+  concurrent requests), retries with a fresh CSRF header, and returns to sign-in with a notice only
+  when the refresh itself is refused (not on a network or server error). Hit live several times
+  during T4–T7 checks before it was recognised as a bug rather than an expired test login.
+- **BUG-041** undo after a trade brought its old bracket back: a store action `forget` now erases a
+  locked plan from the present and all of history. The first test passed on the broken code (four
+  undos walk past the draft); it now checks after every undo.
+- **BUG-042** trade details opened only with a mouse: each trade number is a button.
+- **BUG-043 🟠** one request could keep the server busy for 21 s (399 days of hourly DEMO-NQ bars;
+  11 s for the new clock endpoint): simulated markets are served at most 14 days at a time.
+- ENV-006 mitigated (no `sed -i` on sources while a dev server runs). Backend 259 → 260, frontend
+  177 → 189.

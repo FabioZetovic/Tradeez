@@ -97,6 +97,21 @@ describe('App — signed out', () => {
   it('shows the sign-in form when no session can be restored', async () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    // Never signed in, so not told a session ended.
+    expect(screen.queryByTestId('session-expired')).not.toBeInTheDocument()
+  })
+
+  it('BUG-040: a session that ends while the app is open returns to sign-in, and says why', async () => {
+    // Signed in at load; minutes later every request is refused and so is the refresh.
+    mockApi({
+      ...signedIn,
+      '/api/market/instruments/NQ/bars': { status: 401, body: {} },
+      '/api/auth/refresh': { status: 401, body: {} },
+    })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+
+    expect(await screen.findByTestId('session-expired')).toHaveTextContent(/signed out/i)
+    expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument()
   })
 
   it('does not render the chart to an unauthenticated visitor', async () => {

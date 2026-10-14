@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { login as apiLogin, logout as apiLogout, register as apiRegister, restoreSession, type User }
   from '@/lib/api/auth'
+import { setSessionExpiredHandler } from '@/lib/api/client'
 
 type State =
   | { status: 'loading' }
   | { status: 'signedIn'; user: User }
-  | { status: 'signedOut' }
+  /** `expired`: signed out by the server while using the app, not by choice (BUG-040). */
+  | { status: 'signedOut'; expired?: boolean }
 
 /**
  * Who is signed in.
@@ -31,6 +33,19 @@ export function useSession() {
       cancelled = true
     }
   }, [])
+
+  // The session can end while the app is open — a refresh token revoked elsewhere, or thirty days
+  // gone. Show the sign-in form rather than let every request fail. Only from signed in: a visitor
+  // who was never signed in is not told their session ended.
+  useEffect(
+    () =>
+      setSessionExpiredHandler(() =>
+        setState((current) =>
+          current.status === 'signedIn' ? { status: 'signedOut', expired: true } : current,
+        ),
+      ),
+    [],
+  )
 
   const login = useCallback(async (email: string, password: string) => {
     const user = await apiLogin({ email, password })

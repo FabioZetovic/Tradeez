@@ -39,6 +39,7 @@ public class ClockService {
 				"The clock layer covers at most " + MAX_RANGE.toDays() + " days at a time.");
 		}
 		Instrument instrument = marketData.requireInstrument(symbol);
+		marketData.requireAffordable(instrument, from, to);
 		return ClockDtos.of(layer(instrument, from, to, MarketDataService.PUBLIC_CHART_SEED),
 			Instant::getEpochSecond, false);
 	}

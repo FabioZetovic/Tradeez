@@ -379,8 +379,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
             onLock={(plan) => {
               setPlaying(false)
               void lockPlan(plan).then((ok) => {
-                // The draft became the trade; the next one starts from a fresh bracket.
-                if (ok) rawDispatch({ type: 'remove', id: PLAN_DRAWING_ID })
+                // The draft became the trade; the next one starts from a fresh bracket. Forgotten
+                // rather than removed, so no undo can bring it back (BUG-041).
+                if (ok) rawDispatch({ type: 'forget', id: PLAN_DRAWING_ID })
               })
             }}
           />
