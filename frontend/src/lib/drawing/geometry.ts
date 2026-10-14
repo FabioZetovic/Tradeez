@@ -143,8 +143,9 @@ function hitsBody(
     case 'position': {
       // Entry, stop and target are horizontal levels spanning the tool's own time range.
       const left = Math.min(p0.x, chartWidth)
-      const right = chartWidth
-      const withinSpan = point.x >= Math.min(left, right) - HIT_TOLERANCE
+      const right = positionRight(drawing, projection, chartWidth)
+      const withinSpan =
+        point.x >= Math.min(left, right) - HIT_TOLERANCE && point.x <= right + HIT_TOLERANCE
       return (
         withinSpan &&
         [p0, p1, p2].some((p) => Math.abs(point.y - p.y) <= HIT_TOLERANCE)
@@ -155,6 +156,21 @@ function hitsBody(
       return false
   }
 }
+
+/**
+ * Where a position zone ends on screen: the chart's right edge for a plan still open, or the exit
+ * of a trade that has ended ({@link Drawing.endTime}).
+ */
+export function positionRight(drawing: Drawing, projection: Projection, chartWidth: number): number {
+  if (drawing.endTime === undefined) return chartWidth
+  const left = projection.timeToX(drawing.anchors[0].time)
+  const right = projection.timeToX(drawing.endTime)
+  if (left === null || right === null) return chartWidth
+  // A trade that opened and closed inside one bar still gets a sliver the eye can find.
+  return Math.min(Math.max(right, left + MIN_TRADE_WIDTH), chartWidth)
+}
+
+const MIN_TRADE_WIDTH = 6
 
 /**
  * Risk and reward for a position tool, in ticks.

@@ -2,16 +2,14 @@ package com.tradeez.practice;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TradePlanRepository extends JpaRepository<TradePlan, UUID> {
 
-	Optional<TradePlan> findBySessionId(UUID sessionId);
-
-	boolean existsBySessionId(UUID sessionId);
+	/** A session's plans, in no particular order: {@code PracticeService} pairs them by number. */
+	List<TradePlan> findAllBySessionId(UUID sessionId);
 
 	List<TradePlan> findAllBySessionIdIn(Collection<UUID> sessionIds);
 }

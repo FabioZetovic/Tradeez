@@ -6,8 +6,10 @@ import {
   HIT_TOLERANCE,
   isInsideRect,
   positionMetrics,
+  positionRight,
   translateAnchors,
 } from './geometry'
+import { renderDrawings } from './render'
 import { canRedo, canUndo, drawingReducer, initialDrawingState } from './store'
 import { MAGNET_TOLERANCE_TICKS, nearestBar, snapAnchor } from './snap'
 import { DEFAULT_STYLES, type Drawing, type Projection } from './types'
@@ -173,6 +175,63 @@ describe('geometry', () => {
       // Happens while dragging the stop through the entry. Infinity on screen is a bug report.
       const m = positionMetrics([entry, entry, { time: 1000, priceTicks: 80_080 }])
       expect(m.ratio).toBeNull()
+    })
+  })
+
+  describe('a position that has ended (DEC-046)', () => {
+    const anchors = [
+      { time: 1100, priceTicks: 80_000 },
+      { time: 1100, priceTicks: 79_960 },
+      { time: 1100, priceTicks: 80_080 },
+    ]
+
+    it('runs to the right edge while open, and stops at its exit once ended', () => {
+      const open = drawing({ id: 'p', kind: 'position', anchors })
+      expect(positionRight(open, projection, CHART_WIDTH)).toBe(CHART_WIDTH)
+      const ended = { ...open, endTime: 1400 }
+      expect(positionRight(ended, projection, CHART_WIDTH)).toBe(400)
+    })
+
+    it('stays visible when it opened and closed inside one bar', () => {
+      const ended = drawing({ id: 'p', kind: 'position', anchors, endTime: 1100 })
+      expect(positionRight(ended, projection, CHART_WIDTH)).toBeGreaterThan(100)
+      expect(positionRight(ended, projection, CHART_WIDTH)).toBeLessThan(110)
+    })
+
+    it('is painted from entry to exit, not to the edge of the chart', () => {
+      // A context that records only what the zone is made of: its two filled rectangles.
+      const fills: number[][] = []
+      const ctx = new Proxy(
+        { fillRect: (...r: number[]) => fills.push(r), measureText: () => ({ width: 0 }) },
+        { get: (target, key) => (key in target ? target[key as keyof typeof target] : () => {}) },
+      ) as unknown as CanvasRenderingContext2D
+      const options = { width: CHART_WIDTH, height: 600, selectedId: null, tickValueCents: 500 }
+
+      renderDrawings(ctx, [drawing({ id: 'p', kind: 'position', anchors, endTime: 1400 })], projection, options)
+      // Reward zone then risk zone, both from x = 100 (time 1100) to x = 400 (time 1400).
+      expect(fills.map(([x, , w]) => [x, w])).toEqual([
+        [100, 300],
+        [100, 300],
+      ])
+
+      fills.length = 0
+      renderDrawings(ctx, [drawing({ id: 'p', kind: 'position', anchors })], projection, options)
+      expect(fills.map(([x, , w]) => [x, w])).toEqual([
+        [100, 700],
+        [100, 700],
+      ])
+    })
+
+    it('cannot be clicked to the right of its exit', () => {
+      const ended = drawing({ id: 'p', kind: 'position', anchors, endTime: 1400 })
+      // On the entry level, inside the trade, then well past its exit.
+      expect(hitTest({ x: 300, y: 500 }, [ended], null, projection, CHART_WIDTH)).toEqual({
+        type: 'body',
+        drawingId: 'p',
+      })
+      expect(hitTest({ x: 600, y: 500 }, [ended], null, projection, CHART_WIDTH)).toEqual({
+        type: 'none',
+      })
     })
   })
 

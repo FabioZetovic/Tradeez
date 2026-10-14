@@ -49,6 +49,11 @@ export interface Drawing {
   kind: DrawingKind
   anchors: Anchor[]
   style: DrawingStyle
+  /**
+   * Position only: where the zone stops, UTC epoch seconds. Absent, it runs to the chart's right
+   * edge — a plan still open. Present, it is a practice trade that has ended, drawn entry to exit.
+   */
+  endTime?: number
 }
 
 export const ANCHOR_COUNT: Record<DrawingKind, number> = {

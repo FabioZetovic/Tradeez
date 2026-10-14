@@ -130,6 +130,19 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			.with(csrf()));
 	}
 
+	private ResultActions end(Cookie who, String id) throws Exception {
+		return mockMvc.perform(post("/api/practice/sessions/" + id + "/end").cookie(who)
+			.with(csrf()));
+	}
+
+	/**
+	 * A long with one point of risk and two of reward: settled within seconds, so the replay is still
+	 * in open market afterwards and the next trade can follow straight away.
+	 */
+	private ResultActions tightLong(Cookie who, String id, long reference) throws Exception {
+		return plan(who, id, "LONG", reference - 4, reference + 8);
+	}
+
 	private ResultActions fetch(Cookie who, String id) throws Exception {
 		return mockMvc.perform(get("/api/practice/sessions/" + id).cookie(who));
 	}
@@ -282,19 +295,23 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			JsonNode state = read(planLong(alice, session).andExpect(status().isOk()));
 
 			assertThat(state.get("status").asText()).isEqualTo("IN_TRADE");
-			assertThat(state.at("/plan/direction").asText()).isEqualTo("LONG");
-			assertThat(state.at("/plan/plannedRewardRisk").asDouble()).isEqualTo(2.0);
-			assertThat(state.at("/plan/lockedAt").asLong())
+			assertThat(state.get("trades").size()).isEqualTo(1);
+			assertThat(state.at("/trades/0/number").asInt()).isEqualTo(1);
+			assertThat(state.at("/trades/0/plan/direction").asText()).isEqualTo("LONG");
+			assertThat(state.at("/trades/0/plan/plannedRewardRisk").asDouble()).isEqualTo(2.0);
+			assertThat(state.at("/trades/0/plan/lockedAt").asLong())
 				.isEqualTo(session.at("/state/cursor").asLong());
 			// The result exists in the database already — and must not be in the response.
-			assertThat(absent(state, "/result")).isTrue();
+			assertThat(absent(state, "/trades/0/result")).isTrue();
+			assertThat(state.at("/score/closedTrades").asInt()).isZero();
+			assertThat(state.at("/score/netPnlCents").asLong()).isZero();
 			assertThat(absent(state, "/seed")).isTrue();
 			// Even the entry price is one second of the future until the replay shows it.
-			assertThat(absent(state, "/entry")).isTrue();
+			assertThat(absent(state, "/trades/0/entry")).isTrue();
 		}
 
 		@Test
-		@DisplayName("cannot be submitted twice (DEC-013)")
+		@DisplayName("cannot be submitted while another trade is running (DEC-013)")
 		void onlyOnce() throws Exception {
 			JsonNode session = create(alice);
 			planLong(alice, session).andExpect(status().isOk());
@@ -420,13 +437,30 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			planLong(alice, session).andExpect(status().isOk());
 
 			JsonNode step = read(advance(alice, id, 1).andExpect(status().isOk()));
-			if (step.at("/state/status").asText().equals("COMPLETE")) {
-				return; // resolved inside the very first bar; the entry is covered by the result
-			}
-			assertThat(step.at("/state/entry/time").asLong()).isEqualTo(cursor);
-			assertThat(step.at("/state/entry/ticks").asLong())
+			assertThat(step.at("/state/trades/0/entry/time").asLong()).isEqualTo(cursor);
+			assertThat(step.at("/state/trades/0/entry/ticks").asLong())
 				.isEqualTo(step.at("/bars/0/open").asLong());
-			assertThat(absent(step, "/state/result")).isTrue();
+			if (step.at("/state/status").asText().equals("IN_TRADE")) {
+				assertThat(absent(step, "/state/trades/0/result")).isTrue();
+			}
+		}
+
+		@Test
+		@DisplayName("ends a flat session when it reaches its limit, even across a closed market")
+		void endsAtTheLimit() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asText();
+			Instant start = Instant.ofEpochSecond(session.at("/state/startTime").asLong());
+			jdbc.update("UPDATE practice_session SET cursor_time = ? WHERE id = ?::uuid",
+				java.sql.Timestamp.from(start.plus(PracticeService.MAX_REPLAY).minusSeconds(FIVE_MINUTES)),
+				id);
+
+			JsonNode last = read(advance(alice, id, 1).andExpect(status().isOk())).get("state");
+			assertThat(last.get("status").asText()).isEqualTo("COMPLETE");
+			assertThat(last.get("cursor").asLong())
+				.isEqualTo(start.plus(PracticeService.MAX_REPLAY).getEpochSecond());
+			assertThat(last.get("seed").asText()).isEqualTo(Long.toString(seedOf(id)));
+			advance(alice, id, 1).andExpect(status().isConflict());
 		}
 
 		@Test
@@ -442,7 +476,7 @@ class PracticeApiTest extends AbstractIntegrationTest {
 	class Results {
 
 		@Test
-		@DisplayName("appears exactly when the replay passes the exit, with the seed")
+		@DisplayName("appears exactly when the replay passes the exit; the seed only when the session ends")
 		void revealedAtTheEnd() throws Exception {
 			JsonNode session = create(alice);
 			String id = session.at("/state/id").asText();
@@ -450,15 +484,23 @@ class PracticeApiTest extends AbstractIntegrationTest {
 
 			JsonNode done = read(skip(alice, id).andExpect(status().isOk()));
 			JsonNode state = done.get("state");
-			JsonNode result = state.get("result");
+			JsonNode result = state.at("/trades/0/result");
 
-			assertThat(state.get("status").asText()).isEqualTo("COMPLETE");
+			// Flat again, free to place the next trade — so the seed, the whole future, stays hidden.
+			assertThat(state.get("status").asText()).isEqualTo("ANALYSING");
+			assertThat(absent(state, "/seed")).isTrue();
 			assertThat(result.get("outcome").asText()).isIn("TARGET", "STOP", "AMBIGUOUS", "TIME_EXIT");
 			assertThat(result.get("exitTime").asLong()).isLessThan(state.get("cursor").asLong());
+			assertThat(state.at("/score/closedTrades").asInt()).isEqualTo(1);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(result.get("rMultiple").asDouble());
+			assertThat(state.at("/score/netPnlCents").asLong()).isEqualTo(result.get("netPnlCents").asLong());
+
+			JsonNode ended = read(end(alice, id).andExpect(status().isOk()));
+			assertThat(ended.get("status").asText()).isEqualTo("COMPLETE");
 			// BUG-028: a string, exactly. As a JSON number a 64-bit seed is rounded by any JavaScript
 			// client, and the rounded value reproduces a different market.
-			assertThat(state.get("seed").isTextual()).isTrue();
-			assertThat(state.get("seed").asText()).isEqualTo(Long.toString(seedOf(id)));
+			assertThat(ended.get("seed").isTextual()).isTrue();
+			assertThat(ended.get("seed").asText()).isEqualTo(Long.toString(seedOf(id)));
 			assertThat(result.get("engineVersion").asText()).isEqualTo(FillEngine.VERSION);
 			assertThat(result.get("fillModelVersion").asText())
 				.isEqualTo(FillEngine.FillModel.DEFAULT.version());
@@ -481,8 +523,9 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			JsonNode planned = read(planLong(alice, session).andExpect(status().isOk()));
 			Instant lockedAt = Instant.ofEpochSecond(planned.get("cursor").asLong());
 
-			JsonNode state = read(skip(alice, id).andExpect(status().isOk())).get("state");
-			JsonNode result = state.get("result");
+			skip(alice, id).andExpect(status().isOk());
+			JsonNode state = read(end(alice, id).andExpect(status().isOk()));
+			JsonNode result = state.at("/trades/0/result");
 
 			// Nothing but what the API has now published: the seed, the plan, the moment.
 			Instrument nq = marketData.requireInstrument("DEMO-NQ");
@@ -490,8 +533,8 @@ class PracticeApiTest extends AbstractIntegrationTest {
 				PracticeService.sessionEnd(lockedAt), Long.parseLong(state.get("seed").asText())).bars();
 			FillEngine.Fill again = FillEngine.resolve(new FillEngine.Plan(
 					FillEngine.Direction.LONG,
-					state.at("/plan/stopTicks").asLong(),
-					state.at("/plan/targetTicks").asLong(), 1),
+					state.at("/trades/0/plan/stopTicks").asLong(),
+					state.at("/trades/0/plan/targetTicks").asLong(), 1),
 				seconds, FillEngine.FillModel.DEFAULT);
 
 			assertThat(again.outcome().name()).isEqualTo(result.get("outcome").asText());
@@ -511,7 +554,7 @@ class PracticeApiTest extends AbstractIntegrationTest {
 					+ "WHERE session_id = ?::uuid", String.class, id);
 
 			JsonNode state = read(fetch(alice, id)).get("state");
-			while (!state.get("status").asText().equals("COMPLETE")) {
+			while (state.get("status").asText().equals("IN_TRADE")) {
 				state = read(advance(alice, id, 50).andExpect(status().isOk())).get("state");
 			}
 
@@ -522,11 +565,11 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			assertThat(jdbc.queryForObject(
 				"SELECT count(*) FROM practice_result WHERE session_id = ?::uuid", Long.class, id))
 				.isEqualTo(1L);
-			assertThat(state.at("/result/outcome").asText()).isEqualTo(before.split(":")[0]);
+			assertThat(state.at("/trades/0/result/outcome").asText()).isEqualTo(before.split(":")[0]);
 		}
 
 		@Test
-		@DisplayName("the journal keeps the outcome hidden until the session is complete")
+		@DisplayName("the journal counts a trade only once the replay has passed its exit")
 		void journalHidesOutcome() throws Exception {
 			JsonNode session = create(alice);
 			String id = session.at("/state/id").asText();
@@ -534,14 +577,154 @@ class PracticeApiTest extends AbstractIntegrationTest {
 
 			JsonNode running = read(mockMvc.perform(get("/api/practice/sessions").cookie(alice)));
 			assertThat(running.get(0).get("status").asText()).isEqualTo("IN_TRADE");
-			assertThat(running.get(0).get("direction").asText()).isEqualTo("LONG");
-			assertThat(absent(running, "/0/outcome")).isTrue();
-			assertThat(absent(running, "/0/netPnlCents")).isTrue();
+			assertThat(running.get(0).get("trades").asInt()).isEqualTo(1);
+			assertThat(running.at("/0/score/closedTrades").asInt()).isZero();
+			assertThat(running.at("/0/score/netPnlCents").asLong()).isZero();
 
-			skip(alice, id).andExpect(status().isOk());
-			JsonNode finished = read(mockMvc.perform(get("/api/practice/sessions").cookie(alice)));
-			assertThat(absent(finished, "/0/outcome")).isFalse();
-			assertThat(finished.get(0).get("rMultiple").isNumber()).isTrue();
+			JsonNode result = read(skip(alice, id).andExpect(status().isOk()))
+				.at("/state/trades/0/result");
+			JsonNode closed = read(mockMvc.perform(get("/api/practice/sessions").cookie(alice)));
+			assertThat(closed.at("/0/score/closedTrades").asInt()).isEqualTo(1);
+			assertThat(closed.at("/0/score/totalR").asDouble()).isEqualTo(result.get("rMultiple").asDouble());
+		}
+	}
+
+	@Nested
+	@DisplayName("a replay with several trades (DEC-046)")
+	class SeveralTrades {
+
+		@Test
+		@DisplayName("takes the next trade once the last one is over, numbered in order")
+		void tradesInSequence() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asText();
+			tightLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
+			JsonNode afterFirst = read(skip(alice, id).andExpect(status().isOk()));
+			assertThat(afterFirst.at("/state/status").asText()).isEqualTo("ANALYSING");
+
+			// The second trade is priced against what the replay shows now, not the first one's price.
+			long reference = lastClose(afterFirst.get("bars"));
+			JsonNode second = read(tightLong(alice, id, reference).andExpect(status().isOk()));
+			assertThat(second.get("status").asText()).isEqualTo("IN_TRADE");
+			assertThat(second.get("trades").size()).isEqualTo(2);
+			assertThat(second.at("/trades/1/number").asInt()).isEqualTo(2);
+			assertThat(second.at("/trades/1/plan/referenceTicks").asLong()).isEqualTo(reference);
+			assertThat(absent(second, "/trades/0/result")).isFalse();
+			assertThat(absent(second, "/trades/1/result")).isTrue();
+			assertThat(second.at("/score/closedTrades").asInt()).isEqualTo(1);
+
+			JsonNode afterSecond = read(skip(alice, id).andExpect(status().isOk())).get("state");
+			JsonNode score = afterSecond.get("score");
+			assertThat(score.get("closedTrades").asInt()).isEqualTo(2);
+			assertThat(score.get("wins").asInt() + score.get("losses").asInt()).isLessThanOrEqualTo(2);
+			long net = afterSecond.at("/trades/0/result/netPnlCents").asLong()
+				+ afterSecond.at("/trades/1/result/netPnlCents").asLong();
+			assertThat(score.get("netPnlCents").asLong()).isEqualTo(net);
+			// BUG-039: exactly the sum of the R column as shown, not of the unrounded values.
+			double r = afterSecond.at("/trades/0/result/rMultiple").asDouble()
+				+ afterSecond.at("/trades/1/result/rMultiple").asDouble();
+			assertThat(score.get("totalR").asDouble()).isEqualTo(Math.round(r * 100) / 100.0);
+			assertThat(jdbc.queryForObject(
+				"SELECT count(*) FROM practice_result WHERE session_id = ?::uuid", Long.class, id))
+				.isEqualTo(2L);
+		}
+
+		@Test
+		@DisplayName("cannot end while a trade runs; once ended, takes no more trades")
+		void ending() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asText();
+			planLong(alice, session).andExpect(status().isOk());
+
+			end(alice, id).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("still running")));
+
+			JsonNode flat = read(skip(alice, id).andExpect(status().isOk()));
+			end(alice, id).andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("COMPLETE"));
+			// Ending twice is the same as ending once: a double-click is not an error.
+			end(alice, id).andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("COMPLETE"));
+
+			tightLong(alice, id, lastClose(flat.get("bars"))).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("ended")));
+		}
+
+		@Test
+		@DisplayName("an empty session can be ended too, and reveals its seed")
+		void endWithoutTrades() throws Exception {
+			String id = create(alice).at("/state/id").asText();
+			JsonNode ended = read(end(alice, id).andExpect(status().isOk()));
+			assertThat(ended.get("trades").size()).isZero();
+			assertThat(ended.at("/score/closedTrades").asInt()).isZero();
+			assertThat(ended.get("seed").asText()).isEqualTo(Long.toString(seedOf(id)));
+		}
+
+		@Test
+		@DisplayName("holds at most " + PracticeService.MAX_TRADES + " trades")
+		void capped() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asText();
+			// Fifty settled trades, written straight into the tables: the cap is what is under test.
+			jdbc.update("""
+				INSERT INTO trade_plan (session_id, seq, direction, stop_ticks, target_ticks, contracts,
+				    reference_ticks, submitted_cursor)
+				SELECT ?::uuid, n, 'LONG', 99, 101, 1, 100, '2000-01-01' FROM generate_series(1, ?) n""",
+				id, PracticeService.MAX_TRADES);
+			jdbc.update("""
+				INSERT INTO practice_result (session_id, seq, outcome, entry_time, entry_ticks, exit_time,
+				    exit_ticks, pnl_ticks, net_pnl_cents, commission_cents, mae_ticks, mfe_ticks, gap_exit,
+				    resolution, engine_version, fill_model_version, generator_version, seed)
+				SELECT ?::uuid, n, 'STOP', '2000-01-01', 100, '2000-01-01', 99, -1, -100, 0, 1, 0, false,
+				    'S1', 'test', 'test', 'test', 1 FROM generate_series(1, ?) n""",
+				id, PracticeService.MAX_TRADES);
+
+			planLong(alice, session).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("at most")));
+			JsonNode state = read(fetch(alice, id)).get("state");
+			assertThat(state.at("/score/closedTrades").asInt()).isEqualTo(PracticeService.MAX_TRADES);
+			assertThat(state.at("/score/losses").asInt()).isEqualTo(PracticeService.MAX_TRADES);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(-PracticeService.MAX_TRADES);
+		}
+
+		@Test
+		@DisplayName("the total R is the sum of the R column as shown (BUG-039)")
+		void totalMatchesTheColumn() throws Exception {
+			String id = create(alice).at("/state/id").asText();
+			// The live case: −43 and +79 ticks on 40 of risk. Unrounded they sum to +0.90R; the
+			// learner sees −1.07R and +1.98R, and adds them up to +0.91R.
+			jdbc.update("""
+				INSERT INTO trade_plan (session_id, seq, direction, stop_ticks, target_ticks, contracts,
+				    reference_ticks, submitted_cursor)
+				VALUES (?::uuid, 1, 'LONG', 60, 200, 1, 100, '2000-01-01'),
+				       (?::uuid, 2, 'SHORT', 140, 20, 1, 100, '2000-01-01')""", id, id);
+			jdbc.update("""
+				INSERT INTO practice_result (session_id, seq, outcome, entry_time, entry_ticks, exit_time,
+				    exit_ticks, pnl_ticks, net_pnl_cents, commission_cents, mae_ticks, mfe_ticks, gap_exit,
+				    resolution, engine_version, fill_model_version, generator_version, seed)
+				VALUES (?::uuid, 1, 'STOP', '2000-01-01', 100, '2000-01-01', 57, -43, -21750, 250, 43, 13,
+				        false, 'M1', 'test', 'test', 'test', 1),
+				       (?::uuid, 2, 'TARGET', '2000-01-01', 100, '2000-01-01', 21, 79, 39250, 250, 0, 79,
+				        false, 'M1', 'test', 'test', 'test', 1)""", id, id);
+
+			JsonNode state = read(fetch(alice, id)).get("state");
+			assertThat(state.at("/trades/0/result/rMultiple").asDouble()).isEqualTo(-1.07);
+			assertThat(state.at("/trades/1/result/rMultiple").asDouble()).isEqualTo(1.98);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.91);
+			assertThat(state.at("/score/netPnlCents").asLong()).isEqualTo(17_500);
+		}
+
+		@Test
+		@DisplayName("a result belongs to the plan with its number, and the database insists")
+		void resultNeedsItsPlan() throws Exception {
+			String id = create(alice).at("/state/id").asText();
+			assertThatThrownBy(() -> jdbc.update("""
+				INSERT INTO practice_result (session_id, seq, outcome, entry_time, entry_ticks, exit_time,
+				    exit_ticks, pnl_ticks, net_pnl_cents, commission_cents, mae_ticks, mfe_ticks, gap_exit,
+				    resolution, engine_version, fill_model_version, generator_version, seed)
+				VALUES (?::uuid, 1, 'STOP', now(), 100, now(), 99, -1, -100, 0, 1, 0, false,
+				    'S1', 'test', 'test', 'test', 1)""", id))
+				.hasMessageContaining("fk_practice_result_plan");
 		}
 	}
 
@@ -559,6 +742,7 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			planLong(bob, session).andExpect(status().isNotFound());
 			advance(bob, id, 1).andExpect(status().isNotFound());
 			skip(bob, id).andExpect(status().isNotFound());
+			end(bob, id).andExpect(status().isNotFound());
 			fetch(bob, UUID.randomUUID().toString()).andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.message").value("No such practice session."));
 

@@ -14,7 +14,8 @@ import jakarta.persistence.Table;
 import com.tradeez.practice.FillEngine.Direction;
 
 /**
- * The learner's committed trade. Maps {@code trade_plan} from V5.
+ * The learner's committed trade. Maps {@code trade_plan} from V5, numbered within its session since
+ * V10: a replay holds several trades, one after another (DEC-046).
  *
  * <p>DEC-013 — immutable. There are no setters, every column is {@code updatable = false}, and the
  * database refuses UPDATE with a trigger. Three layers, because the point of the decision is that a
@@ -31,6 +32,10 @@ public class TradePlan {
 
 	@Column(name = "session_id", nullable = false, updatable = false)
 	private UUID sessionId;
+
+	/** 1, 2, 3… in the order the session's trades were locked. */
+	@Column(name = "seq", nullable = false, updatable = false)
+	private int seq;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "direction", nullable = false, updatable = false)
@@ -58,9 +63,10 @@ public class TradePlan {
 		// for JPA
 	}
 
-	public TradePlan(UUID sessionId, Direction direction, long stopTicks, long targetTicks,
+	public TradePlan(UUID sessionId, int seq, Direction direction, long stopTicks, long targetTicks,
 			int contracts, long referenceTicks, Instant submittedCursor) {
 		this.sessionId = sessionId;
+		this.seq = seq;
 		this.direction = direction;
 		this.stopTicks = stopTicks;
 		this.targetTicks = targetTicks;
@@ -76,6 +82,10 @@ public class TradePlan {
 
 	public UUID getSessionId() {
 		return sessionId;
+	}
+
+	public int getSeq() {
+		return seq;
 	}
 
 	public Direction getDirection() {

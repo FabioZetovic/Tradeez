@@ -1,4 +1,4 @@
-import { HANDLE_SIZE, positionMetrics, project } from './geometry'
+import { HANDLE_SIZE, positionMetrics, positionRight, project } from './geometry'
 import type { Drawing, Projection } from './types'
 
 /**
@@ -125,7 +125,7 @@ function drawPosition(
   if (!entry || !stop || !target) return
 
   const left = entry.x
-  const right = options.width
+  const right = positionRight(drawing, projection, options.width)
   const w = Math.max(right - left, 0)
 
   ctx.fillStyle = 'rgba(63, 185, 80, 0.14)'

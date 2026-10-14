@@ -34,7 +34,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/practice/sessions")
-@Tag(name = "Practice", description = "Hidden-moment replay with a committed bracket trade")
+@Tag(name = "Practice", description = "Hidden-moment replay with committed bracket trades")
 public class PracticeController {
 
 	private final PracticeService practice;
@@ -59,7 +59,7 @@ public class PracticeController {
 
 	@GetMapping
 	@Operation(summary = "Journal: this user's most recent sessions",
-		description = "Outcome fields stay null until a session is COMPLETE.")
+		description = "A trade counts in a session's score only once the replay has passed its exit.")
 	public List<SessionSummary> journal(@AuthenticationPrincipal AuthenticatedUser principal) {
 		return practice.journal(principal.id());
 	}
@@ -74,8 +74,8 @@ public class PracticeController {
 
 	@PostMapping("/{id}/plan")
 	@Operation(summary = "Lock a bracket trade",
-		description = "Immutable once accepted (DEC-013). The outcome is decided now and revealed "
-			+ "as the replay reaches it.")
+		description = "Only while flat: one trade runs at a time. Immutable once accepted (DEC-013). "
+			+ "The outcome is decided now and revealed as the replay reaches it.")
 	public PracticeState plan(
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable UUID id,
@@ -93,10 +93,20 @@ public class PracticeController {
 	}
 
 	@PostMapping("/{id}/skip")
-	@Operation(summary = "Reveal everything up to the bar in which the trade ended")
+	@Operation(summary = "Reveal everything up to the bar in which the running trade ended")
 	public AdvanceResponse skip(
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable UUID id) {
 		return practice.skipToResult(principal.id(), id);
+	}
+
+	@PostMapping("/{id}/end")
+	@Operation(summary = "End the session",
+		description = "Only while flat. No more trades; the seed of a simulated market, or the date of "
+			+ "a real one, is revealed (DEC-038, DEC-025). Ending an ended session changes nothing.")
+	public PracticeState end(
+			@AuthenticationPrincipal AuthenticatedUser principal,
+			@PathVariable UUID id) {
+		return practice.end(principal.id(), id);
 	}
 }

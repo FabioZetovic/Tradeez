@@ -24,11 +24,17 @@ import jakarta.persistence.Version;
 public class PracticeSession {
 
 	public enum Status {
-		/** Looking at history, no trade yet. */
+		/** Flat: watching the replay with no trade running. Where every session starts. */
 		ANALYSING,
-		/** A plan is locked and resolved; the result is hidden until the cursor passes its exit. */
+		/**
+		 * A plan is locked and resolved; its result is hidden until the cursor passes its exit, and
+		 * then the session is flat again (DEC-046).
+		 */
 		IN_TRADE,
-		/** The cursor has passed the exit. The result, and the seed, may now be shown. */
+		/**
+		 * Ended by the learner, or by a flat replay reaching its limit. No more trades, so the seed
+		 * and a real session's date may now be shown.
+		 */
 		COMPLETE
 	}
 

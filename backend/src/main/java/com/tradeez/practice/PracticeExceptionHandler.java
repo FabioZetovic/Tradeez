@@ -23,6 +23,9 @@ public class PracticeExceptionHandler {
 	}
 
 	@ExceptionHandler({ PracticeService.PlanLockedException.class,
+		PracticeService.TradeRunningException.class,
+		PracticeService.SessionEndedException.class,
+		PracticeService.TooManyTradesException.class,
 		PracticeService.MarketClosedException.class,
 		PracticeService.ReplayEndException.class,
 		PracticeService.NotInTradeException.class })
@@ -47,7 +50,7 @@ public class PracticeExceptionHandler {
 	}
 
 	/**
-	 * The database refused a write: in this slice, a second plan for one session slipping past the
+	 * The database refused a write: in this slice, two plans with one number slipping past the
 	 * service's check in a race (unique constraint), or an attempt to alter a locked row (trigger).
 	 * Either way the answer is the same one the service gives when it catches the case itself.
 	 */

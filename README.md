@@ -19,20 +19,23 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   York time, the clock ICT is taught in. Every series names its source.
 - **Drawing tools:** horizontal line, trend line, rectangle and position (risk/reward). They are
   saved per account, with undo and redo.
-- **Practice** on real NQ: a session opens at a random hidden moment from the imported history —
-  optionally in an ICT killzone and on a chosen weekday — with its **date hidden** until the result
-  (only the weekday and New York time are shown, DEC-045). You place a bracket trade and lock it,
-  then step the replay forward bar by bar.
+- **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
+  the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date
+  hidden** until the session ends (only the weekday and New York time are shown, DEC-045). Step it
+  bar by bar or play it at 1–8 bars a second, and lock a bracket trade whenever you see a setup;
+  when it is over, take the next (DEC-046).
   - Each trade is resolved on the finest bars stored (one-minute for real NQ today), and a genuinely
     undecidable one is reported as *ambiguous*, not guessed.
-  - A result card shows P&L, R-multiple, worst and best excursion, and the seed that reproduces it.
-  - A journal keeps every session, and results can't be edited.
+  - Each result shows P&L, R-multiple, worst and best excursion; finished trades stay on the chart.
+  - A running score in R counts closed trades only. Ending the session reveals the date (or, on
+    simulated data, the seed that reproduces it).
+  - A journal keeps every session, and trades can't be edited.
 - **Drills:** find every fair value gap in a 30-candle chart. The answer key comes from a versioned
   detector and is withheld until you check; each gap is explained in the detector's own numbers. On
   simulated data a drill is labelled a developer fixture and never graded.
 
-**Not built yet:** drills on real data, the candle-by-candle replay mode (T5), the ICT detectors beyond fair value gaps,
-graded drills, any score or rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
+**Not built yet:** drills on real data, the ICT detectors beyond fair value gaps,
+graded drills, a score across sessions or any rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 
 ---
@@ -180,7 +183,7 @@ are still hand-written mirrors of the backend DTOs — keep them in step until t
 ```
 Tradeez/
 ├── backend/           Spring Boot — com.tradeez.{identity,marketdata,charting,practice,analysis,drills,common,config}
-│   └── src/main/resources/db/migration/   Flyway migrations (V1–V8)
+│   └── src/main/resources/db/migration/   Flyway migrations (V1–V10)
 ├── frontend/          React + Vite + Tailwind
 │   └── src/{components,hooks,lib/{api,chart,drawing,practice,drills},test}/
 ├── docs/              Decisions, strategy, history, handoff

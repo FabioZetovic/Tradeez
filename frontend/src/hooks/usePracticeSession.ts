@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/lib/api/client'
 import {
   advanceSession,
+  endSession,
   getSession,
   skipToResult,
   submitPlan,
@@ -11,8 +12,9 @@ import {
 } from '@/lib/api/practice'
 import type { DomainBar } from '@/lib/chart/types'
 
-/** Milliseconds between bars while playing. Slow enough to watch, quick enough not to bore. */
-const PLAY_INTERVAL_MS = 600
+/** Playback speeds: bars per second. One a second is slow enough to read each candle form. */
+export const SPEEDS = [1, 2, 4, 8] as const
+export type Speed = (typeof SPEEDS)[number]
 
 /**
  * One practice session: what has been revealed, and the actions that reveal more.
@@ -35,8 +37,11 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [speed, setSpeed] = useState<Speed>(2)
 
   const busyRef = useRef(false)
+  // How many trades had closed at the last response, so play can stop the moment another does.
+  const closedRef = useRef(seeded?.state.score.closedTrades ?? 0)
 
   // Callers mount one instance per session (keyed by id), so the seed never has to be forgotten —
   // and must not be: StrictMode runs this effect twice, and clearing it on the first run would send
@@ -51,6 +56,7 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
     getSession(sessionId)
       .then((response) => {
         if (cancelled) return
+        closedRef.current = response.state.score.closedTrades
         setState(response.state)
         setBars(response.bars)
       })
@@ -86,7 +92,11 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
     // Appended, never replaced: the chart extends the series in place so the learner's zoom and
     // pan survive every step of the replay.
     if (response.bars.length > 0) setBars((current) => [...current, ...response.bars])
-    if (response.state.status === 'COMPLETE') setPlaying(false)
+    // A trade just ended, or the whole replay did: stop, so the result is read rather than
+    // scrolled past.
+    const closed = response.state.score.closedTrades
+    if (closed > closedRef.current || response.state.status === 'COMPLETE') setPlaying(false)
+    closedRef.current = closed
   }, [])
 
   const advance = useCallback(
@@ -108,28 +118,52 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
     [exclusive, sessionId],
   )
 
+  const end = useCallback(
+    () =>
+      exclusive(async () => {
+        setPlaying(false)
+        setState(await endSession(sessionId))
+      }),
+    [exclusive, sessionId],
+  )
+
   // Playing is a chain of timeouts, each scheduled after the previous step finished — never an
-  // interval, which would stack requests up behind a slow response.
+  // interval, which would stack requests up behind a slow response. At high speed the server's
+  // response time, not the timer, sets the pace.
   useEffect(() => {
     if (!playing) return
+    const interval = 1000 / speed
     let cancelled = false
     let timer: ReturnType<typeof setTimeout>
     const step = async () => {
       if (cancelled) return
       // Rescheduled even when the step did not run: a manual "Next" in flight is not a reason to
-      // stop playing. A failure or a finished trade stops play by clearing `playing`, which cancels
+      // stop playing. A failure or a closed trade stops play by clearing `playing`, which cancels
       // this chain through the cleanup below.
       await advance(1)
-      if (!cancelled) timer = setTimeout(step, PLAY_INTERVAL_MS)
+      if (!cancelled) timer = setTimeout(step, interval)
     }
-    timer = setTimeout(step, PLAY_INTERVAL_MS)
+    timer = setTimeout(step, interval)
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [playing, advance])
+  }, [playing, speed, advance])
 
-  return { state, bars, error, busy, playing, setPlaying, advance, skip, lockPlan }
+  return {
+    state,
+    bars,
+    error,
+    busy,
+    playing,
+    setPlaying,
+    speed,
+    setSpeed,
+    advance,
+    skip,
+    lockPlan,
+    end,
+  }
 }
 
 function messageOf(error: unknown, fallback: string): string {
