@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: feat/replay-trading                       # T5, not merged. master: feat/practice-real-data (T4) merged 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/replay-trading: backend 241/241 (Testcontainers), frontend 165/165 + typecheck; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh-clone check still to do before the merge.
+build_passing: true  # feat/replay-trading: backend 241/241 (Testcontainers), frontend 165/165 + typecheck; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c0707a4 green 2026-10-14 (lint, typecheck, 165, build; backend 241 without .env) — ready to merge on Fabio's word.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1541,4 +1541,5 @@ revealed, seed and date shown with that one result. Rebuilt as a replay:
   throughout; End session → "Friday 18 September 2026, 10:55", matching the stored start. Seq 1 and 2
   in the database. Layout checked at 1920px: centred, no horizontal overflow.
 - **BUG-039** found there and fixed: the total read +0.90R under a column reading −1.07R and +1.98R.
-- Backend 234 → 241, frontend 155 → 165; lint zero, knip clean. Not merged yet.
+- Backend 234 → 241, frontend 155 → 165; lint zero, knip clean. Pushed as `c0707a4`; fresh clone green
+  (frontend lint/typecheck/165/build, backend 241/241 without `.env`). Not merged: waiting for Fabio.
