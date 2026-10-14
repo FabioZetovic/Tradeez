@@ -483,7 +483,9 @@ logout are never retried: none uses an access token, so their 401 is an answer. 
 returns to the sign-in form and says so ("You were signed out… your practice sessions and drawings are
 saved") — but only for someone who was signed in, not a fresh visitor. `client.test.ts` (7 tests) and
 `App.test` cover each case; run against the old client, five of the seven fail (the other two check
-that nothing happens, which the old client also got right).
+that nothing happens, which the old client also got right). Checked live with the access token cut to
+ten seconds: eighteen seconds after signing in, opening Practice got two 401s, one shared refresh
+(200), both requests retried (200), and the journal loaded — no error, still signed in.
 
 ### BUG-041 🟡 Undo after a trade brought its old bracket back
 
