@@ -25,6 +25,14 @@ public class MarketDataService {
 	private static final Duration MAX_RANGE = Duration.ofDays(400);
 
 	/**
+	 * BUG-043 — a simulated market is generated one second at a time, so what a request costs is the
+	 * length of time it covers, not how many bars it returns: 399 days of hourly bars took 21 seconds
+	 * of server time. The public endpoints serve a simulated market at most this much at a time.
+	 * Nothing in the app asks for more since the simulated markets left the Chart tab (V8).
+	 */
+	public static final Duration MAX_SIMULATED_RANGE = Duration.ofDays(14);
+
+	/**
 	 * The one market the public chart shows (DEC-038).
 	 *
 	 * <p>Fixed, and deliberately not configurable from a request. Every simulated market is a pure
@@ -73,6 +81,17 @@ public class MarketDataService {
 		return barStore.count(instrument.getId(), "1m", from, to);
 	}
 
+	/**
+	 * Contract rolls in {@code [from, to)}: when the stored front contract changes. A simulated market
+	 * is one continuous series and never rolls.
+	 */
+	public List<Instant> rolls(Instrument instrument, Instant from, Instant to) {
+		if (instrument.getDataClass() == DataClass.SIMULATED) {
+			return List.of();
+		}
+		return barStore.contractChanges(instrument.getId(), "1m", from, to);
+	}
+
 	public Instrument requireInstrument(String symbol) {
 		return instruments.findBySymbolIgnoreCase(symbol)
 			.orElseThrow(() -> new InstrumentNotFoundException(symbol));
@@ -96,6 +115,7 @@ public class MarketDataService {
 					+ ", above the " + MAX_BARS_PER_REQUEST + " limit. "
 					+ "Request a shorter range or a larger timeframe.");
 		}
+		requireAffordable(instrument, from, to);
 
 		MarketDataProvider provider = providers.stream()
 			.filter(p -> p.supports(instrument))
@@ -105,6 +125,18 @@ public class MarketDataService {
 					+ " (dataClass=" + instrument.getDataClass() + ")"));
 
 		return provider.bars(instrument, timeframe, from, to, seed);
+	}
+
+	/**
+	 * Refuses a public request for more of a simulated market than is cheap to generate (BUG-043).
+	 * Real data is read, not generated, and is bounded by the other limits.
+	 */
+	public void requireAffordable(Instrument instrument, Instant from, Instant to) {
+		if (instrument.getDataClass() == DataClass.SIMULATED
+				&& Duration.between(from, to).compareTo(MAX_SIMULATED_RANGE) > 0) {
+			throw new InvalidRangeException("A simulated market is generated second by second; ask for "
+				+ "at most " + MAX_SIMULATED_RANGE.toDays() + " days of it at a time.");
+		}
 	}
 
 	/**

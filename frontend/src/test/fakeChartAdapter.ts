@@ -56,6 +56,8 @@ export class FakeChartAdapter implements ChartAdapter {
     yToPrice: (y: number) => 80_000 + (500 - y),
   }))
 
+  getPaneSize = vi.fn(() => ({ width: 800, height: 400 }))
+
   viewportListeners: Array<() => void> = []
 
   onViewportChange = vi.fn((listener: () => void) => {

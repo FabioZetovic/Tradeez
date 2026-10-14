@@ -122,7 +122,7 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-05 | Market structure shift (MSS) | 1 | R | 📐 | `mss-1.0.0` | 1m |
 | ICT-06 | BOS / CHoCH (SMC aliases) | 1 | R | 📐 | `structure-1.0.0` | 1m |
 | ICT-10 | Buy-side and sell-side liquidity | 2 | D | 📐 | `liquidity-1.0.0` | 1m |
-| ICT-11 | Reference highs and lows (PDH/PDL, PWH/PWL, sessions) | 2 | D | 📐 | `levels-1.0.0` | 1m, sessions |
+| ICT-11 | Reference highs and lows (PDH/PDL, PWH/PWL, sessions) | 2 | D | ✅ | `levels-1.0.0` | 1m, sessions |
 | ICT-12 | Relative equal highs / lows | 2 | R | 📐 | `eqhl-1.0.0` | 1m |
 | ICT-13 | Liquidity sweep vs run | 2 | R | 📐 | `sweep-1.0.0` | 1m |
 | ICT-14 | Turtle soup (pattern) | 2 | R | 📐 | via `sweep-1.0.0` | 1m |
@@ -152,11 +152,11 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-42 | Optimal trade entry (OTE) | 5 | D | 📐 | `ote-1.0.0` | 1m |
 | ICT-43 | ICT's Fibonacci levels and targets | 5 | D | 📐 | drawing preset | — |
 | ICT-44 | Standard deviation projections | 5 | R | 📐 | `stdev-1.0.0` | 1m |
-| ICT-50 | Day boundaries and opening prices | 6 | D | 📐 | `opens-1.0.0` | 1m, sessions |
-| ICT-51 | Sessions and session ranges | 6 | D | 📐 | `sessions-1.0.0` | 1m, sessions |
-| ICT-52 | Killzones | 6 | D | 📐 | `sessions-1.0.0` | sessions |
-| ICT-53 | Silver Bullet windows | 6 | D | 📐 | `sessions-1.0.0` | sessions |
-| ICT-54 | Macros | 6 | D | 📐 | `sessions-1.0.0` | sessions |
+| ICT-50 | Day boundaries and opening prices | 6 | D | ✅ | `opens-1.0.0` | 1m, sessions |
+| ICT-51 | Sessions and session ranges | 6 | D | ✅ | `sessions-1.0.0` | 1m, sessions |
+| ICT-52 | Killzones | 6 | D | ✅ | `sessions-1.0.0` | sessions |
+| ICT-53 | Silver Bullet windows | 6 | D | ✅ | `sessions-1.0.0` | sessions |
+| ICT-54 | Macros | 6 | D | ✅ | `sessions-1.0.0` | sessions |
 | ICT-55 | CBDR, Asian range, Flout | 6 | D | 📐 | `sessions-1.0.0` | 1m |
 | ICT-56 | News times | 6 | D | 📝 | — | news calendar |
 | ICT-57 | IPDA data ranges, quarterly shifts | 6 | D / J | 📐 | `ipda-1.0.0` | daily, 60+ days |
@@ -442,6 +442,12 @@ level's state at any moment is computable without lookahead.
 **`dayBoundary`** — the CME session day (18:00 → 17:00 New York, default, matching how futures charts
 build a daily candle) or the New York midnight day that ICT's later material leans on. Each level
 becomes a `liquidity-1.0.0` level once its period closes.
+
+*Implemented in T7 (DEC-047), `dayBoundary = CME` only:* PDH/PDL over the next trading day, PWH/PWL
+over the next week, each killzone's high and low from its close to the end of its trading day. A
+level appears only once its period has closed; none is measured from a period the data did not see
+from its start, and none is drawn across a contract roll. Overnight, RTH and monthly levels, and the
+taken/untaken state (`liquidity-1.0.0`, T12), are not built yet.
 
 **Teach.** A (draw today's PDH/PDL), C ("which of these levels is taken first today?").
 
@@ -844,6 +850,9 @@ and sell above it later (the logic of ICT-62). The ones that matter:
 **Tradeez rule — `opens-1.0.0` (draft).** Each is the open of the first one-minute candle at or after
 the time. Drawn as lines on the chart (task T7).
 
+*Implemented in T7 (DEC-047):* midnight, 08:30 and 09:30 opens to the end of the trading day; the
+weekly open (the week's first minute) to Friday 17:00. Monthly and quarterly opens are not built yet.
+
 **Teach.** A, B ("price is above the midnight open in a bullish narrative — premium or discount for
 today?").
 
@@ -863,6 +872,10 @@ today?").
 | New York PM | 13:30 – 16:00 | some versions: 13:00–15:00 |
 
 **Teach.** A (mark the Asia range), C ("which session's high is taken first in New York?").
+
+*Implemented in T7 (DEC-047):* `sessions-1.0.0` shades the four killzones above, the three Silver
+Bullet hours (ICT-53) and the eight macros (ICT-54), and separates trading days at 18:00. London close
+and New York lunch are in the table but not shaded yet.
 
 ### ICT-52 · Killzones
 

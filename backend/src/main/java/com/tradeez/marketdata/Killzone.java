@@ -31,6 +31,11 @@ public enum Killzone {
 		return start;
 	}
 
+	/** Exclusive; {@link LocalTime#MIDNIGHT} means the end of the day. */
+	public LocalTime end() {
+		return end;
+	}
+
 	/** Minutes in the window. */
 	public long minutes() {
 		long endMinute = end.equals(LocalTime.MIDNIGHT) ? 24 * 60 : end.toSecondOfDay() / 60;

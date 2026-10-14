@@ -9,6 +9,7 @@ import {
   type Instrument,
   type TimeframeCode,
 } from '@/lib/api/marketData'
+import { getChartClock, type ClockLayer } from '@/lib/api/clock'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { nextAxisTimezone, timezoneLabel, type AxisTimezone } from '@/lib/chart/timeAxis'
@@ -20,8 +21,11 @@ import {
   sessionEndOn,
   windowDays,
 } from '@/lib/chart/dateNavigation'
+import { ClockOverlay } from './ClockOverlay'
+import { ClockToggles } from './ClockToggles'
 import { DrawingOverlay } from './DrawingOverlay'
 import { DrawingToolbar } from './DrawingToolbar'
+import { useClockLayers } from '@/hooks/useClockLayers'
 import { useDrawings } from '@/hooks/useDrawings'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import type { SnapMode } from '@/lib/drawing/snap'
@@ -110,6 +114,25 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       })
       .catch(() => {
         if (!cancelled) setLoaded({ key: requestKey, error: 'Could not load bars.' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [symbol, timeframe, windowEnd, requestKey])
+
+  // The New York clock for the same window (T7). A failure costs only the overlay, never the chart.
+  const [clock, setClock] = useState<{ key: string; layer: ClockLayer | null } | null>(null)
+  const { shown: clockShown, toggle: toggleClock } = useClockLayers()
+  useEffect(() => {
+    if (windowEnd === null || requestKey === null) return
+    let cancelled = false
+    const { from, to } = chartWindow(timeframe, windowEnd)
+    getChartClock(symbol, from, to)
+      .then((layer) => {
+        if (!cancelled) setClock({ key: requestKey, layer })
+      })
+      .catch(() => {
+        if (!cancelled) setClock({ key: requestKey, layer: null })
       })
     return () => {
       cancelled = true
@@ -232,6 +255,12 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       )}
 
       {instrument && series && !error && (
+        <div className="self-start">
+          <ClockToggles shown={clockShown} onToggle={toggleClock} />
+        </div>
+      )}
+
+      {instrument && series && !error && (
         <div className="flex min-w-0 items-start gap-2">
           <DrawingToolbar
             activeTool={activeTool}
@@ -261,17 +290,27 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
             adapterFactory={adapterFactory}
             recentBars={RECENT_BARS}
             overlay={(adapter) => (
-              <DrawingOverlay
-                adapter={adapter}
-                state={drawingState}
-                dispatch={dispatch}
-                activeTool={activeTool}
-                onToolFinished={() => setActiveTool(null)}
-                bars={series.bars}
-                snapMode={snapMode}
-                tickValueCents={instrument.tickValueCents}
-                onCommit={() => void commit()}
-              />
+              <>
+                <ClockOverlay
+                  adapter={adapter}
+                  layer={clock?.layer ?? null}
+                  bars={series.bars}
+                  timeframe={series.timeframe}
+                  tickSize={instrument.tickSize}
+                  shown={clockShown}
+                />
+                <DrawingOverlay
+                  adapter={adapter}
+                  state={drawingState}
+                  dispatch={dispatch}
+                  activeTool={activeTool}
+                  onToolFinished={() => setActiveTool(null)}
+                  bars={series.bars}
+                  snapMode={snapMode}
+                  tickValueCents={instrument.tickValueCents}
+                  onCommit={() => void commit()}
+                />
+              </>
             )}
           />
         </div>

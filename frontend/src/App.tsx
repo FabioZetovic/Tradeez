@@ -4,7 +4,7 @@ import { SignInForm } from '@/components/SignInForm'
 import { ChartWorkspace } from '@/components/ChartWorkspace'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
-import { Button } from '@/components/ui'
+import { Button, Notice } from '@/components/ui'
 import { cx } from '@/lib/styles'
 import type { ChartAdapter } from '@/lib/chart/types'
 
@@ -34,7 +34,15 @@ export default function App({ adapterFactory }: { adapterFactory?: () => ChartAd
             Loading…
           </p>
         ) : (
-          <SignInForm onLogin={login} onRegister={register} />
+          <>
+            {state.expired && (
+              <Notice role="status" className="max-w-md" data-testid="session-expired">
+                You were signed out. Sign in again to carry on — your practice sessions and drawings
+                are saved.
+              </Notice>
+            )}
+            <SignInForm onLogin={login} onRegister={register} />
+          </>
         )}
         <p className="max-w-md text-center text-xs text-subtle">{DISCLAIMER}</p>
       </div>

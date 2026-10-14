@@ -80,6 +80,25 @@ public class MarketBarStore {
 			instrumentId, resolution, Timestamp.from(from), Timestamp.from(to));
 	}
 
+	/**
+	 * Where the stored contract changes inside {@code [from, to)}: the time of the first bar on each
+	 * new contract. A range that starts on a contract does not report that contract as a change.
+	 */
+	public List<Instant> contractChanges(UUID instrumentId, String resolution, Instant from,
+			Instant to) {
+		return jdbc.query("""
+				SELECT open_time FROM (
+				    SELECT open_time, contract_id,
+				           lag(contract_id) OVER (ORDER BY open_time) AS previous
+				    FROM market_bar
+				    WHERE instrument_id = ? AND resolution = ? AND open_time >= ? AND open_time < ?
+				) bars
+				WHERE previous IS NOT NULL AND previous <> contract_id
+				ORDER BY open_time""",
+			(rs, i) -> rs.getTimestamp(1).toInstant(),
+			instrumentId, resolution, Timestamp.from(from), Timestamp.from(to));
+	}
+
 	/** The first and last stored bar times, or null when nothing is stored. */
 	public Instant[] extent(UUID instrumentId, String resolution) {
 		return jdbc.query("""

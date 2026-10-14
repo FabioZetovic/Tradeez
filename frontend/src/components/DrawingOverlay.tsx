@@ -3,6 +3,7 @@ import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import { hitTest, translateAnchors } from '@/lib/drawing/geometry'
 import { renderDrawings } from '@/lib/drawing/render'
 import { snapAnchor, type SnapMode } from '@/lib/drawing/snap'
+import { useOverlayCanvas } from '@/hooks/useOverlayCanvas'
 import type { DrawingAction, DrawingState } from '@/lib/drawing/store'
 import {
   ANCHOR_COUNT,
@@ -84,34 +85,9 @@ export function DrawingOverlay({
     })
   }, [adapter, tickValueCents])
 
-  // Keep the canvas the same size as its container, in device pixels. Without this the overlay is
-  // blurry on a high-DPI screen and — worse — its coordinate space stops matching the chart's, so
-  // every hit test is subtly wrong.
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas?.parentElement) return
-
-    const resize = () => {
-      const rect = canvas.parentElement!.getBoundingClientRect()
-      canvas.width = rect.width
-      canvas.height = rect.height
-      canvas.style.width = `${rect.width}px`
-      canvas.style.height = `${rect.height}px`
-      draw()
-    }
-
-    resize()
-    const observer = new ResizeObserver(resize)
-    observer.observe(canvas.parentElement)
-    return () => observer.disconnect()
-  }, [draw])
-
-  // Repaint whenever the chart moves. The overlay is a separate canvas, so nothing does this
-  // automatically — without it the drawings stay still while the candles pan underneath.
-  useEffect(() => {
-    if (!adapter) return
-    return adapter.onViewportChange(draw)
-  }, [adapter, draw])
+  // Sized with its container and repainted as the chart moves. A canvas that drifted out of the
+  // chart's coordinate space would make every hit test subtly wrong.
+  useOverlayCanvas(canvasRef, adapter, draw)
 
   useEffect(draw, [draw, state])
 

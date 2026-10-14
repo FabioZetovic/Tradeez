@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T4 merged; T5 (replay with several trades) built on feat/replay-trading
+last_session: 017   # in progress — T1–T5 merged; T7 (New York clock layer) built on feat/ny-clock
 last_author: CLAUDE
 last_updated: 2026-10-14
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/replay-trading (T5) merged 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: feat/ny-clock                             # T7, not merged. master: feat/replay-trading (T5) merged 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 241/241 (Testcontainers), frontend 165/165 + typecheck; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c0707a4 green 2026-10-14 (lint, typecheck, 165, build; backend 241 without .env); merged as 9ab699a.
+build_passing: true  # feat/ny-clock (T7 + bug batch BUG-040–043): backend 260/260 (Testcontainers), frontend 189/189 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of aa2b753 green 2026-10-14 (lint, typecheck, 189, build; backend 260 without .env) — ready to merge on Fabio's word.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -86,6 +86,7 @@ files_in_repo:
       massive/   # Massive client, request pacer, quarterly contracts, volume roll, importer (017, DEC-042)
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
+    clock/       # New York clock layer: sessions/opens/levels rules, chart endpoint (017, T7)
     analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
   backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay
@@ -93,6 +94,7 @@ files_in_repo:
     lib/api/      # fetch client, auth, market data, drawings, practice
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
     lib/drawing/  # geometry, hit testing, snapping, undo store, renderer
+    lib/clock/    # New York clock: layer switches, renderer (time placed inside bars)
     lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
     lib/drills/   # candle picking, marks, explanations generated from detector evidence
     components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar; ui.tsx = shared Button/Segmented/Panel/Chip/Notice
@@ -113,7 +115,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T7 (New York clock layer) in progress on feat/ny-clock.
+blocked_on: nothing — T7 and the BUG-040–043 batch are on feat/ny-clock; next is Fabio's call (merge it; T8 ICT drawing tools is the roadmap's next item).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -141,7 +143,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T5 replay trading, on branch feat/replay-trading (2026-10-14)
+claimed_files:      # session 017 (CLAUDE) — T7 New York clock layer, on branch feat/ny-clock (2026-10-14)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -158,7 +160,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, on `feat/ny-clock`).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -186,7 +188,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T7 | **New York clock layer** | T3 | I-11, I-50–55, X §4 | Session separators (from T3), session strip, killzone shading, opening-price lines (midnight, 08:30, 09:30, weekly), PDH/PDL/PWH/PWL, session highs/lows. Rules `levels`, `opens`, `sessions` (index killzones, DEC-043). |
+| T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, 2026-10-14, on `feat/ny-clock` (**not merged yet**, DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
 | T8 | **ICT drawing tools** | T3 | I-21, I-42–43, X §4 | Fibonacci with ICT preset; zone with CE line; labels. Extends DEC-037's four shapes — record the decision. |
 | T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
 | T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
@@ -259,6 +261,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
 | DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
+| DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
 | DEC-046 ⚠️ | **A session is a replay with several trades, one at a time.** Flat → in trade → flat; each trade numbered and immutable (V10); its result revealed when the replay passes its exit; the seed or date only when the session **ends** (learner ends it while flat, or a flat replay hits its limit); score over closed trades only. |
 | DEC-044 | **Tailwind CSS 4 for all styling.** Tokens in `src/index.css` (`@theme`), shared with the chart; `components/ui.tsx` + `lib/styles.ts`; no other CSS. Never give one element two utilities for the same property. |
 | DEC-043 | **Default ICT reading = the 2022 mentorship** (FVG entries after sweep + displacement MSS, midnight open); thin topics (blocks, PD matrix, IPDA, weekly profiles) from 2016–17, labelled; `sessions-1.0.0` = index-futures killzones. Every rule names its source. |
@@ -1546,3 +1549,60 @@ revealed, seed and date shown with that one result. Rebuilt as a replay:
 
 **2026-10-14 — T5 merged.** Fabio: "yeah merge it and then do T7". Merged `--no-ff` as `9ab699a`.
 Next: T7 (New York clock layer) on `feat/ny-clock`.
+
+**2026-10-14 — T7: the New York clock layer (DEC-047).** Nothing of it existed: T3's "session
+separators" were never built. Built:
+- **Backend `clock/`:** `ClockLayerBuilder` — a pure function of one-minute bars and roll instants —
+  implements `sessions-1.0.0` (killzones from `marketdata.Killzone`, Silver Bullet hours, macros,
+  trading days), `opens-1.0.0` and `levels-1.0.0`. It throws on any bar at or after its end, so a
+  caller cannot hand it the future. `ClockService` reads the minutes (14 days of lookback for PWH) and
+  rolls (`MarketBarStore.contractChanges`, a `lag()` over `contract_id`). `GET
+  /api/market/instruments/{symbol}/clock` (≤ 200 days, public market only) and `GET
+  /api/practice/sessions/{id}/clock` (up to the cursor, on the hidden-date clock, with `nextChange`).
+- **Found by a test before it shipped:** a line starting exactly at the layer's end was dropped, so a
+  replay at 05:00 would have missed London's high and low until its next refresh at 08:31.
+- **Frontend:** `lib/clock` (switches, colours, renderer); `ClockOverlay` on its own canvas under the
+  drawings; `ClockToggles`, remembered in localStorage; `useOverlayCanvas` now shared with
+  `DrawingOverlay`; `ChartAdapter.getPaneSize` so shading stops at the axes; `timeframeSeconds` moved
+  to `lib/chart/dateNavigation`. A time between bars is placed by proportion inside its bar (the chart
+  can only place bar times).
+- **Checked on the real import:** a Friday in September: PDH 29,793.25, PDL 29,247.75, London
+  29,966.75/29,845.00, 09:30 open 29,814.00 — all equal to SQL over the stored minutes; the roll
+  (Mon 14 Sep 18:00) correctly removed that week's weekly open and PWH/PWL. A London replay at
+  "Tue 04:00 NY": no London levels yet, next change 04:04; ten bars later one refresh, London H/L
+  24,868.50/24,761.00 from 05:00 = the stored minutes of Tuesday 24 February 2026. Timing: 0.16 s on
+  5m/14 days, 0.65 s on 1h/160 days. At 1920px the switches sit on their own line above the chart.
+- ENV-006: Vite served a stale module after a `sed -i` edit; restarting the dev server fixed it.
+- Backend 241 → 259, frontend 165 → 177; lint zero, knip clean. Pushed as `ca812ad`; fresh clone green
+  (frontend lint/typecheck/177/build, backend 259/259 without `.env`). Not merged: waiting for Fabio.
+
+**2026-10-14 — Bug batch: BUG-040 to BUG-043.** Fabio: "fix all the bugs you tracked until now".
+None was open — BUG-001 to BUG-039 all carry a fix — so the code was audited for bugs never logged,
+and four were found and fixed on `feat/ny-clock`, each with a test that fails on the old code:
+- **BUG-040 🔴** the app stopped working fifteen minutes after it was opened: the client refreshed
+  the access token only at page load. `apiFetch` now refreshes once on a 401 (one shared refresh for
+  concurrent requests), retries with a fresh CSRF header, and returns to sign-in with a notice only
+  when the refresh itself is refused (not on a network or server error). Hit live several times
+  during T4–T7 checks before it was recognised as a bug rather than an expired test login.
+- **BUG-041** undo after a trade brought its old bracket back: a store action `forget` now erases a
+  locked plan from the present and all of history. The first test passed on the broken code (four
+  undos walk past the draft); it now checks after every undo.
+- **BUG-042** trade details opened only with a mouse: each trade number is a button.
+- **BUG-043 🟠** one request could keep the server busy for 21 s (399 days of hourly DEMO-NQ bars;
+  11 s for the new clock endpoint): simulated markets are served at most 14 days at a time.
+- ENV-006 mitigated (no `sed -i` on sources while a dev server runs). Backend 259 → 260, frontend
+  177 → 189. Pushed as `aa2b753`; fresh clone green (frontend 189 + build, backend 260 without `.env`).
+
+**2026-10-14 — Review before the merge: BUG-044 to BUG-046.** Fabio: "check everything for bugs and
+then merge, and then continue to t8". The branch diff (T7 + the batch, 42 files) was read through, and
+the app driven end to end on real data — Chart with the clock, a drill, a two-trade replay to its end
+with the date reveal — with no failed request. Three more, each with a test that fails on the old code:
+- **BUG-044** clock opens and killzone levels could be taken from a later price where the data begins
+  mid-day; now an open needs its minute within 15 min, a killzone level data from within 15 min of
+  its open, a weekly open a week whose first minute opened a trading day (the test's first run caught
+  the old 30-hour week allowance letting a Monday-10:00 start through).
+- **BUG-045** an unanswered "End the session?" came back after a trade; **BUG-046** a newly closed
+  trade stayed hidden behind an earlier pick. Both now remember when they were set and lapse.
+- Docker Desktop had stopped again (ENV-001) and was restarted; it also brought back another project's
+  container on port 5173, so the frontend preview moved to 5174.
+- Backend 260 → 261, frontend 189 → 191.

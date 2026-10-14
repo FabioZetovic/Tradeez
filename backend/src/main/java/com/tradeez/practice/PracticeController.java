@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tradeez.clock.ClockDtos.ClockLayerResponse;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 import com.tradeez.practice.PracticeDtos.AdvanceRequest;
 import com.tradeez.practice.PracticeDtos.AdvanceResponse;
@@ -70,6 +71,16 @@ public class PracticeController {
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable UUID id) {
 		return practice.get(principal.id(), id);
+	}
+
+	@GetMapping("/{id}/clock")
+	@Operation(summary = "The New York clock over the replay so far",
+		description = "Built only from bars before the cursor (DEC-009), on the session's clock "
+			+ "(DEC-045). Ask again once the cursor reaches nextChange.")
+	public ClockLayerResponse clock(
+			@AuthenticationPrincipal AuthenticatedUser principal,
+			@PathVariable UUID id) {
+		return practice.clock(principal.id(), id);
 	}
 
 	@PostMapping("/{id}/plan")

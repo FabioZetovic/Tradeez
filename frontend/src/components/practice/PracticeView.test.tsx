@@ -220,7 +220,7 @@ describe('Practice — a replay', () => {
     expect(screen.getByTestId('practice-status')).toHaveTextContent('Flat')
     expect(screen.getByRole('note')).toHaveTextContent(/SIMULATED DATA/)
     expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/sessions'))).toHaveLength(1)
-    expect(calls.some((c) => c.method === 'GET' && c.url.includes(ID))).toBe(false)
+    expect(calls.some((c) => c.method === 'GET' && c.url.endsWith(`/sessions/${ID}`))).toBe(false)
     // Nothing to log until a trade is placed.
     expect(screen.queryByRole('region', { name: 'Trades' })).not.toBeInTheDocument()
   })
@@ -319,6 +319,83 @@ describe('Practice — a replay', () => {
     expect(rows[1]).toHaveTextContent('Running')
   })
 
+  it('BUG-041: undo after a trade never brings its old bracket back', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await screen.findByTestId('result-outcome')
+    expect(screen.queryByTestId('plan-numbers')).not.toBeInTheDocument()
+
+    // Undo and redo are for the learner's own analysis. The bracket became trade 1; it is history,
+    // not a draft to step back into.
+    // Checked after every step: each undo walks back through the history one entry at a time.
+    for (let i = 0; i < 3; i++) {
+      await user.click(screen.getByTitle('Undo (Ctrl+Z)'))
+      expect(screen.queryByTestId('plan-numbers')).not.toBeInTheDocument()
+    }
+    expect(screen.getByText(/Place a bracket/i)).toBeInTheDocument()
+  })
+
+  it('BUG-045: an unanswered "End the session?" does not come back after a trade', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /end session…/i }))
+    expect(screen.getByRole('button', { name: /keep trading/i })).toBeInTheDocument()
+
+    // Instead of answering, the learner trades — and is flat again when it is over.
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await screen.findByTestId('result-outcome')
+    expect(screen.queryByRole('button', { name: /keep trading/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /end session…/i })).toBeInTheDocument()
+  })
+
+  it('BUG-046: a trade that has just closed is shown, even after an earlier one was picked', async () => {
+    const server = happyServer()
+    let skips = 0
+    const second: TradeView = {
+      number: 2,
+      plan: PLAN,
+      entry: { time: CURSOR + 1500, ticks: 79_970 },
+      result: { ...AMBIGUOUS, outcome: 'TARGET', assumption: undefined, rMultiple: 1.5, netPnlCents: 29_750 },
+    }
+    mockApi((call) => {
+      if (is(call, 'POST', '/skip') && ++skips === 2) {
+        return {
+          body: {
+            state: {
+              ...ANALYSING,
+              cursor: CURSOR + 3000,
+              trades: [CLOSED, second],
+              score: { closedTrades: 2, wins: 1, losses: 1, totalR: 0.46, netPnlCents: 5_500 },
+            },
+            bars: [],
+          },
+        }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await screen.findByTestId('result-outcome')
+    await user.click(screen.getByRole('button', { name: 'Show trade 1' }))
+
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await waitFor(() =>
+      expect(screen.getByTestId('result-outcome')).toHaveTextContent('Trade 2 · Target hit'),
+    )
+    // And trade 1 is still a click away.
+    await user.click(screen.getByRole('button', { name: 'Show trade 1' }))
+    expect(screen.getByTestId('result-outcome')).toHaveTextContent('Trade 1')
+  })
+
   it('ends only when asked twice, and only then shows the seed', async () => {
     const user = userEvent.setup()
     renderPractice()
@@ -397,6 +474,50 @@ describe('Practice — playing', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument())
     await new Promise((resolve) => setTimeout(resolve, 300))
     expect(calls.filter((c) => is(c, 'POST', '/advance'))).toHaveLength(1)
+  })
+})
+
+describe('Practice — the New York clock (T7)', () => {
+  it('asks for the clock once, then again only when the replay reaches its next change', async () => {
+    const server = happyServer()
+    let asked = 0
+    let cursor = CURSOR
+    mockApi((call) => {
+      if (is(call, 'GET', '/clock')) {
+        asked++
+        // The first layer can change at the next bar; the second not for a long while.
+        return {
+          body: {
+            rules: { sessions: 'sessions-1.0.0', opens: 'opens-1.0.0', levels: 'levels-1.0.0' },
+            windows: [],
+            lines: [],
+            nextChange: asked === 1 ? CURSOR + 300 : CURSOR + 99_999,
+          },
+        }
+      }
+      if (is(call, 'POST', '/advance')) {
+        cursor += 300
+        return {
+          body: {
+            state: { ...ANALYSING, cursor },
+            bars: [{ time: cursor - 300, open: 80_006, high: 80_012, low: 80_004, close: 80_010, volume: 10 }],
+          },
+        }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await waitFor(() => expect(asked).toBe(1))
+    expect(screen.getByRole('group', { name: 'New York clock' })).toBeInTheDocument()
+
+    // The cursor reaches the change: asked again. Past it, with a later change, not again.
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(asked).toBe(2))
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(screen.getByTestId('practice-cursor')).toBeInTheDocument())
+    expect(asked).toBe(2)
   })
 })
 

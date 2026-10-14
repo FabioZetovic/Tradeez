@@ -1317,7 +1317,7 @@ refused both attempts to grade or edit an answered drill.
 
 ---
 
-### Session 017 — 2026-09-30 to 10-04 — Real Data, and Back to ICT
+### Session 017 — 2026-09-30 to 10-14 — Real Data, and Back to ICT
 
 **Participant:** Claude Code
 **Type:** Feature (real market data) and product direction
@@ -1482,6 +1482,44 @@ bug: the total in R was +0.90 under a column that adds up to +0.91, because the 
 before rounding and the column after. A total a learner cannot check by hand is not one they will
 trust, so it now adds up exactly what is shown.
 
+**The New York clock.** ICT reads time before it reads price: the same candle pattern means more in
+the London or New York killzone than at lunch, and the levels traders watch — yesterday's high and
+low, last week's, the midnight and 09:30 opening prices, the high and low of each session — are all
+defined by the clock. So every chart, on the Chart tab and in every replay, can now show them: the
+killzones shaded with their names along the top, the Silver Bullet hours and macro times marked,
+each trading day separated at 18:00 New York, and the key prices drawn as lines with their values.
+Each part has a switch, and the choice is remembered.
+
+Two details make it trustworthy rather than decorative. The levels are calculated on the server from
+one-minute candles, not from whatever the chart shows: on an hourly chart, the 08:30 start of the New
+York session falls in the middle of a candle, and a session high read off hourly candles would include
+half an hour that is not part of the session. And in a replay, nothing is ever calculated from the
+future: London's high and low appear only once London has closed, an opening price only once it has
+printed. The replay is told the next moment anything could change and asks again only then.
+
+The data held one surprise. NQ futures change contract four times a year, and the next contract
+trades a few hundred points higher, so "last week's high" measured on the old contract is simply a
+wrong number on the new one. Levels are therefore never carried across a roll. Every value was checked
+against the stored data directly: the previous day's high, London's range, the 09:30 open, on two
+different real days.
+
+**An audit instead of a list.** Fabio asked for every tracked bug to be fixed. There were none open:
+all thirty-nine logged so far had been fixed. So the code was searched for bugs that had never been
+logged, and four turned up. The worst had been hiding in plain sight: the app stopped working fifteen
+minutes after it was opened. Sign-in hands out a short-lived pass and a long-lived one; the app used
+the long-lived one to get a new short pass only when the page first loaded, never again. Every check in
+the browser during this session had run into it, and every time it had been mistaken for an expired
+test login and fixed by reloading. A learner half an hour into a replay would simply have seen errors.
+Now the app renews the pass the moment a request is refused and tries again, and if the long-lived
+pass is gone too, it says so and shows the sign-in form.
+
+The other three were smaller: pressing Undo after a trade could bring the traded bracket back as a
+draft; a trade's details could only be opened with a mouse; and one request for more than a year of
+the simulated market could keep the server busy for twenty seconds. Each now has a test that fails on
+the old code — and one of those tests first passed on the broken code, because it pressed Undo four
+times and only looked at the end, by which point it had stepped past the problem. It now looks after
+every press.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1495,8 +1533,9 @@ the example file contains a key — and it names the setting without ever printi
 **By the numbers:** backend tests 164 → 223, frontend tests 131 → 148, two migrations (V7: stored market
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
-session (practice on real data, then the replay): backend 223 → 241, frontend 148 → 165, V9 and V10,
-DEC-044 to DEC-046.*
+session (practice on real data, the replay, the New York clock, the bug audit): backend 223 → 260,
+frontend 148 → 189, V9 and V10,
+DEC-044 to DEC-047.*
 
 ---
 

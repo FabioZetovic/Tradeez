@@ -37,24 +37,16 @@ export const logout = () => apiFetch<void>('/api/auth/logout', { method: 'POST' 
 
 const getMe = () => apiFetch<User>('/api/me')
 
-/** Rotates the refresh cookie. Called on a 401, never speculatively. */
-const refresh = () => apiFetch<User>('/api/auth/refresh', { method: 'POST' })
-
 /**
  * Resolves the current session on page load.
  *
  * The access token expires long before the refresh token does, so a returning user will usually
- * fail `getMe` and succeed after a refresh. Both failing means genuinely signed out.
+ * fail `getMe` the first time; `apiFetch` then refreshes and asks again (BUG-040). A 401 that
+ * survives that means genuinely signed out.
  */
 export async function restoreSession(): Promise<User | null> {
   try {
     return await getMe()
-  } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) throw error
-  }
-
-  try {
-    return await refresh()
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) return null
     throw error

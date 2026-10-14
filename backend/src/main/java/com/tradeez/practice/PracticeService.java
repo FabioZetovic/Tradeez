@@ -25,6 +25,10 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.tradeez.clock.ClockDtos;
+import com.tradeez.clock.ClockDtos.ClockLayerResponse;
+import com.tradeez.clock.ClockLayer;
+import com.tradeez.clock.ClockService;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.BarSeries;
 import com.tradeez.marketdata.DataClass;
@@ -137,6 +141,7 @@ public class PracticeService {
 	private final PracticeResultRepository results;
 	private final InstrumentRepository instruments;
 	private final MarketDataService marketData;
+	private final ClockService clocks;
 
 	/**
 	 * BUG-033 — transactions are opened by hand, around the database work only.
@@ -156,12 +161,14 @@ public class PracticeService {
 
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, InstrumentRepository instruments,
-			MarketDataService marketData, PlatformTransactionManager transactionManager) {
+			MarketDataService marketData, ClockService clocks,
+			PlatformTransactionManager transactionManager) {
 		this.sessions = sessions;
 		this.plans = plans;
 		this.results = results;
 		this.instruments = instruments;
 		this.marketData = marketData;
+		this.clocks = clocks;
 		this.writeTx = new TransactionTemplate(transactionManager);
 		this.readTx = new TransactionTemplate(transactionManager);
 		this.readTx.setReadOnly(true);
@@ -428,6 +435,19 @@ public class PracticeService {
 		// Generated outside the snapshot's transaction (BUG-033).
 		return new SessionResponse(state(seen.session(), seen.instrument(), seen.trades()),
 			visibleBars(seen.session(), seen.instrument()));
+	}
+
+	/**
+	 * The New York clock over the replay so far (T7): built from the bars before the cursor and
+	 * nothing else (DEC-009), its times on the session's clock (DEC-045). It carries the moment it can
+	 * next change, so a replay asks again only when that moment is passed.
+	 */
+	public ClockLayerResponse clock(UUID userId, UUID sessionId) {
+		Snapshot seen = snapshot(userId, sessionId);
+		PracticeSession session = seen.session();
+		ClockLayer layer = clocks.layer(seen.instrument(), session.getHistoryFrom(),
+			session.getCursorTime(), seedOf(session));
+		return ClockDtos.of(layer, session.getClock()::show, true);
 	}
 
 	@Transactional(readOnly = true)

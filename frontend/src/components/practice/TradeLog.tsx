@@ -80,14 +80,31 @@ export function TradeLog({
                 <tr
                   key={trade.number}
                   data-testid="trade-row"
-                  aria-selected={trade.number === selected}
                   className={cx(
                     result && 'cursor-pointer hover:bg-raised',
                     trade.number === selected && 'bg-raised',
                   )}
+                  // A click anywhere on the row is a convenience; the button is the control (BUG-042).
                   onClick={() => result && onSelect(trade.number)}
                 >
-                  <td>{trade.number}</td>
+                  <td>
+                    {result ? (
+                      <button
+                        type="button"
+                        aria-pressed={trade.number === selected}
+                        aria-label={`Show trade ${trade.number}`}
+                        className="cursor-pointer font-medium text-brand hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSelect(trade.number)
+                        }}
+                      >
+                        {trade.number}
+                      </button>
+                    ) : (
+                      trade.number
+                    )}
+                  </td>
                   <td>
                     {plan.direction === 'LONG' ? 'Long' : 'Short'} {plan.contracts}
                   </td>

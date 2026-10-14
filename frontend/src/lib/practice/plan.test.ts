@@ -13,9 +13,9 @@ import {
   planFromDrawing,
   planNumbers,
   planProblem,
-  timeframeSeconds,
   TRADE_DRAWING_PREFIX,
 } from './plan'
+import { timeframeSeconds } from '../chart/dateNavigation'
 
 const REF = 80_000
 const T = 1_710_338_400

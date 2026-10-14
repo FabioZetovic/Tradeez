@@ -40,6 +40,11 @@ export type DrawingAction =
   | { type: 'redo' }
   /** Replaces everything without touching history — used when loading from the server. */
   | { type: 'load'; drawings: Drawing[] }
+  /**
+   * Removes a drawing from the present and from every step of history, adding none: for a drawing
+   * that has stopped being the user's to edit — a practice plan, once locked (BUG-041).
+   */
+  | { type: 'forget'; id: string }
 
 function pushHistory(state: DrawingState): Drawing[][] {
   const past = [...state.past, state.drawings]
@@ -113,9 +118,29 @@ export function drawingReducer(state: DrawingState, action: DrawingAction): Draw
     case 'load':
       return { drawings: action.drawings, selectedId: null, past: [], future: [] }
 
+    case 'forget': {
+      const without = (drawings: Drawing[]) => drawings.filter((d) => d.id !== action.id)
+      const present = without(state.drawings)
+      // Steps that differed only by the forgotten drawing are now the same as their neighbour. They
+      // are dropped, or undo would spend clicks changing nothing.
+      const past = [...state.past.map(without), present]
+      const future = [present, ...state.future.map(without)]
+      return {
+        drawings: present,
+        selectedId: state.selectedId === action.id ? null : state.selectedId,
+        past: past.slice(0, -1).filter((step, i) => !sameDrawings(step, past[i + 1])),
+        future: future.slice(1).filter((step, i) => !sameDrawings(step, future[i])),
+      }
+    }
+
     default:
       return state
   }
+}
+
+/** The same drawings in the same order — the same objects, since edits replace rather than mutate. */
+function sameDrawings(a: Drawing[], b: Drawing[]): boolean {
+  return a.length === b.length && a.every((drawing, i) => drawing === b[i])
 }
 
 export const canUndo = (state: DrawingState) => state.past.length > 0
