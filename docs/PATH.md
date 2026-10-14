@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: feat/replay-trading                       # T5, not merged. master: feat/practice-real-data (T4) merged 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/replay-trading (T5) merged 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/replay-trading: backend 241/241 (Testcontainers), frontend 165/165 + typecheck; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c0707a4 green 2026-10-14 (lint, typecheck, 165, build; backend 241 without .env) — ready to merge on Fabio's word.
+build_passing: true  # backend 241/241 (Testcontainers), frontend 165/165 + typecheck; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c0707a4 green 2026-10-14 (lint, typecheck, 165, build; backend 241 without .env); merged as 9ab699a.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -113,7 +113,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T5 is built on feat/replay-trading; next is Fabio's call (merge it, then T7 New York clock layer is the roadmap's next item).
+blocked_on: nothing — T7 (New York clock layer) in progress on feat/ny-clock.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -158,7 +158,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, on `feat/replay-trading`).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -179,7 +179,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T2 | ~~**Import 2 years of NQ**~~ | — | F | ✅ Session 017: 697,003 real 1m bars, 2024-10-08 → 2026-10-02, 25 months, 9 contracts, $0, ~8 min. Rolls the week before each expiry; prices checked against known events (April 2025 crash low 16,460). Local DB only (`IMPORTED_PRIVATE`). ES moved to T20. |
 | T3 | ~~**Real NQ in the app**~~ | — | F, X §4 | ✅ Session 017: V8 withdraws DEMO from the list (still resolves by symbol for Practice/Drills); instruments carry `dataFrom`/`dataTo`; series carry their real `source`; chart opens on the newest data, date picker + Latest/1W/1M/3M/1Y/2Y; New York time axis by default (toggle NY → exchange → UTC). Session separators moved to T7. |
 | T4 | ~~**Practice on real data**~~ | — | F, D-025 | ✅ Session 017, **merged 2026-10-14 as `c128237`** (DEC-045): real NQ by default; hidden-date clock (fictional week, NY wall clock, date revealed with the result); moment picker by killzone and weekday; `fill-1.1.0` on minute bars, no gap-means-closed rule; V9 provenance. Played end to end on the real import. |
-| T5 | ~~**Replay paper-trading mode**~~ | T4 | F, C §5, X §5 | ✅ Session 017, 2026-10-14, on `feat/replay-trading` (**not merged yet**, DEC-046): step / play at 1–8 bars a second / pause; a bracket at any moment, several trades per replay, one at a time, each locked; finished trades drawn on the chart; score in R; End session reveals the seed or the date (V10). |
+| T5 | ~~**Replay paper-trading mode**~~ | T4 | F, C §5, X §5 | ✅ Session 017, **merged 2026-10-14 as `9ab699a`** (DEC-046): step / play at 1–8 bars a second / pause; a bracket at any moment, several trades per replay, one at a time, each locked; finished trades drawn on the chart; score in R; End session reveals the seed or the date (V10). |
 | T6 | ~~**Bug batch, then merge `feat/real-nq-data`**~~ | — | process | ✅ Session 017, 2026-10-13: BUG-035 and BUG-038 fixed, fresh clone green, **merged into `master` as `80014ad`** (no PR). No open bugs. |
 
 **M1 — ICT on the chart**
@@ -1542,4 +1542,7 @@ revealed, seed and date shown with that one result. Rebuilt as a replay:
   in the database. Layout checked at 1920px: centred, no horizontal overflow.
 - **BUG-039** found there and fixed: the total read +0.90R under a column reading −1.07R and +1.98R.
 - Backend 234 → 241, frontend 155 → 165; lint zero, knip clean. Pushed as `c0707a4`; fresh clone green
-  (frontend lint/typecheck/165/build, backend 241/241 without `.env`). Not merged: waiting for Fabio.
+  (frontend lint/typecheck/165/build, backend 241/241 without `.env`).
+
+**2026-10-14 — T5 merged.** Fabio: "yeah merge it and then do T7". Merged `--no-ff` as `9ab699a`.
+Next: T7 (New York clock layer) on `feat/ny-clock`.
