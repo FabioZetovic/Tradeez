@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/real-nq-data merged 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/practice-real-data (T4) merged 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 234/234 (Testcontainers), frontend 155/155 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). master verified from a fresh clone 2026-10-13; feat/practice-real-data (T4) green locally.
+build_passing: true  # backend 234/234 (Testcontainers), frontend 155/155 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). T4 verified from a fresh clone and merged 2026-10-14.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -113,7 +113,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T4 done on feat/practice-real-data (not merged). Next: T5 (replay paper-trading mode), or merge T4 first.
+blocked_on: nothing — next is T5 (replay paper-trading mode) on feat/replay-trading.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -178,7 +178,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T1 | ~~**Massive importer**~~ | — | F, D-042 | ✅ Session 017: `marketdata/massive/` — client (Bearer header, same-host `next_url` only, BigDecimal prices), 5/min pacer with 429 back-off, quarterly contracts, front by previous-session volume, monthly chunks, `NO_DATA` never marked covered. Shared `importing/` package; `--tradeez.import.source=massive` (default). Found and fixed BUG-036. |
 | T2 | ~~**Import 2 years of NQ**~~ | — | F | ✅ Session 017: 697,003 real 1m bars, 2024-10-08 → 2026-10-02, 25 months, 9 contracts, $0, ~8 min. Rolls the week before each expiry; prices checked against known events (April 2025 crash low 16,460). Local DB only (`IMPORTED_PRIVATE`). ES moved to T20. |
 | T3 | ~~**Real NQ in the app**~~ | — | F, X §4 | ✅ Session 017: V8 withdraws DEMO from the list (still resolves by symbol for Practice/Drills); instruments carry `dataFrom`/`dataTo`; series carry their real `source`; chart opens on the newest data, date picker + Latest/1W/1M/3M/1Y/2Y; New York time axis by default (toggle NY → exchange → UTC). Session separators moved to T7. |
-| T4 | ~~**Practice on real data**~~ | — | F, D-025 | ✅ Session 017 on `feat/practice-real-data` (DEC-045): real NQ by default; hidden-date clock (fictional week, NY wall clock, date revealed with the result); moment picker by killzone and weekday; `fill-1.1.0` on minute bars, no gap-means-closed rule; V9 provenance. Played end to end on the real import. |
+| T4 | ~~**Practice on real data**~~ | — | F, D-025 | ✅ Session 017, **merged 2026-10-14 as `c128237`** (DEC-045): real NQ by default; hidden-date clock (fictional week, NY wall clock, date revealed with the result); moment picker by killzone and weekday; `fill-1.1.0` on minute bars, no gap-means-closed rule; V9 provenance. Played end to end on the real import. |
 | T5 | **Replay paper-trading mode** | T4 | F, C §5, X §5 | Fabio's core idea. Step / play / pause / speed; place orders at any moment (entry + stop + target), several trades per replay, each plan locked (INVARIANT 10); session summary in R. |
 | T6 | ~~**Bug batch, then merge `feat/real-nq-data`**~~ | — | process | ✅ Session 017, 2026-10-13: BUG-035 and BUG-038 fixed, fresh clone green, **merged into `master` as `80014ad`** (no PR). No open bugs. |
 
@@ -1511,3 +1511,7 @@ would have been closed early. Built:
   "Tuesday 31 March 2026, 04:40" = the stored start (08:40 UTC); the 04:45 minute's low 23,301.75
   broke the 23,304 stop, exit 23,303.75 with one tick of slippage.
 - Backend 223 → 234, frontend 149 → 155; lint zero, knip clean.
+
+**2026-10-14 — T4 merged.** Fabio: "continue with what you were doing". No open bugs; fresh clone of
+`feat/practice-real-data`: frontend lint/typecheck/155/build, backend 234/234. Merged `--no-ff` as
+`c128237`. Next: T5 on `feat/replay-trading`.
