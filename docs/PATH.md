@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T7 merged; T8 (ICT drawing tools) built on feat/ict-drawings
+last_session: 017   # in progress — T1–T8 merged; T9 (detector framework) next
 last_author: CLAUDE
 last_updated: 2026-10-14
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: feat/ict-drawings                         # T8, not merged. master: feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/ict-drawings: backend 264/264 (Testcontainers), frontend 215/215 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 0f72da6 green 2026-10-14 (lint, typecheck, 215, build; backend 264 without .env) — ready to merge on Fabio's word.
+build_passing: true  # backend 264/264 (Testcontainers), frontend 215/215 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 0f72da6 green 2026-10-14; merged as 4321ae6.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -116,7 +116,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T8 is built on feat/ict-drawings; next is Fabio's call (merge it; T9 detector framework is the roadmap's next item).
+blocked_on: nothing — T9 (detector framework, concept registry, overlay renderer) in progress on feat/detector-framework.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -144,7 +144,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T8 ICT drawing tools, on branch feat/ict-drawings (2026-10-14)
+claimed_files:      # session 017 (CLAUDE) — T9 detector framework, on branch feat/detector-framework (2026-10-14)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -190,7 +190,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
 | T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, **merged 2026-10-14 as `6d09763`** (DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
-| T8 | ~~**ICT drawing tools**~~ | T3 | I-21, I-42–43, X §4 | ✅ Session 017, 2026-10-14, on `feat/ict-drawings` (**not merged yet**, DEC-048): Fibonacci with ICT's levels (OTE shaded, targets −0.27 to −2), zone with its CE in half-ticks, labels; words typed on the chart; server checks anchor counts and text (V11). |
+| T8 | ~~**ICT drawing tools**~~ | T3 | I-21, I-42–43, X §4 | ✅ Session 017, **merged 2026-10-14 as `4321ae6`** (DEC-048): Fibonacci with ICT's levels (OTE shaded, targets −0.27 to −2), zone with its CE in half-ticks, labels; words typed on the chart; server checks anchor counts and text (V11). |
 | T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
 | T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
 | T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
@@ -1636,4 +1636,10 @@ curriculum would have to:
   checked by the overlay tests, not by eye. Test drawings removed from the test account afterwards.
 - Docker Desktop had stopped (ENV-001) and was restarted.
 - Backend 261 → 264, frontend 191 → 215. Pushed as `0f72da6`; fresh clone green (frontend 215 + build,
-  backend 264 without `.env`). Not merged: waiting for Fabio.
+  backend 264 without `.env`).
+
+**2026-10-14 — T8 merged.** Fabio questioned the "all passing" claim; both suites were re-run from
+scratch and shown raw (frontend 215/215 exit 0, no warnings; backend `Tests run: 264, Failures: 0,
+Errors: 0, Skipped: 0`, BUILD SUCCESS, zero ERROR log lines) — the failures he may have seen were
+intermediate runs during development, each fixed. Merged `--no-ff` as `4321ae6`. Next: T9 on
+`feat/detector-framework`.
