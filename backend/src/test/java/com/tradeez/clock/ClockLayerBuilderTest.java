@@ -202,6 +202,19 @@ class ClockLayerBuilderTest {
 				ny("2025-03-11T17:00"));
 			assertThat(layer.lines()).noneMatch(l -> l.kind() == LineKind.PREVIOUS_DAY);
 		}
+
+		@Test
+		@DisplayName("BUG-044: on the day the data begins, no open or killzone level is taken from a later price")
+		void dataStartsMidDay() {
+			// The data begins at Monday 10:00, half way through NY AM and after every open but none.
+			List<Bar> bars = minutes(ny("2025-03-10T10:00"), DATA_TO);
+			ClockLayer layer = build(bars, List.of(), ny("2025-03-10T00:00"), ny("2025-03-10T17:00"));
+
+			assertThat(layer.lines()).extracting(Line::label)
+				.doesNotContain("Midnight open", "08:30 open", "09:30 open", "Weekly open", "NY AM H", "NY AM L")
+				// NY PM was there from its first minute.
+				.contains("NY PM H", "NY PM L");
+		}
 	}
 
 	@Nested

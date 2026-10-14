@@ -338,6 +338,64 @@ describe('Practice — a replay', () => {
     expect(screen.getByText(/Place a bracket/i)).toBeInTheDocument()
   })
 
+  it('BUG-045: an unanswered "End the session?" does not come back after a trade', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /end session…/i }))
+    expect(screen.getByRole('button', { name: /keep trading/i })).toBeInTheDocument()
+
+    // Instead of answering, the learner trades — and is flat again when it is over.
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await screen.findByTestId('result-outcome')
+    expect(screen.queryByRole('button', { name: /keep trading/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /end session…/i })).toBeInTheDocument()
+  })
+
+  it('BUG-046: a trade that has just closed is shown, even after an earlier one was picked', async () => {
+    const server = happyServer()
+    let skips = 0
+    const second: TradeView = {
+      number: 2,
+      plan: PLAN,
+      entry: { time: CURSOR + 1500, ticks: 79_970 },
+      result: { ...AMBIGUOUS, outcome: 'TARGET', assumption: undefined, rMultiple: 1.5, netPnlCents: 29_750 },
+    }
+    mockApi((call) => {
+      if (is(call, 'POST', '/skip') && ++skips === 2) {
+        return {
+          body: {
+            state: {
+              ...ANALYSING,
+              cursor: CURSOR + 3000,
+              trades: [CLOSED, second],
+              score: { closedTrades: 2, wins: 1, losses: 1, totalR: 0.46, netPnlCents: 5_500 },
+            },
+            bars: [],
+          },
+        }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await screen.findByTestId('result-outcome')
+    await user.click(screen.getByRole('button', { name: 'Show trade 1' }))
+
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await waitFor(() =>
+      expect(screen.getByTestId('result-outcome')).toHaveTextContent('Trade 2 · Target hit'),
+    )
+    // And trade 1 is still a click away.
+    await user.click(screen.getByRole('button', { name: 'Show trade 1' }))
+    expect(screen.getByTestId('result-outcome')).toHaveTextContent('Trade 1')
+  })
+
   it('ends only when asked twice, and only then shows the seed', async () => {
     const user = userEvent.setup()
     renderPractice()

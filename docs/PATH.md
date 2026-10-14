@@ -1592,3 +1592,17 @@ and four were found and fixed on `feat/ny-clock`, each with a test that fails on
   11 s for the new clock endpoint): simulated markets are served at most 14 days at a time.
 - ENV-006 mitigated (no `sed -i` on sources while a dev server runs). Backend 259 → 260, frontend
   177 → 189. Pushed as `aa2b753`; fresh clone green (frontend 189 + build, backend 260 without `.env`).
+
+**2026-10-14 — Review before the merge: BUG-044 to BUG-046.** Fabio: "check everything for bugs and
+then merge, and then continue to t8". The branch diff (T7 + the batch, 42 files) was read through, and
+the app driven end to end on real data — Chart with the clock, a drill, a two-trade replay to its end
+with the date reveal — with no failed request. Three more, each with a test that fails on the old code:
+- **BUG-044** clock opens and killzone levels could be taken from a later price where the data begins
+  mid-day; now an open needs its minute within 15 min, a killzone level data from within 15 min of
+  its open, a weekly open a week whose first minute opened a trading day (the test's first run caught
+  the old 30-hour week allowance letting a Monday-10:00 start through).
+- **BUG-045** an unanswered "End the session?" came back after a trade; **BUG-046** a newly closed
+  trade stayed hidden behind an earlier pick. Both now remember when they were set and lapse.
+- Docker Desktop had stopped again (ENV-001) and was restarted; it also brought back another project's
+  container on port 5173, so the frontend preview moved to 5174.
+- Backend 260 → 261, frontend 189 → 191.

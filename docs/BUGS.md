@@ -18,7 +18,8 @@
 ## Open
 
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
-and none was open — found four that had never been logged (BUG-040 to BUG-043); all four are fixed.
+and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
+merge of T7 found three more (BUG-044 to BUG-046). All seven are fixed.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -460,6 +461,49 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-044 🟡 The clock could name a later price after the time it was named for
+
+**Status:** verified — found reviewing T7 before its merge (Fabio: "check everything for bugs"); a
+test fails on the old rules
+**Affects:** `backend/.../clock/ClockLayerBuilder.java`
+
+**What happened.** `opens-1.0.0` takes "the first one-minute candle at or after the time", with no
+limit. Where the data begins part-way through a day — the first day of the import, or a gap — the
+"midnight open" became whatever printed at 10:00. Killzone highs and lows were measured from whatever
+part of the killzone the data covered, and the weekly open from the week's first stored minute,
+wherever that fell. PDH/PDL and PWH/PWL already refused periods not seen from their start; the opens,
+the weekly open and the session levels did not. Reachable on the Chart tab with the 2Y jump.
+
+**✅ FIXED — Session 017.** An opening price is taken only if its first minute comes within 15
+minutes of its time (NQ trades nearly every minute; a few quiet ones are allowed); a killzone level
+only if the killzone traded within 15 minutes of opening; the weekly open only if the week's first
+minute opened a trading day — which still allows the holiday weeks whose Sunday session does not open,
+and replaces the 30-hour allowance that let a week starting Monday 10:00 pass.
+`ClockLayerBuilderTest.dataStartsMidDay`; its first run also caught that 30-hour hole.
+
+### BUG-045 🟡 An unanswered "End the session?" came back after a trade
+
+**Status:** verified — found in the same review; `PracticeView.test` fails on the old code
+**Affects:** `frontend/src/components/practice/PracticeSession.tsx`
+
+**What happened.** Asking to end a session and then, instead of answering, placing a trade left the
+question open. It was hidden while the trade ran and reappeared, unasked, when the learner was flat
+again.
+
+**✅ FIXED — Session 017.** The question remembers how many trades there were when it was asked and
+lapses when another is placed — derived on render, no effect resetting it.
+
+### BUG-046 🟡 A trade that had just closed could stay hidden behind an earlier one
+
+**Status:** verified — found in the same review; `PracticeView.test` fails on the old code
+**Affects:** `frontend/src/components/practice/PracticeSession.tsx`
+
+**What happened.** Picking a trade in the log kept it open for good. The next trade then closed —
+playback stops exactly so its result can be read — and the card went on showing the old trade.
+
+**✅ FIXED — Session 017.** A pick remembers how many trades had closed when it was made and lapses
+when another closes, so a new result is always shown first; the older ones stay a click away.
 
 ### BUG-040 🔴 The app stopped working fifteen minutes after it was opened
 

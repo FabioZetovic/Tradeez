@@ -66,12 +66,20 @@ public final class ClockLayerBuilder {
 	static final LocalTime DAY_END = LocalTime.of(17, 0);
 
 	/**
-	 * A period whose first bar comes later than this after its start was not seen from the beginning —
+	 * A day whose first bar comes later than this after its start was not seen from the beginning —
 	 * cut off by the start of the data, or of what was read — so no level is measured from it. A week
-	 * gets longer, for the holiday weeks whose Sunday session does not open.
+	 * is seen from its start when its first bar opened a day that was (see {@code Week}).
 	 */
 	private static final Duration DAY_SEEN_FROM_START = Duration.ofHours(1);
-	private static final Duration WEEK_SEEN_FROM_START = Duration.ofHours(30);
+
+	/**
+	 * BUG-044 — the same test for the smaller pieces. NQ trades nearly every minute, so a killzone whose
+	 * first bar comes this late was cut off by the data; and an opening price whose first minute comes
+	 * this late is the open of whatever came after a gap, not of the time it is named after. A few
+	 * quiet minutes are allowed for.
+	 */
+	private static final Duration KILLZONE_SEEN_FROM_START = Duration.ofMinutes(15);
+	private static final Duration OPEN_WITHIN = Duration.ofMinutes(15);
 
 	/** The previous day with data, when it is further back than this, is a hole in the data. */
 	private static final long MAX_DAYS_TO_PREVIOUS = 4;
@@ -150,7 +158,7 @@ public final class ClockLayerBuilder {
 				day = days.computeIfAbsent(date, Day::new);
 			}
 			day.add(bar);
-			weeks.computeIfAbsent(day.date.with(previousOrSame(DayOfWeek.MONDAY)), Week::new).add(bar);
+			weeks.computeIfAbsent(day.date.with(previousOrSame(DayOfWeek.MONDAY)), Week::new).add(bar, day);
 		}
 
 		List<Window> windows = new ArrayList<>();
@@ -182,7 +190,7 @@ public final class ClockLayerBuilder {
 				}
 				for (int k = 0; k < KILLZONES.length; k++) {
 					// Only once the killzone is over: until then its high and low are still forming.
-					if (d.killzoneSeen[k] && !d.killzoneSpan[k][1].isAfter(to)) {
+					if (d.killzoneSeen(k) && !d.killzoneSpan[k][1].isAfter(to)) {
 						String name = label(KILLZONES[k]);
 						Instant start = d.killzoneSpan[k][0];
 						Instant end = d.killzoneSpan[k][1];
@@ -197,8 +205,11 @@ public final class ClockLayerBuilder {
 		Week previousWeek = null;
 		for (Week w : weeks.values()) {
 			if (w.start.isBefore(to) && w.end.isAfter(from)) {
-				out.add(LineKind.OPEN, "Weekly open", w.start, w.start, w.end, w.open);
-				if (previousWeek != null && previousWeek.seenFromStart()
+				// The week's first minute is its open only if the data saw the week begin (BUG-044).
+				if (w.seenFromStart) {
+					out.add(LineKind.OPEN, "Weekly open", w.start, w.start, w.end, w.open);
+				}
+				if (previousWeek != null && previousWeek.seenFromStart
 						&& ChronoUnit.DAYS.between(previousWeek.monday, w.monday) == 7) {
 					out.add(LineKind.PREVIOUS_WEEK, "PWH", previousWeek.start, w.start, w.end,
 						previousWeek.high);
@@ -290,10 +301,12 @@ public final class ClockLayerBuilder {
 		final Instant start;
 		final Instant end;
 		final Instant[][] killzoneSpan = new Instant[KILLZONES.length][];
-		final boolean[] killzoneSeen = new boolean[KILLZONES.length];
+		final Instant[] killzoneFirst = new Instant[KILLZONES.length];
 		final long[] killzoneHigh = new long[KILLZONES.length];
 		final long[] killzoneLow = new long[KILLZONES.length];
 		final Instant[] openAt = new Instant[Open.values().length];
+		/** Settled by the first bar at or after the time: its open, or null if it came too late. */
+		final boolean[] openSettled = new boolean[Open.values().length];
 		final Long[] opens = new Long[Open.values().length];
 		Instant first;
 		long high = Long.MIN_VALUE;
@@ -320,20 +333,32 @@ public final class ClockLayerBuilder {
 			low = Math.min(low, bar.lowTicks());
 			for (int k = 0; k < KILLZONES.length; k++) {
 				if (!t.isBefore(killzoneSpan[k][0]) && t.isBefore(killzoneSpan[k][1])) {
-					killzoneHigh[k] = killzoneSeen[k] ? Math.max(killzoneHigh[k], bar.highTicks()) : bar.highTicks();
-					killzoneLow[k] = killzoneSeen[k] ? Math.min(killzoneLow[k], bar.lowTicks()) : bar.lowTicks();
-					killzoneSeen[k] = true;
+					boolean seen = killzoneFirst[k] != null;
+					killzoneHigh[k] = seen ? Math.max(killzoneHigh[k], bar.highTicks()) : bar.highTicks();
+					killzoneLow[k] = seen ? Math.min(killzoneLow[k], bar.lowTicks()) : bar.lowTicks();
+					if (!seen) {
+						killzoneFirst[k] = t;
+					}
 				}
 			}
 			for (int o = 0; o < opens.length; o++) {
-				if (opens[o] == null && !t.isBefore(openAt[o])) {
-					opens[o] = bar.openTicks();
+				if (!openSettled[o] && !t.isBefore(openAt[o])) {
+					openSettled[o] = true;
+					if (t.isBefore(openAt[o].plus(OPEN_WITHIN))) {
+						opens[o] = bar.openTicks();
+					}
 				}
 			}
 		}
 
 		boolean seenFromStart() {
 			return first != null && first.isBefore(start.plus(DAY_SEEN_FROM_START));
+		}
+
+		/** The killzone traded from its opening, not only from where the data began. */
+		boolean killzoneSeen(int k) {
+			return killzoneFirst[k] != null
+				&& killzoneFirst[k].isBefore(killzoneSpan[k][0].plus(KILLZONE_SEEN_FROM_START));
 		}
 	}
 
@@ -342,10 +367,12 @@ public final class ClockLayerBuilder {
 		final LocalDate monday;
 		final Instant start;
 		final Instant end;
-		Instant first;
 		long open;
+		/** The week's first minute opened a trading day, rather than falling where the data began. */
+		boolean seenFromStart;
 		long high = Long.MIN_VALUE;
 		long low = Long.MAX_VALUE;
+		private boolean started;
 
 		Week(LocalDate monday) {
 			this.monday = monday;
@@ -353,17 +380,18 @@ public final class ClockLayerBuilder {
 			this.end = ZonedDateTime.of(monday.plusDays(4), DAY_END, NEW_YORK).toInstant();
 		}
 
-		void add(Bar bar) {
-			if (first == null) {
-				first = bar.openTime();
+		/** @param day the trading day the bar belongs to, already holding it */
+		void add(Bar bar, Day day) {
+			if (!started) {
+				started = true;
 				open = bar.openTicks();
+				// Usually Sunday 18:00. After a holiday with no Sunday session it is the first session
+				// that did open — still the week's open. Only a first minute in the middle of a day
+				// means the data, not the week, began there.
+				seenFromStart = day.seenFromStart();
 			}
 			high = Math.max(high, bar.highTicks());
 			low = Math.min(low, bar.lowTicks());
-		}
-
-		boolean seenFromStart() {
-			return first != null && first.isBefore(start.plus(WEEK_SEEN_FROM_START));
 		}
 	}
 }

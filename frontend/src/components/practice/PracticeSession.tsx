@@ -88,8 +88,11 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
   const [contracts, setContracts] = useState(1)
-  const [selectedTrade, setSelectedTrade] = useState<number | undefined>(undefined)
-  const [confirmingEnd, setConfirmingEnd] = useState(false)
+  // Both remember when they were set, and lapse when the replay moves past that. A trade picked in
+  // the log stays open only until another trade closes — play stops exactly so the new result can be
+  // read (BUG-046). "End the session?" stays asked only until another trade is placed (BUG-045).
+  const [picked, setPicked] = useState<{ number: number; closedAt: number } | null>(null)
+  const [endAskedAt, setEndAskedAt] = useState<number | null>(null)
 
   // The New York clock up to the cursor (T7). The server says when it can next change; it is asked
   // again only once the replay gets there, not on every bar. A failure costs only the overlay.
@@ -216,7 +219,12 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
 
   // The trade whose details are open: the one picked in the log, else the latest to finish.
   const closed = trades.filter((t) => t.result)
-  const shownTrade = closed.find((t) => t.number === selectedTrade) ?? closed[closed.length - 1]
+  const pickedTrade =
+    picked && picked.closedAt === closed.length
+      ? closed.find((t) => t.number === picked.number)
+      : undefined
+  const shownTrade = pickedTrade ?? closed[closed.length - 1]
+  const confirmingEnd = endAskedAt === trades.length
 
   return (
     <section className="flex flex-col gap-4">
@@ -340,18 +348,23 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
                     variant="primary"
                     disabled={busy}
                     onClick={() => {
-                      setConfirmingEnd(false)
+                      setEndAskedAt(null)
                       void end()
                     }}
                   >
                     End session
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setConfirmingEnd(false)}>
+                  <Button size="sm" variant="ghost" onClick={() => setEndAskedAt(null)}>
                     Keep trading
                   </Button>
                 </>
               ) : (
-                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmingEnd(true)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => setEndAskedAt(trades.length)}
+                >
                   End session…
                 </Button>
               )}
@@ -419,7 +432,11 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
       </div>
 
       {(trades.length > 0 || status === 'COMPLETE') && (
-        <TradeLog state={state} selected={shownTrade?.number} onSelect={setSelectedTrade} />
+        <TradeLog
+          state={state}
+          selected={shownTrade?.number}
+          onSelect={(number) => setPicked({ number, closedAt: closed.length })}
+        />
       )}
     </section>
   )
