@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: feat/ny-clock                             # T7, not merged. master: feat/replay-trading (T5) merged 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # feat/ny-clock: backend 259/259 (Testcontainers), frontend 177/177 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh-clone check still to do before the merge.
+build_passing: true  # feat/ny-clock: backend 259/259 (Testcontainers), frontend 177/177 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of ca812ad green 2026-10-14 (lint, typecheck, 177, build; backend 259 without .env) — ready to merge on Fabio's word.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1573,4 +1573,5 @@ separators" were never built. Built:
   24,868.50/24,761.00 from 05:00 = the stored minutes of Tuesday 24 February 2026. Timing: 0.16 s on
   5m/14 days, 0.65 s on 1h/160 days. At 1920px the switches sit on their own line above the chart.
 - ENV-006: Vite served a stale module after a `sed -i` edit; restarting the dev server fixed it.
-- Backend 241 → 259, frontend 165 → 177; lint zero, knip clean. Not merged yet.
+- Backend 241 → 259, frontend 165 → 177; lint zero, knip clean. Pushed as `ca812ad`; fresh clone green
+  (frontend lint/typecheck/177/build, backend 259/259 without `.env`). Not merged: waiting for Fabio.
