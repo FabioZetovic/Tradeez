@@ -150,7 +150,7 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-40 | Dealing range | 5 | R / J | 📐 | `dealing-range-1.0.0` | 1m |
 | ICT-41 | Premium, discount, equilibrium | 5 | D | 📐 | `pd-1.0.0` | 1m |
 | ICT-42 | Optimal trade entry (OTE) | 5 | D | 📐 | `ote-1.0.0` | 1m |
-| ICT-43 | ICT's Fibonacci levels and targets | 5 | D | 📐 | drawing preset | — |
+| ICT-43 | ICT's Fibonacci levels and targets | 5 | D | ✅ | drawing preset (DEC-048) | — |
 | ICT-44 | Standard deviation projections | 5 | R | 📐 | `stdev-1.0.0` | 1m |
 | ICT-50 | Day boundaries and opening prices | 6 | D | ✅ | `opens-1.0.0` | 1m, sessions |
 | ICT-51 | Sessions and session ranges | 6 | D | ✅ | `sessions-1.0.0` | 1m, sessions |
@@ -561,6 +561,9 @@ reached the CE" means it traded at or beyond that exact half-tick.
 
 **Teach.** A (draw the CE), part of every zone drill.
 
+*Drawing implemented in T8 (DEC-048):* the zone tool shows its CE dashed, in half-ticks, with quarter
+lines. The detector side — the CE inside each zone rule — comes with T10.
+
 ### ICT-22 · FVG lifecycle
 
 **What.** What has happened to a gap since it formed. ICT's language: price **trades into** it,
@@ -812,6 +815,9 @@ and **−2** beyond.
 four shapes (DEC-037); a Fibonacci tool is a new shape and a deliberate scope extension.
 
 **Teach.** L, A.
+
+*Implemented in T8 (DEC-048):* the Fibonacci tool with exactly this level set — 1 at the leg's start,
+0 at its end, the OTE band (ICT-42) shaded and 0.705 heavier, levels to the right edge.
 
 ### ICT-44 · Standard deviation projections
 

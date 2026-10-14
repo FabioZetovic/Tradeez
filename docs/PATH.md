@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T7 merged; T8 (ICT drawing tools) next
+last_session: 017   # in progress — T1–T7 merged; T8 (ICT drawing tools) built on feat/ict-drawings
 last_author: CLAUDE
 last_updated: 2026-10-14
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: feat/ict-drawings                         # T8, not merged. master: feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 261/261 (Testcontainers), frontend 191/191 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 9b5e4dd green 2026-10-14; merged as 6d09763.
+build_passing: true  # feat/ict-drawings: backend 264/264 (Testcontainers), frontend 215/215 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 0f72da6 green 2026-10-14 (lint, typecheck, 215, build; backend 264 without .env) — ready to merge on Fabio's word.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -89,11 +89,12 @@ files_in_repo:
     clock/       # New York clock layer: sessions/opens/levels rules, chart endpoint (017, T7)
     analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
-    lib/drawing/  # geometry, hit testing, snapping, undo store, renderer
+    lib/drawing/  # geometry, hit testing, snapping, undo store, renderer; ict.ts = Fibonacci/CE arithmetic (DEC-048)
+    lib/chart/labelSpace.ts # places canvas labels without overlap (BUG-048)
     lib/clock/    # New York clock: layer switches, renderer (time placed inside bars)
     lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
     lib/drills/   # candle picking, marks, explanations generated from detector evidence
@@ -115,7 +116,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T8 (ICT drawing tools) in progress on feat/ict-drawings.
+blocked_on: nothing — T8 is built on feat/ict-drawings; next is Fabio's call (merge it; T9 detector framework is the roadmap's next item).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -189,7 +190,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
 | T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, **merged 2026-10-14 as `6d09763`** (DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
-| T8 | **ICT drawing tools** | T3 | I-21, I-42–43, X §4 | Fibonacci with ICT preset; zone with CE line; labels. Extends DEC-037's four shapes — record the decision. |
+| T8 | ~~**ICT drawing tools**~~ | T3 | I-21, I-42–43, X §4 | ✅ Session 017, 2026-10-14, on `feat/ict-drawings` (**not merged yet**, DEC-048): Fibonacci with ICT's levels (OTE shaded, targets −0.27 to −2), zone with its CE in half-ticks, labels; words typed on the chart; server checks anchor counts and text (V11). |
 | T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
 | T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
 | T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
@@ -261,6 +262,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
 | DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
+| DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
 | DEC-046 ⚠️ | **A session is a replay with several trades, one at a time.** Flat → in trade → flat; each trade numbered and immutable (V10); its result revealed when the replay passes its exit; the seed or date only when the session **ends** (learner ends it while flat, or a flat replay hits its limit); score over closed trades only. |
 | DEC-044 | **Tailwind CSS 4 for all styling.** Tokens in `src/index.css` (`@theme`), shared with the chart; `components/ui.tsx` + `lib/styles.ts`; no other CSS. Never give one element two utilities for the same property. |
@@ -1610,3 +1612,28 @@ with the date reveal — with no failed request. Three more, each with a test th
 
 **2026-10-14 — T7 merged.** Merged `--no-ff` as `6d09763` with the bug fixes BUG-040 to BUG-046.
 Next: T8 (ICT drawing tools) on `feat/ict-drawings`.
+
+**2026-10-14 — T8: three ICT drawing tools (DEC-048).** Extends DEC-037's four shapes, as it said a
+curriculum would have to:
+- **Fibonacci** (`fibonacci`, 2 anchors): ICT's level set (ICT-43), 1 at the leg's start and 0 at its
+  end; OTE 0.62–0.79 shaded with 0.705 heavier (ICT-42); targets −0.27/−0.62/−1/−2 green; levels to
+  the right edge; prices on the tick grid. **Zone** (`zone`, 2): box with the CE dashed (ICT-21),
+  kept in half-ticks and printed with an extra decimal; quarter lines; optional name. **Label**
+  (`label`, 1): words at a point. Words are typed in a field over the chart (on placing a label,
+  or double-clicking a label or zone); an empty new label is forgotten; saves skip a label still
+  waiting for words. Toolbar: Φ ▤ T. Arithmetic in `lib/drawing/ict.ts`.
+- **Backend V11:** the three kinds; `text` column (≤ 80, labels must have some, only labels and zones
+  may); a CHECK on each kind's anchor count — the controller checks it too (400, not 500). Every
+  existing row satisfied it, checked before writing the migration.
+- **Found while building it:** BUG-047 (undo after a drag lost where the shape had been — the store
+  recorded the last preview), BUG-048 (labels of lines ending together printed over each other —
+  first seen on the real chart once screenshots worked, the 09:30 open under PDH), BUG-049 (a click
+  with a two-point tool left an invisible shape; a zero-length Fibonacci printed ten labels at one
+  price). Each with a test that fails on the old code.
+- **Checked in the browser:** the clock layer at last seen with the eye (killzone strips, PDH/PDL and
+  opens, labels no longer colliding); a Fibonacci dragged with the real mouse from a swing low to a
+  high drew its levels and OTE and saved. The window kept going hidden, so the zone and label were
+  checked by the overlay tests, not by eye. Test drawings removed from the test account afterwards.
+- Docker Desktop had stopped (ENV-001) and was restarted.
+- Backend 261 → 264, frontend 191 → 215. Pushed as `0f72da6`; fresh clone green (frontend 215 + build,
+  backend 264 without `.env`). Not merged: waiting for Fabio.

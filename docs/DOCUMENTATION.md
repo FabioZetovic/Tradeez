@@ -1520,6 +1520,27 @@ the old code — and one of those tests first passed on the broken code, because
 times and only looked at the end, by which point it had stepped past the problem. It now looks after
 every press.
 
+**Checking before merging, and ICT's own drawing tools.** Before the New York clock went into the
+main version, Fabio asked for everything to be checked once more. Reading the changes through found
+three more problems: on the first day of the imported history, the clock could call a 10:00 price
+the "midnight open"; an unanswered "End the session?" came back after a trade; and a trade that had
+just closed could stay hidden behind one picked earlier. All fixed, then merged.
+
+Then three drawing tools that ICT traders use constantly and that the app did not have. A
+**Fibonacci** with ICT's own levels: drawn along a move from where it started to where it ended, it
+shades the band between 62% and 79% where ICT looks to enter — the "optimal trade entry" — and
+marks the levels beyond the move that he uses as targets. A **zone** for a gap or a block, with its
+exact middle drawn in, which ICT calls the consequent encroachment and treats as the level that
+matters inside a zone. And **labels**, for writing on the chart what was seen. Words are typed
+straight onto the chart.
+
+Building them turned up three older problems in the drawing layer. Undo after dragging a shape did
+nothing the first time and deleted the shape the second, because the history remembered where the
+drag ended rather than where it began. Clicking with a two-point tool without dragging left an
+invisible shape behind. And — seen properly for the first time, because the browser window finally
+showed the chart — labels of clock lines ending at the same moment printed on top of each other.
+All three fixed, each with a test that fails on the old code.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1533,9 +1554,10 @@ the example file contains a key — and it names the setting without ever printi
 **By the numbers:** backend tests 164 → 223, frontend tests 131 → 148, two migrations (V7: stored market
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
-session (practice on real data, the replay, the New York clock, the bug audit): backend 223 → 260,
-frontend 148 → 189, V9 and V10,
-DEC-044 to DEC-047.*
+session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools):
+backend 223 → 264,
+frontend 148 → 215, V9 to V11,
+DEC-044 to DEC-048.*
 
 ---
 

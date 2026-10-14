@@ -52,6 +52,10 @@ public class ChartDrawing {
 	@Column(name = "style", nullable = false)
 	private Map<String, Object> style;
 
+	/** A label's words, or a zone's name (V11). Null for every other kind. */
+	@Column(name = "text")
+	private String text;
+
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
@@ -63,13 +67,14 @@ public class ChartDrawing {
 	}
 
 	public ChartDrawing(UUID id, UUID userId, UUID instrumentId, String kind,
-			List<Map<String, Object>> anchors, Map<String, Object> style) {
+			List<Map<String, Object>> anchors, Map<String, Object> style, String text) {
 		this.id = id;
 		this.userId = userId;
 		this.instrumentId = instrumentId;
 		this.kind = kind;
 		this.anchors = anchors;
 		this.style = style;
+		this.text = text;
 
 		// Set here, not only in @PrePersist. The id is client-assigned, so Spring Data sees a
 		// non-null id, concludes the entity is not new, and routes save() through merge() — where
@@ -79,10 +84,12 @@ public class ChartDrawing {
 		this.updatedAt = now;
 	}
 
-	public void update(String kind, List<Map<String, Object>> anchors, Map<String, Object> style) {
+	public void update(String kind, List<Map<String, Object>> anchors, Map<String, Object> style,
+			String text) {
 		this.kind = kind;
 		this.anchors = anchors;
 		this.style = style;
+		this.text = text;
 	}
 
 	@PrePersist
@@ -119,5 +126,9 @@ public class ChartDrawing {
 
 	public Map<String, Object> getStyle() {
 		return style;
+	}
+
+	public String getText() {
+		return text;
 	}
 }

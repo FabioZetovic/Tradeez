@@ -27,6 +27,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Saved chart drawings, scoped to the signed-in user and one instrument.
@@ -55,8 +56,20 @@ public class ChartDrawingController {
 	 * passing it — but letting it be the only check turns a client typo into a 500 and a stack
 	 * trace. An unknown tool name is the client's mistake, and should read as one.
 	 */
-	private static final java.util.Set<String> VALID_KINDS =
-		java.util.Set.of("horizontal-line", "trend-line", "rectangle", "position");
+	static final Map<String, Integer> ANCHOR_COUNT = Map.of(
+		"horizontal-line", 1,
+		"trend-line", 2,
+		"rectangle", 2,
+		"position", 3,
+		// DEC-048 (T8): ICT's Fibonacci levels, a zone with its consequent encroachment, a text label.
+		"fibonacci", 2,
+		"zone", 2,
+		"label", 1);
+
+	/** Only these carry text: a label's words, a zone's name. Mirrors {@code ck_chart_drawing_text}. */
+	private static final java.util.Set<String> TEXT_KINDS = java.util.Set.of("label", "zone");
+
+	static final int MAX_TEXT = 80;
 
 	private final ChartDrawingRepository drawings;
 	private final MarketDataService marketData;
@@ -78,7 +91,9 @@ public class ChartDrawingController {
 		@NotNull UUID id,
 		@NotBlank String kind,
 		@NotEmpty List<@Valid AnchorDto> anchors,
-		Map<String, Object> style) {
+		Map<String, Object> style,
+		@Schema(description = "A label's words (required) or a zone's name (optional); at most 80 characters")
+		@Size(max = MAX_TEXT) String text) {
 	}
 
 	@GetMapping
@@ -109,9 +124,23 @@ public class ChartDrawingController {
 		if (!id.equals(body.id())) {
 			throw new IllegalArgumentException("Drawing id in the path and body must match.");
 		}
-		if (!VALID_KINDS.contains(body.kind())) {
+		Integer anchorCount = ANCHOR_COUNT.get(body.kind());
+		if (anchorCount == null) {
 			throw new IllegalArgumentException(
-				"Unknown drawing kind '" + body.kind() + "'. Supported: " + VALID_KINDS);
+				"Unknown drawing kind '" + body.kind() + "'. Supported: " + ANCHOR_COUNT.keySet());
+		}
+		// A shape with the wrong number of points cannot be drawn, and saved it would break the chart
+		// every time it loaded. The database insists too (V11); this makes it a 400, not a 500.
+		if (body.anchors().size() != anchorCount) {
+			throw new IllegalArgumentException("A " + body.kind() + " has " + anchorCount
+				+ (anchorCount == 1 ? " anchor" : " anchors") + ", not " + body.anchors().size() + ".");
+		}
+		String text = body.text() == null || body.text().isBlank() ? null : body.text().strip();
+		if (text != null && !TEXT_KINDS.contains(body.kind())) {
+			throw new IllegalArgumentException("Only labels and zones carry text.");
+		}
+		if (text == null && "label".equals(body.kind())) {
+			throw new IllegalArgumentException("A label needs some text.");
 		}
 
 		Instrument instrument = marketData.requireInstrument(symbol);
@@ -137,7 +166,7 @@ public class ChartDrawingController {
 		}
 
 		if (existing.isPresent()) {
-			existing.get().update(body.kind(), anchors, style);
+			existing.get().update(body.kind(), anchors, style, text);
 			return ResponseEntity.ok(toDto(drawings.save(existing.get())));
 		}
 
@@ -149,7 +178,7 @@ public class ChartDrawingController {
 		}
 
 		ChartDrawing created = new ChartDrawing(
-			id, principal.id(), instrument.getId(), body.kind(), anchors, style);
+			id, principal.id(), instrument.getId(), body.kind(), anchors, style, text);
 		return ResponseEntity.status(HttpStatus.CREATED).body(toDto(drawings.save(created)));
 	}
 
@@ -174,7 +203,8 @@ public class ChartDrawingController {
 				((Number) a.get("time")).longValue(),
 				((Number) a.get("priceTicks")).longValue()))
 			.toList();
-		return new DrawingDto(drawing.getId(), drawing.getKind(), anchors, drawing.getStyle());
+		return new DrawingDto(drawing.getId(), drawing.getKind(), anchors, drawing.getStyle(),
+			drawing.getText());
 	}
 
 	/** Raised when an id exists but belongs to someone else. Surfaced as 404, never 403. */

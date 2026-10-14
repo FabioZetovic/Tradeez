@@ -21,7 +21,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   hours and macros shaded; midnight, 08:30, 09:30 and weekly opens, PDH/PDL, PWH/PWL and killzone
   highs/lows drawn — each switchable, computed from one-minute bars under versioned rules, never
   ahead of a replay's cursor and never across a contract roll.
-- **Drawing tools:** horizontal line, trend line, rectangle and position (risk/reward). They are
+- **Drawing tools:** horizontal line, trend line, rectangle and position (risk/reward), and three
+  ICT tools (DEC-048): a Fibonacci with ICT's levels — the 62–79% optimal trade entry shaded and the
+  −0.27 to −2 targets — a zone with its 50% (consequent encroachment), and text labels. They are
   saved per account, with undo and redo.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date

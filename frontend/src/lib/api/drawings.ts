@@ -14,6 +14,8 @@ interface DrawingWire {
   kind: string
   anchors: Array<{ time: number; priceTicks: number }>
   style: Record<string, unknown> | null
+  /** A label's words or a zone's name; absent for the other kinds. */
+  text?: string
 }
 
 const path = (symbol: string) => `/api/charts/${encodeURIComponent(symbol)}/drawings`
@@ -27,6 +29,7 @@ export async function listDrawings(symbol: string): Promise<Drawing[]> {
     // Falls back to the tool's default rather than trusting whatever the row happens to hold. A
     // drawing saved before a style field existed would otherwise render with no colour at all.
     style: { ...DEFAULT_STYLES[d.kind as Drawing['kind']], ...(d.style ?? {}) },
+    ...(d.text !== undefined && { text: d.text }),
   }))
 }
 

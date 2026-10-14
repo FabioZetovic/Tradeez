@@ -19,7 +19,8 @@
 
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
-merge of T7 found three more (BUG-044 to BUG-046). All seven are fixed.
+merge of T7 found three more (BUG-044 to BUG-046), and building T8 three more (BUG-047 to BUG-049).
+All ten are fixed.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -461,6 +462,52 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-047 🟠 Undo after dragging a drawing lost where it had been
+
+**Status:** verified — found reading the drawing store while building T8; tests fail on the old code
+**Affects:** `frontend/src/lib/drawing/store.ts`, `components/DrawingOverlay.tsx`
+
+**What happened.** A drag moves a drawing with `preview` actions (no history), then records one
+`update` when the pointer is released. But `update` saved the state *as it was at release* — already
+holding the last preview — as the step to undo to. So after dragging a shape, the first Undo changed
+nothing, the second removed the shape altogether, and the position before the drag was gone for
+good. Creating a shape by dragging cost the same extra, empty Undo; and every plain click on a drawing
+added an undo step that changed nothing.
+
+**✅ FIXED — Session 017.** A gesture keeps the drawing as it found it, and `update` takes it as
+`from`: history records that, and records nothing at all when nothing changed. A creation's undo step
+is the `add` itself; the previews only shape what it added. `drawing.test` replays the overlay's own
+sequence of actions and fails on the old store at the first Undo.
+
+### BUG-048 🟡 Labels of lines that ended together printed over each other
+
+**Status:** verified — seen on the real chart once screenshots worked again (the 09:30 open fifteen
+ticks under the PDH); a test fails on the old renderer
+**Affects:** `frontend/src/lib/clock/render.ts`, `lib/drawing/render.ts`
+
+**What happened.** Every clock line is labelled at its right end, and lines of one day end together at
+17:00. Two of them a few ticks apart printed their labels on top of each other, legible as neither.
+The new Fibonacci had the same problem on a short leg, where 0.62, 0.705 and 0.79 sit pixels apart.
+
+**✅ FIXED — Session 017.** `lib/chart/labelSpace.ts`: labels are placed after their lines, most
+important first (PWH/PWL, PDH/PDL, session levels, opens; on a Fibonacci 0.705, 0.5, the ends, the
+main targets), each into free space — a line higher if it must, left out if there is none. The line is
+always drawn; only words give way. On the real chart the 09:30 open now sits a line above the PDH.
+
+### BUG-049 🟡 A click with a two-point tool left an invisible shape behind
+
+**Status:** verified — found checking T8 in the browser: a zero-length Fibonacci printed its ten
+labels at one price; a test fails on the old overlay
+**Affects:** `frontend/src/components/DrawingOverlay.tsx`
+
+**What happened.** A trend line, rectangle, zone or Fibonacci is created by pressing and dragging. A
+press released without moving created one anyway, with both points in the same place: invisible for a
+line or a box, a stack of ten labels for a Fibonacci — and saved to the server either way.
+
+**✅ FIXED — Session 017.** A creation whose points all coincide when the pointer is released is
+forgotten (no history, nothing saved). The position tool, which seeds a bracket from a single click on
+purpose, is unaffected.
 
 ### BUG-044 🟡 The clock could name a later price after the time it was named for
 

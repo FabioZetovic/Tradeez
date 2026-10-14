@@ -31,7 +31,11 @@ export const initialDrawingState: DrawingState = {
 
 export type DrawingAction =
   | { type: 'add'; drawing: Drawing }
-  | { type: 'update'; drawing: Drawing }
+  /**
+   * `from`: the drawing as it was before a gesture whose previews have already moved it. History
+   * records that, not the last preview (BUG-047) — and nothing at all if the gesture changed nothing.
+   */
+  | { type: 'update'; drawing: Drawing; from?: Drawing }
   /** Mid-drag updates: the shape changes but no history entry is created. */
   | { type: 'preview'; drawing: Drawing }
   | { type: 'remove'; id: string }
@@ -63,13 +67,21 @@ export function drawingReducer(state: DrawingState, action: DrawingAction): Draw
         future: [],
       }
 
-    case 'update':
+    case 'update': {
+      const { drawing, from } = action
+      const replace = (drawings: Drawing[], next: Drawing) =>
+        drawings.map((d) => (d.id === next.id ? next : d))
+      if (from && JSON.stringify(from.anchors) === JSON.stringify(drawing.anchors) && from.text === drawing.text) {
+        // A click, or a drag back to where it started: no step to undo.
+        return { ...state, drawings: replace(state.drawings, drawing) }
+      }
       return {
         ...state,
-        drawings: state.drawings.map((d) => (d.id === action.drawing.id ? action.drawing : d)),
-        past: pushHistory(state),
+        drawings: replace(state.drawings, drawing),
+        past: pushHistory(from ? { ...state, drawings: replace(state.drawings, from) } : state),
         future: [],
       }
+    }
 
     case 'preview':
       // Deliberately no history. A drag fires on every mouse move, and recording each one would
