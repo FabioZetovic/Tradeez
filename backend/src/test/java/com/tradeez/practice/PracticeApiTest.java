@@ -222,13 +222,13 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		}
 
 		@Test
-		@DisplayName("defaults to DEMO-NQ on five minutes when no body is sent")
+		@DisplayName("defaults to real NQ, and says so plainly when no history has been imported")
 		void defaults() throws Exception {
-			JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice)
-					.with(csrf()))
-				.andExpect(status().isCreated()));
-			assertThat(session.at("/state/instrument").asText()).isEqualTo("DEMO-NQ");
-			assertThat(session.at("/state/timeframe").asText()).isEqualTo("5m");
+			// This database has no imported bars. RealPracticeApiTest covers the default with data.
+			mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf()))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+					"No real NQ history has been imported")));
 		}
 
 		@Test
@@ -244,10 +244,12 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			}
 			sessions.saveAll(many);
 
-			mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf()))
+			mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())
+					.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
 				.andExpect(status().isTooManyRequests());
 			// Someone else's quota is their own.
-			mockMvc.perform(post("/api/practice/sessions").cookie(bob).with(csrf()))
+			mockMvc.perform(post("/api/practice/sessions").cookie(bob).with(csrf())
+					.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
 				.andExpect(status().isCreated());
 		}
 	}

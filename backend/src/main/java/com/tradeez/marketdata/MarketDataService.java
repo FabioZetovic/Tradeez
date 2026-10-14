@@ -65,6 +65,14 @@ public class MarketDataService {
 		return extent == null ? null : new Instant[] { extent[0], extent[1].plusSeconds(60) };
 	}
 
+	/**
+	 * One-minute bars stored for real data in {@code [from, to)}: whether the market actually traded
+	 * there. The session calendar knows the hours, not the holidays and early closes; the data does.
+	 */
+	public int storedMinutes(Instrument instrument, Instant from, Instant to) {
+		return barStore.count(instrument.getId(), "1m", from, to);
+	}
+
 	public Instrument requireInstrument(String symbol) {
 		return instruments.findBySymbolIgnoreCase(symbol)
 			.orElseThrow(() -> new InstrumentNotFoundException(symbol));

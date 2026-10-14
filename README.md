@@ -19,18 +19,19 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   York time, the clock ICT is taught in. Every series names its source.
 - **Drawing tools:** horizontal line, trend line, rectangle and position (risk/reward). They are
   saved per account, with undo and redo.
-- **Practice** (still on the labelled simulated market until its date can be hidden — T4): a
-  session opens at a random hidden moment. You place a bracket trade and lock it,
+- **Practice** on real NQ: a session opens at a random hidden moment from the imported history —
+  optionally in an ICT killzone and on a chosen weekday — with its **date hidden** until the result
+  (only the weekday and New York time are shown, DEC-045). You place a bracket trade and lock it,
   then step the replay forward bar by bar.
-  - Each trade is resolved on one-second data, and a genuinely undecidable one is reported as
-    *ambiguous*, not guessed.
+  - Each trade is resolved on the finest bars stored (one-minute for real NQ today), and a genuinely
+    undecidable one is reported as *ambiguous*, not guessed.
   - A result card shows P&L, R-multiple, worst and best excursion, and the seed that reproduces it.
   - A journal keeps every session, and results can't be edited.
 - **Drills:** find every fair value gap in a 30-candle chart. The answer key comes from a versioned
   detector and is withheld until you check; each gap is explained in the detector's own numbers. On
   simulated data a drill is labelled a developer fixture and never graded.
 
-**Not built yet:** practice and drills on real data, the ICT detectors beyond fair value gaps,
+**Not built yet:** drills on real data, the candle-by-candle replay mode (T5), the ICT detectors beyond fair value gaps,
 graded drills, any score or rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 

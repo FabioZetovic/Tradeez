@@ -59,6 +59,15 @@ public class MarketBarStore {
 		return Arrays.stream(counts).flatMapToInt(Arrays::stream).map(c -> Math.max(c, 0)).sum();
 	}
 
+	/** How many bars open in {@code [from, to)}. */
+	public int count(UUID instrumentId, String resolution, Instant from, Instant to) {
+		Integer n = jdbc.queryForObject("""
+				SELECT count(*) FROM market_bar
+				WHERE instrument_id = ? AND resolution = ? AND open_time >= ? AND open_time < ?""",
+			Integer.class, instrumentId, resolution, Timestamp.from(from), Timestamp.from(to));
+		return n == null ? 0 : n;
+	}
+
 	/** Bars opening in {@code [from, to)}, in time order. */
 	public List<Bar> read(UUID instrumentId, String resolution, Instant from, Instant to) {
 		return jdbc.query("""

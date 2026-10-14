@@ -12,29 +12,34 @@ import com.tradeez.marketdata.Bar;
  * the market plays out, and this class says which one was hit, when, and at what price. If it is
  * wrong, every score, every journal entry and every lesson drawn from them is wrong too.
  *
- * <h2>Why it walks one-second bars (DEC-008)</h2>
+ * <h2>Why it walks the finest bars there are (DEC-008)</h2>
  * The learner watches five-minute candles. A single five-minute candle can easily have a high above
  * the target and a low below the stop, and from the candle alone there is no way to know which came
- * first. So the engine never looks at the candles the learner sees. It walks the one-second bars
- * inside them, in order, and finds the first touch.
+ * first. So the engine never looks at the candles the learner sees. It walks the finest bars inside
+ * them, in order, and finds the first touch: one-second bars where they exist (simulated data, and
+ * real data imported at one second), otherwise one-minute bars ({@link Resolution}).
  *
  * <h2>Why it can still say "don't know"</h2>
- * Finer data narrows the ambiguity; it does not remove it. If a single one-second bar spans both the
- * stop and the target, the order is still unknown, and the engine says so: {@link Outcome#AMBIGUOUS}.
+ * Finer data narrows the ambiguity; it does not remove it. If a single bar spans both the stop and
+ * the target, the order is still unknown, and the engine says so: {@link Outcome#AMBIGUOUS}. On
+ * one-minute bars that happens more often than on one-second bars — honestly reported, never guessed.
  * That was a correction Codex made to the original design, and it matters — the alternative is to
  * quietly pick an answer and present a guess as a fact. The result records the pessimistic exit so
  * there is a number to show, and every consumer must label it as an assumption (INVARIANT 6).
  *
  * <h2>Rules, versioned together (DEC-012)</h2>
  * <ul>
- *   <li>Entry is <b>at market</b>: the open of the first one-second bar after the plan is locked.</li>
+ *   <li>Entry is <b>at market</b>: the open of the first bar after the plan is locked.</li>
  *   <li>Touch fills. A long stop is hit when the low reaches it; a long target when the high does.</li>
  *   <li>Gaps fill at the open, not at the order price. A stop jumped over is filled where the market
  *       actually reopened, which is worse — that is what happens to real stops.</li>
  *   <li>Stops slip against the trader by {@link FillModel#stopSlippageTicks()}. Targets do not:
  *       they are resting limit orders, and a limit cannot fill at a worse price than its own.</li>
- *   <li>The market closing ends the trade. A gap in the one-second series means the session ended;
- *       the position is flattened at the last close before it ({@link Outcome#TIME_EXIT}).</li>
+ *   <li>The market closing ends the trade. The caller supplies bars up to the session's close; when
+ *       they run out, the position is flattened at the last close ({@link Outcome#TIME_EXIT}). A
+ *       missing bar inside that window is a stretch with no trades, not a closure: real data is
+ *       sparse — a quiet minute has no bar — and fill-1.0.0's rule that any gap meant the session had
+ *       ended would have closed real trades early (T4).</li>
  *   <li>Commission is charged per contract per round trip.</li>
  * </ul>
  *
@@ -46,7 +51,7 @@ import com.tradeez.marketdata.Bar;
 public final class FillEngine {
 
 	/** Bump on ANY change to fill behaviour. Stored on every result. */
-	public static final String VERSION = "fill-1.0.0";
+	public static final String VERSION = "fill-1.1.0";
 
 	private FillEngine() {
 	}
@@ -66,7 +71,7 @@ public final class FillEngine {
 		/** The stop was reached first. */
 		STOP,
 		/**
-		 * Both were inside a single one-second bar, so the order is genuinely unknown. The recorded
+		 * Both were inside a single bar, so the order is genuinely unknown. The recorded
 		 * exit is the pessimistic one (the stop), and must be presented as an assumption.
 		 */
 		AMBIGUOUS,
@@ -74,9 +79,15 @@ public final class FillEngine {
 		TIME_EXIT
 	}
 
-	/** The finest data the resolution used. Only one-second data exists today. */
+	/** The bars the resolution walked. */
 	public enum Resolution {
-		S1
+		S1,
+		M1;
+
+		/** "second" or "minute", for explaining an ambiguous result in words. */
+		public String unit() {
+			return this == S1 ? "second" : "minute";
+		}
 	}
 
 	/**
@@ -144,14 +155,21 @@ public final class FillEngine {
 		}
 	}
 
+	/** Resolves a bracket trade on one-second bars. */
+	public static Fill resolve(Plan plan, List<Bar> seconds, FillModel model) {
+		return resolve(plan, seconds, model, Resolution.S1);
+	}
+
 	/**
 	 * Resolves a bracket trade.
 	 *
-	 * @param seconds one-second bars in time order, starting at the moment the plan was locked. Must
-	 *                not be empty — a trade cannot be entered into a closed market.
+	 * @param bars       bars of {@code resolution} in time order, from the moment the plan was locked to
+	 *                   the session's close. Must not be empty — a trade cannot be entered into a
+	 *                   closed market.
+	 * @param resolution what the bars are; recorded on the result
 	 */
-	public static Fill resolve(Plan plan, List<Bar> seconds, FillModel model) {
-		if (seconds.isEmpty()) {
+	public static Fill resolve(Plan plan, List<Bar> bars, FillModel model, Resolution resolution) {
+		if (bars.isEmpty()) {
 			throw new IllegalArgumentException("No market data to enter the trade into.");
 		}
 
@@ -161,25 +179,15 @@ public final class FillEngine {
 		final long target = plan.targetTicks();
 		final long slip = model.stopSlippageTicks();
 
-		final Bar first = seconds.getFirst();
+		final Bar first = bars.getFirst();
 		final Instant entryTime = first.openTime();
 		final long entry = first.openTicks();
 
 		long mae = 0;
 		long mfe = 0;
 
-		for (int i = 0; i < seconds.size(); i++) {
-			Bar bar = seconds.get(i);
-
-			// A hole in the one-second series means the market closed. The trade does not survive
-			// into the next session: it is flattened at the last price before the close.
-			if (i > 0 && bar.openTime().getEpochSecond()
-					- seconds.get(i - 1).openTime().getEpochSecond() > 1) {
-				Bar last = seconds.get(i - 1);
-				return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks(),
-					sign, mae, mfe, false);
-			}
-
+		for (int i = 0; i < bars.size(); i++) {
+			Bar bar = bars.get(i);
 			long open = bar.openTicks();
 
 			// The open first. If the market opened beyond a level, the order fills at the open —
@@ -187,38 +195,38 @@ public final class FillEngine {
 			if (stopTouched(dir, open, open, stop)) {
 				long exit = open - sign * slip;
 				return fill(Outcome.STOP, entryTime, entry, bar.openTime(), exit, sign,
-					Math.max(mae, adverse(sign, entry, exit)), mfe, open != stop);
+					Math.max(mae, adverse(sign, entry, exit)), mfe, open != stop, resolution);
 			}
 			if (targetTouched(dir, open, open, target)) {
 				return fill(Outcome.TARGET, entryTime, entry, bar.openTime(), open, sign,
-					mae, Math.max(mfe, favourable(sign, entry, open)), open != target);
+					mae, Math.max(mfe, favourable(sign, entry, open)), open != target, resolution);
 			}
 
 			boolean stopHit = stopTouched(dir, bar.lowTicks(), bar.highTicks(), stop);
 			boolean targetHit = targetTouched(dir, bar.lowTicks(), bar.highTicks(), target);
 
 			if (stopHit && targetHit) {
-				// Both inside one second. The order cannot be known from this data, and pretending
+				// Both inside one bar. The order cannot be known from this data, and pretending
 				// otherwise would be presenting a guess as a fact. Record the pessimistic exit so there
 				// is something to show, flagged as what it is.
 				long exit = stop - sign * slip;
 				return fill(Outcome.AMBIGUOUS, entryTime, entry, bar.openTime(), exit, sign,
 					Math.max(mae, adverse(sign, entry, exit)),
-					Math.max(mfe, favourable(sign, entry, target)), false);
+					Math.max(mfe, favourable(sign, entry, target)), false, resolution);
 			}
 			if (stopHit) {
 				long exit = stop - sign * slip;
 				// Only the exit price counts toward excursion on the exit bar: whatever else the bar
 				// did happened after, or before, a position that no longer existed.
 				return fill(Outcome.STOP, entryTime, entry, bar.openTime(), exit, sign,
-					Math.max(mae, adverse(sign, entry, exit)), mfe, false);
+					Math.max(mae, adverse(sign, entry, exit)), mfe, false, resolution);
 			}
 			if (targetHit) {
 				return fill(Outcome.TARGET, entryTime, entry, bar.openTime(), target, sign,
-					mae, Math.max(mfe, favourable(sign, entry, target)), false);
+					mae, Math.max(mfe, favourable(sign, entry, target)), false, resolution);
 			}
 
-			// Survived the whole second: its extremes are genuine excursions.
+			// Survived the whole bar: its extremes are genuine excursions.
 			long worst = dir == Direction.LONG ? bar.lowTicks() : bar.highTicks();
 			long best = dir == Direction.LONG ? bar.highTicks() : bar.lowTicks();
 			mae = Math.max(mae, adverse(sign, entry, worst));
@@ -227,9 +235,9 @@ public final class FillEngine {
 
 		// Ran out of data without a decision. The caller supplied a window that ended mid-session;
 		// flatten at the last close.
-		Bar last = seconds.getLast();
+		Bar last = bars.getLast();
 		return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks(),
-			sign, mae, mfe, false);
+			sign, mae, mfe, false, resolution);
 	}
 
 	private static boolean stopTouched(Direction dir, long low, long high, long stop) {
@@ -251,8 +259,8 @@ public final class FillEngine {
 	}
 
 	private static Fill fill(Outcome outcome, Instant entryTime, long entry, Instant exitTime,
-			long exit, int sign, long mae, long mfe, boolean gap) {
+			long exit, int sign, long mae, long mfe, boolean gap, Resolution resolution) {
 		return new Fill(outcome, entryTime, entry, exitTime, exit, sign * (exit - entry),
-			mae, mfe, gap, Resolution.S1);
+			mae, mfe, gap, resolution);
 	}
 }

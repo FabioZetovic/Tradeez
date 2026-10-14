@@ -15,6 +15,8 @@ export type Direction = 'LONG' | 'SHORT'
 type PracticeStatus = 'ANALYSING' | 'IN_TRADE' | 'COMPLETE'
 export type Outcome = 'TARGET' | 'STOP' | 'AMBIGUOUS' | 'TIME_EXIT'
 
+export type TimeBasis = 'UTC' | 'NEW_YORK_WALL_CLOCK'
+
 export interface PlanView {
   direction: Direction
   stopTicks: number
@@ -66,6 +68,12 @@ export interface PracticeState {
   startTime: number
   /** Nothing at or after this instant has been revealed. */
   cursor: number
+  /**
+   * How to read every time in this session. UTC: real epoch seconds. NEW_YORK_WALL_CLOCK: a real
+   * session behind a hidden date (DEC-025) — New York wall-clock time written as UTC on a fictional
+   * week. Render it in UTC, label it New York, and never show its date.
+   */
+  timeBasis: TimeBasis
   dataClass: string
   disclaimer?: string
   plan?: PlanView
@@ -79,7 +87,12 @@ export interface PracticeState {
    * different market (BUG-028).
    */
   seed?: string
-  generatorVersion: string
+  /** Simulated data only. */
+  generatorVersion?: string
+  /** Real data only: where the bars came from, e.g. massive. */
+  dataSource?: string
+  /** Real data only, present once COMPLETE: the hidden moment's real time — the date reveal. */
+  revealedStartTime?: number
 }
 
 export interface SessionResponse {
@@ -108,7 +121,24 @@ export interface PlanRequest {
 
 export const PRACTICE_TIMEFRAMES = ['1m', '5m', '15m'] as const
 
-export const createSession = (body: { instrument?: string; timeframe?: string }) =>
+/** ICT killzones in New York time (sessions-1.0.0, DEC-043), for choosing a practice moment. */
+export const KILLZONES = [
+  { value: 'ASIA', label: 'Asia · 20:00–24:00' },
+  { value: 'LONDON', label: 'London · 02:00–05:00' },
+  { value: 'NEW_YORK_AM', label: 'New York AM · 08:30–11:00' },
+  { value: 'NEW_YORK_PM', label: 'New York PM · 13:30–16:00' },
+] as const
+
+export const WEEKDAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'] as const
+
+export const createSession = (body: {
+  instrument?: string
+  timeframe?: string
+  /** One of KILLZONES' values; absent means any time. */
+  killzone?: string
+  /** One of WEEKDAYS; absent means any day. */
+  weekday?: string
+}) =>
   apiFetch<SessionResponse>('/api/practice/sessions', {
     method: 'POST',
     body: JSON.stringify(body),

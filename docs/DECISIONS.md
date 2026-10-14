@@ -343,6 +343,34 @@ lookahead just as surely as one reading the network tab.
 look up. The secret that matters there is the **seed**. Date obfuscation still applies in full the
 moment real data (`IMPORTED_PRIVATE` or `LICENSED_DEPLOYABLE`) is used in practice.
 
+*Implemented in Session 017 (T4) by DEC-045.*
+
+**DEC-045 — Practice on real data: a hidden-date clock, minute fills, a filterable picker**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-13), implementing DEC-025 and DEC-040 for practice
+
+- **The date never reaches the client before the result.** A real session's times — bars, cursor,
+  plan, entry, exit — are shown on a fictional week in January 2000 (`PracticeClock`): same weekday,
+  same New York wall-clock time, written as UTC (`timeBasis = NEW_YORK_WALL_CLOCK`). The offset is
+  per session and server-side (`practice_session.clock_day_shift`). The client renders those times in
+  UTC and labels them "NY" — not EST/EDT, which would reveal the season. Daylight-saving changes fall
+  on Sunday 02:00 New York, when CME is closed, so wall-clock times never collide. The real start is
+  sent once COMPLETE (`revealedStartTime`). Simulated sessions keep real epoch times (DEC-038).
+- **Fills on the finest bars stored** — one-second where they exist, otherwise one-minute (Massive's
+  free plan, DEC-042) — and the result records which (`resolution`). **`fill-1.1.0`** drops
+  fill-1.0.0's rule that any gap in the bars meant the market had closed: real data is sparse, and a
+  quiet minute with no trades has no bar. The service ends the bars at the session's close instead, so
+  the close still ends the trade. An ambiguous result says "inside the same minute" on minute bars.
+- **The moment is drawn from the imported history** where the market actually traded — open by the
+  calendar *and* with bars around it (the calendar knows hours, not holidays) — optionally inside an
+  ICT killzone (`sessions-1.0.0`, DEC-043) and on a chosen New York weekday.
+- **Provenance without a seed:** real sessions and results record `data_source` (V9); a CHECK requires
+  every session and result to carry a seed or a source.
+- **Default instrument is real NQ.** Simulated `DEMO-NQ` remains available by symbol (Drills, tests).
+
+Known limits, stated rather than hidden: the price level hints at the era (NQ at 20,000 vs 30,000),
+and a determined learner could search the Chart tab for the same pattern. Neither gives the next
+candle; both are in BUGS.md's known limitations.
+
 **DEC-038 — A simulated market's seed is a secret; the public endpoint serves one fixed market**
 `AGREED` · Claude, Session 014, at Fabio's instruction ⚠️ critical
 
@@ -378,6 +406,8 @@ anything above 2^53 — and a rounded seed regenerates a different market, which
 reproducibility promise false for nearly every session.
 
 **DEC-008 — The fill engine simulates at sub-resolution** · `AGREED` · both analyses ⚠️ critical
+*Session 017 (DEC-045): on real data without one-second bars the ladder starts at one minute, and
+`fill-1.1.0` no longer reads a gap in the bars as the market closing.*
 **The problem:** a replayed 5m bar with `high` above the take-profit and `low` below the stop-loss
 does not reveal which was touched first. At realistic day-trading stop distances this is common,
 not rare.

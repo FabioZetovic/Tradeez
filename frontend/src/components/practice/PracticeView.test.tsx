@@ -29,6 +29,7 @@ const ANALYSING: PracticeState = {
   status: 'ANALYSING',
   startTime: CURSOR,
   cursor: CURSOR,
+  timeBasis: 'UTC',
   dataClass: 'SIMULATED',
   disclaimer: 'SIMULATED DATA — NOT MARKET HISTORY',
   generatorVersion: 'demo-gen-1.2.0',
@@ -355,5 +356,96 @@ describe('Practice — journal', () => {
     expect(done).toHaveTextContent('$397.50')
     expect(done).toHaveTextContent('+2.00')
     expect(within(done).getByRole('button')).toHaveTextContent('Review')
+  })
+})
+
+/** Monday 09:35 New York on the fictional week: what a real session shows instead of its date. */
+const SHOWN_MONDAY_0935 = Date.UTC(2000, 0, 10, 9, 35) / 1000
+/** The real moment behind it: Monday 7 April 2025, 10:05 New York. */
+const REAL_START = Date.UTC(2025, 3, 7, 14, 5) / 1000
+
+/** The happy server, playing a session on real NQ behind a hidden date (DEC-025). */
+function realServer() {
+  const simulated = happyServer()
+  const real = (s: PracticeState): PracticeState => ({
+    ...s,
+    instrument: 'NQ',
+    dataClass: 'IMPORTED_PRIVATE',
+    disclaimer: undefined,
+    generatorVersion: undefined,
+    seed: undefined,
+    timeBasis: 'NEW_YORK_WALL_CLOCK',
+    dataSource: 'massive',
+    startTime: SHOWN_MONDAY_0935,
+    cursor: s.status === 'ANALYSING' ? SHOWN_MONDAY_0935 : SHOWN_MONDAY_0935 + 300,
+    result: s.result && { ...s.result, resolution: 'M1' },
+    revealedStartTime: s.status === 'COMPLETE' ? REAL_START : undefined,
+  })
+  return (call: Call) => {
+    const response = simulated(call)
+    const body = response.body as { state?: PracticeState } | PracticeState
+    if (body && 'state' in body && body.state) {
+      return { ...response, body: { ...body, state: real(body.state) } }
+    }
+    if (body && 'status' in body && 'id' in body) return { ...response, body: real(body) }
+    return response
+  }
+}
+
+describe('Practice — real NQ behind a hidden date (T4, DEC-025)', () => {
+  beforeEach(() => mockApi(realServer()))
+
+  it('asks for real NQ, with no filters unless some are chosen', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({
+      instrument: 'NQ',
+      timeframe: '5m',
+    })
+  })
+
+  it('asks for the ICT session and the weekday chosen', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await user.selectOptions(await screen.findByRole('combobox', { name: /^session/i }), 'LONDON')
+    await user.selectOptions(screen.getByRole('combobox', { name: /^day/i }), 'TUESDAY')
+    await startSession(user)
+    expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({
+      instrument: 'NQ',
+      timeframe: '5m',
+      killzone: 'LONDON',
+      weekday: 'TUESDAY',
+    })
+  })
+
+  it('shows New York wall-clock time and keeps the date hidden', async () => {
+    const adapter = new FakeChartAdapter()
+    const user = userEvent.setup()
+    render(<PracticeView adapterFactory={() => adapter} />)
+    await startSession(user)
+
+    expect(screen.getByTestId('practice-cursor')).toHaveTextContent('Mon 09:35 NY')
+    expect(screen.getByTestId('date-hidden')).toHaveTextContent('date hidden')
+    expect(adapter.mountOptions?.axisTimezone).toBe('wall-clock')
+    expect(screen.queryByText(/SIMULATED DATA/)).not.toBeInTheDocument()
+  })
+
+  it('reveals the real date with the result, and names the real source instead of a seed', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /place long/i }))
+    await user.click(screen.getByRole('button', { name: /lock plan/i }))
+    await screen.findByText(/— locked/)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+
+    const revealed = await screen.findByTestId('revealed-date')
+    expect(revealed).toHaveTextContent('Monday 7 April 2025')
+    expect(revealed).toHaveTextContent('10:05')
+    expect(screen.queryByTestId('date-hidden')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('result-seed')).not.toBeInTheDocument()
+    expect(screen.getByText(/Real NQ history from massive/)).toBeInTheDocument()
+    expect(screen.getByText(/Resolved on one-minute bars/)).toBeInTheDocument()
   })
 })

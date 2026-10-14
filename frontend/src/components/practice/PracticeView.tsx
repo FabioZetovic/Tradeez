@@ -4,14 +4,16 @@ import { ApiError } from '@/lib/api/client'
 import {
   createSession,
   listSessions,
+  KILLZONES,
   PRACTICE_TIMEFRAMES,
+  WEEKDAYS,
   type SessionResponse,
   type SessionSummary,
 } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatCents, formatR, outcomeLabel } from '@/lib/practice/plan'
 import { Button, Panel, Segmented } from '../ui'
-import { errorClass, panelTitle } from '@/lib/styles'
+import { errorClass, fieldClass, panelTitle } from '@/lib/styles'
 
 interface PracticeViewProps {
   adapterFactory?: () => ChartAdapter
@@ -28,6 +30,9 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   const [created, setCreated] = useState<SessionResponse | undefined>(undefined)
   const [journal, setJournal] = useState<SessionSummary[] | null>(null)
   const [timeframe, setTimeframe] = useState<string>('5m')
+  // Empty means "any": the server then picks from the whole history.
+  const [killzone, setKillzone] = useState('')
+  const [weekday, setWeekday] = useState('')
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,7 +50,12 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     setStarting(true)
     setError(null)
     try {
-      const session = await createSession({ instrument: 'DEMO-NQ', timeframe })
+      const session = await createSession({
+        instrument: 'NQ',
+        timeframe,
+        ...(killzone && { killzone }),
+        ...(weekday && { weekday }),
+      })
       setCreated(session)
       setOpenId(session.state.id)
     } catch (e) {
@@ -76,9 +86,10 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
       <Panel aria-label="New session">
         <h2 className="mb-2 text-lg font-semibold">Practice</h2>
         <p className="max-w-3xl text-sm text-subtle">
-          You get a chart that stops at a random, hidden moment. Read it, decide, and lock a trade
-          with a stop and a target — or step forward and wait. Then watch what the market did. The
-          result is recorded as it happened, and cannot be changed.
+          You get real NQ history that stops at a random, hidden moment — its date hidden too, because
+          knowing the date means knowing what happened. Read it, decide, and lock a trade with a stop
+          and a target, or step forward and wait. Then watch what the market did. The result, and the
+          date, are revealed at the end, and the record cannot be changed.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Segmented<string>
@@ -87,6 +98,28 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             onChange={setTimeframe}
             label="Practice timeframe"
           />
+          <label className="flex items-center gap-2 text-xs font-medium text-subtle">
+            Session
+            <select className={fieldClass} value={killzone} onChange={(e) => setKillzone(e.target.value)}>
+              <option value="">Any time</option>
+              {KILLZONES.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs font-medium text-subtle">
+            Day
+            <select className={fieldClass} value={weekday} onChange={(e) => setWeekday(e.target.value)}>
+              <option value="">Any day</option>
+              {WEEKDAYS.map((d) => (
+                <option key={d} value={d}>
+                  {d.charAt(0) + d.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </label>
           <Button variant="primary" disabled={starting} onClick={() => void start()}>
             {starting ? 'Finding a moment…' : 'Start a session'}
           </Button>

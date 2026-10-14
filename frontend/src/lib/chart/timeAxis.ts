@@ -1,3 +1,5 @@
+import type { TimeBasis } from '@/lib/api/practice'
+
 /**
  * Time-axis formatting for the chart (BUG-014).
  *
@@ -14,20 +16,26 @@
  * every session boundary for half the year.
  */
 
-export type AxisTimezone = 'new-york' | 'exchange' | 'utc'
+/**
+ * 'wall-clock' is for practice on real data (DEC-025): the times are already New York wall-clock time,
+ * written as UTC on a fictional date, so they are rendered in UTC and labelled "NY" — no EST/EDT,
+ * which would give away the season.
+ */
+export type AxisTimezone = 'new-york' | 'exchange' | 'utc' | 'wall-clock'
 
 /** ICT states every time in New York local time. */
 export const NEW_YORK = 'America/New_York'
 
 /** The IANA zone a mode renders in. */
 export function zoneFor(exchangeTimezone: string, mode: AxisTimezone): string {
-  if (mode === 'utc') return 'UTC'
+  if (mode === 'utc' || mode === 'wall-clock') return 'UTC'
   if (mode === 'new-york') return NEW_YORK
   return exchangeTimezone
 }
 
 /** The toggle's order: New York → exchange → UTC → New York. */
 export function nextAxisTimezone(mode: AxisTimezone): AxisTimezone {
+  if (mode === 'wall-clock') return 'wall-clock' // a hidden date has no other clock to switch to
   if (mode === 'new-york') return 'exchange'
   if (mode === 'exchange') return 'utc'
   return 'new-york'
@@ -104,6 +112,7 @@ export function createTickMarkFormatter(exchangeTimezone: string, mode: AxisTime
 /** Short label for the timezone toggle, e.g. "EDT", "CST" or "UTC". */
 export function timezoneLabel(exchangeTimezone: string, mode: AxisTimezone, at: Date): string {
   if (mode === 'utc') return 'UTC'
+  if (mode === 'wall-clock') return 'NY'
   const timeZone = zoneFor(exchangeTimezone, mode)
   // en-US, not en-GB: only the US locale renders American zone abbreviations (EDT/CST). en-GB
   // gives "GMT-5", which is correct but not how a trader labels a chart.
@@ -120,8 +129,23 @@ export function timezoneLabel(exchangeTimezone: string, mode: AxisTimezone, at: 
  * Weekday and time, no date. On simulated data the date means nothing, while the weekday and the
  * session time are exactly what a learner reasons about — Monday's open, the New York session.
  */
-export function formatSessionTime(epochSeconds: number, exchangeTimezone: string): string {
+export function formatSessionTime(
+  epochSeconds: number,
+  exchangeTimezone: string,
+  timeBasis: TimeBasis = 'UTC',
+): string {
   const at = new Date(epochSeconds * 1000)
+  if (timeBasis === 'NEW_YORK_WALL_CLOCK') {
+    // Already New York wall-clock time (DEC-025): read it as UTC, label it New York.
+    const text = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'UTC',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(at)
+    return `${text} NY`
+  }
   const text = new Intl.DateTimeFormat('en-GB', {
     timeZone: exchangeTimezone,
     weekday: 'short',

@@ -101,7 +101,8 @@ class PracticeTransactionTest extends AbstractIntegrationTest {
 	@DisplayName("no practice command generates data while holding a transaction")
 	void generationIsOutsideTransactions() throws Exception {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice)
-			.with(csrf())).andExpect(status().isCreated()));
+			.with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
+			.andExpect(status().isCreated()));
 		String id = session.at("/state/id").asText();
 		JsonNode bars = session.get("bars");
 		long reference = bars.get(bars.size() - 1).get("close").asLong();
@@ -137,7 +138,8 @@ class PracticeTransactionTest extends AbstractIntegrationTest {
 	@DisplayName("a session that moves while bars are generated for it is refused, not overwritten")
 	void raceIsRefused() throws Exception {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice)
-			.with(csrf())).andExpect(status().isCreated()));
+			.with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
+			.andExpect(status().isCreated()));
 		String id = session.at("/state/id").asText();
 		long cursorBefore = session.at("/state/cursor").asLong();
 
@@ -160,7 +162,8 @@ class PracticeTransactionTest extends AbstractIntegrationTest {
 	@DisplayName("a plan resolved for a cursor that has since moved is not stored")
 	void planRaceIsRefused() throws Exception {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice)
-			.with(csrf())).andExpect(status().isCreated()));
+			.with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
+			.andExpect(status().isCreated()));
 		String id = session.at("/state/id").asText();
 		JsonNode bars = session.get("bars");
 		long reference = bars.get(bars.size() - 1).get("close").asLong();

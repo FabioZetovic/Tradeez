@@ -17,6 +17,8 @@ export function ResultCard({ state, result }: { state: PracticeState; result: Re
   const plan = state.plan
   const risk = plan ? Math.abs(plan.referenceTicks - plan.stopTicks) : 0
   const tz = state.exchangeTimezone
+  const basis = state.timeBasis
+  const resolution = result.resolution === 'M1' ? 'one-minute' : 'one-second'
   const tone = result.netPnlCents > 0 ? 'text-up' : result.netPnlCents < 0 ? 'text-down' : 'text-ink'
 
   return (
@@ -24,6 +26,13 @@ export function ResultCard({ state, result }: { state: PracticeState; result: Re
       <h3 className={panelTitle} data-testid="result-outcome">
         {outcomeLabel(result.outcome)}
       </h3>
+
+      {/* DEC-025: the date, hidden until now. */}
+      {state.revealedStartTime !== undefined && (
+        <p className="mb-3 text-sm" data-testid="revealed-date">
+          This was <strong>{revealedDate(state.revealedStartTime)}</strong>, New York time.
+        </p>
+      )}
 
       {/* INVARIANT 6: an assumed outcome is labelled as one, where it cannot be missed. */}
       {result.assumption && (
@@ -41,11 +50,11 @@ export function ResultCard({ state, result }: { state: PracticeState; result: Re
       <dl className={keyValueClass}>
         <dt>Entry</dt>
         <dd>
-          {formatPrice(result.entryTicks, state.tickSize)} · {formatSessionTime(result.entryTime, tz)}
+          {formatPrice(result.entryTicks, state.tickSize)} · {formatSessionTime(result.entryTime, tz, basis)}
         </dd>
         <dt>Exit</dt>
         <dd>
-          {formatPrice(result.exitTicks, state.tickSize)} · {formatSessionTime(result.exitTime, tz)}
+          {formatPrice(result.exitTicks, state.tickSize)} · {formatSessionTime(result.exitTime, tz, basis)}
         </dd>
         <dt>Per contract</dt>
         <dd>{result.pnlTicks} ticks</dd>
@@ -75,19 +84,49 @@ export function ResultCard({ state, result }: { state: PracticeState; result: Re
       <details className="mt-4 text-xs">
         <summary className="cursor-pointer text-subtle">How this was decided</summary>
         <p className="mt-2">
-          Resolved on one-second bars ({result.resolution}) by {result.engineVersion} with{' '}
+          Resolved on {resolution} bars ({result.resolution}) by {result.engineVersion} with{' '}
           {result.fillModelVersion}: stops slip one tick, commission per contract per round trip,
-          flat at the session close. Market {state.generatorVersion}, seed{' '}
-          <code data-testid="result-seed" className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono">
-            {state.seed}
-          </code>
-          .
+          flat at the session close.{' '}
+          {state.seed !== undefined ? (
+            <>
+              Market {state.generatorVersion}, seed{' '}
+              <code
+                data-testid="result-seed"
+                className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono"
+              >
+                {state.seed}
+              </code>
+              .
+            </>
+          ) : (
+            <>Real {state.instrument} history from {state.dataSource ?? 'an import'}.</>
+          )}
         </p>
         <p className="mt-2 text-subtle">
-          Simulated data. This is practice at reading a chart and committing to a plan, not evidence
-          about any real market.
+          {state.dataClass === 'SIMULATED'
+            ? 'Simulated data. This is practice at reading a chart and committing to a plan, not evidence about any real market.'
+            : 'Real market history: this is what the market did after that moment. One trade says nothing about whether a method works.'}
         </p>
       </details>
     </Panel>
   )
+}
+
+/**
+ * "Monday 7 April 2025, 10:05" — the real moment, in New York time. Assembled from parts: how Intl
+ * joins them (a comma, "at") differs between ICU versions.
+ */
+function revealedDate(epochSeconds: number): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(epochSeconds * 1000))
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value
+  return `${part('weekday')} ${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')}`
 }
