@@ -131,12 +131,17 @@ on a line that no longer gets public fixes.
   LTS), npm **12.2**, and every package at its newest — React 19.3, Vite 8.3, **Vitest 5**,
   **TypeScript 7**, jsdom 30.1 (undici 8.12.2), oxlint 1.88. `@types/node` follows the runtime's major
   (24), not the newest types. `engines` records Node ≥ 24.20. **`npm audit`: 0 vulnerabilities.**
-- **TypeScript 7 has no compiler API**, which `openapi-typescript` (newest 7.13) still needs: the
-  `api:types` script runs it through `npx` with its own TypeScript 5, and it is no longer a project
-  dependency — 27 packages fewer, among them the `js-yaml` chain behind two of the advisories.
-- **PostgreSQL stays on 17** (17.11, the newest 17.x, on a freshly built image): it gets security
-  fixes until 2029, and 18 would mean migrating the database that holds the imported history.
-  Revisit with a dump and restore when there is a reason.
+- **TypeScript 7 has no compiler API**, which `openapi-typescript` (newest 7.13) still needs. It lives
+  in its own small tool package, `frontend/tools/api-types`, locked to TypeScript 5.9.3 by its own
+  lockfile and audited like the rest; `npm run api:types` installs and runs it. The app keeps
+  TypeScript 7 — it typechecks on it, generated types included — so neither has to be held back for
+  the other. 27 packages fewer in the app's own tree.
+- **knip** is a locked dev dependency too, run as `npm run knip` (ENV-009). The global npm tools
+  were updated as well: Bruno CLI 4.2, nodemon 3.1, TypeScript 7, Vite 8.3. npm 12 no longer runs
+  packages' install scripts unless allowed; none of ours needs one.
+- **PostgreSQL stays on 17** (17.11, the newest 17.x, on a freshly built image) — Fabio's choice,
+  asked: 18 cannot read 17's data files, so moving means a dump of the database holding the imported
+  history and a restore into a fresh 18. 17 gets security fixes until November 2029.
 
 Found on the way, all fixed (BUGS.md): a rejected **password was written to the server log** on every
 failed registration validation (BUG-054); the time-zone button named today's

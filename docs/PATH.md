@@ -71,7 +71,7 @@ deployed: false      # local only, €0
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
   backend:  Spring Boot 4.1.1 / Java 25 target (JDK 26 installed) / Maven 3.10.0 / springdoc 3.1.1 / Jackson 3
   frontend: Node 24.20 LTS / npm 12.2 / React 19.3 / Vite 8.3 / Vitest 5 / TypeScript 7 / Tailwind CSS 4 (DEC-044)
-  database: PostgreSQL 17 via docker-compose (17.11; 18 would mean migrating the imported data — DEC-056)
+  database: PostgreSQL 17 via docker-compose (17.11; Fabio kept 17 — 18 needs a dump and restore of the imported data, DEC-056)
 
 files_in_repo:
   # Module map, not a file list. BUG-026: a hand-maintained file list sat six sessions out of
@@ -1939,3 +1939,15 @@ on Node 24.20 / npm 12.2 / JDK 26 / Maven 3.10: backend `tests=379 errors=0 skip
 `[ERROR]` lines; frontend `npm audit` 0 vulnerabilities, lint, typecheck (TypeScript 7), Vitest 5
 245/245 and build clean; knip clean — on its third run: the first two stopped allocating parser
 memory (ENV-009, open, harmless). Waiting for Fabio to say merge; merging this branch brings T14 too.
+
+**2026-10-15 — Fabio's follow-ups to DEC-056.** On `chore/upgrade-dependencies`:
+- **Global npm tools** updated too ("u can change the global tools as well"): Bruno CLI 3.5 → 4.2.1,
+  nodemon 2.0 → 3.1.14, TypeScript 5.1 → 7.0.2, Vite 4.4 → 8.3.4.
+- **undici 8.12.2 is the newest** (its `latest` tag, published today); jsdom asks for `^8.12.1`.
+- **openapi-typescript on TypeScript 5, properly:** its own tool package `frontend/tools/api-types`
+  (TypeScript 5.9.3, openapi-typescript 7.13.0, own lockfile, 0 vulnerabilities) instead of an
+  unlocked `npx` download. Run against the dev backend: the generated types include the lesson and
+  drill DTOs and typecheck under the app's TypeScript 7 — so the app stays on 7.
+- **ENV-009 fixed:** knip as a locked dev dependency, `npm run knip`, with
+  `KNIP_DISABLE_RAW_TRANSFER=1` from `knip.env`; a planted unused export is still caught.
+- **PostgreSQL:** asked; Fabio keeps 17 for now.

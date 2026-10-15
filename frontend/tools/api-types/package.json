@@ -1,0 +1,15 @@
+{
+  "name": "tradeez-api-types",
+  "private": true,
+  "description": "Generates src/lib/api/schema.d.ts from the backend's OpenAPI document (DEC-007). Its own package because openapi-typescript needs TypeScript 5's compiler API, which TypeScript 7 no longer has (DEC-056).",
+  "engines": {
+    "node": ">=24.20.0"
+  },
+  "scripts": {
+    "generate": "openapi-typescript http://localhost:8081/v3/api-docs -o ../../src/lib/api/schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

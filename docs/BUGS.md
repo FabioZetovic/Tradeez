@@ -30,7 +30,7 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ### ENV-009 🟡 knip sometimes cannot allocate its parser's memory
 
-**Status:** verified (session 017, after DEC-056) — **open**, harmless
+**Status:** verified (session 017, after DEC-056) — **fixed**
 
 Since Node 24 and knip 6.41, `npx knip` sometimes stops with "RangeError: Array buffer allocation
 failed" inside `oxc-parser`, which reserves one large block of memory per parse. In the fresh-clone
@@ -38,6 +38,12 @@ check of `chore/upgrade-dependencies` it failed twice and passed on the next run
 folder it passed every time. When it runs it reports nothing unused. Not a code problem: it depends on
 how much memory the machine can hand out at that moment (16 GB, about 4 free with Docker running).
 **If it happens, run it again.** Revisit if it starts failing every time.
+
+**✅ FIXED — the same session.** It did start failing every time: the machine's committed memory was
+nearly used up (5.4 of 27.4 GB free) by the apps open on it, and V8 itself could not grow. knip has a
+switch for it — `KNIP_DISABLE_RAW_TRANSFER=1` parses without the big block. knip is now a locked dev
+dependency run as `npm run knip`, which sets the switch from `frontend/knip.env`. Three runs in a
+row clean, and a planted unused export is still caught.
 
 ### ENV-007 🟠 Dependencies updated outside the session stopped the frontend tests on Node 22.14
 
