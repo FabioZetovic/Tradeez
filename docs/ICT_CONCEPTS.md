@@ -1298,7 +1298,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | S-1 | Detector framework | A `Detector` contract: rule id and version, parameters, evidence, **confirmation time**; the "never across a session break or contract roll" rule shared; `detected_setup` generalised to every kind; on-demand scanning over real data (DEC-026). ✅ T9 (DEC-049): `Detector` + `Detection`, `Segments`, V12, checked by `DetectorContractTest` for every detector. |
 | S-2 | Concept registry | The concepts of this file as data: id, level, detectability, prerequisites, lesson text, linked rules. ✅ T9 (DEC-049): this file **is** the registry — read at startup from the master table, each **What.** paragraph and the ladder (Part 12). Keep those three shapes, or the app will not start. |
 | S-3 | Overlay renderer | Zones (rectangle + CE line), levels (labelled lines), swing markers, session shading — drawn from detected setups, never past the replay cursor. ✅ T9 (DEC-049) for zones, levels and points; session shading is the clock layer (T7). |
-| S-4 | Drill engine | Modes A, B and C for any detector, real data only, explanations rendered from evidence. Generalises the FVG drill. |
+| S-4 | Drill engine | Modes A, B and C for any detector, real data only, explanations rendered from evidence. Generalises the FVG drill. ✅ T13 (DEC-054) for modes A and B: ten drills over eight rules, graded on real NQ, each hit explained from its evidence; a hit the window cuts is excused, not counted. Mode C is T15. |
 | S-5 | Learning state | Attempts, per-concept rating, spaced repetition, unlocks (INVARIANT 8b). |
 | S-6 | Evidence engine | Batch statistics per rule over the imported history, with sample size and date range; worded as description, never as edge. |
 | S-7 | Practice for ICT | Replay paper-trading mode; plan fields for model, DOL, bias, killzone; checklist checked at the decision moment; review overlay. |
@@ -1311,10 +1311,10 @@ the app *suggests*, not what the learner is allowed to look at.
 | F-3, F-4, ICT-11, ICT-50 – ICT-55 | `levels`, `opens`, `sessions` | session strip, killzone shading, level lines | A, C | levels in plan context | T7 |
 | ICT-21, ICT-42, ICT-43 | — | Fibonacci with ICT preset, zone + CE | A | drawn by the learner | T8 |
 | (all) | S-1, S-2, S-3 | — | — | — | T9 |
-| ICT-20 – ICT-28 | `fvg` (re-measured), `fvg-state`, `ifvg`, `bpr`, `vi`, `void`, `opening-gap`, `org` | zones with state | A, B, C | G: fill rates, the ORG claim | T10 ✅ (detectors and overlay; drills T13, evidence T21) |
-| ICT-01 – ICT-06 | `swing`, `swing-tier`, `structure`, `displacement`, `mss` | swing markers, structure labels | A, B, C | — | T11 ✅ (detectors and overlay; drills T13) |
-| ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 ✅ (detectors, clock levels taken, overlay; drills T13) |
-| (all D/R) | — | — | S-4 engine, S-5 state | — | T13, T16 |
+| ICT-20 – ICT-28 | `fvg` (re-measured), `fvg-state`, `ifvg`, `bpr`, `vi`, `void`, `opening-gap`, `org` | zones with state | A, B, C | G: fill rates, the ORG claim | T10 ✅ (detectors and overlay; drills ✅ T13: spot gaps and volume imbalances; evidence T21) |
+| ICT-01 – ICT-06 | `swing`, `swing-tier`, `structure`, `displacement`, `mss` | swing markers, structure labels | A, B, C | — | T11 ✅ (detectors and overlay; drills ✅ T13: spot swing highs, lows and displacement; name a swing's label and BOS or CHoCH) |
+| ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 ✅ (detectors, clock levels taken, overlay; drills ✅ T13: spot equal highs/lows and sweeps; name sweep or run) |
+| (all D/R) | — | — | S-4 engine, S-5 state | — | T13 ✅ (S-4, DEC-054), T16 |
 | ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 |
 | ICT-30 – ICT-37 | `ob`, `breaker`, `mitigation`, `rejection`, `unicorn` | zones | A, B, C | G: reaction rates | T17 |
 | ICT-40 – ICT-44 | `dealing-range`, `pd`, `ote`, `stdev` | range, equilibrium, OTE zone | A, B, C | premium/discount fact in review | T18 |

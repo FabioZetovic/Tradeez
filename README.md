@@ -44,12 +44,15 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   - A running score in R counts closed trades only. Ending the session reveals the date (or, on
     simulated data, the seed that reproduces it).
   - A journal keeps every session, and trades can't be edited.
-- **Drills:** find every fair value gap in a 30-candle chart. The answer key comes from a versioned
-  detector and is withheld until you check; each gap is explained in the detector's own numbers. On
-  simulated data a drill is labelled a developer fixture and never graded.
+- **Drills** on real NQ, graded against the rule (DEC-054). *Spot*: mark every fair value gap, swing
+  high, swing low, volume imbalance, displacement, pair of equal highs/lows or sweep in 30 candles.
+  *Name*: one structure is drawn — is it a higher or lower high, a BOS or a CHoCH, a sweep or a run?
+  The answer is the versioned rule's, named on screen and withheld until you answer; each hit is
+  explained in the rule's own numbers, and a candle the chart cuts off counts neither way. On the
+  simulated market only the FVG drill is left, labelled a developer fixture and never graded.
 
-**Not built yet:** drills on real data, the ICT detectors for blocks, ranges and beyond,
-graded drills, a score across sessions or any rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
+**Not built yet:** lesson cards, prediction drills, the ICT detectors for blocks, ranges and beyond,
+a learning record across drills, a score across sessions or any rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 
 ---
@@ -105,7 +108,7 @@ work.
 | Migrations | Flyway | DEC-030 |
 | API contract | springdoc-openapi → `openapi-typescript` | DEC-007 |
 | Auth | JWT in HttpOnly cookies, CSRF, strict CORS | DEC-032 |
-| Market data | Real NQ via Massive (free plan); Databento importer for deeper history; simulated `DEMO-NQ` only behind Practice and Drills | DEC-040, DEC-042 |
+| Market data | Real NQ via Massive (free plan); Databento importer for deeper history; simulated `DEMO-NQ` only behind labelled fixtures (Practice on request, the FVG drill) | DEC-040, DEC-042, DEC-054 |
 
 ---
 

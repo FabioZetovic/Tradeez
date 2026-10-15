@@ -228,7 +228,8 @@ person the product is for.
 - **The simulated market** is withdrawn from the app once real data is in (`instrument.listed`),
   not deleted; the generator stays in the test suite, where injected ground truth is exactly what a
   test needs. *Implemented in Session 017 (T3, migration V8) for the chart; Practice and Drills keep
-  using the labelled simulated market until T4 and T13.*
+  using the labelled simulated market until T4 and T13.* Practice moved to real data in T4, Drills in
+  T13 (DEC-054); on the simulated market only the FVG drill is left, as its labelled fixture.
 
 Before the switch, three things real data forces: practice must **hide the date** until the reveal
 (DEC-025 — a learner who knows the date knows the outcome); the fill engine must not read a quiet
@@ -913,6 +914,64 @@ Not in this decision: drills for any of them (T13), the Evidence statistics the 
 
 **Reconsider if** T21's evidence shows a rule's parameter makes it useless — for example if
 `maxAgeCandles` cuts off most gaps before they resolve on some timeframe.
+
+**DEC-054 — The drill engine: any rule, two modes, graded on real data** `IMPLEMENTED` ·
+Claude, Session 017 (2026-10-15), T13 — S-4
+
+The FVG drill generalised: a drill is **one question a versioned rule answers about a static chart**,
+and the engine — window, answer key, grading, explanations — is the same for all of them. A new
+drill is one constant in `DrillKind` (and a row in V14's `ck_drill_kind`).
+
+- **Ten drills.** *Spot* (mode A, 30 candles, "mark every …"): fair value gaps, swing highs, swing
+  lows, volume imbalances, displacement, relative equal highs/lows, liquidity sweeps. *Name* (mode B,
+  40 candles, one structure drawn): its structure label (HH/LH/EH or HL/LL/EL), BOS or CHoCH, sweep
+  or run. Each is graded against its rule, named on screen with its definition — generated from the
+  rule's parameters, so the words cannot drift from the rule.
+- **Real data, graded.** The default market is NQ; 1-, 5- and 15-minute charts; a random stretch of
+  the imported history, open throughout by the calendar, every candle present (the calendar knows
+  the hours, not the holidays), no contract roll inside. A drill is graded exactly when its market is
+  real. On DEMO-NQ only the FVG drill runs, still as the labelled fixture of DEC-034 (and still not
+  at one minute) — every other drill on a simulated market is refused with that reason.
+- **The answer key is the rule's stored hits** — the scanner the overlay and the replay use (DEC-049),
+  so a drill can never disagree with what the chart draws. A hit is asked about only when everything
+  the rule read is on screen: from the candle before its start when the start is a swing (its left
+  neighbour is what makes it one), to the candle that confirmed it.
+- **A hit the window cuts is excused, not counted.** A gap whose first candle is before the window, a
+  swing whose confirming candle is after it, a sweep of a level drawn before it: nobody could judge
+  these from the chart, so a mark on one counts neither way. The excused candles are fixed when the
+  drill is made (V14 `excused`) and named in the result. Before T13 such a mark counted as extra
+  (BUG-050). Measured on 5-minute real NQ (17 drills each): sweeps excuse 2.1 candles per drill
+  (88% of drills have one) against 3.4 asked — most swept levels formed before the window;
+  equal highs/lows 1.0 (71%); swings, gaps and imbalances 0.2–0.5; displacement none.
+- **Naming without giving the name away.** A classification drill picks one whole hit at random and
+  sends what the chart shows — the side (high or low), where its level starts, the candle, the price
+  — and the names to choose from, one group per side (a swing high is never offered "lower low").
+  Never its name, direction, end or evidence: a run is known two candles after a sweep would be, so
+  even the end would give it away. A BOS or CHoCH depends on the structure before it, so only breaks
+  whose latest swing high and low *and* the swings they were labelled against are all on screen are
+  asked about — read from the stored `STRUCTURE` hits under the same rule version.
+- **Answers.** Mode A: the marked candles, scored found / missed / extra (with excused marks apart),
+  shown as recall and precision against the rule. Mode B: one of the offered names, right or wrong,
+  with the rule's own. V14 adds `choice` and makes the answer marks *or* a choice, never both; V6's
+  trigger still refuses any change once answered. Graded drills are kept for the learning state
+  (T16); nothing reads them yet.
+- **Explanations moved to the server.** `DrillText` renders every hit from its stored evidence, in the
+  instrument's prices and no times — the client adds those, in the exchange's zone. The FVG text is
+  unchanged word for word; its tests moved to Java with it. `GET /api/drills/kinds` lists the
+  catalogue.
+
+Measured on the dev database's two years of real NQ: every drill on every timeframe found a window,
+in 35–150 ms (median 40–60 ms at five minutes, 105 drills, none failed).
+
+Removed as dead: `SetupScanner.scanFvgs` and the repository query behind it (the FVG drill's private
+path), and the client's `explainFvg`.
+
+Not in this decision: drills for FVG state, IFVG, BPR, voids, opening gaps, ORG, swing tiers, MSS,
+liquidity states and turtle soup — rarer in a short window or needing more context than one; each is
+a constant when wanted. Mode C prediction drills (T15) and the learning state (T16).
+
+**Reconsider if** learners find the excused sweeps confusing — a longer window for the sweep drill
+would show more of the levels being swept — or if 40 candles prove too little context to name a break.
 
 **DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
 The first detector under DEC-026. The rule:

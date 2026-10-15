@@ -24,14 +24,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 
 /**
- * One drill: a window of market, the answer key, and — once given — the learner's answer.
- * Maps {@code drill} and {@code drill_setup} from V6.
+ * One drill: a window of market, the answer key, and — once given — the learner's answer: the
+ * candles marked (identification) or the name chosen (classification). Maps {@code drill} and
+ * {@code drill_setup} from V6, with V14's choice and excused candles.
  */
 @Entity
 @Table(name = "drill")
 public class Drill {
-
-	public static final String FVG_IDENTIFICATION = "FVG_IDENTIFICATION";
 
 	@Id
 	@GeneratedValue
@@ -81,6 +80,14 @@ public class Drill {
 	@Column(name = "marks")
 	private List<Long> marks;
 
+	@Column(name = "choice")
+	private String choice;
+
+	/** Candles a mark on which counts neither way: the rule cannot judge them from the window. */
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "excused", nullable = false, updatable = false)
+	private List<Long> excused = List.of();
+
 	@Column(name = "answered_at")
 	private Instant answeredAt;
 
@@ -99,7 +106,7 @@ public class Drill {
 
 	public Drill(UUID userId, String kind, UUID instrumentId, String timeframe, DataClass dataClass,
 			Long seed, String generatorVersion, String detector, String ruleVersion,
-			Instant windowFrom, Instant windowTo, Set<UUID> setupIds) {
+			Instant windowFrom, Instant windowTo, Set<UUID> setupIds, List<Long> excused) {
 		this.userId = userId;
 		this.kind = kind;
 		this.instrumentId = instrumentId;
@@ -111,18 +118,31 @@ public class Drill {
 		this.ruleVersion = ruleVersion;
 		this.windowFrom = windowFrom;
 		this.windowTo = windowTo;
-		this.graded = false;
+		// DEC-034: graded exactly when the market is real; the database refuses a graded fixture.
+		this.graded = dataClass != DataClass.SIMULATED;
 		this.setupIds = new HashSet<>(setupIds);
+		this.excused = List.copyOf(excused);
 		this.createdAt = Instant.now();
 	}
 
-	/** Records the answer. Once only: the service checks, and a database trigger enforces it. */
+	/** Records an identification answer. Once only: the service checks, and a database trigger enforces it. */
 	void answer(List<Long> marks) {
+		requireUnanswered();
+		this.marks = List.copyOf(marks);
+		this.answeredAt = Instant.now();
+	}
+
+	/** Records a classification answer, once. */
+	void choose(String choice) {
+		requireUnanswered();
+		this.choice = choice;
+		this.answeredAt = Instant.now();
+	}
+
+	private void requireUnanswered() {
 		if (answeredAt != null) {
 			throw new IllegalStateException("Drill " + id + " is already answered");
 		}
-		this.marks = List.copyOf(marks);
-		this.answeredAt = Instant.now();
 	}
 
 	public boolean isAnswered() {
@@ -183,6 +203,14 @@ public class Drill {
 
 	public List<Long> getMarks() {
 		return marks;
+	}
+
+	public String getChoice() {
+		return choice;
+	}
+
+	public List<Long> getExcused() {
+		return excused;
 	}
 
 	public Instant getCreatedAt() {

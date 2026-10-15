@@ -78,16 +78,14 @@ public class SetupScanner {
 
 	private final MarketDataService marketData;
 	private final DetectedSetupRepository setups;
-	private final FvgDetector fvg;
 	private final JdbcTemplate jdbc;
 	private final ObjectMapper json;
 	private final TransactionTemplate writeTx;
 
-	public SetupScanner(MarketDataService marketData, DetectedSetupRepository setups, FvgDetector fvg,
+	public SetupScanner(MarketDataService marketData, DetectedSetupRepository setups,
 			JdbcTemplate jdbc, ObjectMapper json, PlatformTransactionManager transactionManager) {
 		this.marketData = marketData;
 		this.setups = setups;
-		this.fvg = fvg;
 		this.jdbc = jdbc;
 		this.json = json;
 		this.writeTx = new TransactionTemplate(transactionManager);
@@ -164,24 +162,6 @@ public class SetupScanner {
 				detector.ruleVersion(), from, to, confirmedBy);
 		Map<String, Object> parameters = normalise(detector.parameters());
 		return rows.stream().filter(s -> parameters.equals(normalise(s.getParams()))).toList();
-	}
-
-	/**
-	 * The FVG drill's question: every stored gap anchored in {@code [from, to)} of a simulated market.
-	 * Drills on real data come with the drill engine (T13).
-	 */
-	public List<DetectedSetup> scanFvgs(Instrument instrument, Timeframe timeframe, long seed,
-			Instant from, Instant to) {
-		if (instrument.getDataClass() != DataClass.SIMULATED) {
-			throw new IllegalArgumentException("FVG drills run on simulated data until T13.");
-		}
-		ensureScanned(fvg, instrument, timeframe, seed, from, to);
-		Map<String, Object> parameters = normalise(fvg.parameters());
-		return setups.findSimulated(instrument.getId(), seed, DemoSeriesGenerator.GENERATOR_VERSION,
-				timeframe.code(), FvgDetector.DETECTOR, FvgDetector.RULE_VERSION, from, to)
-			.stream()
-			.filter(s -> parameters.equals(normalise(s.getParams())))
-			.toList();
 	}
 
 	/**

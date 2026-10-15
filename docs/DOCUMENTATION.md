@@ -64,10 +64,10 @@ exchange-traded FX futures can later be added without hardcoding each product.
 | Area | Description | Status |
 |---|---|---|
 | **Markets** | Instrument browser, contract registry, historical charts | Registry + bars API done (Session 009) |
-| **Charts** | Candlestick charting with indicators and full drawing toolset | Candles, timeframes and four drawing tools done (Sessions 010, 012); no indicators |
-| **Practice** ⭐ | Hidden-outcome historical replay with trade simulation and grading | Not started |
+| **Charts** | Candlestick charting with indicators and full drawing toolset | Candles, timeframes, drawing tools with ICT's own (Sessions 010, 012, 017); detected ICT setups and the New York clock as switchable layers (017); no indicators |
+| **Practice** ⭐ | Hidden-outcome historical replay with trade simulation and grading | Replay of real NQ with the date hidden, plans, several trades, any timeframe (Sessions 014, 017) |
 | **Accounts** | Registration, login, session rotation, per-user data ownership | Done (Sessions 008, 010) |
-| **Training** | Auto-generated drills per methodology, with spaced repetition | Not started |
+| **Training** | Auto-generated drills per methodology, with spaced repetition | Ten drills in two modes on real NQ, graded against the rule (Session 017, T13); spaced repetition not started |
 | **Journal** | Trade log with R-multiples, expectancy, MAE/MFE, equity curve | Not started |
 
 ---
@@ -1609,6 +1609,20 @@ obvious double top that invites stops), and says what price did when it took a l
 straight back, or a run that kept going. On two years of real NQ about half of all taken swing levels
 were swept — a description of what happened, not a promise.
 
+**Drills on real charts.** The first drill — find every fair value gap — ran only on the simulated
+market, as a labelled demonstration that graded nothing. It is now one of ten, and they run on the
+real NQ history and are graded. Seven ask the learner to *spot* every instance in thirty candles: gaps,
+swing highs, swing lows, volume imbalances, displacement, equal highs and lows, sweeps. Three draw one
+structure and ask what it is called: a higher or lower high, a break of structure or a change of
+character, a sweep or a run. The answer is always the app's own rule, named on the screen with its
+definition, and every answer comes with the reason in that rule's numbers — "candle 1's high,
+23496.25, is below candle 3's low, 23505.00…".
+
+Building it exposed a quiet unfairness in the first drill: a mark on a candle whose pattern started
+just before the chart counted as wrong, though nobody could have judged it from what was shown. Such
+candles are now set aside, and the result says so: they count neither way. For sweeps it matters most
+— in nine drills out of ten some candle swept a level that formed before the chart begins.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1623,9 +1637,8 @@ the example file contains a key — and it names the setting without ever printi
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
-the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity): backend 223 → 326,
-frontend 148 → 235, V9 to V13,
-DEC-044 to DEC-053.*
+the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
+the drill engine): backend 223 → 350, frontend 148 → 236, V9 to V14, DEC-044 to DEC-054.*
 
 ---
 

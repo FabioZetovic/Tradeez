@@ -32,6 +32,9 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	SetupScanner scanner;
 
 	@Autowired
+	FvgDetector fvg;
+
+	@Autowired
 	MarketDataService marketData;
 
 	@Autowired
@@ -50,7 +53,7 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("stores exactly the detector's hits, each with rule, parameters and evidence")
 	void storesWhatTheDetectorFinds() {
-		List<DetectedSetup> stored = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO);
+		List<DetectedSetup> stored = scanFvgs(nq, Timeframe.M5, 42, FROM, TO);
 
 		// The same detector over the same bars, independently of the scanner.
 		List<Bar> bars = marketData.internalBars(nq, Timeframe.M5,
@@ -85,9 +88,9 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("scanning the same stretch again stores nothing new")
 	void idempotent() {
-		int first = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
+		int first = scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
 		int stored = rows();
-		int second = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
+		int second = scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
 
 		assertThat(second).isEqualTo(first);
 		assertThat(rows()).isEqualTo(stored);
@@ -96,10 +99,10 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("a stretch whose rows were deleted is scanned again, not trusted from memory")
 	void rescansWhatWasDeleted() {
-		int first = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
+		int first = scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
 		jdbc.update("DELETE FROM detected_setup");
 
-		assertThat(scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO)).hasSize(first);
+		assertThat(scanFvgs(nq, Timeframe.M5, 42, FROM, TO)).hasSize(first);
 	}
 
 	@Test
@@ -107,26 +110,35 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	void concurrentScans() {
 		// Two drills picking overlapping windows at the same moment. The insert ignores duplicates,
 		// so neither fails on the unique constraint.
-		var a = CompletableFuture.supplyAsync(() -> scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO));
-		var b = CompletableFuture.supplyAsync(() -> scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO));
+		var a = CompletableFuture.supplyAsync(() -> scanFvgs(nq, Timeframe.M5, 42, FROM, TO));
+		var b = CompletableFuture.supplyAsync(() -> scanFvgs(nq, Timeframe.M5, 42, FROM, TO));
 		assertThat(a.join()).hasSameSizeAs(b.join());
 	}
 
 	@Test
 	@DisplayName("keeps different timeframes and markets apart")
 	void keyedByMarketAndTimeframe() {
-		List<DetectedSetup> m5 = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO);
+		List<DetectedSetup> m5 = scanFvgs(nq, Timeframe.M5, 42, FROM, TO);
 		int m5Rows = rows();
-		scanner.scanFvgs(nq, Timeframe.M15, 42, FROM, TO);
-		scanner.scanFvgs(nq, Timeframe.M5, 7, FROM, TO);
+		scanFvgs(nq, Timeframe.M15, 42, FROM, TO);
+		scanFvgs(nq, Timeframe.M5, 7, FROM, TO);
 
 		assertThat(rows()).isGreaterThan(m5Rows);
 		assertThat(jdbc.queryForObject(
 				"SELECT count(*) FROM detected_setup WHERE timeframe = '5m' AND seed = 42", Integer.class))
 			.isEqualTo(m5Rows);
-		assertThat(scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO))
+		assertThat(scanFvgs(nq, Timeframe.M5, 42, FROM, TO))
 			.extracting(DetectedSetup::getId)
 			.containsExactlyElementsOf(m5.stream().map(DetectedSetup::getId).toList());
+	}
+
+	/** Scans a stretch, then reads back every stored gap anchored in it. */
+	private List<DetectedSetup> scanFvgs(Instrument instrument, Timeframe timeframe, long seed, Instant from,
+			Instant to) {
+		scanner.ensureScanned(fvg, instrument, timeframe, seed, from, to);
+		return scanner.visible(fvg, instrument, timeframe, seed, from, to, to).stream()
+			.filter(s -> !s.getAnchorTime().isBefore(from) && s.getAnchorTime().isBefore(to))
+			.toList();
 	}
 
 	private int rows() {
@@ -136,7 +148,7 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("a simulated hit without its seed is refused by the database (DEC-012)")
 	void reproducibilityIsEnforced() {
-		scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO);
+		scanFvgs(nq, Timeframe.M5, 42, FROM, TO);
 		org.assertj.core.api.Assertions.assertThatThrownBy(() ->
 				jdbc.update("UPDATE detected_setup SET seed = NULL"))
 			.hasMessageContaining("ck_detected_setup_reproducible");
