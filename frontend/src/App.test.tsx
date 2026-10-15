@@ -240,7 +240,17 @@ describe('App — signed in', () => {
     render(<App adapterFactory={() => adapter} />)
     await waitFor(() => expect(adapter.bars).toHaveLength(1))
     expect(adapter.mountOptions?.axisTimezone).toBe('new-york')
-    expect(screen.getByTestId('timezone-toggle').textContent).toMatch(/^E[DS]T$/)
+    // The data ends in October 2026: daylight time, whenever the test runs.
+    expect(screen.getByTestId('timezone-toggle').textContent).toBe('EDT')
+  })
+
+  it("names the zone the candles on screen were in, not today's", async () => {
+    const january = Date.parse('2025-01-15T15:00:00Z') / 1000
+    mockApi({ ...signedIn, '/api/market/instruments/NQ/bars': { body: { ...SERIES, bars: [{ ...SERIES.bars[0], time: january }] } } })
+    const adapter = new FakeChartAdapter()
+    render(<App adapterFactory={() => adapter} />)
+    await waitFor(() => expect(adapter.bars).toHaveLength(1))
+    expect(screen.getByTestId('timezone-toggle').textContent).toBe('EST')
   })
 
   it('says so, and loads nothing, when no history has been imported', async () => {
