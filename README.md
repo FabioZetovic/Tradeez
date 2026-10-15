@@ -44,6 +44,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   - A running score in R counts closed trades only. Ending the session reveals the date (or, on
     simulated data, the seed that reproduces it).
   - A journal keeps every session, and trades can't be edited.
+- **Learn**: the ICT curriculum as a ladder of levels, a card per concept (DEC-055) — what it is, in
+  the words of `docs/ICT_CONCEPTS.md`; the exact rule Tradeez uses, in words generated from its
+  parameters; three real NQ examples the rule found at random (never hand-picked), each explained in
+  the rule's own numbers; and a button to the drill that practises it.
 - **Drills** on real NQ, graded against the rule (DEC-054). *Spot*: mark every fair value gap, swing
   high, swing low, volume imbalance, displacement, pair of equal highs/lows or sweep in 30 candles.
   *Name*: one structure is drawn — is it a higher or lower high, a BOS or a CHoCH, a sweep or a run?
@@ -51,7 +55,7 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   explained in the rule's own numbers, and a candle the chart cuts off counts neither way. On the
   simulated market only the FVG drill is left, labelled a developer fixture and never graded.
 
-**Not built yet:** lesson cards, prediction drills, the ICT detectors for blocks, ranges and beyond,
+**Not built yet:** prediction drills, the ICT detectors for blocks, ranges and beyond,
 a learning record across drills, a score across sessions or any rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 

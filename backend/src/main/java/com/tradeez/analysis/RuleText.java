@@ -1,0 +1,465 @@
+package com.tradeez.analysis;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * Every rule in words, and why each of its hits qualified (DEC-026, DEC-054, DEC-055).
+ *
+ * <p>Generated, never hand-written per hit. A definition is assembled from the rule's own parameters
+ * and an explanation from the evidence stored with the hit, so a sentence names the exact prices the
+ * rule decided on and cannot drift from it. Each says what the rule saw — not whether the structure
+ * matters, and not whether the method it comes from is right (INVARIANT 8). Where a sentence reports
+ * ICT's claim about a structure, it says it is ICT's.
+ *
+ * <p>No times: a candle's time is shown beside each explanation, in the exchange's zone, by the
+ * client that knows how to format it.
+ */
+public final class RuleText {
+
+	/** What each named kind of hit is called, as a learner reads it. */
+	public static final Map<String, String> NAMES = Map.ofEntries(
+		Map.entry("HH", "Higher high (HH)"), Map.entry("LH", "Lower high (LH)"), Map.entry("EH", "Equal high (EH)"),
+		Map.entry("HL", "Higher low (HL)"), Map.entry("LL", "Lower low (LL)"), Map.entry("EL", "Equal low (EL)"),
+		Map.entry("BOS", "Break of structure (BOS)"), Map.entry("CHOCH", "Change of character (CHoCH)"),
+		Map.entry("SWEEP", "Sweep"), Map.entry("RUN", "Run"),
+		Map.entry("ITH", "Intermediate-term high (ITH)"), Map.entry("LTH", "Long-term high (LTH)"),
+		Map.entry("ITL", "Intermediate-term low (ITL)"), Map.entry("LTL", "Long-term low (LTL)"),
+		Map.entry("NWOG", "New week opening gap (NWOG)"), Map.entry("NDOG", "New day opening gap (NDOG)"));
+
+	private RuleText() {
+	}
+
+	/** The rule in words, from the parameters it runs with. */
+	public static String definition(Detector detector) {
+		Map<String, Object> p = detector.parameters();
+		String gaps = "gaps of " + p.get("gapRule") + " (at least " + p.get("minGapPercentOfAverageRange")
+			+ "% of the average range of the " + p.get("averageRangeLookback") + " candles before)";
+		return switch (detector.id()) {
+			case "FVG" -> "Bullish: candle 1's high is below candle 3's low. Bearish: candle 1's low is above "
+				+ "candle 3's high. The three candles are consecutive, with no market closure between them, "
+				+ "and the gap is at least " + p.get("minGapPercentOfAverageRange") + "% of the average "
+				+ "high–low range of the " + p.get("averageRangeLookback") + " candles before candle 1.";
+			case "FVG_STATE" -> "Each of the " + gaps + " is followed from its third candle's close. A bullish "
+				+ "gap is tapped when a candle trades into its top, reaches its CE when a candle trades to its "
+				+ "midpoint, is filled when a candle trades to its bottom, and is inverted when a candle "
+				+ "closes below it; a bearish gap mirrors it, and one candle can do several at once. A gap "
+				+ "not filled " + p.get("maxAgeCandles") + " candles after it formed has expired: the rule "
+				+ "stops following it. Each state is known at the close of the candle that reached it.";
+			case "IFVG" -> "One of the " + gaps + " that a candle closes straight through — beyond its far "
+				+ "edge — within " + p.get("maxAgeCandles") + " candles of forming. Known at that close. "
+				+ "ICT's claim is that the failed gap flips sides, so it points the other way: a failed "
+				+ "bullish gap is a bearish inversion gap.";
+			case "BPR" -> "Price runs one way through an area, leaving one of the " + gaps + ", then straight "
+				+ "back, leaving an opposite one within " + p.get("maxCandles") + " candles that overlaps "
+				+ "it in price. The balanced range is the overlap; it points the way of the second gap and "
+				+ "is known with it. When several earlier gaps qualify, the most recent is paired.";
+			case "VI" -> "Two consecutive candles whose bodies — open to close — do not touch, while their "
+				+ "wicks overlap. Bullish when the second body is wholly above the first, bearish when "
+				+ "below. The space between the bodies is at least " + p.get("minTicks") + " ticks.";
+			case "VOID" -> "A gap: two consecutive candles whose ranges do not overlap at all, known at the "
+				+ "second's close. A liquidity void: at least " + p.get("minCandles") + " consecutive "
+				+ "candles closing the same way, each closing beyond the one before and overlapping it by "
+				+ "at most " + p.get("maxOverlapPercent") + "% of its own range, measured over at most the "
+				+ "last " + p.get("maxCandles") + " of them; known when the run ends, so the whole run is "
+				+ "the void.";
+			case "OPENING_GAP" -> "The price difference across a market closure — from the last trade before "
+				+ "it to the first after — read from the data: two candles at least " + p.get("closureMinutes")
+				+ " minutes apart. A new week opening gap (NWOG) when the closure spans a Saturday in New "
+				+ "York, a new day opening gap (NDOG) otherwise. No minimum size. Known at the close of the "
+				+ "first candle after the closure.";
+			case "ORG" -> "The opening range gap: from the close of the regular session, at " + p.get("closeAt")
+				+ " New York, to the next regular open at " + p.get("openAt") + ". No minimum size. Known "
+				+ "at the close of the " + p.get("openAt") + " candle.";
+			case "SWING" -> "A swing high is a candle whose high is above the high of the candle before it and "
+				+ "not below the high of the candle after it — one candle either side, strength "
+				+ p.get("strength") + "; a swing low mirrors it with lows. It is known when the candle after "
+				+ "it closes. Candles either side of a contract roll are never compared.";
+			case "SWING_TIER" -> "Swings (swing-1.0.0, strength " + p.get("strength") + ") ranked. An "
+				+ "intermediate-term high is a swing high above the swing highs either side of it; a "
+				+ "long-term high is an intermediate-term high above the intermediate-term highs either "
+				+ "side of it. Lows mirror them. A rank is known only once the next swing of its rank either "
+				+ "side is, and is not given when its candles span more than " + p.get("maxSpanCandles") + ".";
+			case "STRUCTURE" -> "Each swing (swing-1.0.0, strength " + p.get("strength") + ") is labelled "
+				+ "against the previous swing of its kind: a higher high (HH), lower high (LH) or equal high "
+				+ "(EH); a higher low (HL), lower low (LL) or equal low (EL). Equal means the same price, to "
+				+ "the tick. The previous swing lies within " + p.get("maxSpanCandles") + " candles.";
+			case "BOS_CHOCH" -> "Structure is read from the latest swing high and swing low (strength "
+				+ p.get("strength") + "), each labelled against the one before it: bullish after a higher "
+				+ "high and a higher low, bearish after a lower high and a lower low, and not read otherwise. "
+				+ "The first candle to close beyond the latest swing high or low breaks it: with the trend it "
+				+ "is a break of structure (BOS), against it a change of character (CHoCH). Everything read "
+				+ "lies within " + p.get("maxSpanCandles") + " candles.";
+			case "DISPLACEMENT" -> "One of the " + gaps + " whose middle candle closes the gap's way, taken "
+				+ "together with its first and third candles when they close that way too — one to "
+				+ p.get("maxCandles") + " candles. It is displacement when those candles' bodies add up to at "
+				+ "least " + p.get("multiplePercent") + "% of the average high–low range of the "
+				+ p.get("rangeLookback") + " candles before the first of them. Known at the gap's third "
+				+ "candle's close.";
+			case "MSS" -> "In ICT's order: a sweep, displacement, then a break. Bullish: a swing low (strength "
+				+ p.get("strength") + ") trades below an earlier swing low that was still resting; within "
+				+ p.get("maxCandles") + " candles of it a candle closes above the latest swing high before "
+				+ "it, the first to; and a " + p.get("displacementRule") + " move starts between the low and "
+				+ "that close. Known once both the break and the displacement are. Bearish mirrors it. "
+				+ "Everything read lies within " + p.get("maxSpanCandles") + " candles.";
+			case "LIQUIDITY" -> "Above every swing high (strength " + p.get("strength") + ") rests buy-side "
+				+ "liquidity, below every swing low sell-side: resting from the swing's confirmation, taken "
+				+ "at the close of the first candle trading a tick beyond it, expired if it still rests "
+				+ p.get("maxAgeCandles") + " candles on.";
+			case "EQHL" -> "A swing high pairs with the latest earlier swing high at least "
+				+ p.get("minApartCandles") + " candles before it whose price is within the tolerance — the "
+				+ "larger of one tick and " + p.get("tolerancePercentOfAverageRange") + "% of the average "
+				+ "range of the " + p.get("rangeLookback") + " candles before the second swing — with no "
+				+ "candle between them trading above the higher of the two. Lows mirror it. Swings are "
+				+ "those of swing-1.0.0 (strength " + p.get("strength") + "), at most " + p.get("maxSpanCandles")
+				+ " candles apart. Known when the second swing is.";
+			case "SWEEP" -> "A swing high (strength " + p.get("strength") + ") is buy-side liquidity, a swing "
+				+ "low sell-side, resting from the swing's confirmation until a candle trades a tick beyond "
+				+ "it (followed for at most " + p.get("maxAgeCandles") + " candles). The candle that takes it "
+				+ "decides: closing back at or inside the level within " + p.get("closeBackWithin") + " candle "
+				+ "— itself — it is a sweep; closing beyond, with the next " + p.get("holdCandles") + " candles "
+				+ "closing beyond too, a run. Anything else is undecided and not reported. When one candle "
+				+ "takes several levels on a side, it is judged on the most extreme.";
+			case "TURTLE_SOUP" -> "A sweep of relative equal highs or lows (" + p.get("poolRule") + "): the "
+				+ "more extreme of the pair, resting from the pair's confirmation (followed for at most "
+				+ p.get("maxAgeCandles") + " candles), is traded through by a candle that closes back at or "
+				+ "inside it within " + p.get("closeBackWithin") + " candle — itself. It points away from the "
+				+ "pool.";
+			default -> throw new IllegalArgumentException("No words for rule " + detector.id());
+		};
+	}
+
+	/** A short name for one hit, as a heading: "Bullish gap", "Higher high (HH)". */
+	public static String label(DetectedSetup s) {
+		String way = "BULLISH".equals(s.getDirection()) ? "Bullish" : "Bearish";
+		String kind = s.getKind();
+		return switch (s.getDetector()) {
+			case "FVG" -> way + " gap";
+			case "FVG_STATE" -> way + " gap, " + switch (kind) {
+				case "OPEN" -> "formed";
+				case "CE" -> "at its CE";
+				default -> kind.toLowerCase(Locale.ROOT);
+			};
+			case "IFVG" -> way + " inversion gap";
+			case "BPR" -> way + " balanced price range";
+			case "VI" -> way + " volume imbalance";
+			case "VOID" -> way + ("GAP".equals(kind) ? " price gap" : " liquidity void");
+			case "OPENING_GAP", "STRUCTURE", "BOS_CHOCH", "SWING_TIER" -> NAMES.get(kind);
+			case "ORG" -> "Opening range gap";
+			case "SWING" -> "HIGH".equals(kind) ? "Swing high" : "Swing low";
+			case "DISPLACEMENT" -> way + " displacement";
+			case "MSS" -> way + " market structure shift";
+			case "LIQUIDITY" -> ("BSL".equals(s.getEvidence().get("side")) ? "Buy-side" : "Sell-side")
+				+ " liquidity, " + kind.toLowerCase(Locale.ROOT);
+			case "EQHL" -> "EQH".equals(kind) ? "Equal highs" : "Equal lows";
+			case "SWEEP" -> ("SWEEP".equals(kind) ? "Sweep of " : "Run through ")
+				+ ("BSL".equals(s.getEvidence().get("side")) ? "buy-side liquidity" : "sell-side liquidity");
+			case "TURTLE_SOUP" -> "Turtle soup at equal " + ("BEARISH".equals(s.getDirection()) ? "highs" : "lows");
+			default -> s.getDetector();
+		};
+	}
+
+	/** Why the hit qualified, in the rule's own numbers. */
+	public static List<String> explain(DetectedSetup s, BigDecimal tickSize) {
+		Map<String, Object> e = s.getEvidence();
+		Prices price = new Prices(tickSize);
+		boolean bullish = "BULLISH".equals(s.getDirection());
+		return switch (s.getDetector()) {
+			case "FVG" -> fvg(s, e, price, bullish);
+			case "FVG_STATE" -> fvgState(s, e, price);
+			case "IFVG" -> ifvg(s, e, price);
+			case "BPR" -> bpr(s, e, price, bullish);
+			case "VI" -> vi(s, e, price, bullish);
+			case "VOID" -> voids(s, e, price, bullish);
+			case "OPENING_GAP" -> openingGap(s, e, price);
+			case "ORG" -> org(e, price);
+			case "SWING" -> {
+				boolean high = "HIGH".equals(s.getKind());
+				yield List.of((high ? "Its high, " : "Its low, ") + price.of(n(e, "price")) + ", "
+					+ (high ? "stands above the high of the candle before it and is not topped by the one after it"
+						: "stands below the low of the candle before it and is not undercut by the one after it")
+					+ ": a swing " + (high ? "high" : "low") + ", known when that next candle closed.");
+			}
+			case "SWING_TIER" -> swingTier(s, e, price);
+			case "STRUCTURE" -> structure(s, e, price);
+			case "BOS_CHOCH" -> bosChoch(s, e, price, bullish);
+			case "DISPLACEMENT" -> displacement(s, e, price, bullish);
+			case "MSS" -> mss(e, price, bullish);
+			case "LIQUIDITY" -> liquidity(s, e, price);
+			case "EQHL" -> {
+				boolean high = "EQH".equals(s.getKind());
+				long a = n(e, "firstPrice");
+				long b = n(e, "secondPrice");
+				String side = high ? "high" : "low";
+				yield List.of(
+					"Two swing " + side + "s, at " + price.of(a) + " and " + price.of(b) + ": "
+						+ (a == b ? "the same price" : ticks(Math.abs(a - b)) + " apart") + ", within the rule's tolerance, "
+						+ "and no candle between them traded " + (high ? "above the higher" : "below the lower") + ".",
+					"Relative equal " + side + "s: the stops " + (high ? "above" : "below") + " them are the "
+						+ (high ? "buy" : "sell") + "-side liquidity the pattern advertises.");
+			}
+			case "SWEEP" -> sweep(s, e, price);
+			case "TURTLE_SOUP" -> {
+				boolean highs = "BEARISH".equals(s.getDirection());
+				yield List.of("This candle traded " + (highs ? "above" : "below") + " the equal " + (highs ? "highs" : "lows")
+					+ " at " + price.of(n(e, "price")) + " — the " + (highs ? "higher" : "lower") + " of the pair — and "
+					+ "closed back at " + price.of(n(e, "closeTicks")) + ", " + (highs ? "at or below" : "at or above")
+					+ " them: the pool was swept. Turtle soup.");
+			}
+			default -> List.of();
+		};
+	}
+
+	private static List<String> fvg(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {
+		long gap = n(e, "gapTicks");
+		// Worded to say exactly what the rule checks and no more: on real data candle 2 need not span
+		// the whole gap, so the sentence does not say it was "crossed only by candle 2" (DEC-026).
+		String geometry = bullish
+			? "Candle 1's high, " + price.of(n(e, "candle1HighTicks")) + ", is below candle 3's low, "
+				+ price.of(n(e, "candle3LowTicks")) + ". Neither traded in the " + gap + " ticks ("
+				+ price.of(gap) + " points) between them: a bullish gap."
+			: "Candle 1's low, " + price.of(n(e, "candle1LowTicks")) + ", is above candle 3's high, "
+				+ price.of(n(e, "candle3HighTicks")) + ". Neither traded in the " + gap + " ticks ("
+				+ price.of(gap) + " points) between them: a bearish gap.";
+		long lookback = n(e, "lookback");
+		String average = String.format(Locale.ROOT, "%.1f", (double) n(e, "sumRangeTicks") / lookback);
+		String size = "Big enough to count: the rule needs at least " + n(e, "thresholdTicks") + " ticks here — "
+			+ s.getParams().get("minGapPercentOfAverageRange") + "% of the " + average + "-tick average range "
+			+ "of the " + lookback + " candles before candle 1.";
+		return List.of(geometry, size);
+	}
+
+	/** One state of a gap's life, read from the later candle that moved it there. */
+	private static List<String> fvgState(DetectedSetup s, Map<String, Object> e, Prices price) {
+		boolean bullish = "BULLISH".equals(e.get("gapDirection"));
+		String zone = "The " + (bullish ? "bullish" : "bearish") + " gap from " + price.of(s.getZoneLowTicks()) + " to "
+			+ price.of(s.getZoneHighTicks());
+		String toward = bullish ? "down to " + price.of(n(e, "candleLowTicks")) : "up to " + price.of(n(e, "candleHighTicks"));
+		String near = price.of(bullish ? s.getZoneHighTicks() : s.getZoneLowTicks());
+		String far = price.of(bullish ? s.getZoneLowTicks() : s.getZoneHighTicks());
+		return List.of(switch (s.getKind()) {
+			case "OPEN" -> zone + " formed at its third candle's close: open, nothing has traded in it yet.";
+			case "TAPPED" -> zone + ": a later candle traded " + toward + ", into its near edge at " + near + " — tapped.";
+			case "CE" -> zone + ": a later candle traded " + toward + ", reaching its midpoint at "
+				+ price.ofHalf(n(e, "ceHalfTicks")) + " — consequent encroachment.";
+			case "FILLED" -> zone + ": a later candle traded " + toward + ", to its far edge at " + far + " — filled.";
+			case "INVERTED" -> zone + ": a later candle closed at " + price.of(n(e, "candleCloseTicks")) + ", beyond its far "
+				+ "edge at " + far + " — inverted.";
+			case "EXPIRED" -> zone + " was still not filled " + s.getParams().get("maxAgeCandles") + " candles after it "
+				+ "formed: the rule stops following it.";
+			default -> zone + ".";
+		});
+	}
+
+	private static List<String> ifvg(DetectedSetup s, Map<String, Object> e, Prices price) {
+		boolean gapBullish = "BULLISH".equals(e.get("gapDirection"));
+		return List.of(
+			"A " + (gapBullish ? "bullish" : "bearish") + " gap from " + price.of(s.getZoneLowTicks()) + " to "
+				+ price.of(s.getZoneHighTicks()) + " formed, and a later candle closed straight through it, at "
+				+ price.of(n(e, "candleCloseTicks")) + ", " + (gapBullish ? "below its bottom" : "above its top") + ".",
+			"ICT's claim is that a failed gap flips sides: this one is read as a " + (gapBullish ? "bearish" : "bullish")
+				+ " inversion gap.");
+	}
+
+	private static List<String> bpr(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {
+		return List.of(
+			"First a " + (bullish ? "bearish" : "bullish") + " gap from " + price.of(n(e, "firstGapLowTicks")) + " to "
+				+ price.of(n(e, "firstGapHighTicks")) + ", then, within " + s.getParams().get("maxCandles")
+				+ " candles, a " + (bullish ? "bullish" : "bearish") + " one from " + price.of(n(e, "secondGapLowTicks"))
+				+ " to " + price.of(n(e, "secondGapHighTicks")) + ": price ran through the area and straight back.",
+			"They overlap from " + price.of(s.getZoneLowTicks()) + " to " + price.of(s.getZoneHighTicks())
+				+ ": a balanced price range, pointing the way of the second move.");
+	}
+
+	private static List<String> vi(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {
+		long size = n(e, "sizeTicks");
+		String bodies = bullish
+			? "Candle 1's body tops out at " + price.of(s.getZoneLowTicks()) + "; candle 2's body starts at "
+				+ price.of(s.getZoneHighTicks()) + ", " + ticks(size) + " higher."
+			: "Candle 1's body bottoms out at " + price.of(s.getZoneHighTicks()) + "; candle 2's body tops out "
+				+ "at " + price.of(s.getZoneLowTicks()) + ", " + ticks(size) + " lower.";
+		String wicks = bullish
+			? "The bodies do not touch, but the wicks overlap: candle 2's low, " + price.of(n(e, "candle2LowTicks"))
+				+ ", is not above candle 1's high, " + price.of(n(e, "candle1HighTicks")) + "."
+			: "The bodies do not touch, but the wicks overlap: candle 2's high, "
+				+ price.of(n(e, "candle2HighTicks")) + ", is not below candle 1's low, "
+				+ price.of(n(e, "candle1LowTicks")) + ".";
+		String minimum = "At least the rule's " + s.getParams().get("minTicks") + " ticks between the bodies: a "
+			+ (bullish ? "bullish" : "bearish") + " volume imbalance.";
+		return List.of(bodies, wicks, minimum);
+	}
+
+	private static List<String> voids(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {
+		if ("GAP".equals(s.getKind())) {
+			return List.of(bullish
+				? "Candle 2's low, " + price.of(n(e, "candle2LowTicks")) + ", is above candle 1's high, "
+					+ price.of(n(e, "candle1HighTicks")) + ": the two ranges do not overlap — a price gap of "
+					+ ticks(s.getZoneHighTicks() - s.getZoneLowTicks()) + "."
+				: "Candle 2's high, " + price.of(n(e, "candle2HighTicks")) + ", is below candle 1's low, "
+					+ price.of(n(e, "candle1LowTicks")) + ": the two ranges do not overlap — a price gap of "
+					+ ticks(s.getZoneHighTicks() - s.getZoneLowTicks()) + ".");
+		}
+		return List.of(n(e, "candles") + " candles in a row closed " + (bullish ? "up" : "down") + ", from "
+			+ price.of(n(e, "openTicks")) + " to " + price.of(n(e, "closeTicks")) + ", each closing beyond the one before "
+			+ "and overlapping it by at most " + s.getParams().get("maxOverlapPercent") + "% of its range: a "
+			+ "one-sided run, a liquidity void.");
+	}
+
+	private static List<String> openingGap(DetectedSetup s, Map<String, Object> e, Prices price) {
+		long close = n(e, "lastCloseTicks");
+		long open = n(e, "firstOpenTicks");
+		long minutes = n(e, "closedMinutes");
+		String shut = minutes < 120 ? minutes + " minutes" : Math.round(minutes / 60.0) + " hours";
+		return List.of("The market closed at " + price.of(close) + " and reopened " + shut + " later at "
+			+ price.of(open) + ": " + moved(open - close) + ". "
+			+ ("NWOG".equals(s.getKind()) ? "Across a weekend: a new week opening gap (NWOG)."
+				: "Across the daily halt or a holiday: a new day opening gap (NDOG)."));
+	}
+
+	private static List<String> org(Map<String, Object> e, Prices price) {
+		long close = n(e, "closeTicks");
+		long open = n(e, "openTicks");
+		return List.of("The regular session closed at " + price.of(close) + " (16:15 New York) and the next opened "
+			+ "at " + price.of(open) + " (09:30): " + moved(open - close) + ", its midpoint at "
+			+ price.ofHalf(n(e, "ceHalfTicks")) + ".");
+	}
+
+	private static List<String> swingTier(DetectedSetup s, Map<String, Object> e, Prices price) {
+		String kind = s.getKind();
+		boolean high = kind.endsWith("H");
+		boolean longTerm = kind.startsWith("L");
+		String side = high ? "high" : "low";
+		String lower = longTerm ? "intermediate-term " + side : "swing " + side;
+		return List.of("This " + lower + " at " + price.of(n(e, "price")) + " stands " + (high ? "above" : "below")
+			+ " the " + lower + "s either side of it: " + article(NAMES.get(kind)) + ".");
+	}
+
+	private static List<String> structure(DetectedSetup s, Map<String, Object> e, Prices price) {
+		String kind = s.getKind();
+		boolean high = kind.endsWith("H");
+		String side = high ? "high" : "low";
+		long now = n(e, "price");
+		long before = n(e, "previousPrice");
+		String comparison = now == before ? "the same price"
+			: ticks(Math.abs(now - before)) + (now > before ? " higher" : " lower");
+		return List.of("This swing " + side + " at " + price.of(now) + " came after a swing " + side + " at "
+			+ price.of(before) + ": " + comparison + " — " + article(NAMES.get(kind)) + ".");
+	}
+
+	private static List<String> bosChoch(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {
+		String highLabel = String.valueOf(e.get("highLabel"));
+		String lowLabel = String.valueOf(e.get("lowLabel"));
+		boolean upTrend = "HH".equals(highLabel) && "HL".equals(lowLabel);
+		String structure = "Before the break, the latest swing high was " + article(NAMES.get(highLabel))
+			+ " and the latest swing low " + article(NAMES.get(lowLabel)) + ": structure was "
+			+ (upTrend ? "bullish" : "bearish") + ".";
+		String broke = "This candle closed at " + price.of(n(e, "closeTicks")) + ", " + (bullish ? "above" : "below")
+			+ " the swing " + (bullish ? "high" : "low") + " at " + price.of(n(e, "brokenPrice"))
+			+ " — the first close beyond it since it formed.";
+		String verdict = "BOS".equals(s.getKind())
+			? "With the trend: a break of structure (BOS)."
+			: "Against the trend: a change of character (CHoCH).";
+		return List.of(structure, broke, verdict);
+	}
+
+	private static List<String> displacement(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {
+		long candles = n(e, "candles");
+		long body = n(e, "bodyTicks");
+		long lookback = ((Number) s.getParams().get("rangeLookback")).longValue();
+		long percent = ((Number) s.getParams().get("multiplePercent")).longValue();
+		String average = String.format(Locale.ROOT, "%.1f", (double) n(e, "rangeSumTicks") / lookback);
+		return List.of(
+			(candles == 1 ? "One candle" : candles + " candles in a row") + " closed " + (bullish ? "up" : "down")
+				+ ", from " + price.of(bullish ? s.getZoneLowTicks() : s.getZoneHighTicks()) + " to "
+				+ price.of(bullish ? s.getZoneHighTicks() : s.getZoneLowTicks()) + ", with bodies adding up to "
+				+ ticks(body) + ".",
+			"The rule asks for " + percent + "% of the " + average + "-tick average range of the " + lookback
+				+ " candles before: " + String.format(Locale.ROOT, "%.1f", n(e, "rangeSumTicks") * percent / 100.0 / lookback)
+				+ " ticks. And the move left a " + (bullish ? "bullish" : "bearish") + " fair value gap behind it.");
+	}
+
+	private static List<String> mss(Map<String, Object> e, Prices price, boolean bullish) {
+		String low = bullish ? "low" : "high";
+		String high = bullish ? "high" : "low";
+		return List.of(
+			"A swing " + low + " at " + price.of(n(e, "pivotPrice")) + " traded " + (bullish ? "below" : "above")
+				+ " the earlier swing " + low + " at " + price.of(n(e, "sweptPrice")) + ", which was still resting: "
+				+ "a sweep.",
+			"Then a displacement, and this candle closed at " + price.of(n(e, "closeTicks")) + ", "
+				+ (bullish ? "above" : "below") + " the swing " + high + " at " + price.of(n(e, "brokenPrice"))
+				+ " — the first close beyond it: a " + (bullish ? "bullish" : "bearish") + " market structure shift.");
+	}
+
+	private static List<String> liquidity(DetectedSetup s, Map<String, Object> e, Prices price) {
+		boolean high = "BSL".equals(e.get("side"));
+		String level = "the swing " + (high ? "high" : "low") + " at " + price.of(n(e, "price"));
+		String liquidity = high ? "buy-side liquidity — the stops above it" : "sell-side liquidity — the stops below it";
+		return List.of(switch (s.getKind()) {
+			case "RESTING" -> capital(level) + ": " + liquidity + ", resting from the candle that confirmed the swing.";
+			case "TAKEN" -> "A later candle traded " + (high ? "above " : "below ") + level + ", a tick or more beyond it: "
+				+ "the " + (high ? "buy" : "sell") + "-side liquidity there is taken.";
+			case "EXPIRED" -> capital(level) + " still rested " + s.getParams().get("maxAgeCandles") + " candles after "
+				+ "it formed: the rule stops following it.";
+			default -> capital(level) + ".";
+		});
+	}
+
+	private static List<String> sweep(DetectedSetup s, Map<String, Object> e, Prices price) {
+		boolean high = "BSL".equals(e.get("side"));
+		String level = (high ? "the swing high at " : "the swing low at ") + price.of(n(e, "price"));
+		String liquidity = high ? "the buy-side liquidity above it" : "the sell-side liquidity below it";
+		String close = price.of(n(e, "takenCloseTicks"));
+		if ("SWEEP".equals(s.getKind())) {
+			return List.of("This candle traded " + (high ? "above " : "below ") + level + ", taking " + liquidity
+				+ ", and closed back at " + close + ", " + (high ? "at or below" : "at or above")
+				+ " the level: a sweep.");
+		}
+		return List.of("This candle traded " + (high ? "above " : "below ") + level + ", taking " + liquidity
+			+ ", and closed beyond it, at " + close + ". The next " + s.getParams().get("holdCandles")
+			+ " candles closed beyond it too: a run — the level was a waypoint, not the target.");
+	}
+
+	private static String moved(long ticks) {
+		return ticks == 0 ? "no gap — it opened where it closed"
+			: "a gap of " + ticks(Math.abs(ticks)) + (ticks > 0 ? " up" : " down");
+	}
+
+	private static String article(String name) {
+		return (name.startsWith("E") || name.startsWith("I") ? "an " : "a ") + name.substring(0, 1).toLowerCase(Locale.ROOT)
+			+ name.substring(1);
+	}
+
+	private static String capital(String text) {
+		return text.substring(0, 1).toUpperCase(Locale.ROOT) + text.substring(1);
+	}
+
+	private static String ticks(long n) {
+		return n == 1 ? "1 tick" : n + " ticks";
+	}
+
+	private static long n(Map<String, Object> evidence, String key) {
+		return ((Number) evidence.get(key)).longValue();
+	}
+
+	/** Ticks as a price at the instrument's tick size, the way the chart shows it (INVARIANT 3). */
+	private record Prices(BigDecimal tickSize) {
+
+		String of(long ticks) {
+			return format(BigDecimal.valueOf(ticks).multiply(tickSize));
+		}
+
+		/** A midpoint, stored in half-ticks so it stays an integer (ICT-21). */
+		String ofHalf(long halfTicks) {
+			return format(BigDecimal.valueOf(halfTicks).multiply(tickSize).divide(BigDecimal.TWO));
+		}
+
+		private String format(BigDecimal price) {
+			int decimals = Math.max(0, tickSize.stripTrailingZeros().scale());
+			return price.setScale(Math.max(decimals, price.stripTrailingZeros().scale()), RoundingMode.HALF_UP)
+				.toPlainString();
+		}
+	}
+}

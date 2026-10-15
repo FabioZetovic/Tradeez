@@ -973,6 +973,49 @@ a constant when wanted. Mode C prediction drills (T15) and the learning state (T
 **Reconsider if** learners find the excused sweeps confusing — a longer window for the sweep drill
 would show more of the levels being swept — or if 40 candles prove too little context to name a break.
 
+**DEC-055 — Lesson cards: the curriculum's words, every rule in words, real examples at random**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-15), T14 — mode L
+
+The first step of the concept loop (`ICT_CONCEPTS.md` Part 0): a one-minute card per concept, read
+before spotting and naming it. Nothing on a card is written for the card.
+
+- **The Learn tab** lists the curriculum as the ladder of Part 12 — all 72 concepts by level, the
+  detected ones marked — and opens on the first concept Tradeez can show on a chart.
+- **A card** carries the concept's **What.** paragraph from the document, its level, detectability and
+  status, what to know first and what it builds toward (the document's own cross-references, already
+  read by the registry, DEC-049), the rules that detect it in words, where the app draws it (the
+  Setups layer or the New York clock layer), the drills that practise it — "Practise it" opens the
+  Drills tab on that drill — and up to three real NQ examples. `GET /api/concepts/{id}/lesson`.
+- **Examples are not hand-picked.** Each comes from its own random two-day stretch of the imported
+  history: the rule scans it (every hit stored, DEC-026), one hit is taken at random — those the chart
+  can show whole first — and shown on the 32 candles up to the one it is known by and 8 after, with no
+  roll inside and no overlap with another example. "Show others" asks again; 1m, 5m or 15m. On the
+  dev database's two years of real NQ every one of the 18 detected concepts gave three examples at five
+  minutes, in 121–613 ms. An opening range gap never fits whole (its 16:15 close is seventeen hours
+  before the 09:30 open) and is drawn from the chart's left edge.
+- **Drawn as the chart draws it** — the Setups layer's own renderer — with a faint band behind the
+  hit's candles, since a small gap on forty candles is easy to miss. The caption names the hit's candle
+  with its date (real history, not a replay: nothing is hidden, DEC-045 does not apply) and, when they
+  differ, the candle it became known by.
+- **Every rule in words.** The drill engine's text moved to `analysis/RuleText` and now covers all 18
+  rules: a definition generated from the parameters, a label and an explanation per hit from its
+  evidence. `DetectorContractTest` holds it to that: every numeric parameter of every rule appears in
+  its definition, and every hit of every rule on the pattern market renders without a missing evidence
+  key. Lifecycle and liquidity events now say "a later candle" — the one the caption names — rather
+  than "this candle".
+- **Concepts without a detector** still get a card — what they are, and that Tradeez does not detect
+  them yet; those the clock layer draws say so and where.
+
+Found while building it: nothing in the code. The examples' first wording called the candle that
+moved a gap "this candle" while the caption named the gap's own — fixed before it was committed.
+
+Not in this decision: drawn diagrams beyond the examples, the document's **Disagreements.** notes on
+cards, examples for the clock-drawn concepts, and the learning state that will track which cards were
+read (T16).
+
+**Reconsider if** random examples too often show a rule's odd cases to a beginner — then order them
+(cleanest first) without hand-picking: by the rule's own numbers, stated on the card.
+
 **DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
 The first detector under DEC-026. The rule:
 

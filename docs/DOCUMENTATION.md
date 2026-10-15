@@ -67,7 +67,7 @@ exchange-traded FX futures can later be added without hardcoding each product.
 | **Charts** | Candlestick charting with indicators and full drawing toolset | Candles, timeframes, drawing tools with ICT's own (Sessions 010, 012, 017); detected ICT setups and the New York clock as switchable layers (017); no indicators |
 | **Practice** ⭐ | Hidden-outcome historical replay with trade simulation and grading | Replay of real NQ with the date hidden, plans, several trades, any timeframe (Sessions 014, 017) |
 | **Accounts** | Registration, login, session rotation, per-user data ownership | Done (Sessions 008, 010) |
-| **Training** | Auto-generated drills per methodology, with spaced repetition | Ten drills in two modes on real NQ, graded against the rule (Session 017, T13); spaced repetition not started |
+| **Training** | Auto-generated drills per methodology, with spaced repetition | Lesson cards for the whole ICT curriculum with real examples (T14); ten drills in two modes on real NQ, graded against the rule (T13); spaced repetition not started |
 | **Journal** | Trade log with R-multiples, expectancy, MAE/MFE, equity curve | Not started |
 
 ---
@@ -1623,6 +1623,16 @@ just before the chart counted as wrong, though nobody could have judged it from 
 candles are now set aside, and the result says so: they count neither way. For sweeps it matters most
 — in nine drills out of ten some candle swept a level that formed before the chart begins.
 
+**Lessons before drills.** ICT is learned in a loop: read what a concept is, spot it, name it. The
+new Learn tab is the first step. It lists all 72 concepts of the curriculum in the order they build on
+each other, and each has a card: what it is, in the curriculum document's own words; the exact rule
+Tradeez uses, written out from the rule's own settings; what to know first and what it leads to; and a
+button to the drill that practises it. For every concept the app can detect there are three real NQ
+examples — not chosen to look good, but found by the rule at random in the two years of history, each
+explained in the rule's own numbers and different every time. To make that possible, every one of the
+eighteen rules can now describe itself and each of its hits in plain words, and the tests check that
+no rule's description leaves out one of its numbers.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1638,7 +1648,7 @@ bars, the import ledger, the real NQ instrument; V8: the simulated markets leave
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
-the drill engine): backend 223 → 350, frontend 148 → 236, V9 to V14, DEC-044 to DEC-054.*
+the drill engine, lesson cards): backend 223 → 378, frontend 148 → 244, V9 to V14, DEC-044 to DEC-055.*
 
 ---
 

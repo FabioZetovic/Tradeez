@@ -3,13 +3,16 @@ package com.tradeez.curriculum;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.tradeez.analysis.DetectorRegistry;
 import com.tradeez.analysis.SetupDtos.RuleView;
 import com.tradeez.curriculum.ConceptRegistry.Concept;
 import com.tradeez.curriculum.ConceptRegistry.Level;
+import com.tradeez.curriculum.LessonDtos.LessonResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -28,8 +31,10 @@ public class ConceptController {
 	}
 
 	private final CurriculumResponse curriculum;
+	private final LessonService lessons;
 
-	public ConceptController(ConceptRegistry concepts, DetectorRegistry detectors) {
+	public ConceptController(ConceptRegistry concepts, DetectorRegistry detectors, LessonService lessons) {
+		this.lessons = lessons;
 		this.curriculum = new CurriculumResponse(concepts.levels(), concepts.concepts().stream()
 			.map(c -> new ConceptView(c, detectors.all().stream()
 				.filter(d -> d.conceptId().equals(c.id()))
@@ -43,5 +48,13 @@ public class ConceptController {
 		description = "Read from docs/ICT_CONCEPTS.md at startup (T9, DEC-049).")
 	public CurriculumResponse concepts() {
 		return curriculum;
+	}
+
+	@GetMapping("/{id}/lesson")
+	@Operation(summary = "A concept's lesson card",
+		description = "What it is, from ICT_CONCEPTS.md; its rules in words; the drills that practise it; and up to "
+			+ "three real NQ examples its rule found at random — never hand-picked, different each time (T14, DEC-055).")
+	public LessonResponse lesson(@PathVariable String id, @RequestParam(required = false) String timeframe) {
+		return lessons.lesson(id, timeframe);
 	}
 }

@@ -209,7 +209,7 @@ Every concept is taught with the same loop, in this order:
 
 | Mode | What the learner does | Time per rep | Grading |
 |---|---|---|---|
-| **L** Lesson card | Reads a short card built from this file plus detected real examples | 1 min | none |
+| **L** Lesson card | Reads a short card built from this file plus detected real examples — ✅ the Learn tab, T14 (DEC-055) | 1 min | none |
 | **A** Identification | Clicks every instance on a static chart | ~15 s | precision / recall against the rule |
 | **B** Classification | Chooses the name of a marked structure | ~10 s | against the rule |
 | **C** Prediction | Answers a question about the hidden future, then sees it | ~20 s | against real price (real data only) |

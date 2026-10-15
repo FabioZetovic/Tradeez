@@ -8,8 +8,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -32,25 +30,22 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
+import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
 import com.tradeez.identity.RefreshTokenRepository;
-import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketBarStore;
-import com.tradeez.marketdata.MarketBarStore.StoredBar;
 import com.tradeez.marketdata.MarketDataService;
-import com.tradeez.marketdata.SessionCalendar;
-import com.tradeez.marketdata.Timeframe;
 
 import jakarta.servlet.http.Cookie;
 
 /**
  * T13 (DEC-054) — every drill, on imported one-minute NQ, graded against its rule.
  *
- * <p>The minutes are imported as {@code SetupApiTest} imports them: the simulated market's, with every
- * 35th minute opening two points from the last close (so there are volume imbalances), and a roll to
- * the June contract, 1,000 points higher, on Thursday 8 May.
+ * <p>The minutes are {@link ThreeWeeksOfNq}: the simulated market's, with every 35th minute opening two
+ * points from the last close (so there are volume imbalances), and a roll to the June contract, 1,000
+ * points higher, on Thursday 8 May.
  *
  * <p>The same three promises as the fixture drill. <b>Right</b>: the answer key is every hit of the
  * rule that the chart shows whole, and a hit the chart cuts is excused rather than counted. <b>Fair</b>:
@@ -59,11 +54,6 @@ import jakarta.servlet.http.Cookie;
  * market is real.
  */
 class RealDrillApiTest extends AbstractIntegrationTest {
-
-	private static final Instant DATA_FROM = Instant.parse("2025-04-27T22:00:00Z");
-	private static final Instant DATA_TO = Instant.parse("2025-05-17T00:00:00Z");
-	private static final Instant ROLL = Instant.parse("2025-05-08T14:00:00Z");
-	private static final long JUNE_PREMIUM_TICKS = 4_000;
 
 	@Autowired
 	MockMvc mockMvc;
@@ -95,8 +85,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		users.deleteAllInBatch(); // drills cascade from their user
 		alice = register("alice@example.com");
 		nq = marketData.requireInstrument("NQ");
-		Instant[] coverage = marketData.coverage(nq);
-		if (coverage != null && coverage[0].equals(DATA_FROM) && marketData.rolls(nq, DATA_FROM, DATA_TO).size() == 1) {
+		if (ThreeWeeksOfNq.present(marketData)) {
 			return; // already imported by an earlier test in this class: the import is the slow part
 		}
 		jdbc.update("DELETE FROM drill_setup");
@@ -104,24 +93,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		jdbc.update("DELETE FROM detected_setup");
 		jdbc.update("DELETE FROM market_bar");
 		jdbc.update("DELETE FROM market_data_import");
-		Instrument demo = marketData.requireInstrument("DEMO-NQ");
-		List<StoredBar> bars = new ArrayList<>();
-		for (Bar b : marketData.internalBars(demo, Timeframe.M1, DATA_FROM, DATA_TO, 7).bars()) {
-			if (!SessionCalendar.isOpen(b.openTime())) {
-				continue;
-			}
-			boolean june = !b.openTime().isBefore(ROLL);
-			long shift = june ? JUNE_PREMIUM_TICKS : 0;
-			long open = b.openTicks() + (b.openTime().getEpochSecond() / 60 % 35 == 0 ? 8 : 0);
-			bars.add(new StoredBar(new Bar(b.openTime(), open + shift, Math.max(b.highTicks(), open) + shift,
-				b.lowTicks() + shift, b.closeTicks() + shift, b.volume()), june ? 202506 : 202503));
-		}
-		barStore.insert(nq.getId(), "1m", bars);
-		jdbc.update("""
-			INSERT INTO market_data_import (instrument_id, source, dataset, symbol, resolution,
-			    range_from, range_to, estimated_cost_usd, bars_stored, status)
-			VALUES (?, 'massive', 'CME', 'NQ', '1m', ?, ?, 0, ?, 'DONE')""",
-			nq.getId(), Timestamp.from(DATA_FROM), Timestamp.from(DATA_TO), bars.size());
+		ThreeWeeksOfNq.insert(marketData, barStore, jdbc);
 	}
 
 	private Cookie register(String email) throws Exception {

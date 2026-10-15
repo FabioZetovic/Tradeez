@@ -124,6 +124,19 @@ export function timezoneLabel(exchangeTimezone: string, mode: AxisTimezone, at: 
 }
 
 /**
+ * The calendar date of an instant in the exchange's zone: "6 May 2025". Only for real history whose
+ * date is not hidden — a lesson's examples, not a replay (DEC-045).
+ */
+export function formatSessionDate(epochSeconds: number, exchangeTimezone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: exchangeTimezone,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(epochSeconds * 1000))
+}
+
+/**
  * A single instant for prose, in the exchange's zone: "Tue 09:35 CDT".
  *
  * Weekday and time, no date. On simulated data the date means nothing, while the weekday and the

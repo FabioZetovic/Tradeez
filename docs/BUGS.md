@@ -20,12 +20,42 @@
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
-building T13 one (BUG-050). All eleven are fixed.
+building T13 one (BUG-050). All eleven are fixed. One environment problem is open: ENV-007, a dependency
+update made outside the session that the test runner cannot load on this machine's Node.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
 
 ## Environment
+
+### ENV-007 🟠 Dependencies updated outside the session stopped the frontend tests on Node 22.14
+
+**Status:** verified (session 017, T14) — **open: Fabio's decision**
+
+While the session was paused at a usage limit (2026-10-15, 18:47 local), something outside it ran an
+npm install or update in `frontend/`: `package-lock.json` and `node_modules` moved several packages
+up within their ranges, among them `undici` 8.10.0 → 8.12.2. That version requires Node ≥ 22.19; this
+machine has 22.14, and every vitest worker now fails to start ("Cannot read properties of undefined
+(reading 'bind')" in `undici/lib/interceptor/decompress.js`). Lint, typecheck, knip and the build are
+unaffected; only the test runner loads undici.
+
+Not undone here, because the change was not this session's to undo: the lockfile change is left
+uncommitted in the working tree and kept out of every commit, and the tests were run on the committed
+lockfile in a scratch copy (`npm ci`), where all pass. A fresh clone is unaffected. **To fix, either**
+upgrade Node to ≥ 22.19 (then the update can be committed), **or** discard it:
+`git checkout frontend/package-lock.json` then `npm ci` in `frontend/`.
+
+### ENV-008 🟡 Two mutation-check runs at once swapped two source files
+
+**Status:** verified and fixed (session 017, T14)
+
+A mutation script backs a file up, plants a bug, runs the tests and restores the backup. It was
+started twice by accident, and both runs shared one backup file: each restored the other's file, and
+`RuleText.java` ended up holding `LessonService.java`'s source while `LessonService.java` kept a
+planted bug. Caught by checking the files after the run; both were rebuilt (`RuleText` from the
+session's own record of it, `LessonService` from the copy that had landed in the wrong file) and every
+test re-run. Lessons: a mutation run's backups are named per mutation and per file, a run is started
+once and waited for, and the sources are grepped for every planted string before anything else.
 
 ### ENV-006 🟡 The Vite dev server can serve a file from before its last edit
 

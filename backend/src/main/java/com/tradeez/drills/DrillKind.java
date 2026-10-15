@@ -1,7 +1,6 @@
 package com.tradeez.drills;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import com.tradeez.analysis.DetectedSetup;
@@ -80,13 +79,6 @@ public enum DrillKind {
 			return this == IDENTIFY ? DrillService.WINDOW_BARS : DrillService.CLASSIFY_WINDOW_BARS;
 		}
 	}
-
-	/** What each name a classification drill offers means, as the learner reads it. */
-	static final Map<String, String> NAMES = Map.ofEntries(
-		Map.entry("HH", "Higher high (HH)"), Map.entry("LH", "Lower high (LH)"), Map.entry("EH", "Equal high (EH)"),
-		Map.entry("HL", "Higher low (HL)"), Map.entry("LL", "Lower low (LL)"), Map.entry("EL", "Equal low (EL)"),
-		Map.entry("BOS", "Break of structure (BOS)"), Map.entry("CHOCH", "Change of character (CHoCH)"),
-		Map.entry("SWEEP", "Sweep"), Map.entry("RUN", "Run"));
 
 	private final Mode mode;
 	private final String detector;
