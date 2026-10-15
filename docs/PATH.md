@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T9 merged; T10 built on feat/imbalances, waiting for Fabio to say merge
+last_session: 017   # in progress — T1–T10 merged; T34 (practice timeframes, Fabio) next, then T11
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 302/302 (Testcontainers), frontend 228/228 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c504625 (T10, feat/imbalances) green 2026-10-15; T9 merged as a582b1a.
+build_passing: true  # backend 302/302 (Testcontainers), frontend 228/228 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c504625 (T10) green 2026-10-15; merged as dcf699a.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -119,7 +119,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T10 (imbalances and gaps) built on feat/imbalances; merge when Fabio says so.
+blocked_on: nothing — T34 (switchable timeframes in practice) next, on feat/practice-timeframes.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -147,7 +147,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T10 imbalances and gaps, on branch feat/imbalances (2026-10-15)
+claimed_files:      # session 017 (CLAUDE) — T34 practice timeframes, on branch feat/practice-timeframes (2026-10-15)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -164,7 +164,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -195,9 +195,11 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, **merged 2026-10-14 as `6d09763`** (DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
 | T8 | ~~**ICT drawing tools**~~ | T3 | I-21, I-42–43, X §4 | ✅ Session 017, **merged 2026-10-14 as `4321ae6`** (DEC-048): Fibonacci with ICT's levels (OTE shaded, targets −0.27 to −2), zone with its CE in half-ticks, labels; words typed on the chart; server checks anchor counts and text (V11). |
 | T9 | ~~**Detector framework, concept registry, overlay renderer**~~ | T3 | I S-1–S-3, D-026 | ✅ Session 017, **merged 2026-10-15 as `a582b1a`** (DEC-049): a `Detector` contract (shape, confirmation time, lookback) checked for every detector — deterministic, causal, honest lookback, one per place; split at rolls; V12; lazy scans with a self-checking cache; setups API for the Chart tab and replays (never past the cursor, hidden date kept, no evidence sent); concept registry read from `ICT_CONCEPTS.md`; overlay with zones + CE, off by default. |
-| T10 | ~~**Imbalances and gaps**~~ | T9 | I-20–28 | ✅ Session 017, on `feat/imbalances`, **not merged yet** (DEC-050): `fvg-1.0.0` re-measured on two years of real NQ and kept (~3 per 30 candles on every timeframe); `fvg-state-1.0.0` (OPEN→TAPPED→CE→FILLED→INVERTED, 500-candle memory), `ifvg-1.0.0`, `bpr-1.0.0`, `vi-1.0.0` (≥ 4 ticks, measured), `void-1.0.0` (gaps, voids), `opening-gap-1.0.0` (NDOG/NWOG from the data), `org-1.0.0`; V13 kinds; overlay with live zones, faded finished ones, stops at rolls. |
+| T10 | ~~**Imbalances and gaps**~~ | T9 | I-20–28 | ✅ Session 017, **merged 2026-10-15 as `dcf699a`** (DEC-050): `fvg-1.0.0` re-measured on two years of real NQ and kept (~3 per 30 candles on every timeframe); `fvg-state-1.0.0` (OPEN→TAPPED→CE→FILLED→INVERTED, 500-candle memory), `ifvg-1.0.0`, `bpr-1.0.0`, `vi-1.0.0` (≥ 4 ticks, measured), `void-1.0.0` (gaps, voids), `opening-gap-1.0.0` (NDOG/NWOG from the data), `org-1.0.0`; V13 kinds; overlay with live zones, faded finished ones, stops at rolls. |
+| T34 | **Switchable timeframes in practice** | T5 | F | Fabio, 2026-10-15: a replay can be viewed on any chart timeframe (1m–1h) mid-session, the forming candle built only from minutes before the cursor; "Next bar" steps one candle of the viewed timeframe; clock and setups follow it; fills unchanged. Before T11. |
 | T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
 | T12 | **Liquidity** | T11 | I-10–14 | Resting/taken levels, equal highs/lows, sweep vs run. |
+| T35 | **Session-aligned 4h and daily candles** | T3 | F | Fabio asked why 4h/1d are missing (2026-10-15): aggregation counts from UTC midnight, which matches New York only up to 1h. Anchor 4h and daily buckets to the 18:00 New York session open, DST-aware, then offer them on the Chart tab and in practice. |
 
 **M2 — The learning loop**
 
@@ -1736,3 +1738,8 @@ measurement — DEC-039's own yardstick was 3–7 gaps per 30 five-minute candle
 **2026-10-15 — T10 fresh-clone check.** `c504625` cloned clean, no `.env`: frontend 228/228, lint,
 typecheck, knip and build clean; backend `tests=302 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
 Waiting for Fabio to say merge.
+
+**2026-10-15 — T10 merged.** Merged `--no-ff` as `dcf699a`. Fabio: two years of data is fine for
+now; asked for switchable timeframes in practice — **T34**, taken next, before T11 — and why 4h and
+daily are missing: UTC-midnight buckets match New York only up to 1h (a 4h candle would straddle the
+17:00 halt, a daily one hold two hours of the next trading day) — **T35**, session-aligned buckets.
