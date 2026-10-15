@@ -89,6 +89,22 @@ describe('what each hit looks like on the chart', () => {
     expect(hl).toMatchObject({ above: false, label: 'HL' })
   })
 
+  it('T12: one line per liquidity level — running on while it rests, stopped and faint once taken', () => {
+    const level = (kind: string, end: number, confirmedAt: number, direction: Setup['direction']) =>
+      setup({ detector: 'LIQUIDITY', kind, shape: 'LEVEL', direction, start: 0, anchor: 0, end, confirmedAt, lowTicks: 120, highTicks: 120 })
+    const shapes = toShapes(
+      layer([
+        level('RESTING', 300, 600, 'BEARISH'),
+        level('TAKEN', 1500, 1800, 'BEARISH'),
+        level('RESTING', 300, 600, 'BULLISH'),
+      ]),
+      STEP,
+    )
+    expect(shapes).toHaveLength(2)
+    expect(shapes[0]).toMatchObject({ label: 'BSL', to: 1800, faded: true })
+    expect(shapes[1]).toMatchObject({ label: 'SSL', to: 'edge', faded: false })
+  })
+
   it('draws a break as a line from the swing to the candle that broke it, by its SMC name', () => {
     const choch = setup({ detector: 'BOS_CHOCH', kind: 'CHOCH', shape: 'LEVEL', start: 0, anchor: 900, end: 900 })
     const [shape] = toShapes(layer([choch]), STEP)

@@ -121,11 +121,11 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-04 | Displacement | 1 | R | ✅ `displacement-1.0.0` (DEC-052) | `displacement-1.0.0` | 1m |
 | ICT-05 | Market structure shift (MSS) | 1 | R | ✅ `mss-1.0.0` (DEC-052) | `mss-1.0.0` | 1m |
 | ICT-06 | BOS / CHoCH (SMC aliases) | 1 | R | ✅ `structure-1.0.0` (DEC-052) | `structure-1.0.0` | 1m |
-| ICT-10 | Buy-side and sell-side liquidity | 2 | D | 📐 | `liquidity-1.0.0` | 1m |
-| ICT-11 | Reference highs and lows (PDH/PDL, PWH/PWL, sessions) | 2 | D | ✅ | `levels-1.0.0` | 1m, sessions |
-| ICT-12 | Relative equal highs / lows | 2 | R | 📐 | `eqhl-1.0.0` | 1m |
-| ICT-13 | Liquidity sweep vs run | 2 | R | 📐 | `sweep-1.0.0` | 1m |
-| ICT-14 | Turtle soup (pattern) | 2 | R | 📐 | via `sweep-1.0.0` | 1m |
+| ICT-10 | Buy-side and sell-side liquidity | 2 | D | ✅ `liquidity-1.0.0` (DEC-053) | `liquidity-1.0.0` | 1m |
+| ICT-11 | Reference highs and lows (PDH/PDL, PWH/PWL, sessions) | 2 | D | ✅, taken state under `liquidity-1.0.0` (T12) | `levels-1.0.0` | 1m, sessions |
+| ICT-12 | Relative equal highs / lows | 2 | R | ✅ `eqhl-1.0.0` (DEC-053) | `eqhl-1.0.0` | 1m |
+| ICT-13 | Liquidity sweep vs run | 2 | R | ✅ `sweep-1.0.0` (DEC-053) | `sweep-1.0.0` | 1m |
+| ICT-14 | Turtle soup (pattern) | 2 | R | ✅ of equal highs/lows (DEC-053) | via `sweep-1.0.0` | 1m |
 | ICT-15 | External vs internal range liquidity | 2 | R / J | 📝 | — | 1m |
 | ICT-16 | Draw on liquidity | 2 | J | 📝 | — | 1m |
 | ICT-17 | Low / high resistance liquidity runs | 2 | R / J | 📝 | — | 1m |
@@ -445,10 +445,13 @@ of breakout traders — **buy-side liquidity**. Below an old low sit sell stops 
 liquidity**. ICT's core claim is that price is drawn to these pools: large participants need that
 liquidity to fill their orders.
 
-**Tradeez rule — `liquidity-1.0.0` (draft).** Every confirmed swing high is a BSL level and every swing
+**Tradeez rule — `liquidity-1.0.0` ✅ (DEC-053).** Every confirmed swing high is a BSL level and every swing
 low an SSL level, from its confirmation time until price trades at least one tick beyond it; then it
 is **taken**, with the time it was taken. The same applies to the reference levels of ICT-11. A
 level's state at any moment is computable without lookahead.
+
+*Implemented in T12:* `RESTING` → `TAKEN` or `EXPIRED` (500 candles). Measured on real NQ: half of
+swing levels are taken within 5 candles, 95% within 500.
 
 **Teach.** A (mark resting BSL/SSL at the cursor), C ("which is taken first?").
 
@@ -470,8 +473,8 @@ becomes a `liquidity-1.0.0` level once its period closes.
 *Implemented in T7 (DEC-047), `dayBoundary = CME` only:* PDH/PDL over the next trading day, PWH/PWL
 over the next week, each killzone's high and low from its close to the end of its trading day. A
 level appears only once its period has closed; none is measured from a period the data did not see
-from its start, and none is drawn across a contract roll. Overnight, RTH and monthly levels, and the
-taken/untaken state (`liquidity-1.0.0`, T12), are not built yet.
+from its start, and none is drawn across a contract roll. Overnight, RTH and monthly levels are not
+built yet. *T12:* each level carries the minute that took it (`liquidity-1.0.0`, DEC-053).
 
 **Teach.** A (draw today's PDH/PDL), C ("which of these levels is taken first today?").
 
@@ -481,10 +484,13 @@ taken/untaken state (`liquidity-1.0.0`, T12), are not built yet.
 an obvious double top invites stops above it, so it is a likely target. "Relative" matters: they need
 not match to the tick.
 
-**Tradeez rule — `eqhl-1.0.0` (draft).** Two confirmed swing highs, at least 3 candles apart, whose
+**Tradeez rule — `eqhl-1.0.0` ✅ (DEC-053).** Two confirmed swing highs, at least 3 candles apart, whose
 highs differ by at most `tolerance` — default the larger of 1 tick and 10% of the 14-candle average
 range — with no candle between them trading above the higher of the two. Lows mirror.
 **Confirmation:** the second swing's confirmation.
+
+*Implemented in T12:* the second swing pairs with the latest qualifying earlier one, within 200
+candles. Measured: 1.3–2.2 pairs per 30 candles.
 
 **Teach.** A (find the equal highs), C ("are these equal highs taken before the session ends?") and
 G (how often relative equal highs were taken within a session, on real NQ).
@@ -495,13 +501,16 @@ G (how often relative equal highs were taken within a session, on real NQ).
 *run on stops*) trades through the level and comes straight back: the stops were the target. A
 **run** (a breakout) trades through and stays: the level was a waypoint.
 
-**Tradeez rule — `sweep-1.0.0` (draft).** A resting level is taken by at least one tick.
+**Tradeez rule — `sweep-1.0.0` ✅ (DEC-053).** A resting level is taken by at least one tick.
 - **Sweep:** a candle closes back on the original side within `closeBackWithin = 1` candle (the same
   candle, i.e. a wick through) — up to 3 as a parameter.
 - **Run:** the taking candle closes beyond the level and the next `holdCandles = 2` candles do not
   close back.
 - Otherwise: undecided.
 - **Confirmation:** the close that decides it.
+
+*Implemented in T12:* undecided is not reported; a candle taking several levels on a side is
+judged on the most extreme. Measured: ~50% sweeps, 29% runs, 21% undecided, on every timeframe.
 
 **Teach.** B ("sweep or run?"), C ("price just took the London high — sweep or run?").
 
@@ -511,6 +520,9 @@ G (how often relative equal highs were taken within a session, on real NQ).
 from Linda Raschke and Larry Connors, who faded false breaks of the "Turtle" traders' 20-day
 breakouts; ICT applies it to any obvious old high or low. In Tradeez terms it is a **sweep**
 (ICT-13) of a reference level (ICT-11) or of equal highs/lows (ICT-12). The trading model is ICT-74.
+
+*Implemented in T12:* sweeps of equal-highs/lows pools (`TURTLE_SOUP`). Sweeps of the reference
+levels show as taken levels in the clock layer, not as turtle soup yet.
 
 **Teach.** A (find the turtle soups), G (how often a sweep of the previous day's high led to a move
 of at least 1R back inside).
@@ -1301,7 +1313,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | (all) | S-1, S-2, S-3 | — | — | — | T9 |
 | ICT-20 – ICT-28 | `fvg` (re-measured), `fvg-state`, `ifvg`, `bpr`, `vi`, `void`, `opening-gap`, `org` | zones with state | A, B, C | G: fill rates, the ORG claim | T10 ✅ (detectors and overlay; drills T13, evidence T21) |
 | ICT-01 – ICT-06 | `swing`, `swing-tier`, `structure`, `displacement`, `mss` | swing markers, structure labels | A, B, C | — | T11 ✅ (detectors and overlay; drills T13) |
-| ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 |
+| ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 ✅ (detectors, clock levels taken, overlay; drills T13) |
 | (all D/R) | — | — | S-4 engine, S-5 state | — | T13, T16 |
 | ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 |
 | ICT-30 – ICT-37 | `ob`, `breaker`, `mitigation`, `rejection`, `unicorn` | zones | A, B, C | G: reaction rates | T17 |

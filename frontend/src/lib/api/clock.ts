@@ -25,10 +25,12 @@ export interface ClockLine {
   to: number
   /** Integer ticks (INVARIANT 3). */
   priceTicks: number
+  /** A high or low: the minute that traded beyond it — its liquidity taken (T12). Absent while it rests. */
+  takenAt?: number
 }
 
 export interface ClockLayer {
-  rules: { sessions: string; opens: string; levels: string }
+  rules: { sessions: string; opens: string; levels: string; liquidity: string }
   windows: ClockWindow[]
   lines: ClockLine[]
   /** Practice only: ask again once the cursor reaches this. */

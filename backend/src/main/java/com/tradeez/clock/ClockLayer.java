@@ -37,7 +37,21 @@ public record ClockLayer(List<Window> windows, List<Line> lines, Instant nextCha
 	public record Window(WindowKind kind, String label, Instant from, Instant to) {
 	}
 
-	/** A price that matters over {@code [from, to)}. */
-	public record Line(LineKind kind, String label, Instant from, Instant to, long priceTicks) {
+	/**
+	 * A price that matters over {@code [from, to)}.
+	 *
+	 * @param takenAt for a reference high or low (not an opening price): the first minute, from
+	 *                {@code from} and before the layer's end, that traded beyond it — the liquidity
+	 *                resting there taken ({@code liquidity-1.0.0}, ICT-10, T12). Null while it rests.
+	 */
+	public record Line(LineKind kind, String label, Instant from, Instant to, long priceTicks, Instant takenAt) {
+
+		/** A high (true), a low (false), or an opening price, which holds no liquidity (null). */
+		public Boolean high() {
+			if (kind == LineKind.OPEN) {
+				return null;
+			}
+			return label.equals("PDH") || label.equals("PWH") || label.endsWith(" H");
+		}
 	}
 }

@@ -64,10 +64,12 @@ export function renderClock(
   const labels: LineLabel[] = []
   for (const line of layer.lines) {
     if (!shown.has(lineLayer(line))) continue
-    const at = span(line.from, line.to)
+    // A level whose liquidity was taken ends where it was taken (liquidity-1.0.0, T12).
+    const at = span(line.from, line.takenAt ?? line.to)
     const y = projection.priceToY(line.priceTicks)
     if (at && y !== null && y >= 0 && y <= pane.height) {
       labels.push(drawLine(ctx, line, at, y, options.tickSize))
+      if (line.takenAt !== undefined) drawTaken(ctx, at[1], Math.round(y) + 0.5, lineStyle(line).color)
     }
   }
   // Words after lines, most important first, each into free space (BUG-048).
@@ -171,6 +173,18 @@ function drawLine(
     room: x1 - x0,
     y: yy,
   }
+}
+
+/** A small cross where a level's liquidity was taken. */
+function drawTaken(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(x - 3, y - 3)
+  ctx.lineTo(x + 3, y + 3)
+  ctx.moveTo(x - 3, y + 3)
+  ctx.lineTo(x + 3, y - 3)
+  ctx.stroke()
 }
 
 function lineStyle(line: ClockLine): { color: string; dash: number[]; width: number } {

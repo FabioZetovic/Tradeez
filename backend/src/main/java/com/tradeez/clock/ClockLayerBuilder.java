@@ -55,6 +55,8 @@ public final class ClockLayerBuilder {
 	public static final String SESSIONS = "sessions-1.0.0";
 	public static final String OPENS = "opens-1.0.0";
 	public static final String LEVELS = "levels-1.0.0";
+	/** Reference highs and lows taken when price trades a tick beyond them (ICT-10, T12, DEC-053). */
+	public static final String LIQUIDITY = "liquidity-1.0.0";
 
 	/** How far before a range its sources can lie: the whole previous week, from any day of this one. */
 	public static final Duration LOOKBACK = Duration.ofDays(14);
@@ -220,7 +222,50 @@ public final class ClockLayerBuilder {
 			previousWeek = w;
 		}
 
-		return new ClockLayer(windows, lines, nextChange(to));
+		List<Line> withState = lines.stream().map(line -> taken(line, bars)).toList();
+		return new ClockLayer(windows, withState, nextChange(withState, to));
+	}
+
+	/**
+	 * The line with the first minute that traded beyond it, if it holds liquidity and was taken
+	 * before the layer's end. Only bars before the layer's end are ever here, so this is what was
+	 * known then.
+	 */
+	static Line taken(Line line, List<Bar> bars) {
+		Boolean high = line.high();
+		if (high == null) {
+			return line;
+		}
+		int lo = 0;
+		int hi = bars.size();
+		while (lo < hi) {
+			int mid = (lo + hi) >>> 1;
+			if (bars.get(mid).openTime().isBefore(line.from())) {
+				lo = mid + 1;
+			} else {
+				hi = mid;
+			}
+		}
+		for (int k = lo; k < bars.size() && bars.get(k).openTime().isBefore(line.to()); k++) {
+			Bar bar = bars.get(k);
+			if (high ? bar.highTicks() > line.priceTicks() : bar.lowTicks() < line.priceTicks()) {
+				return new Line(line.kind(), line.label(), line.from(), line.to(), line.priceTicks(), bar.openTime());
+			}
+		}
+		return line;
+	}
+
+	/**
+	 * When a layer built up to {@code to} could next look different. Normally a moment of the clock;
+	 * but while any level still rests at {@code to} it could be taken in the very next minute — which
+	 * is all this says: not when, nor whether, it will be.
+	 */
+	static Instant nextChange(List<Line> lines, Instant to) {
+		Instant clock = nextChange(to);
+		boolean resting = lines.stream().anyMatch(l -> l.high() != null && l.takenAt() == null
+			&& !l.from().isAfter(to) && l.to().isAfter(to));
+		Instant nextMinute = to.plusSeconds(60);
+		return resting && nextMinute.isBefore(clock) ? nextMinute : clock;
 	}
 
 	/** The first moment after {@code after} at which a layer built up to it could change. */
@@ -290,7 +335,7 @@ public final class ClockLayerBuilder {
 				}
 			}
 			if (cut.isAfter(from)) {
-				lines.add(new Line(kind, label, start, cut, price));
+				lines.add(new Line(kind, label, start, cut, price, null));
 			}
 		}
 	}

@@ -748,6 +748,54 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-053 — Liquidity: resting and taken, equal highs and lows, sweep or run** `IMPLEMENTED` ·
+Claude, Session 017 (2026-10-15), T12 — ICT-10 to ICT-14
+
+Measured first on the two years of real NQ:
+
+- **Swing levels** are taken fast: half within 5 candles of their confirmation, 95% within 500 — on
+  every timeframe. A level is followed for **500 candles**, like a gap's lifecycle; the rest expire.
+- **When one is taken**, about **50%** close back the same candle (sweep), **29%** close beyond and
+  hold two more candles (run), **21%** neither — at the draft's parameters, on every timeframe. A
+  description of the past, not an edge (INVARIANT 8).
+- **Relative equal highs/lows** at the draft's tolerance: 1.3 to 2.2 per 30 candles.
+
+The draft numbers are kept. The rules:
+
+- **`liquidity-1.0.0` (ICT-10)** — every swing high is buy-side, every swing low sell-side liquidity:
+  `RESTING` from the swing's confirmation, `TAKEN` at the close of the first candle trading a tick
+  beyond, `EXPIRED` if still resting 500 candles on.
+- **Reference levels (ICT-11) under the same rule**, in the New York clock layer: PDH/PDL, PWH/PWL and
+  each killzone's high and low carry the minute that took them, found from the minutes before the
+  layer's end only. A replay asks for the clock again only at the clock's own moments (DEC-047); while
+  a level still rests, that moment is now the next minute — which says only that a level could be
+  taken, never when, so nothing about the future leaks.
+- **`eqhl-1.0.0` (ICT-12)** — a swing pairs with the latest earlier one of its kind at least 3 candles
+  before it, within the larger of a tick and 10% of the 14-candle average range (rounded up, in
+  ticks), with no candle between beyond the more extreme of the two. Read within 200 candles.
+- **`sweep-1.0.0` (ICT-13)** — `SWEEP` (closed back in the taking candle) or `RUN` (closed beyond,
+  and two more closes beyond); undecided is not reported. When one candle takes several levels on a
+  side it is judged on the most extreme — a candle through 115 and 120 that closes at 118 swept 120;
+  it did not run 115.
+- **Turtle soup (ICT-14)**, under `sweep-1.0.0`: a sweep of an equal-highs or equal-lows pool, its
+  level the more extreme of the two. Sweeps of the reference levels are visible as taken levels in the
+  clock layer but are not reported as turtle soup.
+
+Direction: liquidity and equal highs/lows point by their side, highs down and lows up, as the swings
+they come from; a sweep points away from the level, a run through it.
+
+**Found while building it:** the setups endpoint refused more than 16 rules in one request — "more
+than the overlay toggles there are" when written. T12 makes 18, so a learner with every switch on
+would have got an error. Raised to 32, and the contract test now fails if the registered rules ever
+outnumber it.
+
+**On the chart:** a liquidity level is one line at its latest state (BSL over a high, SSL under a
+low), running on while it rests and stopping faint once taken; a taken clock level ends at the take
+with a small cross. Four more switches, off by default.
+
+Not in this decision: drills (T13), sweeps of reference levels as turtle soup, ERL/IRL and the draw
+on liquidity (T15), and the Evidence views of the sweep and take statistics (T21).
+
 **DEC-052 — Market structure: six rules on one swing, each with a bounded memory** `IMPLEMENTED` ·
 Claude, Session 017 (2026-10-15), T11 — ICT-01 to ICT-06
 

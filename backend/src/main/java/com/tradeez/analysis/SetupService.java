@@ -22,7 +22,7 @@ import com.tradeez.marketdata.Timeframe;
 public class SetupService {
 
 	/** More than the overlay toggles there are; a guard, not a product limit. */
-	static final int MAX_DETECTORS = 16;
+	static final int MAX_DETECTORS = 32;
 
 	private final MarketDataService marketData;
 	private final DetectorRegistry detectors;

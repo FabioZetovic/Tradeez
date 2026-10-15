@@ -53,7 +53,7 @@ function recorder() {
 }
 
 const LAYER: ClockLayer = {
-  rules: { sessions: 'sessions-1.0.0', opens: 'opens-1.0.0', levels: 'levels-1.0.0' },
+  rules: { sessions: 'sessions-1.0.0', opens: 'opens-1.0.0', levels: 'levels-1.0.0', liquidity: 'liquidity-1.0.0' },
   windows: [
     { kind: 'TRADING_DAY', label: 'Tue', from: 0, to: 3900 },
     { kind: 'KILLZONE', label: 'London', from: 0, to: 600 },
@@ -86,6 +86,30 @@ describe('painting the clock', () => {
     ])
     expect(fills[0].fill).toContain('rgba(88, 166, 255')
     expect(calls.find((c) => c.op === 'fillText')?.args[0]).toBe('London')
+  })
+
+  it('T12: ends a level where its liquidity was taken, with a cross', () => {
+    const taken: ClockLayer = {
+      ...LAYER,
+      windows: [],
+      lines: [{ kind: 'PREVIOUS_DAY', label: 'PDH', from: 0, to: 3900, priceTicks: 120, takenAt: 600 }],
+    }
+    const { ctx, calls } = recorder()
+    renderClock(ctx, taken, BARS, projection, {
+      width: 300,
+      height: 200,
+      pane: { width: 240, height: 170 },
+      shown: new Set(['previousDay']),
+      step: STEP,
+      tickSize: 0.25,
+    })
+    const ends = calls.filter((c) => c.op === 'lineTo').map((c) => c.args)
+    // The level runs to 00:10 (x = 15), not to the end of the day; then the cross around that point.
+    expect(ends[0]).toEqual([15, 80.5])
+    expect(ends.slice(1)).toEqual([
+      [18, 83.5],
+      [18, 77.5],
+    ])
   })
 
   it('paints only what is switched on', () => {
