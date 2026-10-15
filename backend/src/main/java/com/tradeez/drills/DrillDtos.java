@@ -8,7 +8,6 @@ import java.util.UUID;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -16,7 +15,9 @@ import jakarta.validation.constraints.Size;
  *
  * <p>The answer key is never in a response before the drill is answered. On a static chart it is
  * not a secret in the security sense — the candles are all there — but a response that carried it
- * would turn "find the gaps" into "read the JSON", and the rule is simpler kept absolute.
+ * would turn "find the gaps" into "read the JSON", and the rule is simpler kept absolute. A
+ * classification drill's subject is sent as what the chart shows — a price, a candle, which side —
+ * and nothing that would give its name away.
  */
 public final class DrillDtos {
 
@@ -25,16 +26,30 @@ public final class DrillDtos {
 
 	@Schema(description = "Start a drill")
 	public record CreateDrillRequest(
-		@Schema(description = "FVG_IDENTIFICATION (the only kind so far)") String kind,
-		@Schema(description = "Defaults to DEMO-NQ") String instrument,
-		@Schema(description = "5m or 15m. Defaults to 5m") String timeframe) {
+		@Schema(description = "One of GET /api/drills/kinds. Defaults to FVG_IDENTIFICATION") String kind,
+		@Schema(description = "Defaults to NQ (real data). DEMO-NQ is a developer fixture") String instrument,
+		@Schema(description = "1m, 5m or 15m on real data. Defaults to 5m") String timeframe) {
 	}
 
-	@Schema(description = "The candles marked as the middle candle of a fair value gap")
+	@Schema(description = "Marks for an identification drill, or a choice for a classification drill")
 	public record AnswerRequest(
-		@NotNull @Size(max = DrillService.WINDOW_BARS)
-		@Schema(description = "Epoch seconds of each marked candle; must be candles in the window")
-		List<Long> marks) {
+		@Size(max = DrillService.CLASSIFY_WINDOW_BARS)
+		@Schema(description = "Identification: epoch seconds of each marked candle in the window")
+		List<Long> marks,
+		@Size(max = 16)
+		@Schema(description = "Classification: one of the drill's options")
+		String choice) {
+	}
+
+	@Schema(description = "One drill there is")
+	public record KindView(
+		String kind,
+		@Schema(description = "IDENTIFY (mark every instance) or CLASSIFY (name the marked one)") String mode,
+		String title,
+		String conceptId,
+		String detector,
+		String ruleVersion,
+		String instructions) {
 	}
 
 	@Schema(description = "The versioned rule the answer key was produced by (DEC-026)")
@@ -47,33 +62,57 @@ public final class DrillDtos {
 		String methodologySource) {
 	}
 
-	@Schema(description = "One gap from the answer key, with the numbers that qualified it")
+	@Schema(description = "A name a classification drill offers")
+	public record OptionView(String value, String label) {
+	}
+
+	@Schema(description = "What a classification drill asks about, as drawn on the chart")
+	public record SubjectView(
+		@Schema(description = "HIGH or LOW: the side of price the level or swing is on") String side,
+		@Schema(description = "Where the level starts, epoch seconds: the swing it comes from") long fromTime,
+		@Schema(description = "The marked candle, epoch seconds") long time,
+		long priceTicks) {
+	}
+
+	@Schema(description = "One hit from the answer key, with the numbers that qualified it")
 	public record SetupView(
 		UUID id,
-		@Schema(description = "BULLISH | BEARISH") String direction,
-		@Schema(description = "Candle 1, epoch seconds") long startTime,
-		@Schema(description = "Candle 2 — the one to mark") long anchorTime,
-		@Schema(description = "Candle 3") long endTime,
+		@Schema(description = "BULLISH | BEARISH | NEUTRAL") String direction,
+		@Schema(description = "The rule's name for it, when the rule has several") String kind,
+		@Schema(description = "ZONE | LEVEL | POINT") String shape,
+		@Schema(description = "Where it starts, epoch seconds") long startTime,
+		@Schema(description = "The candle to mark") long anchorTime,
+		@Schema(description = "The candle it is known by") long endTime,
 		long zoneLowTicks,
 		long zoneHighTicks,
-		boolean found,
-		@Schema(description = "Rendered into the explanation; never hand-written")
+		@Schema(description = "Identification: whether a mark found it") Boolean found,
+		@Schema(description = "A short name: \"Bullish gap\", \"Higher high (HH)\"") String label,
+		@Schema(description = "Why it qualified, rendered from the evidence; never hand-written")
+		List<String> explanation,
 		Map<String, Object> evidence) {
 	}
 
-	@Schema(description = "How the answer compares with the rule. Feedback, not a grade (DEC-034).")
+	@Schema(description = "How the answer compares with the rule")
 	public record ResultView(
-		int found,
-		int missed,
-		int extra,
-		List<SetupView> setups,
-		@Schema(description = "Marked candles that are not the middle of a qualifying gap")
-		List<Long> extraMarks) {
+		@Schema(description = "Identification") Integer found,
+		@Schema(description = "Identification") Integer missed,
+		@Schema(description = "Identification") Integer extra,
+		@Schema(description = "Identification: marked candles that are not in the answer key")
+		List<Long> extraMarks,
+		@Schema(description = "Identification: marks on candles the rule cannot judge from this chart, "
+			+ "counted neither way")
+		List<Long> excusedMarks,
+		@Schema(description = "Classification: the rule's name for the subject") String answer,
+		@Schema(description = "Classification") Boolean correct,
+		List<SetupView> setups) {
 	}
 
 	public record DrillResponse(
 		UUID id,
 		String kind,
+		String mode,
+		String title,
+		String conceptId,
 		String instrument,
 		BigDecimal tickSize,
 		String exchangeTimezone,
@@ -82,13 +121,18 @@ public final class DrillDtos {
 		String disclaimer,
 		@Schema(description = "True on simulated data: a developer fixture, never graded (DEC-034)")
 		boolean fixture,
+		@Schema(description = "True on real data: graded against the rule, and kept for the learner's record")
 		boolean graded,
 		@Schema(description = "Shown wherever the drill is, when it is a fixture")
 		String fixtureNotice,
 		String instructions,
+		@Schema(description = "Identification: what a correct mark is") String markName,
 		RuleView rule,
 		List<BarResponse> bars,
-		@Schema(description = "Absent until answered") List<Long> marks,
+		@Schema(description = "Classification: the structure to name") SubjectView subject,
+		@Schema(description = "Classification: the names to choose from") List<OptionView> options,
+		@Schema(description = "Identification, absent until answered") List<Long> marks,
+		@Schema(description = "Classification, absent until answered") String choice,
 		@Schema(description = "Absent until answered") ResultView result) {
 	}
 }

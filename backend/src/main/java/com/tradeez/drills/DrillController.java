@@ -1,5 +1,6 @@
 package com.tradeez.drills;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.tradeez.drills.DrillDtos.AnswerRequest;
 import com.tradeez.drills.DrillDtos.CreateDrillRequest;
 import com.tradeez.drills.DrillDtos.DrillResponse;
+import com.tradeez.drills.DrillDtos.KindView;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,20 +24,26 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * Drills (DEC-023): short, single-concept exercises. The first is FVG identification.
+ * Drills (DEC-023): short, single-concept exercises, one per question a rule answers (T13, DEC-054).
  *
  * <p>Owner-scoped like everything user-owned (DEC-022): another user's drill answers exactly like a
  * drill that does not exist.
  */
 @RestController
 @RequestMapping("/api/drills")
-@Tag(name = "Drills", description = "Short, single-concept exercises — fixtures on simulated data")
+@Tag(name = "Drills", description = "Short, single-concept exercises — graded on real data, fixtures on simulated")
 public class DrillController {
 
 	private final DrillService drillService;
 
 	public DrillController(DrillService drillService) {
 		this.drillService = drillService;
+	}
+
+	@GetMapping("/kinds")
+	@Operation(summary = "Every drill there is", description = "Each with its mode and the rule it is graded by.")
+	public List<KindView> kinds() {
+		return drillService.kinds();
 	}
 
 	@PostMapping
@@ -60,12 +68,12 @@ public class DrillController {
 
 	@PostMapping("/{id}/answer")
 	@Operation(summary = "Answer a drill, once",
-		description = "Marks are the epoch seconds of candles in the window. The result explains "
-			+ "every gap from the detector's own evidence.")
+		description = "Identification: marks, the epoch seconds of candles in the window. Classification: a "
+			+ "choice, one of the drill's options. The result explains every hit from the rule's own evidence.")
 	public DrillResponse answer(
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable UUID id,
 			@Valid @RequestBody AnswerRequest body) {
-		return drillService.answer(principal.id(), id, body.marks());
+		return drillService.answer(principal.id(), id, body.marks(), body.choice());
 	}
 }

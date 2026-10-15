@@ -39,7 +39,8 @@ import com.tradeez.marketdata.Timeframe;
 import jakarta.servlet.http.Cookie;
 
 /**
- * The FVG identification drill (task 7).
+ * The FVG identification drill on simulated data (task 7): the developer fixture. Drills on real
+ * data, every kind of them, are {@link RealDrillApiTest}.
  *
  * <p>Three kinds of assertion. The drill must be <b>right</b>: its answer key is exactly the rule's
  * hits in the window. It must be <b>fair</b>: nothing gives the answer away before it is given, and
@@ -49,6 +50,7 @@ import jakarta.servlet.http.Cookie;
 class DrillApiTest extends AbstractIntegrationTest {
 
 	private static final String PASSWORD = "a-perfectly-fine-passphrase";
+	private static final String FIXTURE = "{\"kind\":\"FVG_IDENTIFICATION\",\"instrument\":\"DEMO-NQ\",\"timeframe\":\"5m\"}";
 
 	@Autowired
 	MockMvc mockMvc;
@@ -98,7 +100,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 	}
 
 	private JsonNode start(Cookie who) throws Exception {
-		return read(start(who, "{\"kind\":\"FVG_IDENTIFICATION\",\"timeframe\":\"5m\"}")
+		return read(start(who, FIXTURE)
 			.andExpect(status().isCreated()));
 	}
 
@@ -192,18 +194,24 @@ class DrillApiTest extends AbstractIntegrationTest {
 				.toList();
 
 			assertThat(anchors(id)).isEqualTo(expected);
-			assertThat(expected).hasSizeBetween(DrillService.MIN_GAPS, DrillService.MAX_GAPS);
+			assertThat(expected).hasSizeBetween(DrillKind.FVG_IDENTIFICATION.minHits(),
+				DrillKind.FVG_IDENTIFICATION.maxHits());
 		}
 
 		@Test
-		@DisplayName("refuses one-minute drills with the reason, and timeframes it does not run on")
+		@DisplayName("refuses one-minute fixtures with the reason, timeframes and kinds it does not run on")
 		void timeframes() throws Exception {
-			start(alice, "{\"timeframe\":\"1m\"}").andExpect(status().isBadRequest())
+			start(alice, "{\"instrument\":\"DEMO-NQ\",\"timeframe\":\"1m\"}").andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value(Matchers.containsString("not tuned")));
-			start(alice, "{\"timeframe\":\"1h\"}").andExpect(status().isBadRequest());
-			start(alice, "{\"kind\":\"BOS_CLASSIFICATION\"}").andExpect(status().isBadRequest());
+			start(alice, "{\"instrument\":\"DEMO-NQ\",\"timeframe\":\"1h\"}").andExpect(status().isBadRequest());
+			start(alice, "{\"kind\":\"BOS_CLASSIFICATION\"}").andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(Matchers.containsString("BOS_CHOCH_CLASSIFICATION")));
 			start(alice, "{\"instrument\":\"NOPE\"}").andExpect(status().isNotFound());
-			start(alice, "{\"timeframe\":\"15m\"}").andExpect(status().isCreated())
+			// Every other drill needs a real market: a graded drill on a price formula would teach the formula.
+			start(alice, "{\"instrument\":\"DEMO-NQ\",\"kind\":\"SWEEP_IDENTIFICATION\"}")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(Matchers.containsString("DEC-034")));
+			start(alice, "{\"instrument\":\"DEMO-NQ\",\"timeframe\":\"15m\"}").andExpect(status().isCreated())
 				.andExpect(jsonPath("$.timeframe").value("15m"));
 		}
 	}
@@ -229,6 +237,10 @@ class DrillApiTest extends AbstractIntegrationTest {
 				assertThat(setup.at("/evidence/gapTicks").asLong())
 					.isGreaterThanOrEqualTo(setup.at("/evidence/thresholdTicks").asLong());
 				assertThat(setup.get("direction").asText()).isIn("BULLISH", "BEARISH");
+				// Rendered from that evidence on the server, for the client to show as it is.
+				assertThat(setup.get("label").asText()).isIn("Bullish gap", "Bearish gap");
+				assertThat(setup.at("/explanation/0").asText()).startsWith("Candle 1's")
+					.contains(setup.at("/evidence/gapTicks").asText() + " ticks");
 			}
 		}
 
@@ -238,7 +250,10 @@ class DrillApiTest extends AbstractIntegrationTest {
 			JsonNode drill = start(alice);
 			String id = drill.get("id").asText();
 			List<Long> key = anchors(id);
-			Long wrong = barTimes(drill).stream().filter(t -> !key.contains(t)).findFirst().orElseThrow();
+			// Not a candle the rule cannot judge from the window, either: a mark there counts neither way.
+			String excused = jdbc.queryForObject("SELECT excused::text FROM drill WHERE id = ?::uuid", String.class, id);
+			Long wrong = barTimes(drill).stream().filter(t -> !key.contains(t) && !excused.contains(t.toString()))
+				.findFirst().orElseThrow();
 
 			JsonNode result = read(answer(alice, id, List.of(key.getFirst(), wrong))
 				.andExpect(status().isOk())).get("result");
@@ -298,6 +313,17 @@ class DrillApiTest extends AbstractIntegrationTest {
 		}
 
 		@Test
+		@DisplayName("refuses an answer that is both marks and a choice, or an answer without a time")
+		void answerIsOneThing() throws Exception {
+			String id = start(alice).get("id").asText();
+			assertThatThrownBy(() -> jdbc.update("""
+				UPDATE drill SET marks = '[]'::jsonb, choice = 'BOS', answered_at = now() WHERE id = ?::uuid""", id))
+				.hasMessageContaining("ck_drill_answer");
+			assertThatThrownBy(() -> jdbc.update("UPDATE drill SET choice = 'BOS' WHERE id = ?::uuid", id))
+				.hasMessageContaining("ck_drill_answer");
+		}
+
+		@Test
 		@DisplayName("refuses to change an answer once given")
 		void answerIsImmutable() throws Exception {
 			String id = start(alice).get("id").asText();
@@ -337,7 +363,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 			VALUES (?, 'FVG_IDENTIFICATION', ?, '5m', 'SIMULATED', 42, 'x', 'FVG', 'fvg-1.0.0',
 			    now(), now() + interval '1 hour')""", rows);
 
-		start(alice, "{}").andExpect(status().isTooManyRequests());
-		start(bob, "{}").andExpect(status().isCreated());
+		start(alice, FIXTURE).andExpect(status().isTooManyRequests());
+		start(bob, FIXTURE).andExpect(status().isCreated());
 	}
 }

@@ -19,8 +19,8 @@
 
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
-merge of T7 found three more (BUG-044 to BUG-046), and building T8 three more (BUG-047 to BUG-049).
-All ten are fixed.
+merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
+building T13 one (BUG-050). All eleven are fixed.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -476,6 +476,25 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-050 🟡 The FVG drill counted a mark as wrong on a candle nobody could judge
+
+**Status:** verified — measured on real NQ while building T13; the fixture drill's partial-answer
+test, which marks "the first candle that is not a gap", landed on one
+**Affects:** `backend/.../drills/DrillService.java` (before T13)
+
+**What happened.** The answer key held only gaps with all three candles on screen — rightly, since a
+learner cannot find a pattern whose first candle they were never shown. But a mark on the middle
+candle of a gap the window *cut* (candle 1 just before the window, or candle 3 just after it) was
+scored as an extra mark: wrong, for a candle whose answer depended on candles the chart did not
+show. On 5-minute real NQ a quarter of FVG drills have such a candle; for the sweep drill T13 adds,
+almost nine in ten would have (sweeps of levels drawn before the window).
+
+**✅ FIXED — Session 017 (T13, DEC-054).** Hits anchored in the window that the window cuts are
+*excused*: stored with the drill when it is made, a mark on one counts neither way, and the result
+names them and why. `RealDrillApiTest` checks every hit of the rule anchored in a window is either
+asked or excused, and that a mark on an excused candle is neither found nor extra; dropping the
+excused list fails both.
 
 ### BUG-047 🟠 Undo after dragging a drawing lost where it had been
 

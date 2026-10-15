@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DrillView } from './DrillView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
-import type { DrillResponse, ResultView } from '@/lib/api/drills'
+import type { DrillKindView, DrillResponse, ResultView } from '@/lib/api/drills'
 
 const T0 = 1_710_338_400
 const BARS = Array.from({ length: 30 }, (_, i) => ({
@@ -15,19 +15,42 @@ const BARS = Array.from({ length: 30 }, (_, i) => ({
   volume: 10,
 }))
 
+const KINDS: DrillKindView[] = [
+  {
+    kind: 'FVG_IDENTIFICATION',
+    mode: 'IDENTIFY',
+    title: 'Fair value gaps',
+    conceptId: 'ICT-20',
+    detector: 'FVG',
+    ruleVersion: 'fvg-1.0.0',
+    instructions: 'Mark the middle candle of every fair value gap.',
+  },
+  {
+    kind: 'BOS_CHOCH_CLASSIFICATION',
+    mode: 'CLASSIFY',
+    title: 'Break of structure or change of character',
+    conceptId: 'ICT-06',
+    detector: 'BOS_CHOCH',
+    ruleVersion: 'structure-1.0.0',
+    instructions: 'Is this a break of structure or a change of character?',
+  },
+]
+
 const DRILL: DrillResponse = {
   id: 'drill-1',
   kind: 'FVG_IDENTIFICATION',
-  instrument: 'DEMO-NQ',
+  mode: 'IDENTIFY',
+  title: 'Fair value gaps',
+  conceptId: 'ICT-20',
+  instrument: 'NQ',
   tickSize: 0.25,
   exchangeTimezone: 'America/Chicago',
   timeframe: '5m',
-  dataClass: 'SIMULATED',
-  disclaimer: 'SIMULATED DATA — NOT MARKET HISTORY',
-  fixture: true,
-  graded: false,
-  fixtureNotice: 'Developer fixture — not a graded exercise. These candles are simulated.',
+  dataClass: 'IMPORTED_PRIVATE',
+  fixture: false,
+  graded: true,
   instructions: 'Mark the middle candle of every fair value gap in this chart, then check.',
+  markName: 'the middle candle of a gap',
   rule: {
     detector: 'FVG',
     version: 'fvg-1.0.0',
@@ -38,19 +61,15 @@ const DRILL: DrillResponse = {
   bars: BARS,
 }
 
-const evidence = (i: number) => ({
-  candle1Time: T0 + (i - 1) * 300,
-  candle1HighTicks: 80_004,
-  candle1LowTicks: 79_996,
-  candle2Time: T0 + i * 300,
-  candle3Time: T0 + (i + 1) * 300,
-  candle3HighTicks: 80_035,
-  candle3LowTicks: 80_014,
-  gapTicks: 10,
-  sumRangeTicks: 112,
-  lookback: 14,
-  thresholdTicks: 2,
-})
+const FIXTURE: DrillResponse = {
+  ...DRILL,
+  instrument: 'DEMO-NQ',
+  dataClass: 'SIMULATED',
+  disclaimer: 'SIMULATED DATA — NOT MARKET HISTORY',
+  fixture: true,
+  graded: false,
+  fixtureNotice: 'Developer fixture — not a graded exercise. These candles are simulated.',
+}
 
 /** Two gaps (middle candles 5 and 12); the learner found the first and marked candle 20 wrongly. */
 const RESULT: ResultView = {
@@ -60,16 +79,58 @@ const RESULT: ResultView = {
   setups: [5, 12].map((i) => ({
     id: `s${i}`,
     direction: 'BULLISH' as const,
+    shape: 'ZONE' as const,
     startTime: T0 + (i - 1) * 300,
     anchorTime: T0 + i * 300,
     endTime: T0 + (i + 1) * 300,
     zoneLowTicks: 80_004,
     zoneHighTicks: 80_014,
     found: i === 5,
-    evidence: evidence(i),
+    label: 'Bullish gap',
+    explanation: [`Candle 1's high is below candle 3's low (gap ${i}).`, 'Big enough to count.'],
   })),
   extraMarks: [T0 + 20 * 300],
+  excusedMarks: [],
 }
+
+const CLASSIFY: DrillResponse = {
+  ...DRILL,
+  id: 'drill-2',
+  kind: 'BOS_CHOCH_CLASSIFICATION',
+  mode: 'CLASSIFY',
+  title: 'Break of structure or change of character',
+  markName: undefined,
+  rule: { ...DRILL.rule, detector: 'BOS_CHOCH', version: 'structure-1.0.0' },
+  subject: { side: 'LOW', fromTime: T0 + 10 * 300, time: T0 + 25 * 300, priceTicks: 79_990 },
+  options: [
+    { value: 'BOS', label: 'Break of structure (BOS)' },
+    { value: 'CHOCH', label: 'Change of character (CHoCH)' },
+  ],
+}
+
+const NAMED = (choice: string): DrillResponse => ({
+  ...CLASSIFY,
+  choice,
+  result: {
+    answer: 'CHOCH',
+    correct: choice === 'CHOCH',
+    setups: [
+      {
+        id: 'b1',
+        direction: 'BEARISH',
+        kind: 'CHOCH',
+        shape: 'LEVEL',
+        startTime: T0 + 10 * 300,
+        anchorTime: T0 + 25 * 300,
+        endTime: T0 + 25 * 300,
+        zoneLowTicks: 79_990,
+        zoneHighTicks: 79_990,
+        label: 'Change of character (CHoCH)',
+        explanation: ['Structure was bullish.', 'Against the trend: a change of character (CHoCH).'],
+      },
+    ],
+  },
+})
 
 interface Call {
   method: string
@@ -103,10 +164,23 @@ function mockApi(handler: (call: Call) => { status?: number; body: unknown }) {
   )
 }
 
-function server(answer: { status?: number; body: unknown } = { body: { ...DRILL, marks: [], result: RESULT } }) {
+function server({
+  drill = DRILL,
+  answer = (body: { marks?: number[]; choice?: string }) =>
+    body.choice ? { body: NAMED(body.choice) } : { body: { ...drill, marks: body.marks, result: RESULT } },
+}: {
+  drill?: DrillResponse
+  answer?: (body: { marks?: number[]; choice?: string }) => { status?: number; body: unknown }
+} = {}) {
   return (call: Call) => {
-    if (call.method === 'POST' && call.url.endsWith('/api/drills')) return { status: 201, body: DRILL }
-    if (call.method === 'POST' && call.url.endsWith('/answer')) return answer
+    if (call.method === 'GET' && call.url.endsWith('/api/drills/kinds')) return { body: KINDS }
+    if (call.method === 'POST' && call.url.endsWith('/api/drills')) {
+      const kind = (call.body as { kind?: string }).kind
+      return { status: 201, body: kind === 'BOS_CHOCH_CLASSIFICATION' ? CLASSIFY : drill }
+    }
+    if (call.method === 'POST' && call.url.endsWith('/answer')) {
+      return answer(call.body as { marks?: number[]; choice?: string })
+    }
     return { status: 404, body: { message: 'not found' } }
   }
 }
@@ -117,7 +191,7 @@ function clickCandle(index: number) {
   fireEvent.click(frame, { clientX: BARS[index].time - 1000, clientY: 100 })
 }
 
-async function startDrill() {
+async function startDrill(kind?: string) {
   const user = userEvent.setup()
   const adapters: FakeChartAdapter[] = []
   render(
@@ -129,6 +203,9 @@ async function startDrill() {
       }}
     />,
   )
+  // The list of drills arrives first; nothing can start before it.
+  await screen.findByRole('option', { name: 'Fair value gaps' })
+  if (kind) await user.selectOptions(screen.getByLabelText('Drill'), kind)
   await user.click(screen.getByRole('button', { name: /start a drill/i }))
   await screen.findByTestId('drill-overlay')
   // The chart hands the overlay its adapter in a second render. Wait until the overlay has drawn
@@ -137,22 +214,27 @@ async function startDrill() {
   return user
 }
 
+const started = () => calls.find((c) => c.method === 'POST' && c.url.endsWith('/api/drills'))
+
 afterEach(() => vi.restoreAllMocks())
 
-describe('Drills — FVG identification', () => {
+describe('Drills — spot (identification)', () => {
   beforeEach(() => mockApi(server()))
 
-  it('says it is a developer fixture before anything else (DEC-034)', async () => {
+  it('offers every drill from the server, grouped by mode, and starts the one chosen on real NQ', async () => {
     await startDrill()
-    expect(screen.getByTestId('fixture-notice')).toHaveTextContent(/not a graded exercise/)
-    expect(screen.getAllByRole('note')[0]).toHaveTextContent(/SIMULATED DATA/)
-    expect(calls[0].body).toEqual({ kind: 'FVG_IDENTIFICATION', instrument: 'DEMO-NQ', timeframe: '5m' })
+    const groups = screen.getAllByRole('group')
+    expect(within(groups[0]).getByRole('option', { name: 'Fair value gaps' })).toBeInTheDocument()
+    expect(within(groups[1]).getByRole('option', { name: /change of character/ })).toBeInTheDocument()
+    expect(started()?.body).toEqual({ kind: 'FVG_IDENTIFICATION', instrument: 'NQ', timeframe: '5m' })
   })
 
-  it('shows the versioned rule it is judged by (DEC-026)', async () => {
+  it('names the versioned rule it is graded against (DEC-026)', async () => {
     await startDrill()
+    expect(screen.getByTestId('graded')).toHaveTextContent('Graded against fvg-1.0.0')
     expect(screen.getByText('The rule (fvg-1.0.0)')).toBeInTheDocument()
-    expect(screen.getByText(/not proof that a gap matters/)).toBeInTheDocument()
+    expect(screen.getByText(/not proof that a pattern matters/)).toBeInTheDocument()
+    expect(screen.queryByTestId('fixture-notice')).not.toBeInTheDocument()
   })
 
   it('marks candles by clicking them, and unmarks on a second click', async () => {
@@ -176,7 +258,7 @@ describe('Drills — FVG identification', () => {
     expect(screen.getByTestId('mark-count')).toHaveTextContent('0 candles marked')
   })
 
-  it('sends exactly the marked candles, then explains every gap from the evidence', async () => {
+  it("sends exactly the marked candles, then grades them and shows the server's explanations", async () => {
     const user = await startDrill()
     clickCandle(20)
     clickCandle(5)
@@ -186,16 +268,30 @@ describe('Drills — FVG identification', () => {
     expect(answer?.body).toEqual({ marks: [BARS[5].time, BARS[20].time] })
 
     expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Found 1 of 2 · 1 extra mark')
+    expect(screen.getByTestId('drill-grade')).toHaveTextContent('Recall 50% · precision 50%, against fvg-1.0.0.')
     const gaps = screen.getAllByTestId('drill-gap')
     expect(gaps).toHaveLength(2)
     expect(within(gaps[0]).getByText('found')).toBeInTheDocument()
     expect(within(gaps[1]).getByText('missed')).toBeInTheDocument()
-    expect(gaps[0]).toHaveTextContent(
-      "Candle 1's high, 20001.00, is below candle 3's low, 20003.50. Neither traded in the 10 ticks",
+    expect(gaps[0]).toHaveTextContent('Bullish gap')
+    expect(gaps[0]).toHaveTextContent("Candle 1's high is below candle 3's low (gap 5).")
+    expect(screen.getByTestId('drill-extra')).toHaveTextContent('Marked, but not the middle candle of a gap under this rule')
+  })
+
+  it('says which marks counted neither way, and why', async () => {
+    mockApi(
+      server({
+        answer: (body) => ({
+          body: { ...DRILL, marks: body.marks, result: { ...RESULT, extra: 0, extraMarks: [], excusedMarks: [T0] } },
+        }),
+      }),
     )
-    expect(gaps[0]).toHaveTextContent('25% of the 8.0-tick average range')
-    expect(screen.getByTestId('drill-extra')).toHaveTextContent(/not the middle candle of a gap/)
-    expect(screen.getByText('Feedback on this chart, not a grade.')).toBeInTheDocument()
+    const user = await startDrill()
+    await user.click(screen.getByRole('button', { name: /check answer/i }))
+    expect(await screen.findByTestId('drill-excused')).toHaveTextContent(
+      /Not counted either way: .* the rule needs candles outside this chart to judge it/,
+    )
+    expect(screen.queryByTestId('drill-extra')).not.toBeInTheDocument()
   })
 
   it('stops taking marks once answered, and offers the next drill', async () => {
@@ -224,9 +320,49 @@ describe('Drills — FVG identification', () => {
   })
 })
 
-describe('Drills — refusals', () => {
+describe('Drills — name (classification)', () => {
+  beforeEach(() => mockApi(server()))
+
+  it('offers the names, takes no marks, and answers with the one chosen', async () => {
+    const user = await startDrill('BOS_CHOCH_CLASSIFICATION')
+    expect(started()?.body).toMatchObject({ kind: 'BOS_CHOCH_CLASSIFICATION' })
+    expect(screen.queryByTestId('mark-count')).not.toBeInTheDocument()
+    expect(screen.getByText('The marked low is…')).toBeInTheDocument()
+
+    // The chart is not a place to mark: the question is about the structure already drawn.
+    expect(screen.getByTestId('drill-overlay')).toHaveStyle({ cursor: 'default' })
+    clickCandle(5)
+    await user.click(screen.getByRole('button', { name: 'Break of structure (BOS)' }))
+    expect(calls.find((c) => c.url.endsWith('/answer'))?.body).toEqual({ choice: 'BOS' })
+
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent(
+      'Not quite — the rule says Change of character (CHoCH); you chose Break of structure (BOS)',
+    )
+    expect(screen.getByTestId('drill-gap')).toHaveTextContent('Against the trend: a change of character (CHoCH).')
+    expect(screen.getByTestId('drill-grade')).toHaveTextContent('Graded against structure-1.0.0.')
+    expect(screen.queryByRole('button', { name: 'Change of character (CHoCH)' })).not.toBeInTheDocument()
+  })
+
+  it('says so when the name is right', async () => {
+    const user = await startDrill('BOS_CHOCH_CLASSIFICATION')
+    await user.click(screen.getByRole('button', { name: 'Change of character (CHoCH)' }))
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Correct — Change of character (CHoCH)')
+  })
+})
+
+describe('Drills — fixtures and refusals', () => {
+  it('says it is a developer fixture before anything else when the market is simulated (DEC-034)', async () => {
+    mockApi(server({ drill: FIXTURE }))
+    const user = await startDrill()
+    expect(screen.getByTestId('fixture-notice')).toHaveTextContent(/not a graded exercise/)
+    expect(screen.getAllByRole('note')[0]).toHaveTextContent(/SIMULATED DATA/)
+    expect(screen.queryByTestId('graded')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /check answer/i }))
+    expect(await screen.findByTestId('drill-grade')).toHaveTextContent('Feedback on this chart, not a grade.')
+  })
+
   it("shows the server's reason when a drill cannot be answered", async () => {
-    mockApi(server({ status: 409, body: { message: 'This drill has already been answered.' } }))
+    mockApi(server({ answer: () => ({ status: 409, body: { message: 'This drill has already been answered.' } }) }))
     const user = await startDrill()
     await user.click(screen.getByRole('button', { name: /check answer/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent('already been answered')
@@ -236,8 +372,16 @@ describe('Drills — refusals', () => {
     mockApi(server())
     const user = userEvent.setup()
     render(<DrillView adapterFactory={() => new FakeChartAdapter()} />)
-    await user.click(screen.getByRole('button', { name: '15m' }))
+    await screen.findByRole('option', { name: 'Fair value gaps' })
+    await user.click(screen.getByRole('button', { name: '1m' }))
     await user.click(screen.getByRole('button', { name: /start a drill/i }))
-    await waitFor(() => expect(calls[0]?.body).toMatchObject({ timeframe: '15m' }))
+    await waitFor(() => expect(started()?.body).toMatchObject({ timeframe: '1m' }))
+  })
+
+  it('says so when the list of drills cannot be loaded', async () => {
+    mockApi(() => ({ status: 500, body: { message: 'down' } }))
+    render(<DrillView adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the list of drills')
+    expect(screen.getByRole('button', { name: /start a drill/i })).toBeDisabled()
   })
 })

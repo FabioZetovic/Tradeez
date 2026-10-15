@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T12 and T34 merged; T13 (drill engine) next
+last_session: 017   # in progress — T1–T12 and T34 merged; T13 (drill engine) built on feat/drill-engine, not merged
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 326/326 (Testcontainers), frontend 235/235 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52.
+build_passing: true  # backend 350/350 (Testcontainers), frontend 236/236 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. T13 on feat/drill-engine: see the session log.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -89,8 +89,8 @@ files_in_repo:
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), chart endpoint (017, T7, T12)
     analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053)  (016, 017 T9–T12)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9)
-    drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds
+    drills/      # drill engine (DEC-054): DrillKind catalogue (ten drills, modes A and B), windows on real NQ, answer key = stored hits, excused candles, DrillText (rules and explanations from evidence); FVG fixture on simulated data  (016, 017 T13)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -100,11 +100,11 @@ files_in_repo:
     lib/clock/    # New York clock: layer switches, renderer
     lib/setups/   # detected setups: shapes.ts decides where each rule's hits start and end (T10), render.ts paints them
     lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
-    lib/drills/   # candle picking, marks, explanations generated from detector evidence
+    lib/drills/   # candle picking and marks (explanations come from the server, DEC-054)
     components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar; ui.tsx = shared Button/Segmented/Panel/Chip/Notice
     lib/styles.ts # cx() and shared Tailwind class strings (DEC-044); tokens live in src/index.css @theme
     components/practice/  # journal, replay screen, plan panel, trade result card, trade log + score
-    components/drills/    # drill screen and click overlay
+    components/drills/    # drill screen (spot and name), overlay: marks, the subject, the answer's shapes
     hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession, useToggles (+ useClockLayers, useSetupLayers)
   docs/:
     - ANALYSIS_CLAUDE.md    # Claude's deep analysis      (Session 001-CLAUDE)
@@ -117,9 +117,9 @@ files_in_repo:
     - PATH.md               # This file
 
 not_built_do_not_assume:
-  - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
+  - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T13 (drill engine) next, on feat/drill-engine.
+blocked_on: nothing — T13 built on feat/drill-engine; waiting for Fabio to say merge. Then T14 (lesson cards).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -164,7 +164,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, built, not merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -205,7 +205,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T13 | **Drill engine for every detector** | T10–T12 | C §6, D-023, D-034 | Modes A and B, graded on real data; explanations from evidence. Generalises the FVG drill. |
+| T13 | ~~**Drill engine for every detector**~~ | T10–T12 | C §6, D-023, D-034 | ✅ Session 017, on `feat/drill-engine`, **not merged** (DEC-054): ten drills — spot gaps, swing highs, swing lows, VIs, displacement, equal highs/lows, sweeps; name a swing's label, BOS or CHoCH, sweep or run — on real NQ 1m/5m/15m, graded against the rule; the key is the rule's stored hits shown whole, a hit the window cuts is excused (BUG-050); the subject is sent without its name; explanations rendered server-side from evidence; V14. The other rules are one constant each when wanted. |
 | T14 | **Lesson cards** | T13 | I Part 0 | Text from `ICT_CONCEPTS.md` plus detected real examples. |
 | T15 | **Prediction drills** | T13 | C §6.1, I-15–17 | Mode C ("which liquidity is taken first?"); ERL/IRL labels, DOL questions, obstacle counts. |
 | T16 | **Learning state and curriculum map** | T13 | C §6.3, I Part 12 | Per-concept rating, spaced repetition, unlocks; real-data attempts only (INVARIANT 8b). |
@@ -1839,3 +1839,33 @@ Waiting for Fabio to say merge.
 
 **2026-10-15 — T12 merged.** Merged `--no-ff` as `1cb0c52`. Fabio: "merge it and then do T13". Next: T13
 (drill engine) on `feat/drill-engine`.
+**2026-10-15 — T13: the drill engine (DEC-054).** On `feat/drill-engine`, not merged:
+- **Ten drills, one engine.** `DrillKind` is the catalogue: seven *spot* drills (mode A, 30 candles —
+  FVG, swing highs, swing lows, VI, displacement, EQH/EQL, sweeps) and three *name* drills (mode B,
+  40 candles — structure label, BOS or CHoCH, sweep or run). A new drill is one constant (and a row in
+  V14's `ck_drill_kind`); window, key, grading and explanations are shared.
+- **Real NQ, graded.** Default NQ, 1m/5m/15m; a random stretch of the imported history, open
+  throughout, every candle present, no roll inside; `graded` exactly when the data is real. DEMO-NQ
+  keeps only the FVG fixture (DEC-034), and any other drill on it is refused with the reason.
+- **Key = stored hits shown whole** (the scanner the overlay uses): from the candle before a swing
+  start to the confirming candle. **Excused** hits — anchored in the window but cut by it — count
+  neither way (V14 `excused`); before, a mark on one counted as extra (BUG-050, found by the
+  fixture's partial test landing on one). **Name drills** send only side, level start, candle and
+  price; BOS/CHoCH asks only breaks whose four structure swings are on screen (stored `STRUCTURE`
+  hits). V14 `choice`; an answer is marks or a choice, never both.
+- **Explanations moved server-side** (`DrillText`): every hit from its evidence, every rule's
+  definition from its parameters, prices in ticks, no times. The FVG wording unchanged; its tests
+  moved to Java. `GET /api/drills/kinds`. Removed as dead: `SetupScanner.scanFvgs`,
+  `findSimulated`, the client's `explainFvg`.
+- **Frontend:** a drill picker grouped Spot / Name, 1m/5m/15m, marks or name buttons, subject drawn
+  (dashed level + arrow, or a ring on a swing), answers drawn by shape, recall and precision against
+  the rule, excused marks named.
+- **Tests:** `RealDrillApiTest` (16, on imported minutes: every kind, key completeness, excused marks,
+  modes, immutability, timeframes, no history), `DrillTextTest` (7), the fixture test kept. Mutations
+  tried and caught: dropping the excused list, never grading, skipping the BOS structure check,
+  accepting any choice, letting a name drill take marks.
+- **Checked on real NQ** (dev database, two years): every drill on every timeframe found a window,
+  35–274 ms; 105 more at 5m: none failed, median 40–60 ms. Excused per drill: sweeps 2.1 (88% of
+  drills), EQH/EQL 1.0, the rest 0–0.5. In the app at 1920 px: a BOS/CHoCH drill drawn and named
+  (the explanation agrees with the chart), an FVG drill marked by real clicks and graded.
+- Backend 326 → 350, frontend 235 → 236.

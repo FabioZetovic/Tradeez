@@ -5,58 +5,85 @@ import type { DomainBar } from '../chart/types'
  * Drill API calls.
  *
  * DEC-007 — mirrors the OpenAPI document for /api/drills. Fields that exist only after the drill is
- * answered are optional: the server leaves null fields out of the JSON entirely.
+ * answered, or only in one mode, are optional: the server leaves null fields out of the JSON.
  */
+
+/** IDENTIFY: mark every instance (mode A). CLASSIFY: name the marked structure (mode B). */
+type DrillMode = 'IDENTIFY' | 'CLASSIFY'
+
+export interface DrillKindView {
+  kind: string
+  mode: DrillMode
+  title: string
+  conceptId: string
+  detector: string
+  ruleVersion: string
+  instructions: string
+}
 
 interface RuleView {
   detector: string
   version: string
-  parameters: Record<string, number>
+  parameters: Record<string, number | string>
   /** The rule in words, generated server-side from the same parameters. */
   definition: string
   methodologySource: string
 }
 
-/** The numbers the rule decided on. Explanations are rendered from these, never hand-written. */
-interface FvgEvidence {
-  candle1Time: number
-  candle1HighTicks: number
-  candle1LowTicks: number
-  candle2Time: number
-  candle3Time: number
-  candle3HighTicks: number
-  candle3LowTicks: number
-  gapTicks: number
-  sumRangeTicks: number
-  lookback: number
-  thresholdTicks: number
+interface OptionView {
+  value: string
+  label: string
+}
+
+/** What a classification drill asks about — where it is, not what it is called. */
+export interface SubjectView {
+  side: 'HIGH' | 'LOW'
+  /** Where the level starts: the swing it comes from. Equal to `time` for a swing itself. */
+  fromTime: number
+  /** The marked candle. */
+  time: number
+  priceTicks: number
 }
 
 export interface SetupView {
   id: string
-  direction: 'BULLISH' | 'BEARISH'
+  direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
+  kind?: string
+  shape: 'ZONE' | 'LEVEL' | 'POINT'
   startTime: number
-  /** The middle candle — the one to mark. */
+  /** The candle to mark. */
   anchorTime: number
   endTime: number
   zoneLowTicks: number
   zoneHighTicks: number
-  found: boolean
-  evidence: FvgEvidence
+  /** Identification: whether a mark found it. */
+  found?: boolean
+  /** "Bullish gap", "Higher high (HH)". */
+  label: string
+  /** Why it qualified, rendered by the server from the rule's evidence. Never written here. */
+  explanation: string[]
 }
 
 export interface ResultView {
-  found: number
-  missed: number
-  extra: number
+  found?: number
+  missed?: number
+  extra?: number
+  /** Marked candles that are not in the answer key. */
+  extraMarks?: number[]
+  /** Marks on candles the rule cannot judge from this chart: counted neither way. */
+  excusedMarks?: number[]
+  /** Classification: the rule's name for the subject. */
+  answer?: string
+  correct?: boolean
   setups: SetupView[]
-  /** Marked candles that are not the middle of a qualifying gap. */
-  extraMarks: number[]
 }
 
 export interface DrillResponse {
   id: string
   kind: string
+  mode: DrillMode
+  title: string
+  conceptId: string
   instrument: string
   tickSize: number
   exchangeTimezone: string
@@ -65,22 +92,30 @@ export interface DrillResponse {
   disclaimer?: string
   /** True on simulated data: a developer fixture, never graded (DEC-034). */
   fixture: boolean
+  /** True on real data: graded against the rule. */
   graded: boolean
   fixtureNotice?: string
   instructions: string
+  /** Identification: what a correct mark is. */
+  markName?: string
   rule: RuleView
   bars: DomainBar[]
+  subject?: SubjectView
+  options?: OptionView[]
   marks?: number[]
+  choice?: string
   result?: ResultView
 }
 
-export const DRILL_TIMEFRAMES = ['5m', '15m'] as const
+export const DRILL_TIMEFRAMES = ['1m', '5m', '15m'] as const
+
+export const listDrillKinds = () => apiFetch<DrillKindView[]>('/api/drills/kinds')
 
 export const startDrill = (body: { kind?: string; instrument?: string; timeframe?: string }) =>
   apiFetch<DrillResponse>('/api/drills', { method: 'POST', body: JSON.stringify(body) })
 
-export const answerDrill = (id: string, marks: number[]) =>
+export const answerDrill = (id: string, answer: { marks: number[] } | { choice: string }) =>
   apiFetch<DrillResponse>(`/api/drills/${encodeURIComponent(id)}/answer`, {
     method: 'POST',
-    body: JSON.stringify({ marks }),
+    body: JSON.stringify(answer),
   })
