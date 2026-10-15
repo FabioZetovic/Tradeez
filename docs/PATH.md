@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 315/315 (Testcontainers), frontend 233/233 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 3417263 (T34) green 2026-10-15; merged as ec617ca.
+build_passing: true  # backend 315/315 (Testcontainers), frontend 233/233 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of a917c2d (T11) green 2026-10-15.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1799,3 +1799,7 @@ typecheck, knip and build clean; backend `tests=306 errors=0 skipped=0 failures=
   ranks over and under the swings, BOS/CHoCH and MSS lines, displacement boxes. The sign-in had
   lapsed during the long test runs; signed in again with the local test account.
 - Backend 306 → 315, frontend 230 → 233.
+
+**2026-10-15 — T11 fresh-clone check.** `a917c2d` cloned clean, no `.env`: frontend 233/233, lint,
+typecheck, knip and build clean; backend `tests=315 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
+Fabio: "merge it and then do T12".
