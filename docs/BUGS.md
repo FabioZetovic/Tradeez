@@ -20,7 +20,7 @@
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
-building T13 one (BUG-050). All eleven are fixed. One environment problem is open: ENV-007, a dependency
+building T13 one (BUG-050), and the fresh-clone check of T14 one (BUG-051). All twelve are fixed. One environment problem is open: ENV-007, a dependency
 update made outside the session that the test runner cannot load on this machine's Node.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
@@ -506,6 +506,21 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-051 🟡 A setups test failed whenever its random replay held no market structure shift
+
+**Status:** verified — failed once in the fresh-clone check of T14, after passing in every run before
+**Affects:** `backend/src/test/.../analysis/SetupApiTest.java` (since T11–T12)
+
+**What happened.** `practice()` compares a replay's setups with the Chart tab's over the same stretch,
+then asserted that every one of the 18 rules had a hit in it, "so the comparison covers them all". But
+the replay starts at a random moment, and a rare rule can have nothing in four days of the fixture:
+that run's window held no MSS. A test that asserts a fact about random data is flaky by construction;
+it had simply been lucky.
+
+**✅ FIXED — Session 017 (T14).** The replay comparison now asks for at least 12 of the rules — a
+broad comparison, which every window gives — and a new `everyRule()` checks over a fixed fortnight of
+the fixture that every rule comes through the endpoint. Run three times, green each time.
 
 ### BUG-050 🟡 The FVG drill counted a mark as wrong on a candle nobody could judge
 

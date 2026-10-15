@@ -1648,7 +1648,7 @@ bars, the import ledger, the real NQ instrument; V8: the simulated markets leave
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
-the drill engine, lesson cards): backend 223 → 378, frontend 148 → 244, V9 to V14, DEC-044 to DEC-055.*
+the drill engine, lesson cards): backend 223 → 379, frontend 148 → 244, V9 to V14, DEC-044 to DEC-055.*
 
 ---
 

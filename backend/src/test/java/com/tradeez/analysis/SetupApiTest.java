@@ -270,8 +270,18 @@ class SetupApiTest extends AbstractIntegrationTest {
 		}
 		assertThat(practice.toString()).doesNotContain(Long.toString(realStart.getEpochSecond()));
 		assertThat(described(practice, 0)).containsExactlyElementsOf(described(chartSetups(historyFrom, cursor, ALL), shift));
-		// Every rule has something to say over a replay's four days, so the comparison covers them all.
-		assertThat(described(practice, 0)).extracting(d -> d.substring(0, d.indexOf('/')))
+		// A comparison over most of the rules, not a handful. Not all of them: the replay starts at a random
+		// moment, and a rare rule (an MSS) can have nothing in its four days (BUG-051). Every rule is shown
+		// to come through the endpoint over a fixed stretch in everyRule().
+		assertThat(described(practice, 0).stream().map(d -> d.substring(0, d.indexOf('/'))).distinct().count())
+			.isGreaterThanOrEqualTo(12);
+	}
+
+	@Test
+	@DisplayName("over a fixed fortnight the chart has something from every rule, so the comparisons cover them all")
+	void everyRule() throws Exception {
+		JsonNode setups = chartSetups(Instant.parse("2025-04-28T00:00:00Z"), Instant.parse("2025-05-08T00:00:00Z"), ALL);
+		assertThat(described(setups, 0)).extracting(d -> d.substring(0, d.indexOf('/')))
 			.containsAll(List.of(ALL.split(",")));
 	}
 }

@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 378/378 (Testcontainers), frontend 244/244 (on the committed lockfile — ENV-007) + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 379/379 (Testcontainers), frontend 244/244 (on the committed lockfile — ENV-007) + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1900,3 +1900,8 @@ cards) on `feat/lesson-cards`.
   stops vitest here; left for Fabio, kept out of the commit, tests run on the committed lockfile in a
   scratch copy. ENV-008 — two mutation runs at once swapped two files; rebuilt and re-tested.
 - Backend 350 → 378, frontend 236 → 244.
+
+**2026-10-15 — T14 fresh-clone check, first run: one failure.** `6e33ebc` cloned clean: frontend
+244/244, lint, typecheck, knip, build clean; backend 378 with 1 failure — `SetupApiTest.practice`, whose
+random replay window held no MSS (BUG-051, a flaky assertion since T11–T12). Fixed: the replay must
+cover at least 12 rules, and a new `everyRule()` checks all 18 over a fixed fortnight. Backend 379.
