@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T10 merged; T34 (practice timeframes, Fabio) next, then T11
+last_session: 017   # in progress — T1–T10 merged; T34 built on feat/practice-timeframes, waiting for Fabio to say merge; then T11
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 302/302 (Testcontainers), frontend 228/228 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c504625 (T10) green 2026-10-15; merged as dcf699a.
+build_passing: true  # backend 306/306 (Testcontainers), frontend 230/230 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 3417263 (T34) green 2026-10-15.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -119,7 +119,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T34 (switchable timeframes in practice) next, on feat/practice-timeframes.
+blocked_on: nothing — T34 (switchable timeframes in practice) built on feat/practice-timeframes; merge when Fabio says so.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -196,7 +196,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T8 | ~~**ICT drawing tools**~~ | T3 | I-21, I-42–43, X §4 | ✅ Session 017, **merged 2026-10-14 as `4321ae6`** (DEC-048): Fibonacci with ICT's levels (OTE shaded, targets −0.27 to −2), zone with its CE in half-ticks, labels; words typed on the chart; server checks anchor counts and text (V11). |
 | T9 | ~~**Detector framework, concept registry, overlay renderer**~~ | T3 | I S-1–S-3, D-026 | ✅ Session 017, **merged 2026-10-15 as `a582b1a`** (DEC-049): a `Detector` contract (shape, confirmation time, lookback) checked for every detector — deterministic, causal, honest lookback, one per place; split at rolls; V12; lazy scans with a self-checking cache; setups API for the Chart tab and replays (never past the cursor, hidden date kept, no evidence sent); concept registry read from `ICT_CONCEPTS.md`; overlay with zones + CE, off by default. |
 | T10 | ~~**Imbalances and gaps**~~ | T9 | I-20–28 | ✅ Session 017, **merged 2026-10-15 as `dcf699a`** (DEC-050): `fvg-1.0.0` re-measured on two years of real NQ and kept (~3 per 30 candles on every timeframe); `fvg-state-1.0.0` (OPEN→TAPPED→CE→FILLED→INVERTED, 500-candle memory), `ifvg-1.0.0`, `bpr-1.0.0`, `vi-1.0.0` (≥ 4 ticks, measured), `void-1.0.0` (gaps, voids), `opening-gap-1.0.0` (NDOG/NWOG from the data), `org-1.0.0`; V13 kinds; overlay with live zones, faded finished ones, stops at rolls. |
-| T34 | **Switchable timeframes in practice** | T5 | F | Fabio, 2026-10-15: a replay can be viewed on any chart timeframe (1m–1h) mid-session, the forming candle built only from minutes before the cursor; "Next bar" steps one candle of the viewed timeframe; clock and setups follow it; fills unchanged. Before T11. |
+| T34 | ~~**Switchable timeframes in practice**~~ | T5 | F | ✅ Session 017, on `feat/practice-timeframes`, **not merged yet** (DEC-051): any of 1m–1h mid-replay; the forming candle built only from minutes before the cursor (tested, and a leak mutation caught); steps and skip in viewed candles, never past the limit; chart updates the forming candle in place; clock, setups and finished trades follow the view. |
 | T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
 | T12 | **Liquidity** | T11 | I-10–14 | Resting/taken levels, equal highs/lows, sweep vs run. |
 | T35 | **Session-aligned 4h and daily candles** | T3 | F | Fabio asked why 4h/1d are missing (2026-10-15): aggregation counts from UTC midnight, which matches New York only up to 1h. Anchor 4h and daily buckets to the 18:00 New York session open, DST-aware, then offer them on the Chart tab and in practice. |
@@ -267,6 +267,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
 | DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
+| DEC-051 | **A replay can be looked at on any timeframe (1m–1h):** the forming candle only from what came before the cursor; a step is one viewed candle (completing the forming one first); fills unchanged. |
 | DEC-050 | **Imbalances and gaps, measured on real NQ first:** `fvg-1.0.0` kept (~3 per 30 candles, every timeframe); `fvg-state` with a 500-candle memory, `ifvg`, `bpr`, `vi` (≥ 4 ticks, because body gaps do not scale with the timeframe), `void` (runs must progress), `opening-gap` (closures from the data), `org` (its own rule). `kind` joins a hit's identity (V13). |
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
@@ -1743,3 +1744,27 @@ Waiting for Fabio to say merge.
 now; asked for switchable timeframes in practice — **T34**, taken next, before T11 — and why 4h and
 daily are missing: UTC-midnight buckets match New York only up to 1h (a 4h candle would straddle the
 17:00 halt, a daily one hold two hours of the next trading day) — **T35**, session-aligned buckets.
+
+**2026-10-15 — T34: any timeframe in a replay (DEC-051).** On `feat/practice-timeframes`, not merged:
+- **Server:** `get`, `advance`, `skip` and `setups` take an optional view timeframe (1m–1h; 400 for
+  others). A step starts from the candle the cursor is in, so a forming candle completes first and
+  comes back whole; the cursor is held at the replay's limit. No provider change: real data folds the
+  stored minutes up to the requested end, and the simulated day cache is used only on candle bounds.
+- **Client:** a "Chart timeframe" switch in the replay header; it takes effect when the candles
+  arrive. The hook lays returned bars over those from the first one's time; `PriceChart` now treats
+  "same series, newest candle updated, maybe more after it" as a continuation (updateBar), not a new
+  series — so the zoom survives. Clock, setups, finished trades and the bracket anchor use the view.
+- **Tests:** four in `RealPracticeApiTest` (forming candle = minutes up to the cursor; a 15m step
+  completes it then moves in whole candles; skip on 1h stops at the end of the exit's hour; setups
+  on the view; 4h/1s/1d refused). Leak mutation (visible candles built to the candle's end) caught.
+  Frontend: the switch end to end, and a mutation appending instead of merging caught; a chart test
+  for the in-place update. Existing practice tests updated: steps now name their timeframe, and the
+  test server's route matcher ignores the query string.
+- **Checked in the browser** on real NQ: a replay at Fri 09:55 on 5m, switched to 1m, two steps to
+  09:57, switched to 15m — the forming 09:45 candle equalled the 12 minutes revealed (09:45–09:56)
+  exactly; one step on 15m moved the cursor to 10:00 and completed that candle in place (369 candles
+  before and after, 15 minutes in it, no duplicate time); setups re-asked on 15m; no failed request.
+- Backend 302 → 306, frontend 228 → 230.
+
+**2026-10-15 — T34 fresh-clone check.** `3417263` cloned clean, no `.env`: frontend 230/230, lint,
+typecheck, knip and build clean; backend `tests=306 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.

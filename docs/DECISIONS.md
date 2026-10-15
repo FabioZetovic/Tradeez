@@ -401,6 +401,31 @@ historical charts, taking trades whenever the candles say so
 Not in this decision: limit entries, scaling, partial targets (T28), and moving a stop after the
 lock — DEC-013's revision log is where that belongs.
 
+**DEC-051 — A replay can be looked at on any timeframe** `IMPLEMENTED` · Claude, Session 017
+(2026-10-15), T34 — Fabio: "on practice chart you can switch time frames too"
+
+- **A view, not a new session.** A replay starts on 1m, 5m or 15m as before, and can then be looked
+  at on any of the Chart tab's timeframes, 1m to 1h, as often as the learner likes. The session's own
+  timeframe is unchanged; each request names the one it wants (`?timeframe=`, or `timeframe` in a
+  step) and the server builds the candles.
+- **The candle still forming is built only from what came before the cursor.** Stepping a 5m replay
+  to 10:05 and switching to 15m shows a 10:00 candle made of five minutes, exactly as a live chart
+  would. That needed no new code — both market-data providers already cut at the requested end — and
+  a test now holds them to it: the forming candle equals the stored minutes up to the cursor, and
+  building it to the candle's end instead was tried and caught.
+- **A step is a candle of the timeframe being viewed.** A candle still forming counts as the first:
+  "Next bar" on 15m at 10:05 completes the 10:00 candle and moves the cursor to 10:15. What comes
+  back starts with that whole candle, and the chart updates its newest candle in place rather than
+  adding a second one at the same time, so the learner's zoom survives. "Skip to result" stops at
+  the end of the viewed candle the trade ended in. The cursor never passes the replay's limit: a
+  candle the limit cuts through stays forming.
+- **Everything else follows the view:** detected setups are asked for on it, the New York clock and
+  finished trades are drawn on it. Fills do not change — they are decided on the finest stored bars
+  whatever is on screen (DEC-008).
+
+Not in this decision: remembering the viewed timeframe when a session is resumed (it reopens on its
+own), and 4h/daily, which need session-aligned candles first (T35).
+
 **DEC-047 — The New York clock layer: three versioned rules, computed from minutes, never ahead of
 the cursor**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-14), T7 — ICT-11 and ICT-50 to ICT-54

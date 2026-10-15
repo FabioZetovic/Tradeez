@@ -53,9 +53,9 @@ export const getChartSetups = (
       `&from=${from}&to=${to}&detectors=${detectors.map(encodeURIComponent).join(',')}`,
   )
 
-export const getPracticeSetups = (sessionId: string, detectors: readonly string[]) =>
+export const getPracticeSetups = (sessionId: string, detectors: readonly string[], timeframe: string) =>
   apiFetch<SetupLayer>(
     `/api/practice/sessions/${encodeURIComponent(sessionId)}/setups?detectors=${detectors
       .map(encodeURIComponent)
-      .join(',')}`,
+      .join(',')}&timeframe=${encodeURIComponent(timeframe)}`,
   )

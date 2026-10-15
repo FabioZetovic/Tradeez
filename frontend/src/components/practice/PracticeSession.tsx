@@ -17,6 +17,7 @@ import { useSetupLayers } from '@/hooks/useSetupLayers'
 import type { Direction, PracticeState, SessionResponse } from '@/lib/api/practice'
 import { getPracticeClock, type ClockLayer } from '@/lib/api/clock'
 import { getPracticeSetups, type SetupLayer } from '@/lib/api/setups'
+import { TIMEFRAMES } from '@/lib/api/marketData'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
@@ -63,6 +64,10 @@ const STATUS_TONE = {
 
 const SPEED_LABELS = SPEEDS.map((s) => `${s}×`)
 
+function candleContaining(time: number, step: number): number {
+  return time - (time % step)
+}
+
 /**
  * One replay: a hidden moment played forward, with trades placed along the way (DEC-046).
  *
@@ -76,6 +81,8 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   const {
     state,
     bars,
+    timeframe,
+    switchTimeframe,
     error,
     busy,
     playing,
@@ -128,7 +135,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     null,
   )
   const { rules: setupRules, shown: setupsShown, toggle: toggleSetup, on: setupsOn } = useSetupLayers()
-  const setupsKey = setupsOn.join(',')
+  // The timeframe the replay is looked at in (T34); setups are asked for on it.
+  const view = timeframe ?? '5m'
+  const setupsKey = setupsOn.length === 0 ? '' : `${view}|${setupsOn.join(',')}`
   const setupsStale =
     cursor !== undefined &&
     setupsKey !== '' &&
@@ -138,7 +147,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     if (!setupsStale || cursor === undefined || setupsAsking.current) return
     setupsAsking.current = true
     const asked = { cursor, key: setupsKey }
-    getPracticeSetups(sessionId, setupsOn)
+    getPracticeSetups(sessionId, setupsOn, view)
       .then((layer) => {
         setupsAsking.current = false
         setSetups({ ...asked, layer })
@@ -149,7 +158,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
         setSetups({ ...asked, layer: null })
       })
     // `setups` too: the answer to an older cursor is followed by a question about the current one.
-  }, [setupsStale, cursor, setupsKey, setupsOn, sessionId, setups])
+  }, [setupsStale, cursor, setupsKey, setupsOn, view, sessionId, setups])
 
   const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined
   const status = state?.status
@@ -161,10 +170,10 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   // The price a market order is priced against, and the bar the bracket starts from. While flat that
   // is the latest bar; in a trade, it is what the server recorded at the lock.
   const referenceTicks = openTrade?.plan.referenceTicks ?? lastBar?.close ?? 0
-  const anchorTime =
-    openTrade && state
-      ? openTrade.plan.lockedAt - timeframeSeconds(state.timeframe)
-      : (lastBar?.time ?? 0)
+  // The candle the lock happened in, on whatever timeframe is being looked at.
+  const anchorTime = openTrade
+    ? candleContaining(openTrade.plan.lockedAt - 1, timeframeSeconds(view))
+    : (lastBar?.time ?? 0)
 
   /**
    * Every drawing action passes through here. Actions on the plan drawing are rewritten to keep its
@@ -201,7 +210,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     ...drawingState,
     drawings: [
       // First, so the learner's own analysis draws over them and wins every click.
-      ...(state ? trades.flatMap((t) => closedTradeDrawing(t, state.timeframe) ?? []) : []),
+      ...trades.flatMap((t) => closedTradeDrawing(t, view) ?? []),
       ...drawingState.drawings.filter((d) => d.id !== PLAN_DRAWING_ID),
       ...(planDrawing ? [planDrawing] : []),
     ],
@@ -268,9 +277,15 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
         <Button variant="link" onClick={onBack}>
           ← Journal
         </Button>
-        <span>
-          <strong>{state.instrument}</strong> · {state.timeframe}
-        </span>
+        <strong>{state.instrument}</strong>
+        <Segmented<string>
+          options={TIMEFRAMES}
+          value={view}
+          onChange={(next) => {
+            if (next !== view) void switchTimeframe(next)
+          }}
+          label="Chart timeframe"
+        />
         <Chip tone={STATUS_TONE[state.status]} data-testid="practice-status">
           {STATUS_LABEL[state.status]}
         </Chip>
@@ -321,7 +336,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
                 adapter={adapter}
                 layer={clock}
                 bars={bars}
-                timeframe={state.timeframe}
+                timeframe={view}
                 tickSize={state.tickSize}
                 shown={clockShown}
               />
@@ -329,7 +344,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
                 adapter={adapter}
                 layer={setups?.layer ?? null}
                 bars={bars}
-                timeframe={state.timeframe}
+                timeframe={view}
                 shown={setupsShown}
               />
               <DrawingOverlay

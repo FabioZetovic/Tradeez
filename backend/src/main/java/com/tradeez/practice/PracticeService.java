@@ -88,8 +88,15 @@ import com.tradeez.practice.PracticeSession.Status;
 @Service
 public class PracticeService {
 
-	/** Timeframes a session can be watched on. The engine resolves on the finest bars that exist. */
+	/** Timeframes a session can be started on. The engine resolves on the finest bars that exist. */
 	static final Set<Timeframe> TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M5, Timeframe.M15);
+
+	/**
+	 * Timeframes a running replay can be looked at in (T34) — the Chart tab's. A candle still forming
+	 * at the cursor is built only from the minutes before it, so switching never shows the future.
+	 */
+	static final Set<Timeframe> VIEW_TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M3, Timeframe.M5,
+		Timeframe.M15, Timeframe.M30, Timeframe.H1);
 
 	/** Real NQ (DEC-040, T4). Simulated markets remain available by symbol. */
 	static final String DEFAULT_INSTRUMENT = "NQ";
@@ -250,7 +257,7 @@ public class PracticeService {
 				DemoSeriesGenerator.GENERATOR_VERSION, start.minus(HISTORY), start));
 			// Generated after the commit, with no connection held (BUG-033).
 			return new SessionResponse(state(session, instrument, List.of()),
-				visibleBars(session, instrument));
+				visibleBars(session, instrument, timeframe));
 		}
 
 		// Real history: a moment where the market really traded, behind a hidden date (DEC-025).
@@ -341,8 +348,12 @@ public class PracticeService {
 		});
 	}
 
-	/** Reveals the next {@code count} bars. Skips closed market, so a bar is always a bar. */
-	public AdvanceResponse advance(UUID userId, UUID sessionId, int count) {
+	/**
+	 * Reveals the next {@code count} candles of {@code timeframeCode} — the session's own when null.
+	 * A candle still forming at the cursor counts as the first: stepping completes it. Skips closed
+	 * market, so a candle is always a candle.
+	 */
+	public AdvanceResponse advance(UUID userId, UUID sessionId, int count, String timeframeCode) {
 		if (count < 1 || count > MAX_ADVANCE_BARS) {
 			throw new IllegalArgumentException(
 				"Advance between 1 and " + MAX_ADVANCE_BARS + " bars at a time.");
@@ -350,7 +361,7 @@ public class PracticeService {
 		Snapshot seen = snapshot(userId, sessionId);
 		PracticeSession session = seen.session();
 		Instrument instrument = seen.instrument();
-		Timeframe timeframe = Timeframe.fromCode(session.getTimeframe());
+		Timeframe timeframe = viewOf(session, timeframeCode);
 
 		Instant cursor = session.getCursorTime();
 		Instant limit = replayLimit(seen, timeframe);
@@ -358,13 +369,16 @@ public class PracticeService {
 			throw new ReplayEndException();
 		}
 
+		// From the start of the candle the cursor is in: when it is still forming, its whole candle
+		// goes back to the client, which replaces the part it had.
+		Instant from = startOfBarContaining(cursor, timeframe);
 		Instant to = min(cursor.plus(timeframe.duration().multipliedBy(count)), limit);
-		List<Bar> bars = generate(session, instrument, timeframe, cursor, to);
+		List<Bar> bars = generate(session, instrument, timeframe, from, to);
 		if (bars.size() < count && to.isBefore(limit)) {
 			// The window crossed a closed market — a maintenance break or a weekend — so it held
 			// fewer bars than asked for. Look far enough ahead to reach the next session.
 			to = min(to.plus(CLOSED_MARKET_LOOKAHEAD), limit);
-			bars = generate(session, instrument, timeframe, cursor, to);
+			bars = generate(session, instrument, timeframe, from, to);
 		}
 		if (bars.isEmpty()) {
 			// Closed market all the way to {@code to}: nothing to show, but the replay still moves
@@ -372,20 +386,22 @@ public class PracticeService {
 			return reveal(userId, seen, to, bars);
 		}
 		List<Bar> revealed = bars.size() > count ? bars.subList(0, count) : bars;
-		return reveal(userId, seen, revealed.getLast().openTime().plus(timeframe.duration()), revealed);
+		// Never past the limit: a candle the limit cuts through stays forming.
+		return reveal(userId, seen, min(revealed.getLast().openTime().plus(timeframe.duration()), limit),
+			revealed);
 	}
 
-	/** Jumps straight to the bar in which the running trade ended. */
-	public AdvanceResponse skipToResult(UUID userId, UUID sessionId) {
+	/** Jumps to the end of the candle, of {@code timeframeCode}, in which the running trade ended. */
+	public AdvanceResponse skipToResult(UUID userId, UUID sessionId, String timeframeCode) {
 		Snapshot seen = snapshot(userId, sessionId);
 		PracticeResult open = seen.openResult();
 		if (open == null) {
 			throw new NotInTradeException();
 		}
-		Timeframe timeframe = Timeframe.fromCode(seen.session().getTimeframe());
+		Timeframe timeframe = viewOf(seen.session(), timeframeCode);
 		Instant end = endOfBarContaining(open.getExitTime(), timeframe);
 		List<Bar> bars = generate(seen.session(), seen.instrument(), timeframe,
-			seen.session().getCursorTime(), end);
+			startOfBarContaining(seen.session().getCursorTime(), timeframe), end);
 		return reveal(userId, seen, end, bars);
 	}
 
@@ -434,11 +450,13 @@ public class PracticeService {
 	// Queries
 	// ---------------------------------------------------------------------------------------------
 
-	public SessionResponse get(UUID userId, UUID sessionId) {
+	/** The session, and every candle of {@code timeframeCode} up to the cursor — the last perhaps still forming. */
+	public SessionResponse get(UUID userId, UUID sessionId, String timeframeCode) {
 		Snapshot seen = snapshot(userId, sessionId);
+		Timeframe timeframe = viewOf(seen.session(), timeframeCode);
 		// Generated outside the snapshot's transaction (BUG-033).
 		return new SessionResponse(state(seen.session(), seen.instrument(), seen.trades()),
-			visibleBars(seen.session(), seen.instrument()));
+			visibleBars(seen.session(), seen.instrument(), timeframe));
 	}
 
 	/**
@@ -459,12 +477,12 @@ public class PracticeService {
 	 * session's clock (DEC-045). The replay's whole window is scanned once, past the cursor, and
 	 * filtered as the cursor moves — what lies beyond it stays on the server.
 	 */
-	public SetupLayerResponse setups(UUID userId, UUID sessionId, List<String> detectors) {
+	public SetupLayerResponse setups(UUID userId, UUID sessionId, List<String> detectors, String timeframeCode) {
 		Snapshot seen = snapshot(userId, sessionId);
 		PracticeSession session = seen.session();
 		Instant cursor = session.getCursorTime();
 		Instant end = replayEnd(session);
-		return setupService.forReplay(seen.instrument(), Timeframe.fromCode(session.getTimeframe()),
+		return setupService.forReplay(seen.instrument(), viewOf(session, timeframeCode),
 			seedOf(session), session.getHistoryFrom(), cursor.isAfter(end) ? cursor : end, cursor, detectors,
 			session.getClock()::show);
 	}
@@ -658,8 +676,7 @@ public class PracticeService {
 	 * Everything from the start of the history to the cursor — and, by construction, nothing after.
 	 * The range handed to the generator ends at the cursor, so no later bar is ever produced.
 	 */
-	private List<BarResponse> visibleBars(PracticeSession session, Instrument instrument) {
-		Timeframe timeframe = Timeframe.fromCode(session.getTimeframe());
+	private List<BarResponse> visibleBars(PracticeSession session, Instrument instrument, Timeframe timeframe) {
 		return toDto(generate(session, instrument, timeframe, session.getHistoryFrom(),
 			session.getCursorTime()), session.getClock());
 	}
@@ -857,9 +874,25 @@ public class PracticeService {
 	}
 
 	private static Instant endOfBarContaining(Instant instant, Timeframe timeframe) {
-		long step = timeframe.seconds();
+		return startOfBarContaining(instant, timeframe).plus(timeframe.duration());
+	}
+
+	private static Instant startOfBarContaining(Instant instant, Timeframe timeframe) {
 		long second = instant.getEpochSecond();
-		return Instant.ofEpochSecond(second - Math.floorMod(second, step) + step);
+		return Instant.ofEpochSecond(second - Math.floorMod(second, timeframe.seconds()));
+	}
+
+	/** The timeframe a request looks at the replay in: the session's own unless it names another. */
+	private static Timeframe viewOf(PracticeSession session, String code) {
+		if (code == null || code.isBlank()) {
+			return Timeframe.fromCode(session.getTimeframe());
+		}
+		Timeframe timeframe = Timeframe.fromCode(code);
+		if (!VIEW_TIMEFRAMES.contains(timeframe)) {
+			throw new IllegalArgumentException("A replay can be viewed on "
+				+ VIEW_TIMEFRAMES.stream().map(Timeframe::code).toList() + " charts.");
+		}
+		return timeframe;
 	}
 
 	private static Instant min(Instant a, Instant b) {

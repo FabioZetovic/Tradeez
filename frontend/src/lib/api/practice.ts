@@ -164,8 +164,12 @@ export const createSession = (body: {
 
 export const listSessions = () => apiFetch<SessionSummary[]>('/api/practice/sessions')
 
-export const getSession = (id: string) =>
-  apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}`)
+/** The view timeframe (T34) is optional: absent, the session's own. */
+const onTimeframe = (timeframe?: string) =>
+  timeframe ? `?timeframe=${encodeURIComponent(timeframe)}` : ''
+
+export const getSession = (id: string, timeframe?: string) =>
+  apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}${onTimeframe(timeframe)}`)
 
 export const submitPlan = (id: string, plan: PlanRequest) =>
   apiFetch<PracticeState>(`/api/practice/sessions/${encodeURIComponent(id)}/plan`, {
@@ -173,14 +177,15 @@ export const submitPlan = (id: string, plan: PlanRequest) =>
     body: JSON.stringify(plan),
   })
 
-export const advanceSession = (id: string, bars: number) =>
+/** Steps {@code bars} candles of {@code timeframe}; a candle still forming counts as the first. */
+export const advanceSession = (id: string, bars: number, timeframe?: string) =>
   apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/advance`, {
     method: 'POST',
-    body: JSON.stringify({ bars }),
+    body: JSON.stringify({ bars, timeframe }),
   })
 
-export const skipToResult = (id: string) =>
-  apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/skip`, {
+export const skipToResult = (id: string, timeframe?: string) =>
+  apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/skip${onTimeframe(timeframe)}`, {
     method: 'POST',
   })
 

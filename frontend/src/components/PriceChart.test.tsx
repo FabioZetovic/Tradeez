@@ -89,7 +89,24 @@ describe('PriceChart', () => {
     const later: DomainBar = { ...next, time: 1710339300 }
     rerender(<PriceChart bars={[...bars, next, later]} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />)
 
-    expect(adapter.updates).toEqual([next, later])
+    // The newest bar is passed again first: it may have been a candle still forming (T34).
+    expect(adapter.updates).toEqual([bars[bars.length - 1], next, later])
+    expect(adapter.setBars.mock.calls.length).toBe(setBarsCalls)
+    expect(adapter.fitCalls).toBe(fits)
+  })
+
+  it('T34: updates a candle that was still forming in place, keeping the view', () => {
+    const adapter = new FakeChartAdapter()
+    const { rerender } = render(
+      <PriceChart bars={bars} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />,
+    )
+    const setBarsCalls = adapter.setBars.mock.calls.length
+    const fits = adapter.fitCalls
+
+    const formed = { ...bars[bars.length - 1], high: 80_090, close: 80_080 }
+    rerender(<PriceChart bars={[...bars.slice(0, -1), formed]} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />)
+
+    expect(adapter.updates).toEqual([formed])
     expect(adapter.setBars.mock.calls.length).toBe(setBarsCalls)
     expect(adapter.fitCalls).toBe(fits)
   })

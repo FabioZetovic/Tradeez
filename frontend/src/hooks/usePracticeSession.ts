@@ -33,6 +33,8 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
   const seeded = initial?.state.id === sessionId ? initial : undefined
   const [state, setState] = useState<PracticeState | null>(seeded?.state ?? null)
   const [bars, setBars] = useState<DomainBar[]>(seeded?.bars ?? [])
+  // The timeframe the replay is being looked at in (T34): the session's own until switched.
+  const [timeframe, setTimeframe] = useState<string | null>(seeded?.state.timeframe ?? null)
   const seededRef = useRef(seeded)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -58,6 +60,7 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
         if (cancelled) return
         closedRef.current = response.state.score.closedTrades
         setState(response.state)
+        setTimeframe(response.state.timeframe)
         setBars(response.bars)
       })
       .catch((e) => {
@@ -90,8 +93,9 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
   const reveal = useCallback((response: { state: PracticeState; bars: DomainBar[] }) => {
     setState(response.state)
     // Appended, never replaced: the chart extends the series in place so the learner's zoom and
-    // pan survive every step of the replay.
-    if (response.bars.length > 0) setBars((current) => [...current, ...response.bars])
+    // pan survive every step of the replay. The first bar sent back may be the candle that was still
+    // forming (T34): it takes the place of the part shown so far.
+    if (response.bars.length > 0) setBars((current) => mergeBars(current, response.bars))
     // A trade just ended, or the whole replay did: stop, so the result is read rather than
     // scrolled past.
     const closed = response.state.score.closedTrades
@@ -99,15 +103,31 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
     closedRef.current = closed
   }, [])
 
+  const viewed = timeframe ?? undefined
   const advance = useCallback(
     (count: number) =>
-      exclusive(async () => reveal(await advanceSession(sessionId, count))),
-    [exclusive, reveal, sessionId],
+      exclusive(async () => reveal(await advanceSession(sessionId, count, viewed))),
+    [exclusive, reveal, sessionId, viewed],
   )
 
   const skip = useCallback(
-    () => exclusive(async () => reveal(await skipToResult(sessionId))),
-    [exclusive, reveal, sessionId],
+    () => exclusive(async () => reveal(await skipToResult(sessionId, viewed))),
+    [exclusive, reveal, sessionId, viewed],
+  )
+
+  /**
+   * Looks at the replay in another timeframe (T34): the same moment, its candles rebuilt by the
+   * server — the last one perhaps still forming. Takes effect only once they have arrived.
+   */
+  const switchTimeframe = useCallback(
+    (next: string) =>
+      exclusive(async () => {
+        const response = await getSession(sessionId, next)
+        setState(response.state)
+        setBars(response.bars)
+        setTimeframe(next)
+      }),
+    [exclusive, sessionId],
   )
 
   const lockPlan = useCallback(
@@ -153,6 +173,8 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
   return {
     state,
     bars,
+    timeframe: timeframe ?? state?.timeframe ?? null,
+    switchTimeframe,
     error,
     busy,
     playing,
@@ -164,6 +186,14 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
     lockPlan,
     end,
   }
+}
+
+/** The bars so far, with those sent back laid over them from the first one's time on. */
+function mergeBars(current: DomainBar[], revealed: DomainBar[]): DomainBar[] {
+  const from = revealed[0].time
+  let keep = current.length
+  while (keep > 0 && current[keep - 1].time >= from) keep--
+  return [...current.slice(0, keep), ...revealed]
 }
 
 function messageOf(error: unknown, fallback: string): string {
