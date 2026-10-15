@@ -2,6 +2,7 @@ package com.tradeez.practice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -254,5 +255,129 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 		assertThat(state.get("dataClass").asText()).isEqualTo("SIMULATED");
 		assertThat(state.has("seed")).isFalse();
 		assertThat(state.get("startTime").asLong()).isGreaterThan(YEAR_2001);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// T34 — a replay looked at on any timeframe
+	// ---------------------------------------------------------------------------------------------
+
+	private Instant realCursor(String id) {
+		return jdbc.queryForObject("SELECT cursor_time FROM practice_session WHERE id = ?::uuid",
+			Timestamp.class, id).toInstant();
+	}
+
+	private JsonNode advance(String id, int bars, String timeframe) throws Exception {
+		return read(mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"bars\":%d,\"timeframe\":\"%s\"}".formatted(bars, timeframe)))
+			.andExpect(status().isOk()));
+	}
+
+	/** The imported minutes in {@code [from, to)}, folded into one candle: open, high, low, close. */
+	private long[] candle(Instant from, Instant to) {
+		List<Bar> minutes = marketData.internalBars(marketData.requireInstrument("NQ"),
+			com.tradeez.marketdata.Timeframe.M1, from, to, 0).bars();
+		assertThat(minutes).isNotEmpty();
+		return new long[] { minutes.getFirst().openTicks(),
+			minutes.stream().mapToLong(Bar::highTicks).max().orElseThrow(),
+			minutes.stream().mapToLong(Bar::lowTicks).min().orElseThrow(), minutes.getLast().closeTicks() };
+	}
+
+	private static long[] ohlc(JsonNode bar) {
+		return new long[] { bar.get("open").asLong(), bar.get("high").asLong(), bar.get("low").asLong(),
+			bar.get("close").asLong() };
+	}
+
+	private static Instant startOf(Instant t, long step) {
+		return Instant.ofEpochSecond(t.getEpochSecond() - Math.floorMod(t.getEpochSecond(), step));
+	}
+
+	@Test
+	@DisplayName("T34: on a higher timeframe the candle still forming is built only from minutes before the cursor")
+	void formingCandle() throws Exception {
+		String id = created("{\"timeframe\":\"5m\"}").at("/state/id").asText();
+		// One minute at a time, until the cursor is inside a fifteen-minute candle.
+		do {
+			advance(id, 1, "1m");
+		} while (realCursor(id).getEpochSecond() % 900 == 0);
+		Instant cursor = realCursor(id);
+
+		JsonNode session = read(mockMvc.perform(get("/api/practice/sessions/" + id).param("timeframe", "15m")
+			.cookie(alice)).andExpect(status().isOk()));
+		JsonNode bars = session.get("bars");
+		long shownCursor = session.at("/state/cursor").asLong();
+		for (JsonNode bar : bars) {
+			assertThat(bar.get("time").asLong()).isBetween(YEAR_2000, YEAR_2001).isLessThan(shownCursor);
+		}
+		// The last candle is the one forming: its minutes up to the cursor, and not one after.
+		assertThat(ohlc(bars.get(bars.size() - 1))).containsExactly(candle(startOf(cursor, 900), cursor));
+	}
+
+	@Test
+	@DisplayName("T34: a step on 15m completes the forming candle, then reveals whole candles")
+	void stepsInViewedCandles() throws Exception {
+		String id = created("{\"timeframe\":\"5m\"}").at("/state/id").asText();
+		do {
+			advance(id, 1, "1m");
+		} while (realCursor(id).getEpochSecond() % 900 == 0);
+		Instant forming = startOf(realCursor(id), 900);
+
+		JsonNode first = advance(id, 1, "15m");
+		Instant cursor = realCursor(id);
+		assertThat(cursor.getEpochSecond() % 900).isZero();
+		assertThat(cursor).isAfter(forming);
+		// What comes back starts with the whole of the candle that was forming.
+		assertThat(ohlc(first.get("bars").get(0))).containsExactly(candle(forming, forming.plusSeconds(900)));
+
+		JsonNode two = advance(id, 2, "15m");
+		assertThat(two.get("bars")).hasSize(2);
+		assertThat(realCursor(id).getEpochSecond() % 900).isZero();
+		assertThat(realCursor(id)).isAfter(cursor.plusSeconds(900));
+	}
+
+	@Test
+	@DisplayName("T34: skipping to a result on 1h stops at the end of the hour the trade ended in")
+	void skipsInViewedCandles() throws Exception {
+		JsonNode session = created("{\"timeframe\":\"5m\"}");
+		String id = session.at("/state/id").asText();
+		JsonNode bars = session.get("bars");
+		long reference = bars.get(bars.size() - 1).get("close").asLong();
+		mockMvc.perform(post("/api/practice/sessions/" + id + "/plan").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"direction\":\"LONG\",\"stopTicks\":%d,\"targetTicks\":%d,\"contracts\":1}"
+					.formatted(reference - 60, reference + 60)))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(post("/api/practice/sessions/" + id + "/skip").param("timeframe", "1h")
+				.cookie(alice).with(csrf()))
+			.andExpect(status().isOk());
+		Instant exit = jdbc.queryForObject("SELECT exit_time FROM practice_result WHERE session_id = ?::uuid",
+			Timestamp.class, id).toInstant();
+		assertThat(realCursor(id)).isEqualTo(startOf(exit, 3600).plusSeconds(3600));
+	}
+
+	@Test
+	@DisplayName("T34: setups follow the viewed timeframe; nothing outside 1m–1h is offered")
+	void viewedTimeframes() throws Exception {
+		JsonNode session = created("{\"timeframe\":\"5m\"}");
+		String id = session.at("/state/id").asText();
+		long cursor = session.at("/state/cursor").asLong();
+
+		JsonNode setups = read(mockMvc.perform(get("/api/practice/sessions/" + id + "/setups")
+				.param("detectors", "FVG").param("timeframe", "15m").cookie(alice))
+			.andExpect(status().isOk())).get("setups");
+		for (JsonNode s : setups) {
+			assertThat(s.get("confirmedAt").asLong()).isLessThanOrEqualTo(cursor);
+			assertThat(s.get("start").asLong() % 900).isZero();
+		}
+
+		mockMvc.perform(get("/api/practice/sessions/" + id).param("timeframe", "4h").cookie(alice))
+			.andExpect(status().isBadRequest());
+		mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"bars\":1,\"timeframe\":\"1s\"}"))
+			.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/practice/sessions/" + id + "/setups").param("detectors", "FVG")
+				.param("timeframe", "1d").cookie(alice))
+			.andExpect(status().isBadRequest());
 	}
 }

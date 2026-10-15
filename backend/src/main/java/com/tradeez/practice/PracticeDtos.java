@@ -50,7 +50,11 @@ public final class PracticeDtos {
 
 	@Schema(description = "How many bars to reveal")
 	public record AdvanceRequest(
-		@NotNull @Min(1) @Max(PracticeService.MAX_ADVANCE_BARS) Integer bars) {
+		@NotNull @Min(1) @Max(PracticeService.MAX_ADVANCE_BARS) Integer bars,
+		@Schema(description = """
+			Optional (T34): step in candles of this timeframe, 1m to 1h, rather than the session's. A \
+			candle still forming at the cursor counts as the first; the bars sent back start with it.""")
+		String timeframe) {
 	}
 
 	public record PlanView(

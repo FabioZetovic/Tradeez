@@ -34,8 +34,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date
   hidden** until the session ends (only the weekday and New York time are shown, DEC-045). Step it
-  bar by bar or play it at 1–8 bars a second, and lock a bracket trade whenever you see a setup;
-  when it is over, take the next (DEC-046).
+  bar by bar or play it at 1–8 bars a second, on any timeframe from 1m to 1h — switch at any moment;
+  the candle still forming is built only from what came before (DEC-051) — and lock a bracket trade
+  whenever you see a setup; when it is over, take the next (DEC-046).
   - Each trade is resolved on the finest bars stored (one-minute for real NQ today), and a genuinely
     undecidable one is reported as *ambiguous*, not guessed.
   - Each result shows P&L, R-multiple, worst and best excursion; finished trades stay on the chart.

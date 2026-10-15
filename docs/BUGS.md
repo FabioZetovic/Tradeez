@@ -220,6 +220,7 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Practice | Bracket orders at market only, one trade running at a time | No limit entries, no scaling in or out, no partial targets (T28), no moving a stop once locked (DEC-013's revision log is later work) |
 | Practice | A replay steps at most 3 days past its start; 50 trades per replay; 60 new sessions per user per hour; journal lists the latest 50 | Each bounds how much data one request has to generate |
 | Practice | Playback is one request per bar | At 8× the server's response time, not the timer, sets the pace. Fine locally; a WebSocket stream (DEC-014) is the upgrade if it ever is not |
+| Practice | A resumed session reopens on the timeframe it started on | The timeframe being viewed is a choice of the screen, not stored with the session (DEC-051). Starting is still 1m, 5m or 15m; viewing is 1m to 1h |
 | Chart | Day ticks on the time axis sit at UTC midnight | Labelled with their true exchange-local weekday and time (e.g. *Wed 18:00*). Moving them to local midnight would mean shifting every timestamp handed to the renderer, which breaks where the zone's offset changes (BUG-029) |
 | Drills | On simulated data every drill is a developer fixture: labelled, never graded, no rating | DEC-034, enforced by a CHECK constraint. Graded drills need permitted real data |
 | Drills | FVG identification only, on 5m and 15m | One-minute drills are refused: the simulated market produces almost no qualifying gaps there, and it is deliberately not tuned to (DEC-039) |

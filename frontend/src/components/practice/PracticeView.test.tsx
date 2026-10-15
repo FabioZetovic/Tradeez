@@ -119,8 +119,9 @@ function mockApi(handler: Handler) {
   )
 }
 
+/** Matches a call by method and the end of its path; the query string (a view timeframe, T34) aside. */
 const is = (call: Call, method: string, suffix: string) =>
-  call.method === method && call.url.endsWith(suffix)
+  call.method === method && call.url.split('?')[0].endsWith(suffix)
 
 /**
  * A server that plays one replay through: create, lock, one bar, skip to an ambiguous result, a
@@ -275,7 +276,7 @@ describe('Practice — a replay', () => {
 
     await user.click(screen.getByRole('button', { name: /next bar/i }))
     await waitFor(() => expect(screen.getByTestId('trade-entry')).toHaveTextContent('20001.75'))
-    expect(calls.find((c) => is(c, 'POST', '/advance'))?.body).toEqual({ bars: 1 })
+    expect(calls.find((c) => is(c, 'POST', '/advance'))?.body).toEqual({ bars: 1, timeframe: '5m' })
 
     await user.click(screen.getByRole('button', { name: /skip to result/i }))
     const outcome = await screen.findByTestId('result-outcome')
@@ -521,6 +522,44 @@ describe('Practice — the New York clock (T7)', () => {
   })
 })
 
+describe('Practice — any timeframe (T34)', () => {
+  it('switches mid-replay, steps in the viewed candles, and completes a forming candle in place', async () => {
+    const server = happyServer()
+    // Viewed on 15m, five minutes into the candle that opened at the cursor's last boundary.
+    const forming = { time: CURSOR, open: 80_006, high: 80_011, low: 80_004, close: 80_010, volume: 10 }
+    const formed = { ...forming, high: 80_030, close: 80_025, volume: 30 }
+    const fifteen = [{ time: CURSOR - 900, open: 79_990, high: 80_012, low: 79_985, close: 80_006, volume: 30 }, forming]
+    mockApi((call) => {
+      if (call.method === 'GET' && call.url === `/api/practice/sessions/${ID}?timeframe=15m`) {
+        return { body: { state: { ...ANALYSING, cursor: CURSOR + 300 }, bars: fifteen } }
+      }
+      if (is(call, 'POST', '/advance')) {
+        return { body: { state: { ...ANALYSING, cursor: CURSOR + 900 }, bars: [formed] } }
+      }
+      return server(call)
+    })
+    let adapter = new FakeChartAdapter()
+    render(<PracticeView adapterFactory={() => (adapter = new FakeChartAdapter())} />)
+    const user = userEvent.setup()
+    await startSession(user)
+
+    const timeframes = screen.getByRole('group', { name: 'Chart timeframe' })
+    expect(within(timeframes).getByRole('button', { name: '5m' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(timeframes).getByRole('button', { name: '15m' }))
+    await waitFor(() =>
+      expect(within(timeframes).getByRole('button', { name: '15m' })).toHaveAttribute('aria-pressed', 'true'),
+    )
+    expect(adapter.bars).toEqual(fifteen)
+
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(adapter.updates).toContainEqual(formed))
+    expect(calls.find((c) => is(c, 'POST', '/advance'))?.body).toEqual({ bars: 1, timeframe: '15m' })
+    // Completed where it stood: no second candle at the same time, no new series.
+    expect(adapter.bars).toEqual(fifteen)
+    expect(adapter.updates.filter((b) => b.time === CURSOR)).toEqual([formed])
+  })
+})
+
 describe('Practice — detected setups (T9)', () => {
   const CURRICULUM = {
     levels: [],
@@ -583,7 +622,7 @@ describe('Practice — detected setups (T9)', () => {
 
     await user.click(fvg)
     await waitFor(() => expect(setupCalls()).toHaveLength(1))
-    expect(setupCalls()[0].url).toBe(`/api/practice/sessions/${ID}/setups?detectors=FVG`)
+    expect(setupCalls()[0].url).toBe(`/api/practice/sessions/${ID}/setups?detectors=FVG&timeframe=5m`)
     expect(screen.getByTestId('setup-overlay')).toBeInTheDocument()
 
     // Two bars while the first answer is still out: no second request yet...

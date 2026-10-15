@@ -1583,6 +1583,12 @@ broken, and the overnight and morning gaps stretch across the session they belon
 its own switch, off by default, and in a replay each shows only what was known at that moment —
 which a test checks for all eight rules at once.
 
+**Any timeframe in a replay.** Fabio asked to be able to switch timeframes while practising, as
+the Chart tab allows. A replay can now be looked at on anything from one minute to one hour, at any
+moment. The subtle part is the candle that has not finished yet: five minutes into a fifteen-minute
+candle, the chart shows exactly those five minutes, as a live chart would, and never the ten still
+to come. Stepping moves one candle of whatever is on screen, completing the unfinished one first.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1597,9 +1603,9 @@ the example file contains a key — and it names the setting without ever printi
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
-the detector framework, imbalances and gaps): backend 223 → 302,
-frontend 148 → 228, V9 to V13,
-DEC-044 to DEC-050.*
+the detector framework, imbalances and gaps, any timeframe in practice): backend 223 → 306,
+frontend 148 → 230, V9 to V13,
+DEC-044 to DEC-051.*
 
 ---
 

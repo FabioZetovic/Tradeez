@@ -68,11 +68,14 @@ public class PracticeController {
 	}
 
 	@GetMapping("/{id}")
-	@Operation(summary = "Resume a session: its state and every bar revealed so far")
+	@Operation(summary = "Resume a session: its state and every bar revealed so far",
+		description = "On the session's timeframe, or on another of 1m to 1h (T34). A candle still forming at "
+			+ "the cursor is built only from the minutes before it.")
 	public SessionResponse get(
 			@AuthenticationPrincipal AuthenticatedUser principal,
-			@PathVariable UUID id) {
-		return practice.get(principal.id(), id);
+			@PathVariable UUID id,
+			@RequestParam(required = false) String timeframe) {
+		return practice.get(principal.id(), id, timeframe);
 	}
 
 	@GetMapping("/{id}/clock")
@@ -92,8 +95,9 @@ public class PracticeController {
 	public SetupLayerResponse setups(
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable UUID id,
-			@RequestParam List<String> detectors) {
-		return practice.setups(principal.id(), id, detectors);
+			@RequestParam List<String> detectors,
+			@RequestParam(required = false) String timeframe) {
+		return practice.setups(principal.id(), id, detectors, timeframe);
 	}
 
 	@PostMapping("/{id}/plan")
@@ -113,15 +117,16 @@ public class PracticeController {
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable UUID id,
 			@Valid @RequestBody AdvanceRequest body) {
-		return practice.advance(principal.id(), id, body.bars());
+		return practice.advance(principal.id(), id, body.bars(), body.timeframe());
 	}
 
 	@PostMapping("/{id}/skip")
 	@Operation(summary = "Reveal everything up to the bar in which the running trade ended")
 	public AdvanceResponse skip(
 			@AuthenticationPrincipal AuthenticatedUser principal,
-			@PathVariable UUID id) {
-		return practice.skipToResult(principal.id(), id);
+			@PathVariable UUID id,
+			@RequestParam(required = false) String timeframe) {
+		return practice.skipToResult(principal.id(), id, timeframe);
 	}
 
 	@PostMapping("/{id}/end")
