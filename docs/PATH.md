@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 285/285 (Testcontainers), frontend 221/221 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). On feat/detector-framework (T9), 2026-10-15.
+build_passing: true  # backend 285/285 (Testcontainers), frontend 221/221 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 7830517 (T9) green 2026-10-15.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1690,3 +1690,9 @@ intermediate runs during development, each fixed. Merged `--no-ff` as `4321ae6`.
   1h), repeats 33–51 ms. Screenshots at 1920 px kept timing out (window hidden), so that width was
   checked through the DOM.
 - Backend 264 → 285, frontend 215 → 221.
+
+**2026-10-15 — T9 fresh-clone check.** `7830517` cloned clean, no `.env`: frontend 221/221, lint,
+typecheck, knip and build clean; backend `tests=285 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
+The T9 story in DOCUMENTATION.md had called the FVG threshold "too loose" on real data before any
+measurement — DEC-039's own yardstick was 3–7 gaps per 30 five-minute candles and real NQ gives about
+3.3 — so it now says the question is measured in T10. Fabio: "merge it and then do T10".

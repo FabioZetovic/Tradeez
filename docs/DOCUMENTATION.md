@@ -1557,8 +1557,8 @@ the answer depended on where the search began.
 On the Chart tab and in practice there is now a **Setups** switch, off by default — a learner should
 look for a gap before being shown one. Switched on, every gap the rule `fvg-1.0.0` finds is drawn as
 a box over the three candles that made it, green or red, with its middle dashed in. On two weeks of
-real NQ it finds about one candle in nine, which says the size threshold chosen on simulated data is
-too loose for the real market; measuring it properly is the next task.
+real NQ it finds about one candle in nine. Whether the size threshold, chosen on simulated data,
+suits the real market is measured properly in the next task.
 
 The list of concepts the app teaches is no longer copied anywhere: the server reads it straight from
 the curriculum document when it starts, and refuses to start if a pattern finder claims a concept or
