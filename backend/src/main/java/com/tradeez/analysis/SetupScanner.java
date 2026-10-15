@@ -41,9 +41,9 @@ public class SetupScanner {
 
 	private static final String UPSERT = """
 		INSERT INTO detected_setup (instrument_id, data_class, seed, generator_version, timeframe,
-		    detector, rule_version, params, methodology_source, shape, direction,
+		    detector, rule_version, params, methodology_source, shape, direction, kind,
 		    start_time, anchor_time, end_time, confirmed_at, zone_low_ticks, zone_high_ticks, evidence)
-		VALUES (?, ?::data_class, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
+		VALUES (?, ?::data_class, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
 		ON CONFLICT ON CONSTRAINT uq_detected_setup DO NOTHING""";
 
 	private static final String COUNT = """
@@ -105,7 +105,8 @@ public class SetupScanner {
 		Long rowSeed = simulated ? seed : null;
 		String key = String.join("|", instrument.getId().toString(), String.valueOf(rowSeed),
 			timeframe.code(), detector.id(), detector.ruleVersion(), from.toString(), to.toString());
-		Instant reach = from.minus(timeframe.duration().multipliedBy(detector.lookbackBars())).minus(CLOSED_REACH);
+		Instant reach = from.minus(timeframe.duration().multipliedBy(detector.lookbackBars(timeframe)))
+			.minus(CLOSED_REACH);
 		int minutes = simulated ? 0 : marketData.storedMinutes(instrument, reach, to);
 		Scan remembered = scanned.get(key);
 		if (remembered != null
@@ -138,13 +139,14 @@ public class SetupScanner {
 			ps.setString(9, detector.methodologySource());
 			ps.setString(10, hit.shape().name());
 			ps.setString(11, hit.direction().name());
-			ps.setTimestamp(12, Timestamp.from(hit.start()));
-			ps.setTimestamp(13, Timestamp.from(hit.anchor()));
-			ps.setTimestamp(14, Timestamp.from(hit.end()));
-			ps.setTimestamp(15, Timestamp.from(hit.confirmedAt()));
-			ps.setLong(16, hit.lowTicks());
-			ps.setLong(17, hit.highTicks());
-			ps.setString(18, write(hit.evidence()));
+			ps.setString(12, hit.kind());
+			ps.setTimestamp(13, Timestamp.from(hit.start()));
+			ps.setTimestamp(14, Timestamp.from(hit.anchor()));
+			ps.setTimestamp(15, Timestamp.from(hit.end()));
+			ps.setTimestamp(16, Timestamp.from(hit.confirmedAt()));
+			ps.setLong(17, hit.lowTicks());
+			ps.setLong(18, hit.highTicks());
+			ps.setString(19, write(hit.evidence()));
 		}));
 		scanned.put(key, new Scan(count(detector, instrument, timeframe, rowSeed, from, to), minutes));
 	}
@@ -183,13 +185,13 @@ public class SetupScanner {
 	}
 
 	/**
-	 * The {@link Detector#lookbackBars()} candles before {@code from}, however long the market was
+	 * The {@link Detector#lookbackBars} candles before {@code from}, however long the market was
 	 * shut before it. Exactly that many, so what is found from {@code from} on never depends on how
 	 * much earlier a scan happened to start (DEC-049).
 	 */
 	private List<Bar> history(Detector detector, Instrument instrument, Timeframe timeframe, long seed,
 			Instant from) {
-		int needed = detector.lookbackBars();
+		int needed = detector.lookbackBars(timeframe);
 		Instant near = from.minus(timeframe.duration().multipliedBy(needed));
 		List<Bar> bars = marketData.internalBars(instrument, timeframe, near, from, seed).bars();
 		if (bars.size() < needed) {

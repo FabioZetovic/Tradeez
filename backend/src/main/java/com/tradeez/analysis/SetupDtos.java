@@ -18,7 +18,11 @@ public final class SetupDtos {
 		already confirmed at the chart's right edge — or the replay's cursor — are included. Times are \
 		on the same basis as the bars: real epoch seconds on the Chart tab, the session's fictional \
 		week in practice (DEC-045). The evidence behind each hit is not sent: its timestamps are real.""")
-	public record SetupLayerResponse(List<RuleView> rules, List<SetupView> setups) {
+	public record SetupLayerResponse(List<RuleView> rules, List<SetupView> setups,
+			@Schema(description = """
+				Contract rolls inside the window. No detector sees across one, so a zone still live at a \
+				roll is drawn up to it and no further.""")
+			List<Long> rolls) {
 	}
 
 	@Schema(description = """
@@ -35,21 +39,25 @@ public final class SetupDtos {
 
 	@Schema(description = """
 		One hit. ZONE spans lowTicks..highTicks; LEVEL and POINT are one price (lowTicks = highTicks). \
-		Prices in INTEGER TICKS. start, anchor and end are candle open times; confirmedAt is when the \
-		hit could first be known.""")
-	public record SetupView(String detector, Detection.Shape shape, Detection.Direction direction, long start,
-			long anchor, long end, long confirmedAt, long lowTicks, long highTicks) {
+		Prices in INTEGER TICKS. kind tells a detector's kinds of hit apart — FVG_STATE: OPEN, TAPPED, CE, \
+		FILLED, INVERTED, EXPIRED; OPENING_GAP: NDOG, NWOG; VOID: GAP, VOID — and is null when it has \
+		one. start, anchor and end are candle open times; confirmedAt is when the hit could first be \
+		known.""")
+	public record SetupView(String detector, Detection.Shape shape, Detection.Direction direction, String kind,
+			long start, long anchor, long end, long confirmedAt, long lowTicks, long highTicks) {
 	}
 
-	static SetupLayerResponse of(List<Detector> detectors, List<DetectedSetup> setups,
+	static SetupLayerResponse of(List<Detector> detectors, List<DetectedSetup> setups, List<Instant> rolls,
 			ToLongFunction<Instant> time) {
 		return new SetupLayerResponse(
 			detectors.stream().map(RuleView::of).toList(),
 			setups.stream()
 				.map(s -> new SetupView(s.getDetector(), Detection.Shape.valueOf(s.getShape()),
-					Detection.Direction.valueOf(s.getDirection()), time.applyAsLong(s.getStartTime()),
-					time.applyAsLong(s.getAnchorTime()), time.applyAsLong(s.getEndTime()),
-					time.applyAsLong(s.getConfirmedAt()), s.getZoneLowTicks(), s.getZoneHighTicks()))
-				.toList());
+					Detection.Direction.valueOf(s.getDirection()), s.getKind(),
+					time.applyAsLong(s.getStartTime()), time.applyAsLong(s.getAnchorTime()),
+					time.applyAsLong(s.getEndTime()), time.applyAsLong(s.getConfirmedAt()),
+					s.getZoneLowTicks(), s.getZoneHighTicks()))
+				.toList(),
+			rolls.stream().map(time::applyAsLong).toList());
 	}
 }

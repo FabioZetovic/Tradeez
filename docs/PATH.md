@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T9 merged; T10 (imbalances and gaps) next
+last_session: 017   # in progress — T1–T9 merged; T10 built on feat/imbalances, waiting for Fabio to say merge
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 285/285 (Testcontainers), frontend 221/221 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 7830517 (T9) green 2026-10-15; merged as a582b1a.
+build_passing: true  # backend 302/302 (Testcontainers), frontend 228/228 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). On feat/imbalances (T10), 2026-10-15. Last fresh clone: 7830517 (T9), merged as a582b1a.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -87,10 +87,10 @@ files_in_repo:
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     clock/       # New York clock layer: sessions/opens/levels rules, chart endpoint (017, T7)
-    analysis/    # Detector contract + registry, Segments, FVG, detected_setup, scanner, setups API (DEC-026, DEC-049)  (016, 017 T9)
+    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050)  (016, 017 T9–T10)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -98,7 +98,7 @@ files_in_repo:
     lib/chart/labelSpace.ts # places canvas labels without overlap (BUG-048)
     lib/chart/timeToX.ts    # places any time on screen inside its bar — shared by the clock and setup overlays
     lib/clock/    # New York clock: layer switches, renderer
-    lib/setups/   # detected-setup renderer: zones with CE, levels, points (T9)
+    lib/setups/   # detected setups: shapes.ts decides where each rule's hits start and end (T10), render.ts paints them
     lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
     lib/drills/   # candle picking, marks, explanations generated from detector evidence
     components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar; ui.tsx = shared Button/Segmented/Panel/Chip/Notice
@@ -119,7 +119,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T10 (imbalances and gaps) next, on feat/imbalances.
+blocked_on: nothing — T10 (imbalances and gaps) built on feat/imbalances; merge when Fabio says so.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -195,7 +195,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, **merged 2026-10-14 as `6d09763`** (DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
 | T8 | ~~**ICT drawing tools**~~ | T3 | I-21, I-42–43, X §4 | ✅ Session 017, **merged 2026-10-14 as `4321ae6`** (DEC-048): Fibonacci with ICT's levels (OTE shaded, targets −0.27 to −2), zone with its CE in half-ticks, labels; words typed on the chart; server checks anchor counts and text (V11). |
 | T9 | ~~**Detector framework, concept registry, overlay renderer**~~ | T3 | I S-1–S-3, D-026 | ✅ Session 017, **merged 2026-10-15 as `a582b1a`** (DEC-049): a `Detector` contract (shape, confirmation time, lookback) checked for every detector — deterministic, causal, honest lookback, one per place; split at rolls; V12; lazy scans with a self-checking cache; setups API for the Chart tab and replays (never past the cursor, hidden date kept, no evidence sent); concept registry read from `ICT_CONCEPTS.md`; overlay with zones + CE, off by default. |
-| T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
+| T10 | ~~**Imbalances and gaps**~~ | T9 | I-20–28 | ✅ Session 017, on `feat/imbalances`, **not merged yet** (DEC-050): `fvg-1.0.0` re-measured on two years of real NQ and kept (~3 per 30 candles on every timeframe); `fvg-state-1.0.0` (OPEN→TAPPED→CE→FILLED→INVERTED, 500-candle memory), `ifvg-1.0.0`, `bpr-1.0.0`, `vi-1.0.0` (≥ 4 ticks, measured), `void-1.0.0` (gaps, voids), `opening-gap-1.0.0` (NDOG/NWOG from the data), `org-1.0.0`; V13 kinds; overlay with live zones, faded finished ones, stops at rolls. |
 | T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
 | T12 | **Liquidity** | T11 | I-10–14 | Resting/taken levels, equal highs/lows, sweep vs run. |
 
@@ -265,6 +265,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
 | DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
+| DEC-050 | **Imbalances and gaps, measured on real NQ first:** `fvg-1.0.0` kept (~3 per 30 candles, every timeframe); `fvg-state` with a 500-candle memory, `ifvg`, `bpr`, `vi` (≥ 4 ticks, because body gaps do not scale with the timeframe), `void` (runs must progress), `opening-gap` (closures from the data), `org` (its own rule). `kind` joins a hit's identity (V13). |
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
@@ -1699,3 +1700,35 @@ measurement — DEC-039's own yardstick was 3–7 gaps per 30 five-minute candle
 
 **2026-10-15 — T9 merged.** Merged `--no-ff` as `a582b1a`. Next: T10 (imbalances and gaps) on
 `feat/imbalances`.
+**2026-10-15 — T10: imbalances and gaps (DEC-050).** On `feat/imbalances`, not merged:
+- **Measured first.** Two years of real NQ minutes exported from the local database to a scratch
+  script (not committed), aggregated as the app does; the script's FVG port first reproduced the
+  Chart tab's 301 exactly. `fvg-1.0.0`: ~3 gaps per 30 candles on every timeframe 1m–1h — inside
+  DEC-039's accepted range, so **kept, no `fvg-1.1.0`**. Volume imbalances of any size: ~7 per 30 on
+  every timeframe (they do not scale), so `vi-1.0.0` takes a fixed 4 ticks (~1.6 per 30). Voids: the
+  draft's 3 candles / 20% give about one a day on 5m; the longest run in two years was 6 candles.
+- **Seven new rules** under DEC-049: `FVG_STATE` (fvg-state-1.0.0), `IFVG`, `BPR`, `VI`, `VOID`
+  (kinds GAP, VOID), `OPENING_GAP` (NDOG, NWOG), `ORG` (org-1.0.0, split from opening-gap-1.0.0 so a
+  detector names one concept). Shared: `FvgLifecycle`, `RuleDetector`. V13 adds `kind` to a hit's
+  identity; `Detector.lookbackBars` now takes the timeframe; a layer carries its rolls.
+- **Found while building it** (none shipped): the void draft let up-closing candles that each gapped
+  *lower* count as a run, producing an inverted zone — a run must now progress; the visible-setups
+  query ordered only by start, which the several states of one gap share — now a total order; my
+  first script for the curriculum table matched the wrong 📐 marks and rewrote the legend and ICT-01
+  to 05 — `ConceptRegistryTest` caught it, the file was restored from git and the rows redone line by
+  line, the diff checked to touch only the ten intended lines.
+- **Tests.** `DetectorContractTest` now runs on `PatternMarket`, a seeded synthetic market dense in
+  every pattern (the simulated market never makes a volume imbalance), on 1m, 5m and 15m, with every
+  lookback cut many times; every rule passes. `ImbalanceDetectorsTest` (17) pins each rule on hand-
+  built candles — including a bearish CE at 194.5 reached at 195 and not 194; floor-dividing the
+  midpoint was tried and caught. `SetupApiTest` checks the replay equals the chart over the same real
+  stretch for all eight rules (its fixture now opens every 35th minute two points away, so volume
+  imbalances exist), and that the roll is sent. Frontend: `shapes.ts` (where each rule's hits start
+  and end) with its own tests; an ORG's quarters in the render test.
+- **Checked in the browser**, real NQ, 5m, two weeks: 301 FVG, 79 BPR, 163 VI, 2 gaps, 8 voids,
+  8 NDOG + 2 NWOG, 10 ORG; lifecycle 301 open → 268 filled, 262 inverted; IFVG = INVERTED. First scan
+  of all eight 1.2 s, again 0.18 s. A replay with all eight: 946 hits, all confirmed by the cursor,
+  all on the fictional week, no real timestamp in the response. The window stayed hidden, so the
+  picture was checked by compositing the chart's canvases in the page and viewing the image: live gaps
+  run right, finished ones fade, ORG and NWOG drawn. Fresh reload: no failed request.
+- Backend 285 → 302, frontend 221 → 228.

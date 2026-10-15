@@ -41,7 +41,8 @@ import jakarta.servlet.http.Cookie;
  * T9 — detected setups over the Chart tab and over a practice replay, on imported one-minute NQ.
  *
  * <p>The minutes are the simulated market's, stored as an import stores them, so they have gaps to
- * find. Three weeks from Sunday 27 April 2025, all in New York summer time, with a roll to the June
+ * find — except that every 35th minute opens two points from where the last one closed, as real
+ * minutes sometimes do and generated ones never do, so there are volume imbalances too. Three weeks from Sunday 27 April 2025, all in New York summer time, with a roll to the June
  * contract in the middle of Thursday 8 May's morning — the June contract 1,000 points higher, so the
  * jump between the two would read as an enormous gap to a detector that was handed both.
  */
@@ -51,6 +52,8 @@ class SetupApiTest extends AbstractIntegrationTest {
 	private static final Instant DATA_TO = Instant.parse("2025-05-17T00:00:00Z");
 	private static final Instant ROLL = Instant.parse("2025-05-08T14:00:00Z");
 	private static final long JUNE_PREMIUM_TICKS = 4_000;
+	/** Every detector T10 leaves the app with (DEC-050). */
+	private static final String ALL = "FVG,FVG_STATE,IFVG,BPR,VI,VOID,OPENING_GAP,ORG";
 	private static final long YEAR_2000 = Instant.parse("2000-01-01T00:00:00Z").getEpochSecond();
 	private static final long YEAR_2001 = Instant.parse("2001-01-01T00:00:00Z").getEpochSecond();
 
@@ -98,7 +101,8 @@ class SetupApiTest extends AbstractIntegrationTest {
 			}
 			boolean june = !b.openTime().isBefore(ROLL);
 			long shift = june ? JUNE_PREMIUM_TICKS : 0;
-			bars.add(new StoredBar(new Bar(b.openTime(), b.openTicks() + shift, b.highTicks() + shift,
+			long open = b.openTicks() + (b.openTime().getEpochSecond() / 60 % 35 == 0 ? 8 : 0);
+			bars.add(new StoredBar(new Bar(b.openTime(), open + shift, Math.max(b.highTicks(), open) + shift,
 				b.lowTicks() + shift, b.closeTicks() + shift, b.volume()), june ? 202506 : 202503));
 		}
 		barStore.insert(nq.getId(), "1m", bars);
@@ -133,13 +137,18 @@ class SetupApiTest extends AbstractIntegrationTest {
 	}
 
 	private JsonNode chartSetups(Instant from, Instant to) throws Exception {
-		return read(chartRequest("NQ", "5m", from, to, "FVG").andExpect(status().isOk())).get("setups");
+		return chartSetups(from, to, "FVG");
+	}
+
+	private JsonNode chartSetups(Instant from, Instant to, String detectors) throws Exception {
+		return read(chartRequest("NQ", "5m", from, to, detectors).andExpect(status().isOk())).get("setups");
 	}
 
 	/** A setup as a line of text, its times shifted: enough to compare two lists exactly. */
 	private static List<String> described(JsonNode setups, long shift) {
 		List<String> out = new ArrayList<>();
-		setups.forEach(s -> out.add(s.get("direction").asText() + " " + (s.get("start").asLong() + shift) + " "
+		setups.forEach(s -> out.add(s.get("detector").asText() + "/" + (s.hasNonNull("kind") ? s.get("kind").asText() : "-") + " "
+			+ s.get("direction").asText() + " " + (s.get("start").asLong() + shift) + " "
 			+ (s.get("end").asLong() + shift) + " " + (s.get("confirmedAt").asLong() + shift) + " "
 			+ s.get("lowTicks").asLong() + "-" + s.get("highTicks").asLong()));
 		return out;
@@ -162,7 +171,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 		List<String> expected = new ArrayList<>();
 		for (Detection d : new FvgDetector().detect(bars, Timeframe.M5)) {
 			if (!d.end().isBefore(from) && d.start().isBefore(to) && !d.confirmedAt().isAfter(to)) {
-				expected.add(d.direction() + " " + d.start().getEpochSecond() + " " + d.end().getEpochSecond()
+				expected.add("FVG/- " + d.direction() + " " + d.start().getEpochSecond() + " " + d.end().getEpochSecond()
 					+ " " + d.confirmedAt().getEpochSecond() + " " + d.lowTicks() + "-" + d.highTicks());
 			}
 		}
@@ -191,7 +200,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("no gap spans the roll, though the two contracts side by side would make one")
+	@DisplayName("nothing spans the roll, though the two contracts side by side would make a gap, and the roll is sent")
 	void roll() throws Exception {
 		Instant from = Instant.parse("2025-05-08T12:00:00Z");
 		Instant to = Instant.parse("2025-05-08T18:00:00Z");
@@ -203,7 +212,9 @@ class SetupApiTest extends AbstractIntegrationTest {
 				assertThat(d.end()).isAfterOrEqualTo(ROLL);
 			});
 
-		JsonNode setups = chartSetups(from, to);
+		JsonNode layer = read(chartRequest("NQ", "5m", from, to, ALL).andExpect(status().isOk()));
+		assertThat(layer.get("rolls")).extracting(JsonNode::asLong).containsExactly(ROLL.getEpochSecond());
+		JsonNode setups = layer.get("setups");
 		assertThat(setups.size()).isPositive();
 		setups.forEach(s -> assertThat(s.get("start").asLong() < ROLL.getEpochSecond()
 			&& s.get("end").asLong() >= ROLL.getEpochSecond()).as("spans the roll: %s", s).isFalse());
@@ -256,7 +267,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 
 	private JsonNode practiceSetups(String id, Cookie who) throws Exception {
 		JsonNode layer = read(mockMvc.perform(get("/api/practice/sessions/" + id + "/setups")
-				.param("detectors", "FVG").cookie(who))
+				.param("detectors", ALL).cookie(who))
 			.andExpect(status().isOk()));
 		return layer.get("setups");
 	}
@@ -280,6 +291,9 @@ class SetupApiTest extends AbstractIntegrationTest {
 			assertThat(s.get("start").asLong()).isLessThan(shownCursor);
 		}
 		assertThat(practice.toString()).doesNotContain(Long.toString(realStart.getEpochSecond()));
-		assertThat(described(practice, 0)).containsExactlyElementsOf(described(chartSetups(historyFrom, cursor), shift));
+		assertThat(described(practice, 0)).containsExactlyElementsOf(described(chartSetups(historyFrom, cursor, ALL), shift));
+		// Every rule has something to say over a replay's four days, so the comparison covers them all.
+		assertThat(described(practice, 0)).extracting(d -> d.substring(0, d.indexOf('/')))
+			.containsAll(List.of(ALL.split(",")));
 	}
 }

@@ -1564,6 +1564,25 @@ The list of concepts the app teaches is no longer copied anywhere: the server re
 the curriculum document when it starts, and refuses to start if a pattern finder claims a concept or
 rule the document does not describe. Each switch's description comes from there.
 
+**Every kind of gap ICT teaches.** The next step taught the app the rest of the "imbalances" chapter
+of the curriculum: what happens to a fair value gap after it forms (price touches it, reaches its
+middle, fills it, or closes straight through it), failed gaps, two overlapping opposite gaps
+("balanced price ranges"), small gaps between candle bodies ("volume imbalances"), sudden one-sided
+runs ("liquidity voids"), and the gaps across each market closure — overnight, over the weekend, and
+from the previous afternoon to the morning's 09:30 open.
+
+This time every number was measured on the two years of real NQ before it was fixed. That answered
+the question left open earlier: the fair value gap rule, chosen on simulated data, finds about three
+gaps per thirty candles on every timeframe of real data, within what it was designed for, so it stays
+as it is. It also changed one rule: gaps between candle bodies turned out to be the same size on every
+timeframe — the distance between one trade and the next does not grow with the candle — so their
+minimum is one index point rather than a share of the candles' size.
+
+On the chart, a gap now runs on to the right for as long as it is open, fades once it is filled or
+broken, and the overnight and morning gaps stretch across the session they belong to. Each rule is
+its own switch, off by default, and in a replay each shows only what was known at that moment —
+which a test checks for all eight rules at once.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1578,9 +1597,9 @@ the example file contains a key — and it names the setting without ever printi
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
-the detector framework): backend 223 → 285,
-frontend 148 → 221, V9 to V12,
-DEC-044 to DEC-049.*
+the detector framework, imbalances and gaps): backend 223 → 302,
+frontend 148 → 228, V9 to V13,
+DEC-044 to DEC-050.*
 
 ---
 

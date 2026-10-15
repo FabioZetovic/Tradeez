@@ -55,7 +55,7 @@ const GAP: Setup = {
 }
 
 function render(setups: Setup[], shown: string[] = ['FVG']) {
-  const layer: SetupLayer = { rules: [], setups }
+  const layer: SetupLayer = { rules: [], setups, rolls: [] }
   const { ctx, calls } = recorder()
   renderSetups(ctx, layer, BARS, projection, {
     width: 300,
@@ -89,6 +89,17 @@ describe('painting detected setups', () => {
     const calls = render([{ ...GAP, direction: 'BEARISH' }])
     expect(calls.find((c) => c.op === 'fillRect')?.fill).toBe('rgba(248, 81, 73, 0.16)')
     expect(calls.find((c) => c.op === 'fillText')?.args.slice(0, 1)).toEqual(['FVG'])
+  })
+
+  it('draws an opening range gap on to the newest candle, with its quarters', () => {
+    const org: Setup = { ...GAP, detector: 'ORG', start: 0, anchor: 300, end: 300, lowTicks: 100, highTicks: 120 }
+    const lines = render([org], ['ORG']).filter((c) => c.op === 'lineTo')
+    // CE at 110, quarters at 105 and 115 — all to the right edge of the newest candle (x = 45).
+    expect(lines.map((c) => c.args)).toEqual([
+      [45, 90.5],
+      [45, 95.5],
+      [45, 85.5],
+    ])
   })
 
   it('paints only the rules switched on', () => {
