@@ -120,7 +120,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T14 built on feat/lesson-cards; waiting for Fabio to say merge. ENV-007 open (an npm update made outside the session needs Node ≥ 22.19 for the tests — Fabio's call). Then T15 (prediction drills).
+blocked_on: nothing — T14 built on feat/lesson-cards, fresh clone of 6e6d152 green; waiting for Fabio to say merge. ENV-007 open (an npm update made outside the session needs Node ≥ 22.19 for the tests — Fabio's call). Then T15 (prediction drills).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -1905,3 +1905,7 @@ cards) on `feat/lesson-cards`.
 244/244, lint, typecheck, knip, build clean; backend 378 with 1 failure — `SetupApiTest.practice`, whose
 random replay window held no MSS (BUG-051, a flaky assertion since T11–T12). Fixed: the replay must
 cover at least 12 rules, and a new `everyRule()` checks all 18 over a fixed fortnight. Backend 379.
+
+**2026-10-15 — T14 fresh-clone check.** `6e6d152` cloned clean, no `.env`: frontend 244/244, lint,
+typecheck, knip and build clean; backend `tests=379 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
+Waiting for Fabio to say merge. ENV-007 still open (his call).
