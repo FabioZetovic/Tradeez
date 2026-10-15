@@ -28,6 +28,17 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ## Environment
 
+### ENV-009 🟡 knip sometimes cannot allocate its parser's memory
+
+**Status:** verified (session 017, after DEC-056) — **open**, harmless
+
+Since Node 24 and knip 6.41, `npx knip` sometimes stops with "RangeError: Array buffer allocation
+failed" inside `oxc-parser`, which reserves one large block of memory per parse. In the fresh-clone
+check of `chore/upgrade-dependencies` it failed twice and passed on the next runs; in the project
+folder it passed every time. When it runs it reports nothing unused. Not a code problem: it depends on
+how much memory the machine can hand out at that moment (16 GB, about 4 free with Docker running).
+**If it happens, run it again.** Revisit if it starts failing every time.
+
 ### ENV-007 🟠 Dependencies updated outside the session stopped the frontend tests on Node 22.14
 
 **Status:** verified (session 017, T14) — **fixed** (DEC-056)

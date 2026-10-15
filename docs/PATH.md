@@ -1933,3 +1933,9 @@ the newest version, dont leave it lagging behind that leaves holes for hackers."
 - **Checked live** on the new stack: sign-in, chart bars, setups, clock, a lesson, a drill answered, a
   practice session advanced, a validation reply, the January chart reading EST.
 - Backend 379 (one test reworked), frontend 244 → 245.
+
+**2026-10-15 — Fresh-clone check of `chore/upgrade-dependencies`.** `e2ab13c` cloned clean, no `.env`,
+on Node 24.20 / npm 12.2 / JDK 26 / Maven 3.10: backend `tests=379 errors=0 skipped=0 failures=0`, no
+`[ERROR]` lines; frontend `npm audit` 0 vulnerabilities, lint, typecheck (TypeScript 7), Vitest 5
+245/245 and build clean; knip clean — on its third run: the first two stopped allocating parser
+memory (ENV-009, open, harmless). Waiting for Fabio to say merge; merging this branch brings T14 too.
