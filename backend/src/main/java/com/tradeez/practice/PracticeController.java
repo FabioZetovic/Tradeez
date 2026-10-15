@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tradeez.analysis.SetupDtos.SetupLayerResponse;
 import com.tradeez.clock.ClockDtos.ClockLayerResponse;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 import com.tradeez.practice.PracticeDtos.AdvanceRequest;
@@ -81,6 +83,17 @@ public class PracticeController {
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable UUID id) {
 		return practice.clock(principal.id(), id);
+	}
+
+	@GetMapping("/{id}/setups")
+	@Operation(summary = "What versioned rules found over the replay so far",
+		description = "Hits of the named detectors (comma-separated, e.g. FVG) confirmed by the cursor "
+			+ "and nothing after it (DEC-009), on the session's clock (DEC-045).")
+	public SetupLayerResponse setups(
+			@AuthenticationPrincipal AuthenticatedUser principal,
+			@PathVariable UUID id,
+			@RequestParam List<String> detectors) {
+		return practice.setups(principal.id(), id, detectors);
 	}
 
 	@PostMapping("/{id}/plan")

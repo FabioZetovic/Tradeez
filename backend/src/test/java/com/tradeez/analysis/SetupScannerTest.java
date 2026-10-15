@@ -74,6 +74,8 @@ class SetupScannerTest extends AbstractIntegrationTest {
 		assertThat(first.getParams()).containsEntry("averageRangeLookback", 14);
 		assertThat(first.getMethodologySource()).contains("fvg-1.0.0");
 		assertThat(first.getDirection()).isEqualTo(hit.direction().name());
+		assertThat(first.getShape()).isEqualTo("ZONE");
+		assertThat(first.getConfirmedAt()).isEqualTo(hit.candle3().openTime().plusSeconds(300));
 		assertThat(first.getZoneLowTicks()).isEqualTo(hit.zoneLowTicks());
 		assertThat(first.getZoneHighTicks()).isEqualTo(hit.zoneHighTicks());
 		assertThat(((Number) first.getEvidence().get("gapTicks")).longValue()).isEqualTo(hit.gapTicks());
@@ -84,11 +86,20 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	@DisplayName("scanning the same stretch again stores nothing new")
 	void idempotent() {
 		int first = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
+		int stored = rows();
 		int second = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
 
 		assertThat(second).isEqualTo(first);
-		assertThat(jdbc.queryForObject("SELECT count(*) FROM detected_setup", Integer.class))
-			.isEqualTo(first);
+		assertThat(rows()).isEqualTo(stored);
+	}
+
+	@Test
+	@DisplayName("a stretch whose rows were deleted is scanned again, not trusted from memory")
+	void rescansWhatWasDeleted() {
+		int first = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
+		jdbc.update("DELETE FROM detected_setup");
+
+		assertThat(scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO)).hasSize(first);
 	}
 
 	@Test
@@ -104,12 +115,22 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("keeps different timeframes and markets apart")
 	void keyedByMarketAndTimeframe() {
-		int m5 = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO).size();
-		int m15 = scanner.scanFvgs(nq, Timeframe.M15, 42, FROM, TO).size();
-		int otherSeed = scanner.scanFvgs(nq, Timeframe.M5, 7, FROM, TO).size();
+		List<DetectedSetup> m5 = scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO);
+		int m5Rows = rows();
+		scanner.scanFvgs(nq, Timeframe.M15, 42, FROM, TO);
+		scanner.scanFvgs(nq, Timeframe.M5, 7, FROM, TO);
 
-		assertThat(jdbc.queryForObject("SELECT count(*) FROM detected_setup", Integer.class))
-			.isEqualTo(m5 + m15 + otherSeed);
+		assertThat(rows()).isGreaterThan(m5Rows);
+		assertThat(jdbc.queryForObject(
+				"SELECT count(*) FROM detected_setup WHERE timeframe = '5m' AND seed = 42", Integer.class))
+			.isEqualTo(m5Rows);
+		assertThat(scanner.scanFvgs(nq, Timeframe.M5, 42, FROM, TO))
+			.extracting(DetectedSetup::getId)
+			.containsExactlyElementsOf(m5.stream().map(DetectedSetup::getId).toList());
+	}
+
+	private int rows() {
+		return jdbc.queryForObject("SELECT count(*) FROM detected_setup", Integer.class);
 	}
 
 	@Test

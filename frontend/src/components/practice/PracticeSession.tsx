@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useReducer, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
 import { ClockToggles } from '../ClockToggles'
 import { DrawingOverlay } from '../DrawingOverlay'
 import { DrawingToolbar } from '../DrawingToolbar'
+import { SetupOverlay } from '../SetupOverlay'
+import { SetupToggles } from '../SetupToggles'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
 import { PlanPanel } from './PlanPanel'
 import { ResultCard } from './ResultCard'
@@ -11,8 +13,10 @@ import { TradeLog } from './TradeLog'
 import { SPEEDS, usePracticeSession, type Speed } from '@/hooks/usePracticeSession'
 import { useClockLayers } from '@/hooks/useClockLayers'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
+import { useSetupLayers } from '@/hooks/useSetupLayers'
 import type { Direction, PracticeState, SessionResponse } from '@/lib/api/practice'
 import { getPracticeClock, type ClockLayer } from '@/lib/api/clock'
+import { getPracticeSetups, type SetupLayer } from '@/lib/api/setups'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
@@ -116,6 +120,36 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     // `clock` too: a layer that comes back already stale, because the replay moved on while it was
     // being built, is asked for again.
   }, [clockStale, sessionId, clock])
+
+  // Detected setups up to the cursor (T9). Any step can confirm a new one, so they are asked for
+  // whenever the cursor has moved — but one request at a time: while the replay plays faster than
+  // the server answers, each answer is followed by one more for wherever the cursor has got to.
+  const [setups, setSetups] = useState<{ cursor: number; key: string; layer: SetupLayer | null } | null>(
+    null,
+  )
+  const { rules: setupRules, shown: setupsShown, toggle: toggleSetup, on: setupsOn } = useSetupLayers()
+  const setupsKey = setupsOn.join(',')
+  const setupsStale =
+    cursor !== undefined &&
+    setupsKey !== '' &&
+    (setups === null || setups.cursor !== cursor || setups.key !== setupsKey)
+  const setupsAsking = useRef(false)
+  useEffect(() => {
+    if (!setupsStale || cursor === undefined || setupsAsking.current) return
+    setupsAsking.current = true
+    const asked = { cursor, key: setupsKey }
+    getPracticeSetups(sessionId, setupsOn)
+      .then((layer) => {
+        setupsAsking.current = false
+        setSetups({ ...asked, layer })
+      })
+      .catch(() => {
+        // Not asked again until the cursor moves: a failure costs only the overlay.
+        setupsAsking.current = false
+        setSetups({ ...asked, layer: null })
+      })
+    // `setups` too: the answer to an older cursor is followed by a question about the current one.
+  }, [setupsStale, cursor, setupsKey, setupsOn, sessionId, setups])
 
   const lastBar = bars.length > 0 ? bars[bars.length - 1] : undefined
   const status = state?.status
@@ -256,8 +290,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
         )}
       </div>
 
-      <div className="self-start">
+      <div className="flex flex-wrap items-start gap-2 self-start">
         <ClockToggles shown={clockShown} onToggle={toggleClock} />
+        <SetupToggles rules={setupRules} shown={setupsShown} onToggle={toggleSetup} />
       </div>
 
       <div className="flex min-w-0 items-start gap-2">
@@ -289,6 +324,13 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
                 timeframe={state.timeframe}
                 tickSize={state.tickSize}
                 shown={clockShown}
+              />
+              <SetupOverlay
+                adapter={adapter}
+                layer={setups?.layer ?? null}
+                bars={bars}
+                timeframe={state.timeframe}
+                shown={setupsShown}
               />
               <DrawingOverlay
                 adapter={adapter}

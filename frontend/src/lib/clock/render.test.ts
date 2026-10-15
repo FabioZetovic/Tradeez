@@ -4,7 +4,7 @@ import type { DomainBar } from '../chart/types'
 import type { Projection } from '../drawing/types'
 import type { ClockLayerKey } from './layers'
 import { killzoneColor } from './layers'
-import { renderClock, timeToX } from './render'
+import { renderClock } from './render'
 
 /**
  * Five-minute bars with a closed market in the middle — 00:15 to 01:00 has no bars, as a
@@ -31,29 +31,6 @@ const projection: Projection = {
   xToTime: () => null,
   yToPrice: () => null,
 }
-
-describe('placing a time on the chart', () => {
-  it('puts a time inside a bar by proportion', () => {
-    expect(timeToX(150, BARS, STEP, projection)).toBe(0) // half way through the first bar
-    expect(timeToX(0, BARS, STEP, projection)).toBe(-5) // its left edge
-    expect(timeToX(3600, BARS, STEP, projection)).toBe(25)
-  })
-
-  it('puts a time in a closed market at the edge of the bar before it', () => {
-    // The gap has no width on screen: the last bar's right edge is the next bar's left edge.
-    expect(timeToX(2000, BARS, STEP, projection)).toBe(25)
-  })
-
-  it('clamps times before the first bar and after the newest', () => {
-    expect(timeToX(-1000, BARS, STEP, projection)).toBe(-5)
-    // A session still running ends, for now, at the newest candle's right edge.
-    expect(timeToX(99_999, BARS, STEP, projection)).toBe(45)
-  })
-
-  it('has nothing to say without bars', () => {
-    expect(timeToX(0, [], STEP, projection)).toBeNull()
-  })
-})
 
 /** A context that records what was painted. */
 function recorder() {

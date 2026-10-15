@@ -10,6 +10,7 @@ import {
   type TimeframeCode,
 } from '@/lib/api/marketData'
 import { getChartClock, type ClockLayer } from '@/lib/api/clock'
+import { getChartSetups, type SetupLayer } from '@/lib/api/setups'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { nextAxisTimezone, timezoneLabel, type AxisTimezone } from '@/lib/chart/timeAxis'
@@ -25,7 +26,10 @@ import { ClockOverlay } from './ClockOverlay'
 import { ClockToggles } from './ClockToggles'
 import { DrawingOverlay } from './DrawingOverlay'
 import { DrawingToolbar } from './DrawingToolbar'
+import { SetupOverlay } from './SetupOverlay'
+import { SetupToggles } from './SetupToggles'
 import { useClockLayers } from '@/hooks/useClockLayers'
+import { useSetupLayers } from '@/hooks/useSetupLayers'
 import { useDrawings } from '@/hooks/useDrawings'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import type { SnapMode } from '@/lib/drawing/snap'
@@ -138,6 +142,27 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       cancelled = true
     }
   }, [symbol, timeframe, windowEnd, requestKey])
+
+  // Detected setups for the same window (T9), asked for only while a rule is switched on. A layer
+  // is drawn only over the market and timeframe it was found on.
+  const [setups, setSetups] = useState<{ key: string; layer: SetupLayer | null } | null>(null)
+  const setupsKey = `${symbol}|${timeframe}`
+  const { rules: setupRules, shown: setupsShown, toggle: toggleSetup, on: setupsOn } = useSetupLayers()
+  useEffect(() => {
+    if (windowEnd === null || setupsOn.length === 0) return
+    let cancelled = false
+    const { from, to } = chartWindow(timeframe, windowEnd)
+    getChartSetups(symbol, timeframe, from, to, setupsOn)
+      .then((layer) => {
+        if (!cancelled) setSetups({ key: setupsKey, layer })
+      })
+      .catch(() => {
+        if (!cancelled) setSetups({ key: setupsKey, layer: null })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [symbol, timeframe, windowEnd, setupsOn, setupsKey])
 
   const current = loaded !== null && loaded.key === requestKey ? loaded : null
   const loading = requestKey === null ? !noHistory : current === null
@@ -255,8 +280,9 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       )}
 
       {instrument && series && !error && (
-        <div className="self-start">
+        <div className="flex flex-wrap items-start gap-2 self-start">
           <ClockToggles shown={clockShown} onToggle={toggleClock} />
+          <SetupToggles rules={setupRules} shown={setupsShown} onToggle={toggleSetup} />
         </div>
       )}
 
@@ -298,6 +324,13 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
                   timeframe={series.timeframe}
                   tickSize={instrument.tickSize}
                   shown={clockShown}
+                />
+                <SetupOverlay
+                  adapter={adapter}
+                  layer={setups?.key === setupsKey ? setups.layer : null}
+                  bars={series.bars}
+                  timeframe={series.timeframe}
+                  shown={setupsShown}
                 />
                 <DrawingOverlay
                   adapter={adapter}

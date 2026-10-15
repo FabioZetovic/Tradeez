@@ -129,6 +129,20 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<!-- T9, S-2: the curriculum document is the concept registry's only source, read at
+			     startup, so the app and the document cannot disagree. -->
+			<resource>
+				<directory>${project.basedir}/../docs</directory>
+				<targetPath>curriculum</targetPath>
+				<includes>
+					<include>ICT_CONCEPTS.md</include>
+				</includes>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

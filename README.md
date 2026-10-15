@@ -25,6 +25,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   ICT tools (DEC-048): a Fibonacci with ICT's levels — the 62–79% optimal trade entry shaded and the
   −0.27 to −2 targets — a zone with its 50% (consequent encroachment), and text labels. They are
   saved per account, with undo and redo.
+- **Detected setups** over every chart (DEC-049): switch on a rule — today `fvg-1.0.0`, fair value
+  gaps — and each hit is boxed over its candles with its consequent encroachment, named by the rule
+  that found it. Off by default; in a replay, only what was known by the cursor. Every detector is
+  checked to be causal, and the list of concepts comes straight from `docs/ICT_CONCEPTS.md`.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date
   hidden** until the session ends (only the weekday and New York time are shown, DEC-045). Step it

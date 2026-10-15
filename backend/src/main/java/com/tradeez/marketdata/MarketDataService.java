@@ -99,7 +99,15 @@ public class MarketDataService {
 
 	public BarSeries bars(String symbol, Timeframe timeframe, Instant from, Instant to, long seed) {
 		Instrument instrument = requireInstrument(symbol);
+		requirePublicRange(instrument, timeframe, from, to);
+		return providerFor(instrument).bars(instrument, timeframe, from, to, seed);
+	}
 
+	/**
+	 * The limits on any public request for a stretch of chart: what the bars themselves may be asked
+	 * for, and so what anything drawn over them may be asked for too.
+	 */
+	public void requirePublicRange(Instrument instrument, Timeframe timeframe, Instant from, Instant to) {
 		if (!to.isAfter(from)) {
 			throw new InvalidRangeException("'to' must be after 'from'.");
 		}
@@ -116,15 +124,6 @@ public class MarketDataService {
 					+ "Request a shorter range or a larger timeframe.");
 		}
 		requireAffordable(instrument, from, to);
-
-		MarketDataProvider provider = providers.stream()
-			.filter(p -> p.supports(instrument))
-			.findFirst()
-			.orElseThrow(() -> new IllegalStateException(
-				"No market data provider serves " + instrument.getSymbol()
-					+ " (dataClass=" + instrument.getDataClass() + ")"));
-
-		return provider.bars(instrument, timeframe, from, to, seed);
 	}
 
 	/**

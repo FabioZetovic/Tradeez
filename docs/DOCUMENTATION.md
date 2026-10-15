@@ -1317,7 +1317,7 @@ refused both attempts to grade or edit an answered drill.
 
 ---
 
-### Session 017 — 2026-09-30 to 10-14 — Real Data, and Back to ICT
+### Session 017 — 2026-09-30 to 10-15 — Real Data, and Back to ICT
 
 **Participant:** Claude Code
 **Type:** Feature (real market data) and product direction
@@ -1541,6 +1541,29 @@ invisible shape behind. And — seen properly for the first time, because the br
 showed the chart — labels of clock lines ending at the same moment printed on top of each other.
 All three fixed, each with a test that fails on the old code.
 
+**The app starts recognising patterns on the chart.** Until now only one pattern — the fair value
+gap — could be found by the software, and only inside drills on the simulated market. The ICT
+curriculum names dozens more, so before writing any of them a common shape was built for all: every
+pattern finder ("detector") follows the same rules, and the app checks those rules for every one of
+them automatically. The most important rule is about **time**: each pattern records the moment it
+could first have been known — for a fair value gap, when its third candle closes. A practice replay
+only ever shows patterns known by its current moment, so drawing them on the chart can never give
+the future away. The check for this rule was tested by deliberately breaking the gap finder — saying
+the gap was known one second too early, or one candle too late — and both were caught. Building it
+also caught a subtle problem early: a gap found on a Monday morning measures itself against the
+candles before it, which are Friday's; the first version did not reach back across the weekend, so
+the answer depended on where the search began.
+
+On the Chart tab and in practice there is now a **Setups** switch, off by default — a learner should
+look for a gap before being shown one. Switched on, every gap the rule `fvg-1.0.0` finds is drawn as
+a box over the three candles that made it, green or red, with its middle dashed in. On two weeks of
+real NQ it finds about one candle in nine, which says the size threshold chosen on simulated data is
+too loose for the real market; measuring it properly is the next task.
+
+The list of concepts the app teaches is no longer copied anywhere: the server reads it straight from
+the curriculum document when it starts, and refuses to start if a pattern finder claims a concept or
+rule the document does not describe. Each switch's description comes from there.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1554,10 +1577,10 @@ the example file contains a key — and it names the setting without ever printi
 **By the numbers:** backend tests 164 → 223, frontend tests 131 → 148, two migrations (V7: stored market
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
-session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools):
-backend 223 → 264,
-frontend 148 → 215, V9 to V11,
-DEC-044 to DEC-048.*
+session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
+the detector framework): backend 223 → 285,
+frontend 148 → 221, V9 to V12,
+DEC-044 to DEC-049.*
 
 ---
 

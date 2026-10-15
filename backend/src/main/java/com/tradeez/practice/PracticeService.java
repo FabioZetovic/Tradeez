@@ -25,6 +25,8 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.tradeez.analysis.SetupDtos.SetupLayerResponse;
+import com.tradeez.analysis.SetupService;
 import com.tradeez.clock.ClockDtos;
 import com.tradeez.clock.ClockDtos.ClockLayerResponse;
 import com.tradeez.clock.ClockLayer;
@@ -142,6 +144,7 @@ public class PracticeService {
 	private final InstrumentRepository instruments;
 	private final MarketDataService marketData;
 	private final ClockService clocks;
+	private final SetupService setupService;
 
 	/**
 	 * BUG-033 — transactions are opened by hand, around the database work only.
@@ -161,7 +164,7 @@ public class PracticeService {
 
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, InstrumentRepository instruments,
-			MarketDataService marketData, ClockService clocks,
+			MarketDataService marketData, ClockService clocks, SetupService setupService,
 			PlatformTransactionManager transactionManager) {
 		this.sessions = sessions;
 		this.plans = plans;
@@ -169,6 +172,7 @@ public class PracticeService {
 		this.instruments = instruments;
 		this.marketData = marketData;
 		this.clocks = clocks;
+		this.setupService = setupService;
 		this.writeTx = new TransactionTemplate(transactionManager);
 		this.readTx = new TransactionTemplate(transactionManager);
 		this.readTx.setReadOnly(true);
@@ -448,6 +452,21 @@ public class PracticeService {
 		ClockLayer layer = clocks.layer(seen.instrument(), session.getHistoryFrom(),
 			session.getCursorTime(), seedOf(session));
 		return ClockDtos.of(layer, session.getClock()::show, true);
+	}
+
+	/**
+	 * Detected setups over the replay so far (T9): only hits confirmed by the cursor (DEC-009), on the
+	 * session's clock (DEC-045). The replay's whole window is scanned once, past the cursor, and
+	 * filtered as the cursor moves — what lies beyond it stays on the server.
+	 */
+	public SetupLayerResponse setups(UUID userId, UUID sessionId, List<String> detectors) {
+		Snapshot seen = snapshot(userId, sessionId);
+		PracticeSession session = seen.session();
+		Instant cursor = session.getCursorTime();
+		Instant end = replayEnd(session);
+		return setupService.forReplay(seen.instrument(), Timeframe.fromCode(session.getTimeframe()),
+			seedOf(session), session.getHistoryFrom(), cursor.isAfter(end) ? cursor : end, cursor, detectors,
+			session.getClock()::show);
 	}
 
 	@Transactional(readOnly = true)
