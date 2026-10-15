@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 302/302 (Testcontainers), frontend 228/228 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). On feat/imbalances (T10), 2026-10-15. Last fresh clone: 7830517 (T9), merged as a582b1a.
+build_passing: true  # backend 302/302 (Testcontainers), frontend 228/228 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of c504625 (T10, feat/imbalances) green 2026-10-15; T9 merged as a582b1a.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -1732,3 +1732,7 @@ measurement — DEC-039's own yardstick was 3–7 gaps per 30 five-minute candle
   picture was checked by compositing the chart's canvases in the page and viewing the image: live gaps
   run right, finished ones fade, ORG and NWOG drawn. Fresh reload: no failed request.
 - Backend 285 → 302, frontend 221 → 228.
+
+**2026-10-15 — T10 fresh-clone check.** `c504625` cloned clean, no `.env`: frontend 228/228, lint,
+typecheck, knip and build clean; backend `tests=302 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
+Waiting for Fabio to say merge.
