@@ -2,14 +2,14 @@ import type { Setup, SetupLayer } from '../api/setups'
 import type { DomainBar } from '../chart/types'
 import { timeToX } from '../chart/timeToX'
 import type { Projection } from '../drawing/types'
+import { toShapes, type SetupShape } from './shapes'
 
 /**
- * Paints detected setups onto their overlay canvas (T9, S-3): a zone as a box over its own candles
- * with its consequent encroachment dashed through the middle, a level as a line, a point as a mark.
+ * Paints detected setups onto their overlay canvas (T9, S-3): a zone as a box with its consequent
+ * encroachment dashed through the middle, a level as a line, a point as a mark. Where each one starts
+ * and ends is decided in {@link toShapes}; this only paints.
  *
- * A plain function of (context, layer, bars, projection) like the clock and drawing renderers. It
- * draws exactly what the rule claims — a zone spans the candles that formed it, and is not extended
- * to the right: whether price came back to it is a different rule (fvg-state, T10).
+ * A plain function of (context, layer, bars, projection) like the clock and drawing renderers.
  */
 
 export interface SetupRenderOptions {
@@ -31,6 +31,9 @@ const COLORS: Record<Setup['direction'], string> = {
   NEUTRAL: '139, 148, 158',
 }
 
+/** Past the newest candle: {@link timeToX} places it at that candle's right edge. */
+const EDGE = Number.MAX_SAFE_INTEGER
+
 export function renderSetups(
   ctx: CanvasRenderingContext2D,
   layer: SetupLayer | null,
@@ -49,23 +52,22 @@ export function renderSetups(
   ctx.font = FONT
   ctx.textBaseline = 'top'
 
-  for (const setup of layer.setups) {
-    if (!options.shown.has(setup.detector)) continue
-    // From the first candle's left edge to the last one's right edge.
-    const x0 = timeToX(setup.start, bars, step, projection)
-    const x1 = timeToX(setup.end + step, bars, step, projection)
+  const shown = { ...layer, setups: layer.setups.filter((s) => options.shown.has(s.detector)) }
+  for (const shape of toShapes(shown, step)) {
+    const x0 = timeToX(shape.from, bars, step, projection)
+    const x1 = timeToX(shape.to === 'edge' ? EDGE : shape.to, bars, step, projection)
     if (x0 === null || x1 === null || x1 < 0 || x0 > pane.width) continue
-    const rgb = COLORS[setup.direction]
-    switch (setup.shape) {
+    const rgb = COLORS[shape.setup.direction]
+    switch (shape.setup.shape) {
       case 'ZONE':
-        drawZone(ctx, setup, x0, x1, rgb, projection)
+        drawZone(ctx, shape, x0, x1, rgb, projection)
         break
       case 'LEVEL':
-        drawLevel(ctx, setup, x0, x1, rgb, projection)
+        drawLevel(ctx, shape, x0, x1, rgb, projection)
         break
       case 'POINT': {
-        const x = timeToX(setup.anchor + step / 2, bars, step, projection)
-        if (x !== null) drawPoint(ctx, setup, x, rgb, projection)
+        const x = timeToX(shape.setup.anchor + step / 2, bars, step, projection)
+        if (x !== null) drawPoint(ctx, shape.setup, x, rgb, projection)
         break
       }
     }
@@ -75,22 +77,24 @@ export function renderSetups(
 
 function drawZone(
   ctx: CanvasRenderingContext2D,
-  setup: Setup,
+  shape: SetupShape,
   x0: number,
   x1: number,
   rgb: string,
   projection: Projection,
 ): void {
-  const top = projection.priceToY(setup.highTicks)
-  const bottom = projection.priceToY(setup.lowTicks)
+  const { lowTicks, highTicks } = shape.setup
+  const top = projection.priceToY(highTicks)
+  const bottom = projection.priceToY(lowTicks)
   // Half-ticks: the midpoint of an odd number of ticks lies between two (INVARIANT 3, ICT-21).
-  const ce = projection.priceToY((setup.lowTicks + setup.highTicks) / 2)
+  const ce = projection.priceToY((lowTicks + highTicks) / 2)
   if (top === null || bottom === null || ce === null) return
   const width = x1 - x0
   const height = Math.max(bottom - top, 1)
-  ctx.fillStyle = `rgba(${rgb}, 0.16)`
+  const alpha = shape.faded ? 0.4 : 1
+  ctx.fillStyle = `rgba(${rgb}, ${0.16 * alpha})`
   ctx.fillRect(x0, top, width, height)
-  ctx.strokeStyle = `rgba(${rgb}, 0.65)`
+  ctx.strokeStyle = `rgba(${rgb}, ${0.65 * alpha})`
   ctx.lineWidth = 1
   ctx.strokeRect(Math.round(x0) + 0.5, Math.round(top) + 0.5, Math.round(width), Math.round(height))
   ctx.setLineDash([3, 3])
@@ -98,28 +102,40 @@ function drawZone(
   ctx.moveTo(x0, Math.round(ce) + 0.5)
   ctx.lineTo(x1, Math.round(ce) + 0.5)
   ctx.stroke()
+  if (shape.quadrants) {
+    ctx.strokeStyle = `rgba(${rgb}, ${0.35 * alpha})`
+    for (const q of [1, 3]) {
+      const y = projection.priceToY(lowTicks + ((highTicks - lowTicks) * q) / 4)
+      if (y === null) continue
+      ctx.beginPath()
+      ctx.moveTo(x0, Math.round(y) + 0.5)
+      ctx.lineTo(x1, Math.round(y) + 0.5)
+      ctx.stroke()
+    }
+  }
   ctx.setLineDash([])
-  label(ctx, setup.detector, x0 + 3, top + 2, width, height, rgb)
+  label(ctx, shape.label, x0 + 3, top + 2, width, height, rgb, alpha)
 }
 
 function drawLevel(
   ctx: CanvasRenderingContext2D,
-  setup: Setup,
+  shape: SetupShape,
   x0: number,
   x1: number,
   rgb: string,
   projection: Projection,
 ): void {
-  const y = projection.priceToY(setup.lowTicks)
+  const y = projection.priceToY(shape.setup.lowTicks)
   if (y === null) return
   const yy = Math.round(y) + 0.5
-  ctx.strokeStyle = `rgba(${rgb}, 0.9)`
+  const alpha = shape.faded ? 0.4 : 1
+  ctx.strokeStyle = `rgba(${rgb}, ${0.9 * alpha})`
   ctx.lineWidth = 1.5
   ctx.beginPath()
   ctx.moveTo(x0, yy)
   ctx.lineTo(x1, yy)
   ctx.stroke()
-  label(ctx, setup.detector, x0 + 3, yy - 13, x1 - x0, 12, rgb)
+  label(ctx, shape.label, x0 + 3, yy - 13, x1 - x0, 12, rgb, alpha)
 }
 
 /** Under a bullish point's price, over a bearish one's: where the eye looks for a low or a high. */
@@ -153,8 +169,9 @@ function label(
   width: number,
   height: number,
   rgb: string,
+  alpha: number,
 ): void {
   if (ctx.measureText(text).width + 6 > width || height < 12) return
-  ctx.fillStyle = `rgba(${rgb}, 0.95)`
+  ctx.fillStyle = `rgba(${rgb}, ${0.95 * alpha})`
   ctx.fillText(text, x, y)
 }

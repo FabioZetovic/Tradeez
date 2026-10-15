@@ -64,6 +64,10 @@ public class DetectedSetup {
 	@Column(name = "direction", nullable = false, updatable = false)
 	private String direction;
 
+	/** Which of its detector's kinds of hit, or null for a detector with one (V13). */
+	@Column(name = "kind", updatable = false)
+	private String kind;
+
 	/** ZONE, LEVEL or POINT (V12). */
 	@Column(name = "shape", nullable = false, updatable = false)
 	private String shape;
@@ -103,6 +107,10 @@ public class DetectedSetup {
 
 	public UUID getId() {
 		return id;
+	}
+
+	public String getKind() {
+		return kind;
 	}
 
 	public String getShape() {

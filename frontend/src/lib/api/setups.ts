@@ -21,6 +21,8 @@ export interface Setup {
   /** ZONE spans lowTicks..highTicks; LEVEL and POINT are one price. */
   shape: 'ZONE' | 'LEVEL' | 'POINT'
   direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
+  /** Which of a detector's kinds of hit: a gap's state, NDOG or NWOG, GAP or VOID. Absent when it has one. */
+  kind?: string
   /** Candle open times. */
   start: number
   anchor: number
@@ -35,6 +37,8 @@ export interface Setup {
 export interface SetupLayer {
   rules: Rule[]
   setups: Setup[]
+  /** Contract rolls in the window: nothing still in force is drawn past one. */
+  rolls: number[]
 }
 
 export const getChartSetups = (

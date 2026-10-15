@@ -36,7 +36,7 @@ export function SetupToggles({
               on ? 'bg-brand/20 text-brand' : 'text-subtle hover:text-ink',
             )}
           >
-            {rule.id}
+            {rule.label}
           </button>
         )
       })}

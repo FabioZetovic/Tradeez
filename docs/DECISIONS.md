@@ -723,6 +723,69 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-050 — Imbalances and gaps: seven rules, measured on real NQ first** `IMPLEMENTED` · Claude,
+Session 017 (2026-10-15), T10 — ICT-20 to ICT-28
+
+Every number below was measured on the two years of real NQ one-minute bars (697,003, Oct 2024 →
+Oct 2026), aggregated the way the app aggregates them, with a port of each rule checked against the
+server first (it gave the Chart tab's 301 FVGs exactly).
+
+**`fvg-1.0.0` re-measured, and kept.** Gaps per 30 candles at the rule's 25%: 1m 3.96, 3m 3.35,
+5m 3.27, 15m 3.11, 30m 3.06, 1h 2.90. DEC-039 accepted 3–7 per 30 at 5m on simulated data; real NQ
+lands inside it, and the rule now behaves the same on every timeframe, which is what a threshold
+relative to recent range is for. With no outside criterion for a better number, changing it would be
+tuning to taste, so there is no `fvg-1.1.0`. (One-minute gaps, which the simulated market hardly
+made, are plentiful on real data — relevant to T13's drills.)
+
+**One table, several kinds of hit (V13).** `detected_setup.kind` tells a detector's kinds apart, and
+joins a hit's identity: one per anchor, direction and kind. The visible-setups query now has a total
+order, since several states of one gap share a start. A layer also carries the contract rolls in its
+window, so the overlay stops anything still in force at a roll. `Detector.lookbackBars` takes the
+timeframe: the ORG spans clock time, not a fixed count of candles.
+
+The rules — each a `Detector` under DEC-049, all checked by `DetectorContractTest` on a synthetic
+market dense in every pattern:
+
+- **`fvg-state-1.0.0` (ICT-22)** — each gap's lifecycle as hits of kind `OPEN`, `TAPPED`, `CE`,
+  `FILLED`, `INVERTED`, each at the close of the candle that moved it; CE compared in half-ticks
+  (a bearish gap's CE at 194.5 is reached at 195, not 194). A gap is followed for **500 candles**
+  (about two trading days on 5m) and is `EXPIRED` if still unfilled: the bound that keeps the rule's
+  lookback finite. Two weeks of real 5m: 301 gaps, 268 filled and 262 closed through within that span.
+- **`ifvg-1.0.0` (ICT-23)** — the `INVERTED` event as its own hit, pointing the other way: ICT's
+  claim that a failed gap flips, labelled rather than endorsed.
+- **`bpr-1.0.0` (ICT-24)** — the overlap of a gap and an opposite one formed within 20 candles,
+  pointing the way of the second; the most recent qualifying gap is paired.
+- **`vi-1.0.0` (ICT-25)** — bodies apart, wicks overlapping, **at least 4 ticks**. Measured: body
+  gaps of any size occur ~7 per 30 candles on *every* timeframe — the space between two trades does
+  not grow with the candle — so a range-relative threshold removed them all above 5m. One point
+  leaves ~1.6 per 30 everywhere. A fixed number of ticks is instrument-specific; NQ is the instrument.
+- **`void-1.0.0` (ICT-26)** — kind `GAP` (two candles whose ranges do not touch: 0.4 per 30 at 1m,
+  ~0 above) and kind `VOID` (≥ 3 same-way candles, each closing beyond the last and overlapping it by
+  ≤ 20% of its range; reported when a candle ends the run, as the whole run). The draft's numbers,
+  kept: about one void a day on 5m. "Closing beyond the last" is new — without it, up-closing candles
+  each gapping lower counted. Runs are measured over at most 10 candles; the longest in two years was 6.
+- **`opening-gap-1.0.0` (ICT-27)** — `NDOG` / `NWOG` from the last close before a closure to the
+  first open after; zero gaps kept as a level. The closure is read from the data — candles of one
+  contract at least 60 minutes apart — so holidays, unknown to the session calendar, count, and a roll
+  at a reopen is never a gap. Charts of an hour or less.
+- **`org-1.0.0` (ICT-28)** — the 16:14 close to the next 09:30 open, with no other 09:30 between,
+  within one day of candles; 1m to 15m charts. Split from `opening-gap-1.0.0`, as the draft had it,
+  because a detector names one concept.
+
+**On the chart.** Most hits are boxes over their own candles. A gap's lifecycle is one box at its
+latest state, running on while open/tapped/at CE and faded once filled, inverted or expired; an
+NDOG runs to the next closure, an NWOG to the right edge; an ORG to the next one's 16:15 close, with
+quarter lines. All eight rules are switches, off by default.
+
+Two weeks of real 5m NQ: 301 FVG, 79 BPR, 163 VI, 2 gaps, 8 voids, 8 NDOG + 2 NWOG, 10 ORG. A
+first scan of all eight takes 1.2 s; again, 0.18 s.
+
+Not in this decision: drills for any of them (T13), the Evidence statistics the curriculum asks for
+— fill rates, the ORG "70%" claim (T21) — and ICT-29, which needs its definition checked first.
+
+**Reconsider if** T21's evidence shows a rule's parameter makes it useless — for example if
+`maxAgeCandles` cuts off most gaps before they resolve on some timeframe.
+
 **DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
 The first detector under DEC-026. The rule:
 
@@ -757,6 +820,9 @@ Consequences:
    establish it.
 5. **DEC-034 is in the schema.** `ck_drill_simulated_never_graded` makes a graded simulated drill
    impossible, and a trigger makes an answered drill immutable.
+
+*Re-measured on real NQ by DEC-050 (Session 017, T10):* about 3 gaps per 30 candles on every
+timeframe from 1m to 1h, inside the range accepted here; kept unchanged.
 
 **DEC-027 — Scoring is a transparent multidimensional scorecard, not a single number** · `AGREED`
 Outcome: R-multiple, P&L in ticks and currency, MAE, MFE. Process: risk-limit compliance, plan

@@ -1,11 +1,16 @@
 package com.tradeez.analysis;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * One hit of a {@link Detector}: where it is, and the numbers it was decided on.
  *
+ * @param kind        which of a detector's kinds of hit this is — a gap's lifecycle state, NDOG or
+ *                    NWOG — or null for a detector with one kind. Part of a hit's identity (V13).
  * @param start       open of the first candle the pattern uses
  * @param anchor      the candle a learner points at — for an FVG, the middle one
  * @param end         open of the last candle the pattern uses
@@ -18,6 +23,7 @@ import java.util.Map;
 public record Detection(
 	Shape shape,
 	Direction direction,
+	String kind,
 	Instant start,
 	Instant anchor,
 	Instant end,
@@ -25,6 +31,9 @@ public record Detection(
 	long lowTicks,
 	long highTicks,
 	Map<String, Object> evidence) {
+
+	/** Mirrors {@code ck_detected_setup_kind}. */
+	private static final Pattern KIND = Pattern.compile("[A-Z][A-Z_]*");
 
 	/** Mirrors {@code ck_detected_setup_shape}. */
 	public enum Shape {
@@ -37,7 +46,12 @@ public record Detection(
 	}
 
 	public enum Direction {
-		BULLISH, BEARISH, NEUTRAL
+		BULLISH, BEARISH, NEUTRAL;
+
+		/** The direction a price move from {@code from} to {@code to} points in. */
+		public static Direction of(long from, long to) {
+			return to > from ? BULLISH : to < from ? BEARISH : NEUTRAL;
+		}
 	}
 
 	public Detection {
@@ -50,6 +64,17 @@ public record Detection(
 				? "A zone's low must be below its high"
 				: "A " + shape + " has one price");
 		}
-		evidence = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(evidence));
+		if (kind != null && !KIND.matcher(kind).matches()) {
+			throw new IllegalArgumentException("A kind is written LIKE_THIS: " + kind);
+		}
+		evidence = Collections.unmodifiableMap(new LinkedHashMap<>(evidence));
+	}
+
+	/**
+	 * Between two prices: a zone when they differ, otherwise a level at the one price. An opening gap
+	 * of zero ticks is still a gap — stored as zero, never dropped (ICT-27).
+	 */
+	public static Shape bandOrLevel(long a, long b) {
+		return a == b ? Shape.LEVEL : Shape.ZONE;
 	}
 }

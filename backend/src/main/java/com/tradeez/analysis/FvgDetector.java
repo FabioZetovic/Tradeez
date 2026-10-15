@@ -81,7 +81,7 @@ public final class FvgDetector implements Detector {
 
 	/** The three candles of the gap and the average-range lookback before candle 1. */
 	@Override
-	public int lookbackBars() {
+	public int lookbackBars(Timeframe timeframe) {
 		return parameters.averageRangeLookback() + 3;
 	}
 
@@ -149,7 +149,7 @@ public final class FvgDetector implements Detector {
 		 * its low is what makes or breaks a bullish gap, and its high a bearish one.
 		 */
 		Detection toDetection(Timeframe timeframe) {
-			return new Detection(Detection.Shape.ZONE, Detection.Direction.valueOf(direction.name()),
+			return new Detection(Detection.Shape.ZONE, Detection.Direction.valueOf(direction.name()), null,
 				candle1.openTime(), anchorTime(), candle3.openTime(),
 				candle3.openTime().plus(timeframe.duration()), zoneLowTicks, zoneHighTicks, evidence());
 		}

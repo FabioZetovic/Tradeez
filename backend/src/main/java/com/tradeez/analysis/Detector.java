@@ -25,8 +25,9 @@ import com.tradeez.marketdata.Timeframe;
  * contract — and reports no pattern whose own candles span a session break
  * ({@link Segments#consecutive}). Context it looks back on may lie across a break; the pattern may
  * not.</li>
- * <li><b>One per place.</b> At most one detection per anchor candle and direction. That is a hit's
- * identity in {@code detected_setup}; a second would be dropped as a duplicate.</li>
+ * <li><b>One per place.</b> At most one detection per anchor candle, direction and
+ * {@link Detection#kind() kind}. That is a hit's identity in {@code detected_setup}; a second would be
+ * dropped as a duplicate.</li>
  * </ul>
  */
 public interface Detector {
@@ -47,11 +48,15 @@ public interface Detector {
 
 	/**
 	 * How many candles a detection may read, counting back from its confirmation: everything it
-	 * depends on opened among the last {@code lookbackBars()} candles before {@link
+	 * depends on opened among the last {@code lookbackBars} candles before {@link
 	 * Detection#confirmedAt()}. The scanner hands a detector exactly that many candles before the
 	 * stretch it scans, so what it finds never depends on where a scan began.
+	 *
+	 * <p>Per timeframe, because some rules span clock time rather than candles: an opening range gap
+	 * reaches back from 09:30 to the previous afternoon, a thousand one-minute candles or seventy
+	 * fifteen-minute ones.
 	 */
-	int lookbackBars();
+	int lookbackBars(Timeframe timeframe);
 
 	/** Every detection in one segment: candles in time order, of one contract, all at {@code timeframe}. */
 	List<Detection> detect(List<Bar> segment, Timeframe timeframe);

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,8 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.marketdata.Bar;
-import com.tradeez.marketdata.Instrument;
-import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.Timeframe;
 
 /**
@@ -20,57 +20,78 @@ import com.tradeez.marketdata.Timeframe;
  *
  * <p>A replay is served from one scan of its whole window, filtered by the cursor. That is only the
  * truth — exactly what the learner could have known — if each detector is causal, and the scanner's
- * results only stop depending on where a scan began if {@link Detector#lookbackBars()} is honest.
+ * results only stop depending on where a scan began if {@link Detector#lookbackBars} is honest.
  * A new detector that breaks either fails here before it reaches a learner.
+ *
+ * <p>Run on {@link PatternMarket}, dense in every pattern, across weekends and daily halts: long
+ * enough that every detector's lookback is cut into many times. Checks are spread over evenly spaced
+ * points rather than every candle, to keep the suite quick.
  */
 class DetectorContractTest extends AbstractIntegrationTest {
 
-	/** A Friday to a Tuesday: a weekend, and the daily halts, in the middle. */
-	private static final Instant FRIDAY = Instant.parse("2024-03-15T12:00:00Z");
-	private static final Instant TUESDAY = Instant.parse("2024-03-19T00:00:00Z");
+	/** Long enough for the longest lookback on each timeframe (ORG: a day of candles) several times over. */
+	private static final Map<Timeframe, Instant[]> SERIES = Map.of(
+		Timeframe.M1, new Instant[] { Instant.parse("2025-05-01T12:00:00Z"), Instant.parse("2025-05-07T00:00:00Z") },
+		Timeframe.M5, new Instant[] { Instant.parse("2025-04-24T12:00:00Z"), Instant.parse("2025-05-16T00:00:00Z") },
+		Timeframe.M15, new Instant[] { Instant.parse("2025-03-03T12:00:00Z"), Instant.parse("2025-04-04T00:00:00Z") });
+
+	private static final int POINTS = 120;
 
 	@Autowired
 	DetectorRegistry detectors;
 
-	@Autowired
-	MarketDataService marketData;
+	private static List<Bar> bars(Timeframe timeframe) {
+		Instant[] span = SERIES.get(timeframe);
+		return PatternMarket.bars(timeframe.ordinal(), timeframe, span[0], span[1]);
+	}
 
-	private List<Bar> bars(Timeframe timeframe, Instant from, Instant to) {
-		Instrument nq = marketData.requireInstrument("DEMO-NQ");
-		return marketData.internalBars(nq, timeframe, from, to, 42).bars();
+	/** About {@value #POINTS} indexes spread evenly over {@code size}. */
+	private static List<Integer> points(int size) {
+		int step = Math.max(1, size / POINTS);
+		return IntStream.iterate(1, i -> i < size, i -> i + step).boxed().toList();
 	}
 
 	@Test
-	@DisplayName("every detector is registered once and names a lookback")
+	@DisplayName("every detector is registered once, names a lookback, and finds something on every timeframe here")
 	void registered() {
-		assertThat(detectors.all()).isNotEmpty()
-			.allSatisfy(d -> assertThat(d.lookbackBars()).isPositive());
-		assertThat(detectors.require("FVG")).isInstanceOf(FvgDetector.class);
+		assertThat(detectors.all()).extracting(Detector::id)
+			.containsExactlyInAnyOrder("BPR", "FVG", "FVG_STATE", "IFVG", "OPENING_GAP", "ORG", "VI", "VOID");
+		for (Timeframe timeframe : SERIES.keySet()) {
+			List<Bar> bars = bars(timeframe);
+			for (Detector detector : detectors.all()) {
+				assertThat(detector.lookbackBars(timeframe)).isPositive();
+				assertThat(detector.detect(bars, timeframe)).as("%s on %s", detector.id(), timeframe.code())
+					.isNotEmpty();
+			}
+		}
 	}
 
 	@Test
-	@DisplayName("deterministic, and at most one detection per anchor and direction")
+	@DisplayName("deterministic, and at most one detection per anchor, direction and kind")
 	void deterministic() {
-		List<Bar> bars = bars(Timeframe.M5, FRIDAY, TUESDAY);
-		for (Detector detector : detectors.all()) {
-			List<Detection> found = detector.detect(bars, Timeframe.M5);
-			assertThat(detector.detect(List.copyOf(bars), Timeframe.M5)).isEqualTo(found);
-			assertThat(found).extracting(d -> d.anchor() + " " + d.direction()).doesNotHaveDuplicates();
+		for (Timeframe timeframe : SERIES.keySet()) {
+			List<Bar> bars = bars(timeframe);
+			for (Detector detector : detectors.all()) {
+				List<Detection> found = detector.detect(bars, timeframe);
+				assertThat(detector.detect(List.copyOf(bars), timeframe)).isEqualTo(found);
+				assertThat(found).extracting(d -> d.anchor() + " " + d.direction() + " " + d.kind())
+					.as("%s on %s", detector.id(), timeframe.code())
+					.doesNotHaveDuplicates();
+			}
 		}
 	}
 
 	@Test
 	@DisplayName("causal: each detection is found from the candles closed by its confirmation, and no sooner")
 	void causal() {
-		for (Timeframe timeframe : List.of(Timeframe.M1, Timeframe.M5, Timeframe.M15)) {
-			Instant to = timeframe == Timeframe.M1 ? FRIDAY.plusSeconds(36 * 3600) : TUESDAY;
-			List<Bar> bars = bars(timeframe, FRIDAY, to);
+		for (Timeframe timeframe : SERIES.keySet()) {
+			List<Bar> bars = bars(timeframe);
 			for (Detector detector : detectors.all()) {
 				List<Detection> all = detector.detect(bars, timeframe);
-				assertThat(all).as("%s on %s finds something to test", detector.id(), timeframe.code())
-					.isNotEmpty();
 				// Knowable at its confirmation: the candles closed by then are enough to find it.
-				for (Detection d : all) {
+				int stride = Math.max(1, all.size() / POINTS);
+				for (int i = 0; i < all.size(); i += stride) {
+					Detection d = all.get(i);
 					List<Bar> closed = bars.stream()
 						.filter(b -> !b.openTime().plus(timeframe.duration()).isAfter(d.confirmedAt()))
 						.toList();
@@ -78,10 +99,10 @@ class DetectorContractTest extends AbstractIntegrationTest {
 						.contains(d);
 				}
 				// And not before: cut anywhere, and only what was confirmed by the cut is found.
-				for (int k = 1; k < bars.size(); k += 3) {
+				for (int k : points(bars.size())) {
 					Instant cut = bars.get(k).openTime();
-					List<Detection> prefix = detector.detect(bars.subList(0, k), timeframe);
-					assertThat(prefix).as("%s cut at %s", detector.id(), cut)
+					assertThat(detector.detect(bars.subList(0, k), timeframe))
+						.as("%s on %s cut at %s", detector.id(), timeframe.code(), cut)
 						.isEqualTo(all.stream().filter(d -> !d.confirmedAt().isAfter(cut)).toList());
 				}
 			}
@@ -89,18 +110,20 @@ class DetectorContractTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("lookback: given only lookbackBars() candles before a point, it finds the same from there on")
+	@DisplayName("lookback: given only lookbackBars candles before a point, it finds the same from there on")
 	void lookbackIsEnough() {
-		for (Timeframe timeframe : List.of(Timeframe.M5, Timeframe.M15)) {
-			List<Bar> bars = bars(timeframe, FRIDAY, TUESDAY);
+		for (Timeframe timeframe : SERIES.keySet()) {
+			List<Bar> bars = bars(timeframe);
 			for (Detector detector : detectors.all()) {
+				int lookback = detector.lookbackBars(timeframe);
+				assertThat(bars.size()).as("series long enough to test %s", detector.id()).isGreaterThan(2 * lookback);
 				List<Detection> all = detector.detect(bars, timeframe);
-				for (int k = 0; k < bars.size(); k += 3) {
+				for (int k : points(bars.size())) {
 					Instant from = bars.get(k).openTime();
-					List<Bar> cut = bars.subList(Math.max(0, k - detector.lookbackBars()), bars.size());
+					List<Bar> cut = bars.subList(Math.max(0, k - lookback), bars.size());
 					assertThat(detector.detect(cut, timeframe).stream()
 							.filter(d -> !d.confirmedAt().isBefore(from)).toList())
-						.as("%s from %s", detector.id(), from)
+						.as("%s on %s from %s", detector.id(), timeframe.code(), from)
 						.isEqualTo(all.stream().filter(d -> !d.confirmedAt().isBefore(from)).toList());
 				}
 			}

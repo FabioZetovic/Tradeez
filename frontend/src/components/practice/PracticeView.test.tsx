@@ -533,6 +533,7 @@ describe('Practice — detected setups (T9)', () => {
   }
   const LAYER = {
     rules: [],
+    rolls: [],
     setups: [
       {
         detector: 'FVG',

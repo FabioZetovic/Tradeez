@@ -136,7 +136,7 @@ class ConceptRegistryTest {
 				return Map.of();
 			}
 
-			public int lookbackBars() {
+			public int lookbackBars(Timeframe timeframe) {
 				return 1;
 			}
 

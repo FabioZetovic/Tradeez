@@ -71,7 +71,7 @@ public class SetupService {
 			scanner.ensureScanned(detector, instrument, timeframe, seed, scanFrom, scanTo);
 			found.addAll(scanner.visible(detector, instrument, timeframe, seed, from, until, until));
 		}
-		return SetupDtos.of(chosen, found, time);
+		return SetupDtos.of(chosen, found, marketData.rolls(instrument, from, until), time);
 	}
 
 	private List<Detector> resolve(List<String> ids) {

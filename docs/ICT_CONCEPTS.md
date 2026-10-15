@@ -129,15 +129,15 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-15 | External vs internal range liquidity | 2 | R / J | 📝 | — | 1m |
 | ICT-16 | Draw on liquidity | 2 | J | 📝 | — | 1m |
 | ICT-17 | Low / high resistance liquidity runs | 2 | R / J | 📝 | — | 1m |
-| ICT-20 | Fair value gap (BISI / SIBI) | 3 | D | ✅ `fvg-1.0.0` | `fvg-1.0.0` (DEC-039) | 1m |
-| ICT-21 | Consequent encroachment | 3 | D | 📐 | part of each zone rule | — |
-| ICT-22 | FVG lifecycle (tapped, CE, filled) | 3 | D | 📐 | `fvg-state-1.0.0` | 1m |
-| ICT-23 | Inversion FVG | 3 | D | 📐 | `ifvg-1.0.0` | 1m |
-| ICT-24 | Balanced price range | 3 | D | 📐 | `bpr-1.0.0` | 1m |
-| ICT-25 | Volume imbalance | 3 | D | 📐 | `vi-1.0.0` | 1m |
-| ICT-26 | Gap and liquidity void | 3 | D / R | 📐 | `void-1.0.0` | 1m |
-| ICT-27 | New week / new day opening gaps (NWOG, NDOG) | 3 | D | 📐 | `opening-gap-1.0.0` | 1m, sessions |
-| ICT-28 | Opening range gap (RTH gap) | 3 | D | 📐 | `opening-gap-1.0.0` | 1m, sessions |
+| ICT-20 | Fair value gap (BISI / SIBI) | 3 | D | ✅ `fvg-1.0.0`, re-measured on real NQ, unchanged (DEC-050) | `fvg-1.0.0` (DEC-039) | 1m |
+| ICT-21 | Consequent encroachment | 3 | D | ✅ drawn in every zone (T8, T9), reached in `fvg-state-1.0.0` (T10) | part of each zone rule | — |
+| ICT-22 | FVG lifecycle (tapped, CE, filled) | 3 | D | ✅ `fvg-state-1.0.0` (DEC-050) | `fvg-state-1.0.0` | 1m |
+| ICT-23 | Inversion FVG | 3 | D | ✅ `ifvg-1.0.0` (DEC-050) | `ifvg-1.0.0` | 1m |
+| ICT-24 | Balanced price range | 3 | D | ✅ `bpr-1.0.0` (DEC-050) | `bpr-1.0.0` | 1m |
+| ICT-25 | Volume imbalance | 3 | D | ✅ `vi-1.0.0` (DEC-050) | `vi-1.0.0` | 1m |
+| ICT-26 | Gap and liquidity void | 3 | D / R | ✅ `void-1.0.0` (DEC-050) | `void-1.0.0` | 1m |
+| ICT-27 | New week / new day opening gaps (NWOG, NDOG) | 3 | D | ✅ `opening-gap-1.0.0` (DEC-050) | `opening-gap-1.0.0` | 1m, sessions |
+| ICT-28 | Opening range gap (RTH gap) | 3 | D | ✅ `org-1.0.0` (DEC-050) | `org-1.0.0` | 1m, sessions |
 | ICT-29 | Implied fair value gap | 3 | R | 📝 | — | 1m |
 | ICT-30 | Order block, mean threshold | 4 | R | 📐 | `ob-1.0.0` | 1m |
 | ICT-31 | Breaker block | 4 | R | 📐 | `breaker-1.0.0` | 1m |
@@ -547,8 +547,9 @@ ICT's claim: price tends to return to rebalance it, and a respected FVG is an en
   ticks, rounded up, at least one tick.
 - **Confirmation:** candle 3's close.
 
-**On real data.** The 25% was measured on the *simulated* market. It must be re-measured on real NQ,
-and if it changes, that is `fvg-1.1.0`, never an edit of 1.0.0.
+**On real data** — *re-measured in T10 (DEC-050).* On two years of real NQ the rule gives about 3
+gaps per 30 candles on every timeframe from 1m to 1h (5m: 3.27), inside the range DEC-039 accepted,
+so it stays `fvg-1.0.0`. Any change would still be `fvg-1.1.0`, never an edit of 1.0.0.
 
 **Teach.** A ✅ (exists as a fixture; becomes graded on real data), C ("does price return to this gap
 before the session ends?"), G.
@@ -566,17 +567,23 @@ reached the CE" means it traded at or beyond that exact half-tick.
 **Teach.** A (draw the CE), part of every zone drill.
 
 *Drawing implemented in T8 (DEC-048):* the zone tool shows its CE dashed, in half-ticks, with quarter
-lines. The detector side — the CE inside each zone rule — comes with T10.
+lines. *T9–T10:* every detected zone is drawn with its CE, and `fvg-state-1.0.0` records when price
+reaches it, compared in half-ticks (DEC-050).
 
 ### ICT-22 · FVG lifecycle
 
 **What.** What has happened to a gap since it formed. ICT's language: price **trades into** it,
 reaches its **CE**, **fills** it, or **closes through** it.
 
-**Tradeez rule — `fvg-state-1.0.0` (draft).** At any time *t* after confirmation, the state is one of
+**Tradeez rule — `fvg-state-1.0.0` ✅ (DEC-050).** At any time *t* after confirmation, the state is one of
 `OPEN` (untouched) → `TAPPED` (price traded into the near edge) → `CE` (reached the midpoint) →
 `FILLED` (traded to the far edge) → `INVERTED` (a candle closed beyond the far edge, ICT-23). Computed
 only from candles up to *t*.
+
+*Implemented in T10:* each state is a hit of its own kind, confirmed at the close of the candle
+that reached it; one candle can reach several. A gap is followed for 500 candles (about two trading
+days on 5m) and is `EXPIRED` if still unfilled — the bound that keeps the rule's lookback finite. On
+the chart: one box per gap at its latest state, running on while it is open.
 
 **Teach.** B ("state of this gap at the cursor?"), C ("will this gap be filled today?"), G.
 
@@ -585,8 +592,11 @@ only from candles up to *t*.
 **What.** An FVG that failed: price closed straight through it. ICT's claim: the failed gap flips —
 a failed bullish FVG then acts as resistance (and vice versa).
 
-**Tradeez rule — `ifvg-1.0.0` (draft).** A `fvg-1.0.0` gap becomes an inversion gap when a candle
+**Tradeez rule — `ifvg-1.0.0` ✅ (DEC-050).** A `fvg-1.0.0` gap becomes an inversion gap when a candle
 **closes** beyond its far edge. **Confirmation:** that close.
+
+*Implemented in T10:* the inversion as its own hit, pointing the other way, within the same 500
+candles as the lifecycle.
 
 **Teach.** A, C ("price is returning to this inversion gap from below: does it reject?"), G.
 
@@ -596,9 +606,12 @@ a failed bullish FVG then acts as resistance (and vice versa).
 (leaving a bearish FVG) — or the reverse. The overlap of the two gaps is a balanced price range,
 which ICT treats as a strong zone.
 
-**Tradeez rule — `bpr-1.0.0` (draft).** A bullish and a bearish `fvg-1.0.0` gap, the second confirmed
+**Tradeez rule — `bpr-1.0.0` ✅ (DEC-050).** A bullish and a bearish `fvg-1.0.0` gap, the second confirmed
 within `maxCandles = 20` of the first, whose price ranges overlap. The zone is the overlap, with its
 CE. **Confirmation:** the second gap's confirmation.
+
+*Implemented in T10:* when several earlier gaps qualify, the most recent is paired; the range points
+the way of the second gap.
 
 **Teach.** A, B.
 
@@ -608,10 +621,15 @@ CE. **Confirmation:** the second gap's confirmation.
 small gap between one candle's close and the next one's open. ICT treats it as a minor imbalance
 that price often returns to close.
 
-**Tradeez rule — `vi-1.0.0` (draft).** Bullish: candle 2's body is entirely above candle 1's body,
+**Tradeez rule — `vi-1.0.0` ✅ (DEC-050).** Bullish: candle 2's body is entirely above candle 1's body,
 and candle 2's low is at or below candle 1's high. The zone runs between candle 1's body top and
 candle 2's body bottom. Bearish mirrors. Consecutive, same contract.
 **Confirmation:** candle 2's close.
+
+*Implemented in T10, with a minimum:* at least 4 ticks between the bodies. Measured on real NQ,
+body gaps of any size occur about 7 times per 30 candles on every timeframe — the space between two
+trades does not grow with the candle — so a threshold relative to range would remove them all above
+5m. One point leaves about 1.6 per 30 everywhere.
 
 **Teach.** A, B ("volume imbalance, FVG or neither?").
 
@@ -622,9 +640,14 @@ candle's — no overlap at all. A **liquidity void** is larger: a fast, one-side
 candles with very little overlap between them. ICT's claim for both: price tends to come back
 through them.
 
-**Tradeez rule — `void-1.0.0` (draft).** Gap: candle 2's low is above candle 1's high (bullish) —
+**Tradeez rule — `void-1.0.0` ✅ (DEC-050).** Gap: candle 2's low is above candle 1's high (bullish) —
 deterministic. Void: at least 3 consecutive same-direction candles, each overlapping the previous by
 no more than 20% of its range. The void parameters are R and will be measured.
+
+*Implemented in T10:* the draft's 3 candles and 20%, kept after measuring them (about one void a
+day on 5m), and one condition the draft left out: each candle closes beyond the one before. A void is
+reported when a candle ends the run, as the whole run, measured over at most 10 candles (the longest
+in two years of real NQ was 6). Gaps: 0.4 per 30 one-minute candles, almost none above.
 
 **Teach.** A, G.
 
@@ -636,9 +659,14 @@ week opening gap** (Friday's last price to Sunday's open) and the **new day open
 close to 18:00 open). ICT tracks their CE as reference levels, and keeps several recent NWOGs on the
 chart.
 
-**Tradeez rule — `opening-gap-1.0.0` (draft).** Gap = the last trade before the closure (the close of
+**Tradeez rule — `opening-gap-1.0.0` ✅ (DEC-050).** Gap = the last trade before the closure (the close of
 the 16:59 one-minute candle) to the first open after it. Stored with its CE. No minimum size; zero
 gaps are stored as zero.
+
+*Implemented in T10:* a closure is read from the data — candles of one contract at least 60 minutes
+apart — so holidays count and a roll at the reopen is never a gap; NWOG when the closure spans a
+Saturday in New York. Charts of an hour or less. On the chart an NDOG runs to the next closure, an
+NWOG to the right edge.
 
 **Teach.** A (mark the NWOG and its CE), C ("is the NWOG's CE reached this week?"), G.
 
@@ -649,8 +677,12 @@ close (the regular session's end, in his convention) and the **09:30** open. A f
 ICT in community summaries says price closes at least half of this gap within the first 30 minutes
 about 70% of the time — exactly the kind of claim the Evidence mode should test rather than repeat.
 
-**Tradeez rule — `opening-gap-1.0.0` (draft).** Opening range gap = close of the 16:14 one-minute
+**Tradeez rule — `org-1.0.0` ✅ (DEC-050; drafted as part of `opening-gap-1.0.0`).** Opening range gap = close of the 16:14 one-minute
 candle → open of the 09:30 candle, on consecutive trading days. Stored with its CE and quadrants.
+
+*Implemented in T10:* the 16:15 close paired is the latest before the 09:30 open with no other
+09:30 open between, looked for within one day of candles, on 1m–15m charts. Drawn from 09:30 to the
+next 16:15 close, with its quarters. The 70% claim is for the Evidence mode (T21).
 
 **Teach.** A, C ("does price reach this gap's CE by 10:00?"), G (the 70% claim, measured).
 
@@ -1247,7 +1279,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | F-3, F-4, ICT-11, ICT-50 – ICT-55 | `levels`, `opens`, `sessions` | session strip, killzone shading, level lines | A, C | levels in plan context | T7 |
 | ICT-21, ICT-42, ICT-43 | — | Fibonacci with ICT preset, zone + CE | A | drawn by the learner | T8 |
 | (all) | S-1, S-2, S-3 | — | — | — | T9 |
-| ICT-20 – ICT-28 | `fvg` (re-measured), `fvg-state`, `ifvg`, `bpr`, `vi`, `void`, `opening-gap` | zones with state | A, B, C | G: fill rates, the ORG claim | T10 |
+| ICT-20 – ICT-28 | `fvg` (re-measured), `fvg-state`, `ifvg`, `bpr`, `vi`, `void`, `opening-gap`, `org` | zones with state | A, B, C | G: fill rates, the ORG claim | T10 ✅ (detectors and overlay; drills T13, evidence T21) |
 | ICT-01 – ICT-06 | `swing`, `swing-tier`, `structure`, `displacement`, `mss` | swing markers, structure labels | A, B, C | — | T11 |
 | ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 |
 | (all D/R) | — | — | S-4 engine, S-5 state | — | T13, T16 |

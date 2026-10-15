@@ -5,7 +5,15 @@ import { useToggles, type ToggleConfig } from './useToggles'
 /** One switch per detector the server runs, named and explained from the curriculum (S-2). */
 export interface SetupRule {
   id: string
+  label: string
   title: string
+}
+
+/** Button text where the detector's id would read badly; otherwise the id itself (FVG, BPR, VI). */
+const LABELS: Record<string, string> = {
+  FVG_STATE: 'FVG state',
+  OPENING_GAP: 'NWOG/NDOG',
+  VOID: 'Gaps/voids',
 }
 
 /** Every rule starts off: a learner should find a gap before being shown one. */
@@ -44,6 +52,7 @@ function rulesOf(curriculum: Curriculum): SetupRule[] {
   return curriculum.concepts.flatMap(({ concept, detectors }) =>
     detectors.map((rule) => ({
       id: rule.detector,
+      label: LABELS[rule.detector] ?? rule.detector,
       title: `${concept.name} (${concept.id}), rule ${rule.version}. ${concept.summary}`,
     })),
   )
