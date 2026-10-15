@@ -1951,3 +1951,7 @@ memory (ENV-009, open, harmless). Waiting for Fabio to say merge; merging this b
 - **ENV-009 fixed:** knip as a locked dev dependency, `npm run knip`, with
   `KNIP_DISABLE_RAW_TRANSFER=1` from `knip.env`; a planted unused export is still caught.
 - **PostgreSQL:** asked; Fabio keeps 17 for now.
+
+**2026-10-15 — Fresh-clone check of `49ca427`** (frontend only changed since `e2ab13c`, whose backend
+was green): `npm audit` 0 in the app and in `tools/api-types`, lint, typecheck, `npm run knip`,
+245/245 and build clean. Waiting for Fabio to say merge; merging this branch brings T14 too.
