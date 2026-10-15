@@ -19,6 +19,10 @@ const LABELS: Record<string, string> = {
   STRUCTURE: 'HH/HL',
   BOS_CHOCH: 'BOS/CHoCH',
   DISPLACEMENT: 'Displacement',
+  LIQUIDITY: 'BSL/SSL',
+  EQHL: 'EQH/EQL',
+  SWEEP: 'Sweep/run',
+  TURTLE_SOUP: 'Turtle soup',
 }
 
 /** Every rule starts off: a learner should find a gap before being shown one. */

@@ -29,7 +29,7 @@ public final class ClockDtos {
 	}
 
 	@Schema(description = "The rule versions this layer was built under (DEC-026)")
-	public record Rules(String sessions, String opens, String levels) {
+	public record Rules(String sessions, String opens, String levels, String liquidity) {
 	}
 
 	@Schema(description = "TRADING_DAY (separator and weekday) | KILLZONE | SILVER_BULLET | MACRO, over [from, to)")
@@ -38,12 +38,13 @@ public final class ClockDtos {
 
 	@Schema(description = """
 		OPEN | PREVIOUS_DAY | PREVIOUS_WEEK | SESSION: a price, in INTEGER TICKS, that matters over \
-		[from, to)""")
-	public record LineResponse(LineKind kind, String label, long from, long to, long priceTicks) {
+		[from, to). takenAt, for a high or low: the first minute that traded beyond it (liquidity-1.0.0); \
+		absent while it rests.""")
+	public record LineResponse(LineKind kind, String label, long from, long to, long priceTicks, Long takenAt) {
 	}
 
 	static final Rules RULES = new Rules(ClockLayerBuilder.SESSIONS, ClockLayerBuilder.OPENS,
-		ClockLayerBuilder.LEVELS);
+		ClockLayerBuilder.LEVELS, ClockLayerBuilder.LIQUIDITY);
 
 	/**
 	 * @param time        how an instant is sent: as is, or behind a practice session's hidden date
@@ -59,7 +60,8 @@ public final class ClockDtos {
 				.toList(),
 			layer.lines().stream()
 				.map(l -> new LineResponse(l.kind(), l.label(), time.applyAsLong(l.from()),
-					time.applyAsLong(l.to()), l.priceTicks()))
+					time.applyAsLong(l.to()), l.priceTicks(),
+					l.takenAt() == null ? null : time.applyAsLong(l.takenAt())))
 				.toList(),
 			withNextChange ? time.applyAsLong(layer.nextChange()) : null);
 	}

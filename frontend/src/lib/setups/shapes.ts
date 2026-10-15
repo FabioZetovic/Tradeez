@@ -12,6 +12,9 @@ import type { Setup, SetupLayer } from '../api/setups'
  * - opening range gaps (ORG): until the next one, with its quarters.
  * Nothing live is drawn past a contract roll: no detector sees across one.
  *
+ * Swing liquidity (LIQUIDITY) is one line per level at its latest state: running on while it rests,
+ * stopped and faded once taken or expired.
+ *
  * Swings and their ranks are points: above a high, below a low. A break of structure or a market
  * structure shift is a line at the level that broke, from the swing to the candle that broke it.
  */
@@ -39,6 +42,9 @@ const LABELS: Record<string, string> = {
   SWING: '',
   DISPLACEMENT: 'Disp',
   CHOCH: 'CHoCH',
+  TURTLE_SOUP: 'Turtle soup',
+  SWEEP: 'Sweep',
+  RUN: 'Run',
 }
 
 /** The order a gap's states are reached in, for hits confirmed at the same moment. */
@@ -59,6 +65,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
   const until = (time: number): number | 'edge' => rolls.find((r) => r > time) ?? 'edge'
   const shapes: SetupShape[] = []
   const lifecycles = new Map<string, Setup>()
+  const liquidity = new Map<string, Setup>()
 
   for (const setup of layer.setups) {
     const base = { setup, faded: false, quadrants: false, above: HIGHS.has(setup.kind ?? '') }
@@ -67,6 +74,12 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
         const key = `${setup.anchor}|${setup.direction}`
         const seen = lifecycles.get(key)
         if (!seen || later(setup, seen)) lifecycles.set(key, setup)
+        break
+      }
+      case 'LIQUIDITY': {
+        const key = `${setup.anchor}|${setup.direction}`
+        const seen = liquidity.get(key)
+        if (!seen || setup.confirmedAt > seen.confirmedAt) liquidity.set(key, setup)
         break
       }
       case 'OPENING_GAP': {
@@ -104,6 +117,20 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
           label: LABELS[setup.detector] ?? LABELS[setup.kind ?? ''] ?? setup.kind ?? setup.detector,
         })
     }
+  }
+
+  for (const level of liquidity.values()) {
+    const resting = level.kind === 'RESTING'
+    shapes.push({
+      setup: level,
+      from: level.start,
+      to: resting ? until(level.start) : level.end + step,
+      // Sell-side under a low, buy-side over a high: swing highs point down (DEC-053).
+      label: level.direction === 'BEARISH' ? 'BSL' : 'SSL',
+      faded: !resting,
+      quadrants: false,
+      above: false,
+    })
   }
 
   for (const state of lifecycles.values()) {

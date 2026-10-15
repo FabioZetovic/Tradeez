@@ -72,7 +72,8 @@ class ConceptRegistryTest {
 		assertThat(fvg.summary()).startsWith("Three consecutive candles where the middle candle moved");
 		assertThat(concept("ICT-67").status()).isEqualTo(Status.OUT_OF_SCOPE);
 		assertThat(concept("ICT-01").status()).isEqualTo(Status.IMPLEMENTED);
-		assertThat(concept("ICT-10").status()).isEqualTo(Status.DRAFTED);
+		assertThat(concept("ICT-10").status()).isEqualTo(Status.IMPLEMENTED);
+		assertThat(concept("ICT-30").status()).isEqualTo(Status.DRAFTED);
 		assertThat(concept("ICT-15").status()).isEqualTo(Status.DESCRIBED);
 		assertThat(concept("F-4").statusNote()).isEqualTo("partly (New York time axis, T3)");
 	}

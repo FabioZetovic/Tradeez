@@ -52,9 +52,9 @@ class SetupApiTest extends AbstractIntegrationTest {
 	private static final Instant DATA_TO = Instant.parse("2025-05-17T00:00:00Z");
 	private static final Instant ROLL = Instant.parse("2025-05-08T14:00:00Z");
 	private static final long JUNE_PREMIUM_TICKS = 4_000;
-	/** Every detector the app has after T11 (DEC-050, DEC-052). */
+	/** Every detector the app has after T12 (DEC-050, DEC-052, DEC-053). */
 	private static final String ALL = "FVG,FVG_STATE,IFVG,BPR,VI,VOID,OPENING_GAP,ORG,"
-		+ "SWING,SWING_TIER,STRUCTURE,BOS_CHOCH,DISPLACEMENT,MSS";
+		+ "SWING,SWING_TIER,STRUCTURE,BOS_CHOCH,DISPLACEMENT,MSS,LIQUIDITY,EQHL,SWEEP,TURTLE_SOUP";
 	private static final long YEAR_2000 = Instant.parse("2000-01-01T00:00:00Z").getEpochSecond();
 	private static final long YEAR_2001 = Instant.parse("2001-01-01T00:00:00Z").getEpochSecond();
 

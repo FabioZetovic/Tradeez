@@ -141,7 +141,7 @@ class ClockLayerBuilderTest {
 
 			Instant tuesday = ny("2025-03-10T18:00");
 			assertThat(line(layer, "PDH", tuesday)).get()
-				.isEqualTo(new Line(LineKind.PREVIOUS_DAY, "PDH", tuesday, ny("2025-03-11T17:00"), 150));
+				.isEqualTo(new Line(LineKind.PREVIOUS_DAY, "PDH", tuesday, ny("2025-03-11T17:00"), 150, null));
 			assertThat(line(layer, "PDL", tuesday)).get().extracting(Line::priceTicks).isEqualTo(40L);
 		}
 
@@ -167,7 +167,7 @@ class ClockLayerBuilderTest {
 
 			Instant week = ny("2025-03-09T18:00");
 			assertThat(line(layer, "PWH", week)).get()
-				.isEqualTo(new Line(LineKind.PREVIOUS_WEEK, "PWH", week, ny("2025-03-14T17:00"), 170));
+				.isEqualTo(new Line(LineKind.PREVIOUS_WEEK, "PWH", week, ny("2025-03-14T17:00"), 170, null));
 			assertThat(line(layer, "PWL", week)).get().extracting(Line::priceTicks).isEqualTo(20L);
 		}
 
@@ -188,7 +188,7 @@ class ClockLayerBuilderTest {
 			ClockLayer after = build(bars, List.of(),
 				ny("2025-03-10T18:00"), londonClose);
 			assertThat(line(after, "London H", londonClose)).get()
-				.isEqualTo(new Line(LineKind.SESSION, "London H", londonClose, ny("2025-03-11T17:00"), 160));
+				.isEqualTo(new Line(LineKind.SESSION, "London H", londonClose, ny("2025-03-11T17:00"), 160, null));
 			assertThat(line(after, "London L", londonClose)).get()
 				.extracting(Line::priceTicks).isEqualTo(70L);
 		}
@@ -214,6 +214,53 @@ class ClockLayerBuilderTest {
 				.doesNotContain("Midnight open", "08:30 open", "09:30 open", "Weekly open", "NY AM H", "NY AM L")
 				// NY PM was there from its first minute.
 				.contains("NY PM H", "NY PM L");
+		}
+	}
+
+	@Nested
+	@DisplayName("liquidity-1.0.0: reference levels taken (T12)")
+	class Taken {
+
+		/** PDH 150 (Monday 10:00), PDL 40; Tuesday touches 150 at 08:00 and trades 151 at 09:31. */
+		private List<Bar> bars() {
+			List<Bar> bars = minutes(DATA_FROM, DATA_TO);
+			spike(bars, ny("2025-03-10T10:00"), 150, 100);
+			spike(bars, ny("2025-03-09T21:00"), 100, 40);
+			spike(bars, ny("2025-03-11T08:00"), 150, 100);
+			spike(bars, ny("2025-03-11T09:31"), 151, 100);
+			return bars;
+		}
+
+		@Test
+		@DisplayName("a level is taken by the first minute trading a tick beyond it — touching is not enough")
+		void firstMinuteBeyond() {
+			ClockLayer layer = build(bars(), List.of(), ny("2025-03-10T18:00"), ny("2025-03-11T17:00"));
+			Instant tuesday = ny("2025-03-10T18:00");
+			assertThat(line(layer, "PDH", tuesday)).get().extracting(Line::takenAt).isEqualTo(ny("2025-03-11T09:31"));
+			assertThat(line(layer, "PDL", tuesday)).get().extracting(Line::takenAt).isNull();
+			// Opening prices hold no liquidity.
+			assertThat(layer.lines()).filteredOn(l -> l.kind() == LineKind.OPEN).allSatisfy(l -> {
+				assertThat(l.high()).isNull();
+				assertThat(l.takenAt()).isNull();
+			});
+		}
+
+		@Test
+		@DisplayName("built up to a moment before the take, the level is still resting — and asked for again next minute")
+		void noLookahead() {
+			Instant before = ny("2025-03-11T09:31");
+			ClockLayer layer = build(bars(), List.of(), ny("2025-03-10T18:00"), before);
+			assertThat(line(layer, "PDH", ny("2025-03-10T18:00"))).get().extracting(Line::takenAt).isNull();
+			assertThat(layer.nextChange()).isEqualTo(before.plusSeconds(60));
+		}
+
+		@Test
+		@DisplayName("with nothing resting, the layer changes only at the clock's own moments")
+		void nothingResting() {
+			Instant to = ny("2025-03-02T19:00");
+			ClockLayer layer = build(bars(), List.of(), DATA_FROM, to);
+			assertThat(layer.lines()).noneMatch(l -> l.high() != null);
+			assertThat(layer.nextChange()).isEqualTo(ClockLayerBuilder.nextChange(to));
 		}
 	}
 
@@ -244,7 +291,7 @@ class ClockLayerBuilderTest {
 				.extracting(Line::priceTicks).isEqualTo(123L);
 			assertThat(line(layer, "09:30 open", ny("2025-03-11T09:30"))).get()
 				.isEqualTo(new Line(LineKind.OPEN, "09:30 open", ny("2025-03-11T09:30"),
-					ny("2025-03-11T17:00"), 111));
+					ny("2025-03-11T17:00"), 111, null));
 			assertThat(line(layer, "Weekly open", ny("2025-03-09T18:00"))).get()
 				.extracting(Line::to).isEqualTo(ny("2025-03-14T17:00"));
 		}

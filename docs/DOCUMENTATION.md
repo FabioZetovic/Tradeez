@@ -1601,6 +1601,14 @@ breaks it — and the gap that proves it was forceful is only known a candle lat
 shift would never have been recognised. A test built from exactly that case found it before anything
 was committed.
 
+**Liquidity.** ICT's central idea is that price is drawn to where orders rest: above old highs and
+below old lows. The app now marks every swing high and low as resting liquidity until price trades
+through it, and the levels the clock already drew — the previous day's and week's highs and lows, each
+session's — now stop at the moment they were taken. It also finds relative equal highs and lows (an
+obvious double top that invites stops), and says what price did when it took a level: a sweep, closing
+straight back, or a run that kept going. On two years of real NQ about half of all taken swing levels
+were swept — a description of what happened, not a promise.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1615,9 +1623,9 @@ the example file contains a key — and it names the setting without ever printi
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
-the detector framework, imbalances and gaps, any timeframe in practice, market structure): backend 223 → 315,
-frontend 148 → 233, V9 to V13,
-DEC-044 to DEC-052.*
+the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity): backend 223 → 326,
+frontend 148 → 235, V9 to V13,
+DEC-044 to DEC-053.*
 
 ---
 
