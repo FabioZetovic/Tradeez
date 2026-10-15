@@ -102,6 +102,14 @@ describe('painting detected setups', () => {
     ])
   })
 
+  it('names a ranked swing over its mark (T11)', () => {
+    const ith: Setup = { ...GAP, detector: 'SWING_TIER', kind: 'ITH', shape: 'POINT', direction: 'BEARISH', anchor: 600, lowTicks: 150, highTicks: 150 }
+    const calls = render([ith], ['SWING_TIER'])
+    // The mark points down onto the high (y = 50); the name sits above it.
+    expect(calls.find((c) => c.op === 'moveTo')?.args).toEqual([20, 46])
+    expect(calls.find((c) => c.op === 'fillText')?.args.slice(0, 1)).toEqual(['ITH'])
+  })
+
   it('paints only the rules switched on', () => {
     expect(render([GAP], []).filter((c) => c.op === 'fillRect')).toHaveLength(0)
   })

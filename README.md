@@ -25,11 +25,11 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   ICT tools (DEC-048): a Fibonacci with ICT's levels — the 62–79% optimal trade entry shaded and the
   −0.27 to −2 targets — a zone with its 50% (consequent encroachment), and text labels. They are
   saved per account, with undo and redo.
-- **Detected setups** over every chart (DEC-049, DEC-050): eight rules for ICT's gaps — fair value
-  gaps and their lifecycle (tapped, CE, filled, inverted), inversion gaps, balanced price ranges,
-  volume imbalances, gaps and liquidity voids, NDOG/NWOG and the opening range gap — each hit drawn
-  with its consequent encroachment, named by the rule that found it, its parameters measured on real
-  NQ. Off by default; in a replay, only what was known by the cursor. Every detector is
+- **Detected setups** over every chart (DEC-049, DEC-050, DEC-052): fourteen versioned rules —
+  ICT's gaps (fair value gaps and their lifecycle, inversion gaps, balanced price ranges, volume
+  imbalances, gaps and voids, NDOG/NWOG, the opening range gap) and market structure (swings and their
+  ranks, HH/HL labels, BOS/CHoCH, displacement, the market structure shift) — each named by the rule
+  that found it, its parameters measured on real NQ. Off by default; in a replay, only what was known by the cursor. Every detector is
   checked to be causal, and the list of concepts comes straight from `docs/ICT_CONCEPTS.md`.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date
@@ -47,7 +47,7 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   detector and is withheld until you check; each gap is explained in the detector's own numbers. On
   simulated data a drill is labelled a developer fixture and never graded.
 
-**Not built yet:** drills on real data, the ICT detectors beyond gaps (structure, liquidity, blocks),
+**Not built yet:** drills on real data, the ICT detectors for liquidity, blocks and beyond,
 graded drills, a score across sessions or any rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 

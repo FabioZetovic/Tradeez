@@ -748,6 +748,61 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-052 — Market structure: six rules on one swing, each with a bounded memory** `IMPLEMENTED` ·
+Claude, Session 017 (2026-10-15), T11 — ICT-01 to ICT-06
+
+Measured first on the two years of real NQ, aggregated as the app does:
+
+- **Swings** (`swing-1.0.0`, one candle each side as ICT draws short-term structure): about 13.5 per
+  30 candles, highs and lows together, on every timeframe (8 per 30 with two each side). Kept at one:
+  it is ICT's definition, and the ranks below are how the chart is read without the noise.
+- **Ranks** (`swing-tier-1.0.0`): an intermediate-term high's span — from the swing before it to the
+  one that confirms it — never passed 36 candles; a long-term high's never passed 160.
+- **Displacement** (`displacement-1.0.0`): at the draft's two times the recent range, about half of all
+  gaps are left by displacement on every timeframe (1.5 per 30 five-minute candles). Kept.
+
+**A bounded memory for every rule.** Structure is read off swings that can lie any distance back, but
+DEC-049 needs a finite lookback. So each rule reads at most a fixed span of candles, from the first
+it uses to the one that confirms it: 300 for ranks, 200 for labels, breaks and shifts. A rule that
+would need more is not reported — never cut short. The bounds sit far above anything measured.
+
+The rules — each checked by `DetectorContractTest`, and pinned by `StructureDetectorsTest`:
+
+- **`swing-1.0.0` (ICT-01)** — strictly above the candle to the left, at least the one to the right
+  (of two equal highs the first is the swing); `HIGH`/`LOW`; known at the next close.
+- **`swing-tier-1.0.0` (ICT-02)** — `ITH`/`LTH` and `ITL`/`LTL`, known only when the next swing (or
+  ITH) is: the lag the curriculum warned overlays must respect.
+- **`structure-1.0.0` (ICT-03)** — each swing labelled `HH`/`LH`/`EH` or `HL`/`LL`/`EL` against the
+  last of its kind.
+- **The same rule's breaks (ICT-06)** — a second detector, `BOS_CHOCH`, under `structure-1.0.0` as the
+  curriculum says: the first *close* beyond the latest swing, `BOS` with the trend (bullish = last high
+  HH and last low HL), `CHOCH` against it; unnamed while structure is undefined. Labelled as SMC words.
+- **`displacement-1.0.0` (ICT-04)** — the leg is the gap's middle candle with its first and third when
+  they close the same way: 1–3 candles, always the ones that made the gap, one displacement per gap.
+  The draft left open which candles and when a later gap counts; this settles both. Known with the gap.
+- **`mss-1.0.0` (ICT-05)** — a swing sweeps an earlier, still-resting swing; the latest opposite swing
+  before it is closed through within 20 candles, the first close since it formed; a displacement leg
+  starts between the sweep and the break. **Confirmed at the later of the break and the leg's
+  confirmation**, anchored on the breaking candle.
+
+**Found while building it:**
+- The first MSS rule confirmed a shift at the breaking close and required the displacement to be known
+  by then. But the displacement candle is often the one that closes through the level, and its gap is
+  known a candle later — so the commonest shift would never have been reported. A hand-built test of
+  exactly that case found it; the old version fails it.
+- The first MSS implementation rescanned every swing at every candle; the contract test ran past ten
+  minutes and was stopped. Rewritten to walk only nearby swings, with a running extreme for "still
+  resting" — the whole contract test now takes about 12 s.
+
+**On the chart.** Swings and ranks are marks above highs and below lows; ranks and labels are named
+(ITH, HH…), plain swings are not. A break or a shift is a line at the level that broke, from the swing
+to the candle that broke it. Six more switches, off by default.
+
+Not in this decision: drills (T13), liquidity resting on these swings (T12), and the Evidence counts.
+
+**Reconsider if** a rule's span bound turns out to drop real cases on some timeframe — the bound
+would rise, as a new version.
+
 **DEC-050 — Imbalances and gaps: seven rules, measured on real NQ first** `IMPLEMENTED` · Claude,
 Session 017 (2026-10-15), T10 — ICT-20 to ICT-28
 
