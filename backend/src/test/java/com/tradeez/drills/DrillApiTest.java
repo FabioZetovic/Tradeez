@@ -24,8 +24,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.analysis.FvgDetector;
 import com.tradeez.identity.AppUserRepository;
@@ -161,24 +161,24 @@ class DrillApiTest extends AbstractIntegrationTest {
 			JsonNode drill = start(alice);
 			assertThat(drill.get("fixture").asBoolean()).isTrue();
 			assertThat(drill.get("graded").asBoolean()).isFalse();
-			assertThat(drill.get("dataClass").asText()).isEqualTo("SIMULATED");
-			assertThat(drill.get("fixtureNotice").asText()).contains("not a graded exercise");
+			assertThat(drill.get("dataClass").asString()).isEqualTo("SIMULATED");
+			assertThat(drill.get("fixtureNotice").asString()).contains("not a graded exercise");
 		}
 
 		@Test
 		@DisplayName("carries the versioned rule it was built from (DEC-026)")
 		void carriesTheRule() throws Exception {
 			JsonNode rule = start(alice).get("rule");
-			assertThat(rule.get("version").asText()).isEqualTo(FvgDetector.RULE_VERSION);
+			assertThat(rule.get("version").asString()).isEqualTo(FvgDetector.RULE_VERSION);
 			assertThat(rule.at("/parameters/minGapPercentOfAverageRange").asInt()).isEqualTo(25);
-			assertThat(rule.get("definition").asText()).contains("25%").contains("14 candles");
+			assertThat(rule.get("definition").asString()).contains("25%").contains("14 candles");
 		}
 
 		@Test
 		@DisplayName("has an answer key that is exactly the rule's gaps with all three candles on screen")
 		void answerKeyIsTheRule() throws Exception {
 			JsonNode drill = start(alice);
-			String id = drill.get("id").asText();
+			String id = drill.get("id").asString();
 			List<Long> times = barTimes(drill);
 			Instant from = Instant.ofEpochSecond(times.getFirst());
 			Instant to = Instant.ofEpochSecond(times.getLast() + 300);
@@ -223,7 +223,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("that marks every gap finds them all, with an explanation for each")
 		void perfect() throws Exception {
-			String id = start(alice).get("id").asText();
+			String id = start(alice).get("id").asString();
 			List<Long> key = anchors(id);
 
 			JsonNode result = read(answer(alice, id, key).andExpect(status().isOk())).get("result");
@@ -236,11 +236,11 @@ class DrillApiTest extends AbstractIntegrationTest {
 				// The explanation's raw material: the numbers the rule decided on.
 				assertThat(setup.at("/evidence/gapTicks").asLong())
 					.isGreaterThanOrEqualTo(setup.at("/evidence/thresholdTicks").asLong());
-				assertThat(setup.get("direction").asText()).isIn("BULLISH", "BEARISH");
+				assertThat(setup.get("direction").asString()).isIn("BULLISH", "BEARISH");
 				// Rendered from that evidence on the server, for the client to show as it is.
-				assertThat(setup.get("label").asText()).isIn("Bullish gap", "Bearish gap");
-				assertThat(setup.at("/explanation/0").asText()).startsWith("Candle 1's")
-					.contains(setup.at("/evidence/gapTicks").asText() + " ticks");
+				assertThat(setup.get("label").asString()).isIn("Bullish gap", "Bearish gap");
+				assertThat(setup.at("/explanation/0").asString()).startsWith("Candle 1's")
+					.contains(setup.at("/evidence/gapTicks").asString() + " ticks");
 			}
 		}
 
@@ -248,7 +248,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@DisplayName("is scored as found, missed and extra — feedback, not a grade")
 		void partial() throws Exception {
 			JsonNode drill = start(alice);
-			String id = drill.get("id").asText();
+			String id = drill.get("id").asString();
 			List<Long> key = anchors(id);
 			// Not a candle the rule cannot judge from the window, either: a mark there counts neither way.
 			String excused = jdbc.queryForObject("SELECT excused::text FROM drill WHERE id = ?::uuid", String.class, id);
@@ -267,7 +267,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("with no marks at all is allowed, and misses everything")
 		void empty() throws Exception {
-			String id = start(alice).get("id").asText();
+			String id = start(alice).get("id").asString();
 			JsonNode result = read(answer(alice, id, List.of()).andExpect(status().isOk())).get("result");
 			assertThat(result.get("found").asInt()).isZero();
 			assertThat(result.get("missed").asInt()).isEqualTo(anchors(id).size());
@@ -277,7 +277,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@DisplayName("must mark candles that are in the window")
 		void marksMustBeCandles() throws Exception {
 			JsonNode drill = start(alice);
-			String id = drill.get("id").asText();
+			String id = drill.get("id").asString();
 			long before = barTimes(drill).getFirst() - 300;
 			answer(alice, id, List.of(before)).andExpect(status().isBadRequest());
 			answer(alice, id, List.of(barTimes(drill).getFirst() + 1)).andExpect(status().isBadRequest());
@@ -288,7 +288,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("is given once; the result stays on the drill afterwards")
 		void once() throws Exception {
-			String id = start(alice).get("id").asText();
+			String id = start(alice).get("id").asString();
 			List<Long> key = anchors(id);
 			answer(alice, id, key).andExpect(status().isOk());
 			answer(alice, id, List.of()).andExpect(status().isConflict());
@@ -307,7 +307,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("refuses to grade a drill on simulated data (DEC-034)")
 		void neverGraded() throws Exception {
-			String id = start(alice).get("id").asText();
+			String id = start(alice).get("id").asString();
 			assertThatThrownBy(() -> jdbc.update("UPDATE drill SET graded = true WHERE id = ?::uuid", id))
 				.hasMessageContaining("ck_drill_simulated_never_graded");
 		}
@@ -315,7 +315,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("refuses an answer that is both marks and a choice, or an answer without a time")
 		void answerIsOneThing() throws Exception {
-			String id = start(alice).get("id").asText();
+			String id = start(alice).get("id").asString();
 			assertThatThrownBy(() -> jdbc.update("""
 				UPDATE drill SET marks = '[]'::jsonb, choice = 'BOS', answered_at = now() WHERE id = ?::uuid""", id))
 				.hasMessageContaining("ck_drill_answer");
@@ -326,7 +326,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("refuses to change an answer once given")
 		void answerIsImmutable() throws Exception {
-			String id = start(alice).get("id").asText();
+			String id = start(alice).get("id").asString();
 			answer(alice, id, anchors(id)).andExpect(status().isOk());
 			assertThatThrownBy(() -> jdbc.update(
 				"UPDATE drill SET marks = '[]'::jsonb WHERE id = ?::uuid", id))
@@ -337,7 +337,7 @@ class DrillApiTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("another user's drill is indistinguishable from one that does not exist (DEC-022)")
 	void isolation() throws Exception {
-		String id = start(alice).get("id").asText();
+		String id = start(alice).get("id").asString();
 		mockMvc.perform(get("/api/drills/" + id).cookie(bob)).andExpect(status().isNotFound());
 		answer(bob, id, List.of()).andExpect(status().isNotFound());
 		mockMvc.perform(get("/api/drills/" + UUID.randomUUID()).cookie(bob))

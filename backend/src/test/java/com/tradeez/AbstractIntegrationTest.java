@@ -2,12 +2,12 @@ package com.tradeez;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.tradeez.identity.RateLimiter;
 
@@ -27,7 +27,7 @@ import com.tradeez.identity.RateLimiter;
 public abstract class AbstractIntegrationTest {
 
 	@SuppressWarnings("resource") // lifecycle is managed by Testcontainers
-	static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
+	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
 
 	static {
 		// Tests start Spring without main(), so they set the JVM zone themselves (BUG-036).

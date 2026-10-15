@@ -20,8 +20,8 @@
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
-building T13 one (BUG-050), and the fresh-clone check of T14 one (BUG-051). All twelve are fixed. One environment problem is open: ENV-007, a dependency
-update made outside the session that the test runner cannot load on this machine's Node.
+building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), and the upgrade to the newest
+versions three (BUG-052 to BUG-054, one a security bug). All fifteen are fixed, and ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -30,7 +30,7 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ### ENV-007 🟠 Dependencies updated outside the session stopped the frontend tests on Node 22.14
 
-**Status:** verified (session 017, T14) — **open: Fabio's decision**
+**Status:** verified (session 017, T14) — **fixed** (DEC-056)
 
 While the session was paused at a usage limit (2026-10-15, 18:47 local), something outside it ran an
 npm install or update in `frontend/`: `package-lock.json` and `node_modules` moved several packages
@@ -44,6 +44,13 @@ uncommitted in the working tree and kept out of every commit, and the tests were
 lockfile in a scratch copy (`npm ci`), where all pass. A fresh clone is unaffected. **To fix, either**
 upgrade Node to ≥ 22.19 (then the update can be committed), **or** discard it:
 `git checkout frontend/package-lock.json` then `npm ci` in `frontend/`.
+
+**✅ FIXED — Session 017 (DEC-056).** The project's Node was 22.14, so the update was first discarded
+— which showed the old undici had five high-severity advisories. Fabio: update everything to the
+newest. Node is now 24.20 LTS, npm 12.2, every package at its newest, `npm audit` clean, and the tests
+run here again. (Discarding it the first time, `npm ci` failed on a file held open by a dev server
+started from VS Code and left `node_modules` half emptied; restoring one package's metadata from an
+identical copy let `npm install` finish without touching the locked file.)
 
 ### ENV-008 🟡 Two mutation-check runs at once swapped two source files
 
@@ -506,6 +513,47 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-054 🔴 A rejected password was written to the server log
+
+**Status:** verified — seen in the test log while checking the Boot 4 upgrade (session 017); a test
+fails on the old code
+**Affects:** every controller with a validated request body; registration above all (since session 008)
+
+**What happened.** A request body that failed validation was left to Spring's default handling,
+which logs the failure at WARN with each *rejected value* in it. For registration that value is the
+password: a password one character too short — quite possibly one its owner uses elsewhere — went
+into the server log in plain text. It had been there since registration was built; nobody had read
+that line of a test log closely.
+
+**✅ FIXED — Session 017 (DEC-056).** `common/ValidationExceptionHandler` handles validation failures
+for every controller: nothing is logged, and the reply names the field and the rule ("password: size
+must be between 12 and 200"), never the value. `AuthFlowTest` registers with an eleven-character
+password and checks neither the captured log nor the reply contains it; it fails without the handler.
+
+### BUG-053 🟡 The API types script asked another app on this machine for its contract
+
+**Status:** verified (session 017)
+**Affects:** `frontend/package.json` `api:types` (DEC-007)
+
+**What happened.** The script generating TypeScript types from the backend's OpenAPI document pointed
+at port 8080 — the port the backend used before session 017 moved it to 8081, and on this machine the
+port of a different project's backend. Nothing runs the script yet, so nothing broke; the first run
+would have generated another app's types. And with TypeScript 7 its tool no longer runs at all.
+
+**✅ FIXED — Session 017 (DEC-056).** Port 8081, and the tool runs through `npx` with its own
+TypeScript 5. Run against the dev backend: it generates the lesson and drill types.
+
+### BUG-052 🟡 The time-zone button named today's zone, not the chart's
+
+**Status:** verified — caught by the newer oxlint's purity rule (session 017); a test fails on the old code
+**Affects:** `frontend/src/components/ChartWorkspace.tsx`
+
+**What happened.** The axis button labels the New York zone (EDT or EST), and read the clock to do
+it — so a chart of January candles viewed in October said EDT.
+
+**✅ FIXED — Session 017.** It names the zone of the last candle on screen: January reads EST, checked
+in the app. `App.test` loads January bars and expects EST.
 
 ### BUG-051 🟡 A setups test failed whenever its random replay held no market structure shift
 

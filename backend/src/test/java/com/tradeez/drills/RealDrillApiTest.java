@@ -27,8 +27,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.identity.AppUserRepository;
@@ -192,9 +192,9 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		mockMvc.perform(get("/api/drills/kinds")).andExpect(status().isUnauthorized());
 		JsonNode kinds = read(mockMvc.perform(get("/api/drills/kinds").cookie(alice)).andExpect(status().isOk()));
 		assertThat(kinds).hasSize(DrillKind.values().length);
-		assertThat(kinds.findValuesAsText("kind")).contains("FVG_IDENTIFICATION", "BOS_CHOCH_CLASSIFICATION");
-		assertThat(kinds.findValuesAsText("mode")).containsOnly("IDENTIFY", "CLASSIFY");
-		assertThat(kinds.get(0).get("ruleVersion").asText()).isEqualTo("fvg-1.0.0");
+		assertThat(kinds.findValuesAsString("kind")).contains("FVG_IDENTIFICATION", "BOS_CHOCH_CLASSIFICATION");
+		assertThat(kinds.findValuesAsString("mode")).containsOnly("IDENTIFY", "CLASSIFY");
+		assertThat(kinds.get(0).get("ruleVersion").asString()).isEqualTo("fvg-1.0.0");
 	}
 
 	@ParameterizedTest
@@ -204,14 +204,14 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		JsonNode drill = start(kind, "5m");
 		assertThat(drill.get("graded").asBoolean()).isTrue();
 		assertThat(drill.get("fixture").asBoolean()).isFalse();
-		assertThat(drill.get("dataClass").asText()).isEqualTo("IMPORTED_PRIVATE");
+		assertThat(drill.get("dataClass").asString()).isEqualTo("IMPORTED_PRIVATE");
 		assertThat(drill.has("disclaimer")).isFalse();
-		assertThat(drill.get("mode").asText()).isEqualTo("IDENTIFY");
-		assertThat(drill.at("/rule/detector").asText()).isEqualTo(kind.detector());
-		assertThat(drill.at("/rule/definition").asText()).isNotBlank();
+		assertThat(drill.get("mode").asString()).isEqualTo("IDENTIFY");
+		assertThat(drill.at("/rule/detector").asString()).isEqualTo(kind.detector());
+		assertThat(drill.at("/rule/definition").asString()).isNotBlank();
 		assertThat(drill.has("result") || drill.has("subject") || drill.has("options")).isFalse();
 
-		String id = drill.get("id").asText();
+		String id = drill.get("id").asString();
 		List<Long> times = barTimes(drill);
 		assertThat(times).hasSize(DrillService.WINDOW_BARS);
 		long from = times.getFirst();
@@ -243,7 +243,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		assertThat(result.get("extra").asInt()).isZero();
 		for (JsonNode setup : result.get("setups")) {
 			assertThat(setup.get("found").asBoolean()).isTrue();
-			assertThat(setup.get("label").asText()).isNotBlank();
+			assertThat(setup.get("label").asString()).isNotBlank();
 			assertThat(setup.get("explanation")).isNotEmpty();
 			assertThat(setup.get("explanation").toString()).doesNotContain("null");
 		}
@@ -257,10 +257,10 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		// Swings at the window's edges are common: the first candle's left neighbour is off screen.
 		for (int i = 0; i < 30 && excused.isEmpty(); i++) {
 			drill = start(DrillKind.SWING_HIGH_IDENTIFICATION, "5m");
-			excused = excused(drill.get("id").asText());
+			excused = excused(drill.get("id").asString());
 		}
 		assertThat(excused).as("a drill with an excused candle").isNotEmpty();
-		String id = drill.get("id").asText();
+		String id = drill.get("id").asString();
 		Set<Long> taken = new HashSet<>(excused);
 		key(id).forEach(h -> taken.add(h.anchor()));
 		Long nothing = barTimes(drill).stream().filter(t -> !taken.contains(t)).findFirst().orElseThrow();
@@ -277,7 +277,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 	@DisplayName("classification: the subject is drawn without its name, and the rule's name is the answer")
 	void classification(DrillKind kind) throws Exception {
 		JsonNode drill = start(kind, "5m");
-		assertThat(drill.get("mode").asText()).isEqualTo("CLASSIFY");
+		assertThat(drill.get("mode").asString()).isEqualTo("CLASSIFY");
 		assertThat(drill.get("graded").asBoolean()).isTrue();
 		List<Long> times = barTimes(drill);
 		assertThat(times).hasSize(DrillService.CLASSIFY_WINDOW_BARS);
@@ -287,7 +287,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		assertThat(drill.toString()).doesNotContain("\"answer\"").doesNotContain("evidence")
 			.doesNotContain("endTime").doesNotContain("explanation");
 
-		String id = drill.get("id").asText();
+		String id = drill.get("id").asString();
 		List<Hit> key = key(id);
 		assertThat(key).hasSize(1);
 		Hit subject = key.getFirst();
@@ -313,25 +313,25 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 			}
 		}
 
-		List<String> options = drill.get("options").findValuesAsText("value");
+		List<String> options = drill.get("options").findValuesAsString("value");
 		assertThat(options).contains(subject.kind());
 		if (kind == DrillKind.STRUCTURE_CLASSIFICATION) {
-			assertThat(options).containsExactlyElementsOf("HIGH".equals(shown.get("side").asText())
+			assertThat(options).containsExactlyElementsOf("HIGH".equals(shown.get("side").asString())
 				? List.of("HH", "LH", "EH") : List.of("HL", "LL", "EL"));
 		}
 
 		String wrong = options.stream().filter(o -> !o.equals(subject.kind())).findFirst().orElseThrow();
 		JsonNode result = read(choose(id, wrong).andExpect(status().isOk())).get("result");
 		assertThat(result.get("correct").asBoolean()).isFalse();
-		assertThat(result.get("answer").asText()).isEqualTo(subject.kind());
+		assertThat(result.get("answer").asString()).isEqualTo(subject.kind());
 		assertThat(result.at("/setups/0/explanation")).isNotEmpty();
 		assertThat(result.at("/setups/0/explanation").toString()).doesNotContain("null");
 
 		JsonNode again = start(kind, "5m");
-		String right = key(again.get("id").asText()).getFirst().kind();
-		JsonNode resumed = read(choose(again.get("id").asText(), right).andExpect(status().isOk()));
+		String right = key(again.get("id").asString()).getFirst().kind();
+		JsonNode resumed = read(choose(again.get("id").asString(), right).andExpect(status().isOk()));
 		assertThat(resumed.at("/result/correct").asBoolean()).isTrue();
-		assertThat(resumed.get("choice").asText()).isEqualTo(right);
+		assertThat(resumed.get("choice").asString()).isEqualTo(right);
 	}
 
 	@Nested
@@ -341,12 +341,12 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("must fit the drill: marks for identification, one of the options for classification")
 		void fitsTheMode() throws Exception {
-			String identify = start(DrillKind.FVG_IDENTIFICATION, "5m").get("id").asText();
+			String identify = start(DrillKind.FVG_IDENTIFICATION, "5m").get("id").asString();
 			choose(identify, "BOS").andExpect(status().isBadRequest());
 			answer(identify, "{}").andExpect(status().isBadRequest());
 
 			JsonNode classify = start(DrillKind.SWEEP_RUN_CLASSIFICATION, "5m");
-			String id = classify.get("id").asText();
+			String id = classify.get("id").asString();
 			mark(id, List.of()).andExpect(status().isBadRequest());
 			choose(id, "BOS").andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value(Matchers.containsString("[SWEEP, RUN]")));
@@ -358,7 +358,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("is kept: the database refuses to change a choice once given")
 		void choiceIsImmutable() throws Exception {
-			String id = start(DrillKind.BOS_CHOCH_CLASSIFICATION, "5m").get("id").asText();
+			String id = start(DrillKind.BOS_CHOCH_CLASSIFICATION, "5m").get("id").asString();
 			choose(id, "BOS").andExpect(status().isOk());
 			assertThatThrownBy(() -> jdbc.update("UPDATE drill SET choice = 'CHOCH' WHERE id = ?::uuid", id))
 				.hasMessageContaining("immutable");

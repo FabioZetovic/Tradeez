@@ -105,9 +105,9 @@ work.
 
 | Layer | Choice | Why |
 |---|---|---|
-| Frontend | React 19 + TypeScript + Vite | |
+| Frontend | React 19 + TypeScript 7 + Vite 8, on Node 24 LTS | DEC-056 |
 | Styling | Tailwind CSS 4, design tokens in `src/index.css` | DEC-044 |
-| Backend | Java 21 + Spring Boot 3.5 | Not Boot 4 — see DEC-036 |
+| Backend | Java 25 + Spring Boot 4.1 | DEC-056 (supersedes DEC-036) |
 | Database | PostgreSQL 17 | DEC-001 |
 | Migrations | Flyway | DEC-030 |
 | API contract | springdoc-openapi → `openapi-typescript` | DEC-007 |
@@ -120,7 +120,7 @@ work.
 
 Everything below costs **€0** and needs no hosting account or market-data subscription.
 
-**Prerequisites:** JDK 21+, Node 20+, Docker.
+**Prerequisites:** JDK 25+, Node 24.20+, Docker. Dependencies are kept at their newest versions (DEC-056).
 
 **1 — Start the database**
 

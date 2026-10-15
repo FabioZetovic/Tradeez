@@ -1633,6 +1633,17 @@ explained in the rule's own numbers and different every time. To make that possi
 eighteen rules can now describe itself and each of its hits in plain words, and the tests check that
 no rule's description leaves out one of its numbers.
 
+**Newest versions, and a password in the log.** An update made outside the session broke the
+frontend tests on this machine, and looking into it showed the deeper problem: one of the libraries
+had five known high-severity security flaws, and the backend's framework, Spring Boot 3.5, had stopped
+receiving free security fixes at the end of June. Fabio's instruction was simple — newest everything,
+no holes left for attackers. So Node moved to its current long-term-support release, every frontend
+package to its newest version (with no known vulnerabilities left), and the backend to Spring Boot 4.1
+on Java 25. All 379 backend tests passed on the new framework. Reading the test log on the way turned
+up a real security bug that had been there since registration was first built: when a password was
+rejected for being too short, the server wrote it into its log in plain text. It no longer does, for
+any form, and a test makes sure.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1648,7 +1659,8 @@ bars, the import ledger, the real NQ instrument; V8: the simulated markets leave
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
-the drill engine, lesson cards): backend 223 → 379, frontend 148 → 244, V9 to V14, DEC-044 to DEC-055.*
+the drill engine, lesson cards, the upgrade to the newest versions): backend 223 → 379, frontend 148 → 245,
+V9 to V14, DEC-044 to DEC-056.*
 
 ---
 

@@ -21,8 +21,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.identity.AppUserRepository;
@@ -125,8 +125,8 @@ class SetupApiTest extends AbstractIntegrationTest {
 	/** A setup as a line of text, its times shifted: enough to compare two lists exactly. */
 	private static List<String> described(JsonNode setups, long shift) {
 		List<String> out = new ArrayList<>();
-		setups.forEach(s -> out.add(s.get("detector").asText() + "/" + (s.hasNonNull("kind") ? s.get("kind").asText() : "-") + " "
-			+ s.get("direction").asText() + " " + (s.get("start").asLong() + shift) + " "
+		setups.forEach(s -> out.add(s.get("detector").asString() + "/" + (s.hasNonNull("kind") ? s.get("kind").asString() : "-") + " "
+			+ s.get("direction").asString() + " " + (s.get("start").asLong() + shift) + " "
 			+ (s.get("end").asLong() + shift) + " " + (s.get("confirmedAt").asLong() + shift) + " "
 			+ s.get("lowTicks").asLong() + "-" + s.get("highTicks").asLong()));
 		return out;
@@ -139,9 +139,9 @@ class SetupApiTest extends AbstractIntegrationTest {
 		Instant to = Instant.parse("2025-05-07T20:00:00Z");
 		JsonNode layer = read(chartRequest("NQ", "5m", from, to, "FVG").andExpect(status().isOk()));
 
-		assertThat(layer.at("/rules/0/detector").asText()).isEqualTo("FVG");
-		assertThat(layer.at("/rules/0/version").asText()).isEqualTo(FvgDetector.RULE_VERSION);
-		assertThat(layer.at("/rules/0/conceptId").asText()).isEqualTo("ICT-20");
+		assertThat(layer.at("/rules/0/detector").asString()).isEqualTo("FVG");
+		assertThat(layer.at("/rules/0/version").asString()).isEqualTo(FvgDetector.RULE_VERSION);
+		assertThat(layer.at("/rules/0/conceptId").asString()).isEqualTo("ICT-20");
 		assertThat(layer.at("/rules/0/parameters/averageRangeLookback").asInt()).isEqualTo(14);
 
 		// The same rule over the same candles, run by hand.
@@ -156,7 +156,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 		assertThat(expected).hasSizeGreaterThan(3);
 		assertThat(described(layer.get("setups"), 0)).containsExactlyElementsOf(expected);
 		assertThat(layer.toString()).doesNotContain("evidence").doesNotContain("gapTicks");
-		layer.get("setups").forEach(s -> assertThat(s.get("shape").asText()).isEqualTo("ZONE"));
+		layer.get("setups").forEach(s -> assertThat(s.get("shape").asString()).isEqualTo("ZONE"));
 	}
 
 	@Test
@@ -221,7 +221,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())
 				.contentType(MediaType.APPLICATION_JSON).content("{}"))
 			.andExpect(status().isCreated()));
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		JsonNode first = practiceSetups(id, alice);
 		assertThat(first.size()).isPositive();
 		assertMatchesTheChart(id, first);

@@ -89,7 +89,7 @@ host selected from the no-cost options available at deployment time. **Phase 0 r
 requires no hosting purchase.** Render and Railway are candidates, not locked dependencies. When
 deployed, use stable `app` and `api` domains with restrictive CORS and secure token handling.
 
-**DEC-036 — Spring Boot 3.5.x on Java 21, not Spring Boot 4.x** · `AGREED` · Claude, Session 006
+**DEC-036 — Spring Boot 3.5.x on Java 21, not Spring Boot 4.x** · `SUPERSEDED` by DEC-056 (2026-10-15) · Claude, Session 006
 Discovered during Phase 0 scaffolding. Spring Initializr now defaults to **Boot 4.1.1** and offers
 Java 26 (the JDK installed on this machine). Boot 4 was scaffolded, evaluated, and **rejected**:
 
@@ -109,6 +109,43 @@ Java 26 (the JDK installed on this machine). Boot 4 was scaffolded, evaluated, a
 JDK 26, and it stays deployable on hosting platforms whose Java buildpacks track LTS releases.
 
 Revisit once springdoc ships Boot 4 support. Until then, **do not bump the major version.**
+
+**DEC-056 — Newest versions everywhere: Spring Boot 4.1, Java 25, Node 24 LTS** `IMPLEMENTED` ·
+Fabio, Session 017 (2026-10-15) — supersedes DEC-036
+
+Fabio: "update undici and everything to the newest version, dont leave it lagging behind that leaves
+holes for hackers." It started with an npm update made outside the session (ENV-007): the `undici`
+that jsdom pulls in had five high-severity advisories, and the fixed one needs Node ≥ 22.19. Checking
+the rest found worse: **Spring Boot 3.5's free security support ended on 2026-06-30** — the backend was
+on a line that no longer gets public fixes.
+
+- **Backend:** Spring Boot **4.1.1** (Spring Framework 7, Spring Security 7.1, Hibernate 7.4, Jackson
+  3.1, Flyway 12.4, Testcontainers 2.0, JUnit 6), springdoc **3.1.1**, jjwt 0.13.0, the PostgreSQL
+  driver 42.7.14 and Lombok 1.18.48 (newer patches than Boot manages), **Java 25** target (the newest
+  LTS; the JDK installed is 26), Maven **3.10.0**. DEC-036's reason is gone — it said to revisit once
+  springdoc supported Boot 4, and springdoc 3 does. The migration was the starters Boot 4 split up
+  (`-webmvc`, `-flyway`, `-webmvc-test`, Testcontainers' new artifact names and `PostgreSQLContainer`)
+  and Jackson 3 (`tools.jackson.*`; `asText` → `asString`). All 379 tests passed on it unchanged.
+  Jackson 2 remains only inside `jjwt-jackson`.
+- **Frontend:** Node **24.20 LTS** (the Node 22 line installed before is replaced; Node 26 is not yet
+  LTS), npm **12.2**, and every package at its newest — React 19.3, Vite 8.3, **Vitest 5**,
+  **TypeScript 7**, jsdom 30.1 (undici 8.12.2), oxlint 1.88. `@types/node` follows the runtime's major
+  (24), not the newest types. `engines` records Node ≥ 24.20. **`npm audit`: 0 vulnerabilities.**
+- **TypeScript 7 has no compiler API**, which `openapi-typescript` (newest 7.13) still needs: the
+  `api:types` script runs it through `npx` with its own TypeScript 5, and it is no longer a project
+  dependency — 27 packages fewer, among them the `js-yaml` chain behind two of the advisories.
+- **PostgreSQL stays on 17** (17.11, the newest 17.x, on a freshly built image): it gets security
+  fixes until 2029, and 18 would mean migrating the database that holds the imported history.
+  Revisit with a dump and restore when there is a reason.
+
+Found on the way, all fixed (BUGS.md): a rejected **password was written to the server log** on every
+failed registration validation (BUG-054); the time-zone button named today's
+zone instead of the chart's (BUG-052); the `api:types` script pointed at another app's port (BUG-053).
+
+**The rule from now on:** dependencies are kept at their newest versions; a major upgrade is done
+when it is released and the tests pass on it, not deferred. Exceptions are written down with the
+reason (here: `@types/node` follows the runtime, PostgreSQL 17 keeps its data).
+
 
 **DEC-044 — Tailwind CSS for all styling** · `IMPLEMENTED` · Fabio, Session 017 (2026-10-13)
 

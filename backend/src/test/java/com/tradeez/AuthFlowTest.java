@@ -12,7 +12,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -32,6 +35,7 @@ import jakarta.servlet.http.Cookie;
  * The reuse-detection case is the one worth reading — it is the reason {@code replaced_by} exists
  * in the schema rather than a simple revoked flag.
  */
+@ExtendWith(OutputCaptureExtension.class)
 class AuthFlowTest extends AbstractIntegrationTest {
 
 	private static final String PASSWORD = "a-perfectly-fine-passphrase";
@@ -157,13 +161,19 @@ class AuthFlowTest extends AbstractIntegrationTest {
 		}
 
 		@Test
-		@DisplayName("short passwords are rejected by validation")
-		void shortPasswordIsRejected() throws Exception {
-			mockMvc.perform(post("/api/auth/register")
+		@DisplayName("short passwords are rejected by validation — without the password in the log or the reply (BUG-054)")
+		void shortPasswordIsRejected(CapturedOutput output) throws Exception {
+			// Eleven characters: one short of the minimum, and quite possibly a password used elsewhere.
+			String typed = "Kx7-qq-Wz9p";
+			String reply = mockMvc.perform(post("/api/auth/register")
 					.contentType(MediaType.APPLICATION_JSON)
-					.content("{\"email\":\"short@example.com\",\"password\":\"tooshort\","
+					.content("{\"email\":\"short@example.com\",\"password\":\"" + typed + "\","
 						+ "\"displayName\":\"X\"}"))
-				.andExpect(status().isBadRequest());
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("password: size must be between 12 and 200"))
+				.andReturn().getResponse().getContentAsString();
+			assertThat(reply).doesNotContain(typed);
+			assertThat(output.getAll()).doesNotContain(typed);
 		}
 
 		@Test

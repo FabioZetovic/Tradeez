@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T13 and T34 merged; T14 (lesson cards) built on feat/lesson-cards, not merged
+last_session: 017   # in progress — T1–T13 and T34 merged; T14 and the upgrade to the newest versions (DEC-056) built on chore/upgrade-dependencies, not merged
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -65,19 +65,19 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 379/379 (Testcontainers), frontend 244/244 (on the committed lockfile — ENV-007) + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 379/379 (Testcontainers), frontend 245/245 + typecheck + build; npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
-stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
-  backend:  Spring Boot 3.5.16 / Java 21 (JDK 26 installed, targets 21)
-  frontend: React 19 / Vite 8 / TypeScript 6 / Tailwind CSS 4 (DEC-044)
-  database: PostgreSQL 17 via docker-compose
+stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
+  backend:  Spring Boot 4.1.1 / Java 25 target (JDK 26 installed) / Maven 3.10.0 / springdoc 3.1.1 / Jackson 3
+  frontend: Node 24.20 LTS / npm 12.2 / React 19.3 / Vite 8.3 / Vitest 5 / TypeScript 7 / Tailwind CSS 4 (DEC-044)
+  database: PostgreSQL 17 via docker-compose (17.11; 18 would mean migrating the imported data — DEC-056)
 
 files_in_repo:
   # Module map, not a file list. BUG-026: a hand-maintained file list sat six sessions out of
   # date because nothing fails when it is wrong. For individual files run `git ls-files`.
   backend/src/main/java/com/tradeez/:
-    common/      # health endpoint
+    common/      # health endpoint; validation errors for every controller, never echoing or logging the rejected value (BUG-054)
     config/      # SecurityConfig (CSRF, CORS, filter chain), OpenApiConfig
     identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
     marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015)
@@ -120,7 +120,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T14 built on feat/lesson-cards, fresh clone of 6e6d152 green; waiting for Fabio to say merge. ENV-007 open (an npm update made outside the session needs Node ≥ 22.19 for the tests — Fabio's call). Then T15 (prediction drills).
+blocked_on: nothing — chore/upgrade-dependencies (on top of feat/lesson-cards: T14 + DEC-056) waiting for Fabio to say merge. Then T15 (prediction drills).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -281,7 +281,8 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-042 | **Massive's free plan first** (2 years of CME 1m, 5 req/min, per-contract tickers — Tradeez picks the front contract by previous-session volume); Databento later for deep history and 1s. Key `MASSIVE_API_KEY` only in `backend/.env`. |
 | DEC-040 ⚠️ | **Real NQ from Databento; the simulated market leaves the app.** Every download priced first, capped ($5/request, $100 total). Key only in `backend/.env`. `IMPORTED_PRIVATE` until display is licensed. |
 | DEC-039 | FVG rule `fvg-1.0.0`: consecutive candles, gap ≥ 25% of the prior 14 candles' average range. **Never tune the generator to produce patterns for drills** — refuse the drill instead (1m). |
-| DEC-036 ⚠️ | **Spring Boot 3.5.x + Java 21 — NOT Boot 4.** Boot 4 renames starters (`-webmvc`, per-starter `-test`) and has no springdoc, which breaks DEC-007. Do not bump the major version. |
+| ~~DEC-036~~ | ~~Spring Boot 3.5.x + Java 21 — NOT Boot 4.~~ **Superseded by DEC-056** (2026-10-15): Boot 3.5's free support ended 2026-06-30 and springdoc 3 supports Boot 4. |
+| DEC-056 ⚠️ | **Newest versions everywhere.** Spring Boot 4.1 / Java 25 / Node 24 LTS / TypeScript 7 / Vitest 5. Keep dependencies at their newest; a major upgrade is done when it lands and the tests pass. Exceptions are written down: `@types/node` follows the runtime, PostgreSQL 17 keeps its data. |
 | DEC-035 | Imported data use is environment-sensitive; jury display requires explicit source permission. |
 
 ---
@@ -1909,3 +1910,26 @@ cover at least 12 rules, and a new `everyRule()` checks all 18 over a fixed fort
 **2026-10-15 — T14 fresh-clone check.** `6e6d152` cloned clean, no `.env`: frontend 244/244, lint,
 typecheck, knip and build clean; backend `tests=379 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
 Waiting for Fabio to say merge. ENV-007 still open (his call).
+
+**2026-10-15 — The upgrade to the newest versions (DEC-056).** Fabio: "update undici and everything to
+the newest version, dont leave it lagging behind that leaves holes for hackers." On
+`chore/upgrade-dependencies` (branched from `feat/lesson-cards`), not merged:
+- **ENV-007 closed.** The outside npm update was discarded first (the project's Node was 22.14); that
+  showed the old undici had five high-severity advisories. Node 24.20 LTS installed with winget (Fabio
+  chose LTS over 26 Current), npm 12.2.
+- **Frontend:** every package newest — React 19.3, Vite 8.3, Vitest 5, TypeScript 7, jsdom 30.1
+  (undici 8.12.2), oxlint 1.88; `@types/node` 24 to match the runtime; `engines` Node ≥ 24.20;
+  `npm audit` 0. `openapi-typescript` (needs TS 5's compiler API, gone in TS 7) runs through `npx`
+  with its own TypeScript and left the dependencies (27 packages fewer).
+- **Backend:** Spring Boot 3.5 was past its free support (2026-06-30). Now Boot 4.1.1 (Spring 7,
+  Security 7.1, Hibernate 7.4, Jackson 3.1, Flyway 12.4, Testcontainers 2.0, JUnit 6), springdoc 3.1.1,
+  jjwt 0.13, PostgreSQL driver 42.7.14, Lombok 1.18.48, Java 25 target, Maven 3.10.0. Changes: Boot 4's
+  split starters, Testcontainers' new names, Jackson 3 imports and `asString`. All 379 tests passed.
+- **PostgreSQL** container moved to the freshly built 17-alpine image (still 17.11, the newest 17.x),
+  after a verified backup in the scratchpad; 697,003 bars intact.
+- **Found and fixed:** BUG-054 (a rejected password went to the server log — now one validation
+  handler for every controller, logging nothing and naming only field and rule), BUG-052 (the zone
+  button named today's zone, not the chart's), BUG-053 (`api:types` pointed at another app's port).
+- **Checked live** on the new stack: sign-in, chart bars, setups, clock, a lesson, a drill answered, a
+  practice session advanced, a validation reply, the January chart reading EST.
+- Backend 379 (one test reworked), frontend 244 → 245.

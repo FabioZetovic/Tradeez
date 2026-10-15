@@ -24,8 +24,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.identity.AppUserRepository;
@@ -106,14 +106,14 @@ class LessonApiTest extends AbstractIntegrationTest {
 	void card() throws Exception {
 		mockMvc.perform(get("/api/concepts/ICT-20/lesson")).andExpect(status().isUnauthorized());
 		JsonNode card = lesson("ICT-20");
-		assertThat(card.get("name").asText()).contains("Fair value gap");
-		assertThat(card.get("status").asText()).isEqualTo("IMPLEMENTED");
-		assertThat(card.get("summary").asText()).contains("Three consecutive candles");
-		assertThat(card.at("/rules/0/version").asText()).isEqualTo("fvg-1.0.0");
-		assertThat(card.at("/rules/0/definition").asText()).contains("25%").contains("14 candles");
-		assertThat(card.get("shownOn").asText()).isEqualTo("SETUPS");
-		assertThat(card.get("drills").findValuesAsText("kind")).containsExactly("FVG_IDENTIFICATION");
-		assertThat(card.get("timeframe").asText()).isEqualTo("5m");
+		assertThat(card.get("name").asString()).contains("Fair value gap");
+		assertThat(card.get("status").asString()).isEqualTo("IMPLEMENTED");
+		assertThat(card.get("summary").asString()).contains("Three consecutive candles");
+		assertThat(card.at("/rules/0/version").asString()).isEqualTo("fvg-1.0.0");
+		assertThat(card.at("/rules/0/definition").asString()).contains("25%").contains("14 candles");
+		assertThat(card.get("shownOn").asString()).isEqualTo("SETUPS");
+		assertThat(card.get("drills").findValuesAsString("kind")).containsExactly("FVG_IDENTIFICATION");
+		assertThat(card.get("timeframe").asString()).isEqualTo("5m");
 		assertThat(card.has("examplesNote")).isFalse();
 
 		JsonNode examples = card.get("examples");
@@ -122,10 +122,10 @@ class LessonApiTest extends AbstractIntegrationTest {
 		for (JsonNode example : examples) {
 			List<Long> times = times(example);
 			JsonNode setup = example.get("setup");
-			assertThat(example.get("detector").asText()).isEqualTo("FVG");
-			assertThat(example.get("label").asText()).isIn("Bullish gap", "Bearish gap");
+			assertThat(example.get("detector").asString()).isEqualTo("FVG");
+			assertThat(example.get("label").asString()).isIn("Bullish gap", "Bearish gap");
 			assertThat(example.get("explanation")).isNotEmpty();
-			assertThat(example.at("/rule/version").asText()).isEqualTo("fvg-1.0.0");
+			assertThat(example.at("/rule/version").asString()).isEqualTo("fvg-1.0.0");
 			assertThat(times).hasSizeLessThanOrEqualTo(LessonService.BEFORE + LessonService.AFTER)
 				.as("the candle it is known by is on the chart").contains(setup.get("end").asLong())
 				.as("so is its whole pattern").contains(setup.get("start").asLong(), setup.get("anchor").asLong());
@@ -143,9 +143,9 @@ class LessonApiTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("examples are found at random, not picked: asking again shows others")
 	void notHandPicked() throws Exception {
-		Set<Long> first = new HashSet<>(lesson("ICT-20").get("examples").findValuesAsText("anchor").stream()
+		Set<Long> first = new HashSet<>(lesson("ICT-20").get("examples").findValuesAsString("anchor").stream()
 			.map(Long::valueOf).toList());
-		Set<Long> again = new HashSet<>(lesson("ICT-20").get("examples").findValuesAsText("anchor").stream()
+		Set<Long> again = new HashSet<>(lesson("ICT-20").get("examples").findValuesAsString("anchor").stream()
 			.map(Long::valueOf).toList());
 		assertThat(again).isNotEqualTo(first);
 	}
@@ -172,11 +172,11 @@ class LessonApiTest extends AbstractIntegrationTest {
 		assertThat(implied.get("rules")).isEmpty();
 		assertThat(implied.get("examples")).isEmpty();
 		assertThat(implied.has("shownOn")).isFalse();
-		assertThat(implied.get("examplesNote").asText()).contains("does not detect");
+		assertThat(implied.get("examplesNote").asString()).contains("does not detect");
 
 		JsonNode killzones = lesson("ICT-52");
-		assertThat(killzones.get("shownOn").asText()).isEqualTo("CLOCK");
-		assertThat(killzones.get("examplesNote").asText()).contains("New York clock layer");
+		assertThat(killzones.get("shownOn").asString()).isEqualTo("CLOCK");
+		assertThat(killzones.get("examplesNote").asString()).contains("New York clock layer");
 	}
 
 	@Test
@@ -184,8 +184,8 @@ class LessonApiTest extends AbstractIntegrationTest {
 	void links() throws Exception {
 		// Turtle soup is a sweep (ICT-13) of equal highs or lows (ICT-12), and its section says so.
 		JsonNode soup = lesson("ICT-14");
-		assertThat(soup.get("prerequisites").findValuesAsText("id")).contains("ICT-12", "ICT-13");
-		assertThat(lesson("ICT-13").get("unlocks").findValuesAsText("id")).contains("ICT-14");
+		assertThat(soup.get("prerequisites").findValuesAsString("id")).contains("ICT-12", "ICT-13");
+		assertThat(lesson("ICT-13").get("unlocks").findValuesAsString("id")).contains("ICT-14");
 	}
 
 	@Test
@@ -207,7 +207,7 @@ class LessonApiTest extends AbstractIntegrationTest {
 		jdbc.update("DELETE FROM market_bar");
 		JsonNode card = lesson("ICT-20");
 		assertThat(card.get("examples")).isEmpty();
-		assertThat(card.get("examplesNote").asText()).contains("No real NQ history");
+		assertThat(card.get("examplesNote").asString()).contains("No real NQ history");
 		assertThat(card.get("rules")).isNotEmpty();
 	}
 
