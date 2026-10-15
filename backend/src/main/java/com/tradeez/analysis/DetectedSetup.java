@@ -64,6 +64,10 @@ public class DetectedSetup {
 	@Column(name = "direction", nullable = false, updatable = false)
 	private String direction;
 
+	/** ZONE, LEVEL or POINT (V12). */
+	@Column(name = "shape", nullable = false, updatable = false)
+	private String shape;
+
 	@Column(name = "start_time", nullable = false, updatable = false)
 	private Instant startTime;
 
@@ -72,6 +76,10 @@ public class DetectedSetup {
 
 	@Column(name = "end_time", nullable = false, updatable = false)
 	private Instant endTime;
+
+	/** When the hit could first be known (V12). A replay shows it only from here on (DEC-009). */
+	@Column(name = "confirmed_at", nullable = false, updatable = false)
+	private Instant confirmedAt;
 
 	@Column(name = "zone_low_ticks", nullable = false, updatable = false)
 	private long zoneLowTicks;
@@ -95,6 +103,14 @@ public class DetectedSetup {
 
 	public UUID getId() {
 		return id;
+	}
+
+	public String getShape() {
+		return shape;
+	}
+
+	public Instant getConfirmedAt() {
+		return confirmedAt;
 	}
 
 	public UUID getInstrumentId() {

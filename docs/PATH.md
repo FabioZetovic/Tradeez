@@ -55,9 +55,9 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T8 merged; T9 (detector framework) next
+last_session: 017   # in progress — T1–T8 merged; T9 built on feat/detector-framework, waiting for Fabio to say merge
 last_author: CLAUDE
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 264/264 (Testcontainers), frontend 215/215 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 0f72da6 green 2026-10-14; merged as 4321ae6.
+build_passing: true  # backend 285/285 (Testcontainers), frontend 221/221 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 7830517 (T9) green 2026-10-15.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -87,22 +87,25 @@ files_in_repo:
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     clock/       # New York clock layer: sessions/opens/levels rules, chart endpoint (017, T7)
-    analysis/    # FVG detector, detected_setup, on-demand scanner (DEC-026)  (session 016)
+    analysis/    # Detector contract + registry, Segments, FVG, detected_setup, scanner, setups API (DEC-026, DEC-049)  (016, 017 T9)
+    curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time)
   frontend/src/:
-    lib/api/      # fetch client, auth, market data, drawings, practice
+    lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
     lib/drawing/  # geometry, hit testing, snapping, undo store, renderer; ict.ts = Fibonacci/CE arithmetic (DEC-048)
     lib/chart/labelSpace.ts # places canvas labels without overlap (BUG-048)
-    lib/clock/    # New York clock: layer switches, renderer (time placed inside bars)
+    lib/chart/timeToX.ts    # places any time on screen inside its bar — shared by the clock and setup overlays
+    lib/clock/    # New York clock: layer switches, renderer
+    lib/setups/   # detected-setup renderer: zones with CE, levels, points (T9)
     lib/practice/ # plan helpers: bracket from the position tool, validation, money/R formatting
     lib/drills/   # candle picking, marks, explanations generated from detector evidence
     components/   # app shell + tabs, sign-in, chart workspace, drawing overlay + toolbar; ui.tsx = shared Button/Segmented/Panel/Chip/Notice
     lib/styles.ts # cx() and shared Tailwind class strings (DEC-044); tokens live in src/index.css @theme
     components/practice/  # journal, replay screen, plan panel, trade result card, trade log + score
     components/drills/    # drill screen and click overlay
-    hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession
+    hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession, useToggles (+ useClockLayers, useSetupLayers)
   docs/:
     - ANALYSIS_CLAUDE.md    # Claude's deep analysis      (Session 001-CLAUDE)
     - CHATGPT_RESEARCH.md   # Codex's deep analysis       (Session 001-CODEX)
@@ -116,7 +119,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T9 (detector framework, concept registry, overlay renderer) in progress on feat/detector-framework.
+blocked_on: nothing — T9 (detector framework, concept registry, overlay renderer) built on feat/detector-framework; merge when Fabio says so.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -191,7 +194,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 |---|---|---|---|---|
 | T7 | ~~**New York clock layer**~~ | T3 | I-11, I-50–55, X §4 | ✅ Session 017, **merged 2026-10-14 as `6d09763`** (DEC-047): trading-day separators, killzone shading with a labelled strip, Silver Bullet and macro marks, midnight/08:30/09:30/weekly opens, PDH/PDL, PWH/PWL, killzone highs/lows — on the Chart tab and in every replay, switchable. Rules `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0`, from minutes, never ahead of the cursor, not across rolls. |
 | T8 | ~~**ICT drawing tools**~~ | T3 | I-21, I-42–43, X §4 | ✅ Session 017, **merged 2026-10-14 as `4321ae6`** (DEC-048): Fibonacci with ICT's levels (OTE shaded, targets −0.27 to −2), zone with its CE in half-ticks, labels; words typed on the chart; server checks anchor counts and text (V11). |
-| T9 | **Detector framework, concept registry, overlay renderer** | T3 | I S-1–S-3, D-026 | Confirmation time on every rule; nothing across session breaks or rolls; overlays never past the replay cursor. |
+| T9 | ~~**Detector framework, concept registry, overlay renderer**~~ | T3 | I S-1–S-3, D-026 | ✅ Session 017, on `feat/detector-framework`, **not merged yet** (DEC-049): a `Detector` contract (shape, confirmation time, lookback) checked for every detector — deterministic, causal, honest lookback, one per place; split at rolls; V12; lazy scans with a self-checking cache; setups API for the Chart tab and replays (never past the cursor, hidden date kept, no evidence sent); concept registry read from `ICT_CONCEPTS.md`; overlay with zones + CE, off by default. |
 | T10 | **Imbalances and gaps** | T9 | I-20–28 | Re-measure `fvg` on real NQ (→ `fvg-1.1.0` if it changes); FVG states, IFVG, BPR, volume imbalance, voids, NWOG/NDOG, opening range gap. |
 | T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
 | T12 | **Liquidity** | T11 | I-10–14 | Resting/taken levels, equal highs/lows, sweep vs run. |
@@ -262,6 +265,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
 | DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
+| DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
 | DEC-046 ⚠️ | **A session is a replay with several trades, one at a time.** Flat → in trade → flat; each trade numbered and immutable (V10); its result revealed when the replay passes its exit; the seed or date only when the session **ends** (learner ends it while flat, or a flat replay hits its limit); score over closed trades only. |
@@ -1643,3 +1647,52 @@ scratch and shown raw (frontend 215/215 exit 0, no warnings; backend `Tests run:
 Errors: 0, Skipped: 0`, BUILD SUCCESS, zero ERROR log lines) — the failures he may have seen were
 intermediate runs during development, each fixed. Merged `--no-ff` as `4321ae6`. Next: T9 on
 `feat/detector-framework`.
+**2026-10-15 — T9: detector framework, concept registry, overlay renderer (DEC-049).** On
+`feat/detector-framework`, not merged:
+- **S-1, the contract.** `Detector` (id, rule version, parameters, source, `conceptId`,
+  `lookbackBars`) and `Detection` (shape ZONE/LEVEL/POINT, direction, span, anchor,
+  **confirmation time**, ticks, evidence). `Segments` splits candles at rolls and says whether a
+  pattern's candles are consecutive. `DetectorRegistry` holds every `Detector` bean; the FVG is one.
+  `DetectorContractTest` checks every registered detector: deterministic, one hit per anchor and
+  direction, causal (found again from exactly the candles closed by its confirmation, nothing sooner
+  at any cut), honest lookback. Mutations tried and caught: a lookback two candles short, a
+  confirmation one second early, one candle late.
+- **Found while building it:** the first definition of `lookbackBars` did not count the pattern's
+  own candles, and a time-based history window missed Friday behind a weekend — what a scan found on
+  Monday morning depended on where it began. The scanner now hands over exactly `lookbackBars()`
+  candles, reaching back up to ten days when the market was shut. Caught by the lookback test before
+  any commit; not logged as a bug.
+- **Scanning.** V12 adds `shape` and `confirmed_at` (the 95 local FVG rows backfilled — checked in
+  the database, and by `DetectorFrameworkMigrationTest` on a schema migrated to V11 first).
+  `SetupScanner.ensureScanned` for any detector, real or simulated; the drill path unchanged. Its
+  cache remembers hits and stored minutes per stretch, so deleted rows or a new import mean a rescan.
+- **Endpoints.** Chart setups (same limits as the bars, refactored into
+  `MarketDataService.requirePublicRange`; whole-day scans), practice setups (one scan of the
+  replay's window, filtered by the cursor, on the session's clock), `GET /api/concepts`. No evidence
+  is sent. `SetupApiTest`: the chart equals the rule run by hand, a narrower window is the wider one
+  cut at its edge, nothing spans a mid-session roll (the test first proves the unsplit candles would
+  make one), a replay equals the chart over the same real stretch moved onto its clock, before and
+  after 30 steps; strangers get 404. Mutations caught: the replay filtered by its scan end instead of
+  the cursor; the roll split removed.
+- **S-2.** The build copies `ICT_CONCEPTS.md` onto the classpath; `ConceptRegistry` reads 72
+  concepts, their **What.** paragraphs, prerequisites and the ladder, and refuses to start on a
+  malformed document or a detector whose rule the document does not list. F-3 was the one concept
+  without a **What.** line; one was added.
+- **S-3.** `SetupOverlay` (zones over their candles with CE dashed in half-ticks, levels, points),
+  `SetupToggles` named from the registry, off by default; `timeToX` moved to `lib/chart`; the clock's
+  toggle hook generalised (`useToggles`). A replay asks again whenever the cursor moves, one request
+  at a time — the test holds an answer back and checks no second request goes out until it arrives
+  (it fails without the guard).
+- **Checked in the browser** (real NQ, local): Chart tab 5m, two weeks — 301 FVGs, green and red
+  boxes painted; toggles on one row at 1920 px, no horizontal scroll. A replay: 129 setups, all
+  confirmed before the cursor, on the fictional January 2000 week, each on a bar the learner has; each
+  step followed by exactly one setups request. First scans 0.2 s (14 days 5m) and 0.5 s (160 days
+  1h), repeats 33–51 ms. Screenshots at 1920 px kept timing out (window hidden), so that width was
+  checked through the DOM.
+- Backend 264 → 285, frontend 215 → 221.
+
+**2026-10-15 — T9 fresh-clone check.** `7830517` cloned clean, no `.env`: frontend 221/221, lint,
+typecheck, knip and build clean; backend `tests=285 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
+The T9 story in DOCUMENTATION.md had called the FVG threshold "too loose" on real data before any
+measurement — DEC-039's own yardstick was 3–7 gaps per 30 five-minute candles and real NQ gives about
+3.3 — so it now says the question is measured in T10. Fabio: "merge it and then do T10".

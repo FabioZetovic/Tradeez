@@ -196,6 +196,9 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Chart | Around a contract roll, the clock shows fewer levels | A level measured on the old contract is not drawn over the new one, and the week's open and PWH/PWL stop at the roll (DEC-047). Correct, but the roll week looks bare |
 | Chart | The macro times are the commonly cited schedule | `ICT_CONCEPTS.md` ICT-54 flags them for checking against ICT's own lectures; a correction will be `sessions-1.1.0` |
 | Chart | Levels do not yet show whether they have been taken | That is `liquidity-1.0.0` (T12). Until then a level runs to the end of its span even after price has traded through it |
+| Chart | A detected FVG is drawn over its own three candles only, never extended to the right | Whether price came back to it, reached its CE or filled it is another rule (`fvg-state-1.0.0`, T10). Until then the box says only "these candles satisfy fvg-1.0.0" (DEC-049) |
+| Chart | `fvg-1.0.0` marks about one 5-minute candle in nine on real NQ | Its 25% threshold was measured on the simulated market (DEC-039): two weeks of real 5m NQ give 301 gaps in 2,760 candles. Re-measuring on real data is T10, and a new threshold will be `fvg-1.1.0`, never an edit |
+| Chart | The first look at a stretch waits for its scan | Two weeks of 5m: 0.2 s; 160 days of 1h: 0.5 s; again: 33–51 ms. Which stretches were scanned is remembered per process, so after a restart the first look rescans — inserting nothing new |
 | Chart | No infinite scroll into older history | Each view loads a fixed window ending at the chosen date; the date picker and the 1W–2Y jumps move it |
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |
 | Fill engine | `AMBIGUOUS` is a legitimate outcome, not a failure | DEC-008 — candle data genuinely cannot always say which of TP/SL came first |

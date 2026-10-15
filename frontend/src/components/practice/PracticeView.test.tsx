@@ -521,6 +521,90 @@ describe('Practice — the New York clock (T7)', () => {
   })
 })
 
+describe('Practice — detected setups (T9)', () => {
+  const CURRICULUM = {
+    levels: [],
+    concepts: [
+      {
+        concept: { id: 'ICT-20', name: 'Fair value gap (BISI / SIBI)', summary: 'Three consecutive candles.' },
+        detectors: [{ detector: 'FVG', version: 'fvg-1.0.0', conceptId: 'ICT-20' }],
+      },
+    ],
+  }
+  const LAYER = {
+    rules: [],
+    setups: [
+      {
+        detector: 'FVG',
+        shape: 'ZONE',
+        direction: 'BULLISH',
+        start: CURSOR - 900,
+        anchor: CURSOR - 600,
+        end: CURSOR - 300,
+        confirmedAt: CURSOR,
+        lowTicks: 80_001,
+        highTicks: 80_004,
+      },
+    ],
+  }
+
+  it('asks for nothing until a rule is switched on, then follows the cursor one request at a time', async () => {
+    const server = happyServer()
+    let cursor = CURSOR
+    const answers: Array<(body: unknown) => void> = []
+    mockApi((call) => {
+      if (is(call, 'GET', '/api/concepts')) return { body: CURRICULUM }
+      if (call.method === 'GET' && call.url.includes('/setups?')) {
+        // Held until the test answers, like a slow server.
+        return { body: new Promise((resolve) => answers.push(resolve)) }
+      }
+      if (is(call, 'POST', '/advance')) {
+        cursor += 300
+        return {
+          body: {
+            state: { ...ANALYSING, cursor },
+            bars: [{ time: cursor - 300, open: 80_006, high: 80_012, low: 80_004, close: 80_010, volume: 10 }],
+          },
+        }
+      }
+      return server(call)
+    })
+    const setupCalls = () => calls.filter((c) => c.url.includes('/setups?'))
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+
+    // Off by default: a learner finds a gap before being shown one.
+    const fvg = await screen.findByRole('button', { name: 'FVG' })
+    expect(fvg).toHaveAttribute('aria-pressed', 'false')
+    expect(fvg.getAttribute('title')).toMatch(/Fair value gap .*ICT-20.*fvg-1\.0\.0/)
+    expect(setupCalls()).toHaveLength(0)
+
+    await user.click(fvg)
+    await waitFor(() => expect(setupCalls()).toHaveLength(1))
+    expect(setupCalls()[0].url).toBe(`/api/practice/sessions/${ID}/setups?detectors=FVG`)
+    expect(screen.getByTestId('setup-overlay')).toBeInTheDocument()
+
+    // Two bars while the first answer is still out: no second request yet...
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(cursor).toBe(CURSOR + 600))
+    expect(setupCalls()).toHaveLength(1)
+    // ...and once it comes, exactly one more, for where the replay is now.
+    await act(async () => answers[0](LAYER))
+    await waitFor(() => expect(setupCalls()).toHaveLength(2))
+    await act(async () => answers[1](LAYER))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(setupCalls()).toHaveLength(2)
+
+    // Switched off, the replay moves on without asking.
+    await user.click(screen.getByRole('button', { name: 'FVG' }))
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(cursor).toBe(CURSOR + 900))
+    expect(setupCalls()).toHaveLength(2)
+  })
+})
+
 describe('Practice — waiting for a setup', () => {
   it('keeps the bracket entry on the market price as the replay moves', async () => {
     // The order is at market, so the entry is wherever price is now. Stop and target are the

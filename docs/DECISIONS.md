@@ -650,6 +650,79 @@ The app grades whether the learner **followed a defined, versioned curriculum** 
 methodology is objectively correct. This is both the honest position and the defensible one in
 front of an academic jury.
 
+*Extended by DEC-049 (Session 017, T9):* the table now holds any detector's hits, each with the
+moment it became knowable, and "scan once" is done lazily, stretch by stretch, as charts ask.
+
+**DEC-049 — One contract for every detector; the curriculum read from its document** `IMPLEMENTED` ·
+Claude, Session 017 (2026-10-15), T9 — ICT_CONCEPTS.md S-1, S-2, S-3
+
+The FVG was written before there was a second detector. T10–T12 bring a dozen; each must be safe to
+draw over a replay without leaking the future. So, before any of them:
+
+**The detector contract (S-1).** A `Detector` has an id, a rule version, parameters, a methodology
+source and the concept it reads (`conceptId`). Each `Detection` has a **shape** — `ZONE` (a price
+band), `LEVEL` (one price over a span) or `POINT` (one price at one candle) — a direction (bullish,
+bearish, neutral), its span and anchor, its evidence, and a **confirmation time**: the first moment
+it could be known. Every detector keeps four promises, checked for every registered detector by
+`DetectorContractTest`:
+
+- **Deterministic** — same candles, same detections.
+- **Causal** — a detection depends only on candles that had closed by its confirmation, and that is
+  the first moment they had. The test finds each detection again from exactly the candles closed by
+  its confirmation, and cuts the candles at every third bar to check nothing appears sooner. Both a
+  confirmation one second early and one candle late were tried on the FVG and caught.
+- **Honest lookback** — `lookbackBars()` is how many candles a detection may read, counting back from
+  its confirmation (the FVG: its own three plus 14). Given only that many candles before a point, it
+  finds the same from that point on.
+- **Unbroken, one per place** — it is handed one contract at a time (the framework splits candles at
+  every roll, `Segments.atRolls`), its pattern's own candles never span a session break
+  (`Segments.consecutive`), and it reports at most one hit per anchor and direction — the row's
+  identity.
+
+Causality is what lets **a replay be served from one scan of its whole window**: the scanner stores
+everything up to the end of the replay once, and the endpoint returns only rows confirmed by the
+cursor. A row confirmed by the cursor is exactly what a scan up to the cursor would have found —
+`SetupApiTest` checks the replay's answer equals the Chart tab's over the same real stretch, moved
+onto the session's clock.
+
+**Scanning (DEC-026's "once").** `detected_setup` gains `shape` and `confirmed_at` (V12; the 95
+stored FVGs were backfilled: candle 3's close). `SetupScanner.ensureScanned` stores every hit
+confirmed in a stretch, with exactly `lookbackBars()` candles of history before it — reaching back
+up to ten more days when the market was shut, so a Monday-morning gap measures itself against Friday
+whichever stretch was scanned first. Inserts ignore duplicates, so scans may overlap. A process-local
+cache skips stretches already scanned, but remembers how many hits and how many stored minutes each
+had: rows deleted, or minutes imported, since then mean a rescan rather than trust. Real data and
+simulated markets are scanned alike (real rows have no seed).
+
+**Reading.** `GET /api/market/instruments/{symbol}/setups?timeframe&from&to&detectors=FVG` for the
+Chart tab — same limits as the bars (`requirePublicRange`), one minute and above, scans whole UTC
+days so scrolling reuses a scan; `GET /api/practice/sessions/{id}/setups?detectors=FVG` for a replay,
+on its hidden-date clock. Both send geometry and the rule (version, parameters, concept) — **never
+the evidence**, whose candle timestamps are real and would give a hidden date away.
+
+**The concept registry (S-2) is the document.** The build copies `docs/ICT_CONCEPTS.md` onto the
+classpath; `ConceptRegistry` reads its master table, each concept's **What.** paragraph and the
+curriculum ladder at startup. Prerequisites are the concepts a section refers to that come earlier in
+the curriculum (a lower level, or the same level and earlier in the table). The application refuses
+to start if the document loses a summary or a section, or if a detector runs a rule the document
+does not list for its concept. `GET /api/concepts`. A generated JSON copy with a drift test was
+considered and rejected: two sources and a test that they agree is worse than one source.
+
+**The overlay (S-3).** Its own canvas over the clock and under the drawings: a zone is a box over the
+candles that formed it, with its CE dashed in half-ticks; a level a line; a point a mark. A zone is
+**not** extended to the right — whether price returned to it is another rule (`fvg-state`, T10).
+One switch per detector, named from the registry (concept, rule version, summary), **off by default**:
+a learner should find a gap before being shown one. In a replay, setups are asked for whenever the
+cursor moves, one request at a time.
+
+Not in this decision: the drill engine for any detector (S-4, T13) and re-measuring the FVG threshold
+on real NQ — the Chart tab shows 301 `fvg-1.0.0` gaps in two weeks of real 5-minute NQ (2,760
+candles), about one candle in nine, which is T10's question.
+
+**Reconsider if** a detector genuinely needs to revise a past detection as later candles arrive (a
+swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
+causal promise breaks.
+
 **DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
 The first detector under DEC-026. The rule:
 

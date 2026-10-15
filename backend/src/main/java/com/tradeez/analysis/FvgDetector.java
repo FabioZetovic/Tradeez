@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.stereotype.Component;
+
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Timeframe;
 
@@ -39,7 +41,8 @@ import com.tradeez.marketdata.Timeframe;
  * <p>Integer ticks throughout (INVARIANT 3): the threshold is compared by cross-multiplying, so no
  * floating point decides whether a gap qualifies.
  */
-public final class FvgDetector {
+@Component
+public final class FvgDetector implements Detector {
 
 	public static final String DETECTOR = "FVG";
 
@@ -49,7 +52,44 @@ public final class FvgDetector {
 	public static final String METHODOLOGY_SOURCE =
 		"ICT three-candle fair value gap, as defined by rule " + RULE_VERSION;
 
-	private FvgDetector() {
+	private final Parameters parameters = Parameters.DEFAULT;
+
+	@Override
+	public String id() {
+		return DETECTOR;
+	}
+
+	@Override
+	public String ruleVersion() {
+		return RULE_VERSION;
+	}
+
+	@Override
+	public String methodologySource() {
+		return METHODOLOGY_SOURCE;
+	}
+
+	@Override
+	public String conceptId() {
+		return "ICT-20";
+	}
+
+	@Override
+	public Map<String, Object> parameters() {
+		return parameters.asMap();
+	}
+
+	/** The three candles of the gap and the average-range lookback before candle 1. */
+	@Override
+	public int lookbackBars() {
+		return parameters.averageRangeLookback() + 3;
+	}
+
+	@Override
+	public List<Detection> detect(List<Bar> segment, Timeframe timeframe) {
+		return detect(segment, timeframe, parameters).stream()
+			.map(hit -> hit.toDetection(timeframe))
+			.toList();
 	}
 
 	public enum Direction {
@@ -104,6 +144,16 @@ public final class FvgDetector {
 			return candle2.openTime();
 		}
 
+		/**
+		 * As a generic detection: a zone over the three candles, knowable once candle 3 has closed —
+		 * its low is what makes or breaks a bullish gap, and its high a bearish one.
+		 */
+		Detection toDetection(Timeframe timeframe) {
+			return new Detection(Detection.Shape.ZONE, Detection.Direction.valueOf(direction.name()),
+				candle1.openTime(), anchorTime(), candle3.openTime(),
+				candle3.openTime().plus(timeframe.duration()), zoneLowTicks, zoneHighTicks, evidence());
+		}
+
 		/** Everything an explanation needs, in the form stored alongside the hit. */
 		public Map<String, Object> evidence() {
 			Map<String, Object> e = new LinkedHashMap<>();
@@ -144,7 +194,7 @@ public final class FvgDetector {
 			Bar c2 = bars.get(i);
 			Bar c3 = bars.get(i + 1);
 
-			if (!consecutive(c1, c2, step) || !consecutive(c2, c3, step)) {
+			if (!Segments.consecutive(List.of(c1, c2, c3), step)) {
 				continue;
 			}
 
@@ -180,9 +230,5 @@ public final class FvgDetector {
 		long denominator = 100L * lookback;
 		long rounded = Math.floorDiv(numerator + denominator - 1, denominator);
 		return Math.max(1, rounded);
-	}
-
-	private static boolean consecutive(Bar earlier, Bar later, long stepSeconds) {
-		return later.openTime().getEpochSecond() - earlier.openTime().getEpochSecond() == stepSeconds;
 	}
 }

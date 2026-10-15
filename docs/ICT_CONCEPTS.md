@@ -259,6 +259,10 @@ the 1-minute chart").
 
 ### F-3 · NQ, the contract
 
+**What.** NQ is the E-mini Nasdaq-100 future, traded on CME; MNQ is the micro contract, a tenth of
+its size. Both move in ticks of 0.25 index points and trade almost around the clock, in quarterly
+contracts that the market rolls from one to the next.
+
 **What the learner must know.**
 
 | | NQ | MNQ |
@@ -1227,9 +1231,9 @@ the app *suggests*, not what the learner is allowed to look at.
 
 | ID | Piece | What it is |
 |---|---|---|
-| S-1 | Detector framework | A `Detector` contract: rule id and version, parameters, evidence, **confirmation time**; the "never across a session break or contract roll" rule shared; `detected_setup` generalised to every kind; on-demand scanning over real data (DEC-026). |
-| S-2 | Concept registry | The concepts of this file as data: id, level, detectability, prerequisites, lesson text, linked rules. |
-| S-3 | Overlay renderer | Zones (rectangle + CE line), levels (labelled lines), swing markers, session shading — drawn from detected setups, never past the replay cursor. |
+| S-1 | Detector framework | A `Detector` contract: rule id and version, parameters, evidence, **confirmation time**; the "never across a session break or contract roll" rule shared; `detected_setup` generalised to every kind; on-demand scanning over real data (DEC-026). ✅ T9 (DEC-049): `Detector` + `Detection`, `Segments`, V12, checked by `DetectorContractTest` for every detector. |
+| S-2 | Concept registry | The concepts of this file as data: id, level, detectability, prerequisites, lesson text, linked rules. ✅ T9 (DEC-049): this file **is** the registry — read at startup from the master table, each **What.** paragraph and the ladder (Part 12). Keep those three shapes, or the app will not start. |
+| S-3 | Overlay renderer | Zones (rectangle + CE line), levels (labelled lines), swing markers, session shading — drawn from detected setups, never past the replay cursor. ✅ T9 (DEC-049) for zones, levels and points; session shading is the clock layer (T7). |
 | S-4 | Drill engine | Modes A, B and C for any detector, real data only, explanations rendered from evidence. Generalises the FVG drill. |
 | S-5 | Learning state | Attempts, per-concept rating, spaced repetition, unlocks (INVARIANT 8b). |
 | S-6 | Evidence engine | Batch statistics per rule over the imported history, with sample size and date range; worded as description, never as edge. |

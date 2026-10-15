@@ -33,4 +33,42 @@ public interface DetectedSetupRepository extends JpaRepository<DetectedSetup, UU
 		@Param("ruleVersion") String ruleVersion,
 		@Param("from") Instant from,
 		@Param("to") Instant to);
+
+	/**
+	 * Hits on a simulated market that touch {@code [from, to)} and were confirmed by
+	 * {@code confirmedBy} — what an overlay may show at that moment (DEC-009).
+	 */
+	@Query("""
+		select s from DetectedSetup s
+		where s.instrumentId = :instrumentId and s.seed = :seed
+		  and s.generatorVersion = :generatorVersion and s.timeframe = :timeframe
+		  and s.detector = :detector and s.ruleVersion = :ruleVersion
+		  and s.endTime >= :from and s.startTime < :to and s.confirmedAt <= :confirmedBy
+		order by s.startTime""")
+	List<DetectedSetup> findVisibleSimulated(
+		@Param("instrumentId") UUID instrumentId,
+		@Param("seed") long seed,
+		@Param("generatorVersion") String generatorVersion,
+		@Param("timeframe") String timeframe,
+		@Param("detector") String detector,
+		@Param("ruleVersion") String ruleVersion,
+		@Param("from") Instant from,
+		@Param("to") Instant to,
+		@Param("confirmedBy") Instant confirmedBy);
+
+	/** The same for real data, which has no seed: one market per instrument. */
+	@Query("""
+		select s from DetectedSetup s
+		where s.instrumentId = :instrumentId and s.seed is null and s.timeframe = :timeframe
+		  and s.detector = :detector and s.ruleVersion = :ruleVersion
+		  and s.endTime >= :from and s.startTime < :to and s.confirmedAt <= :confirmedBy
+		order by s.startTime""")
+	List<DetectedSetup> findVisibleReal(
+		@Param("instrumentId") UUID instrumentId,
+		@Param("timeframe") String timeframe,
+		@Param("detector") String detector,
+		@Param("ruleVersion") String ruleVersion,
+		@Param("from") Instant from,
+		@Param("to") Instant to,
+		@Param("confirmedBy") Instant confirmedBy);
 }
