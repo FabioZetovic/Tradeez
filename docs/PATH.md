@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T10 and T34 merged; T11 (market structure) next
+last_session: 017   # in progress — T1–T10 and T34 merged; T11 built on feat/market-structure, waiting for Fabio to say merge
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 306/306 (Testcontainers), frontend 230/230 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of 3417263 (T34) green 2026-10-15; merged as ec617ca.
+build_passing: true  # backend 315/315 (Testcontainers), frontend 233/233 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of a917c2d (T11) green 2026-10-15.
 deployed: false      # local only, €0
 
 stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
@@ -87,7 +87,7 @@ files_in_repo:
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     clock/       # New York clock layer: sessions/opens/levels rules, chart endpoint (017, T7)
-    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050)  (016, 017 T9–T10)
+    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052)  (016, 017 T9–T11)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9)
     drills/      # FVG identification drill API — fixtures on simulated data  (session 016)
   backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds
@@ -119,7 +119,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, graded drills (drills exist only as DEC-034 fixtures), any aggregate score or rating
 
-blocked_on: nothing — T11 (market structure) next, on feat/market-structure.
+blocked_on: nothing — T11 (market structure) built on feat/market-structure; merge when Fabio says so.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -197,7 +197,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T9 | ~~**Detector framework, concept registry, overlay renderer**~~ | T3 | I S-1–S-3, D-026 | ✅ Session 017, **merged 2026-10-15 as `a582b1a`** (DEC-049): a `Detector` contract (shape, confirmation time, lookback) checked for every detector — deterministic, causal, honest lookback, one per place; split at rolls; V12; lazy scans with a self-checking cache; setups API for the Chart tab and replays (never past the cursor, hidden date kept, no evidence sent); concept registry read from `ICT_CONCEPTS.md`; overlay with zones + CE, off by default. |
 | T10 | ~~**Imbalances and gaps**~~ | T9 | I-20–28 | ✅ Session 017, **merged 2026-10-15 as `dcf699a`** (DEC-050): `fvg-1.0.0` re-measured on two years of real NQ and kept (~3 per 30 candles on every timeframe); `fvg-state-1.0.0` (OPEN→TAPPED→CE→FILLED→INVERTED, 500-candle memory), `ifvg-1.0.0`, `bpr-1.0.0`, `vi-1.0.0` (≥ 4 ticks, measured), `void-1.0.0` (gaps, voids), `opening-gap-1.0.0` (NDOG/NWOG from the data), `org-1.0.0`; V13 kinds; overlay with live zones, faded finished ones, stops at rolls. |
 | T34 | ~~**Switchable timeframes in practice**~~ | T5 | F | ✅ Session 017, **merged 2026-10-15 as `ec617ca`** (DEC-051): any of 1m–1h mid-replay; the forming candle built only from minutes before the cursor (tested, and a leak mutation caught); steps and skip in viewed candles, never past the limit; chart updates the forming candle in place; clock, setups and finished trades follow the view. |
-| T11 | **Market structure** | T9 | I-01–06 | Swings, STH/ITH/LTH, structure labels, displacement, MSS, BOS/CHoCH aliases. |
+| T11 | ~~**Market structure**~~ | T9 | I-01–06 | ✅ Session 017, on `feat/market-structure`, **not merged yet** (DEC-052): measured first (swings ~13.5/30 candles, rank spans ≤ 160, displacement 2× = half of all gaps); `swing-1.0.0`, `swing-tier-1.0.0` (ITH/LTH/ITL/LTL), `structure-1.0.0` labels and its BOS/CHoCH breaks, `displacement-1.0.0` (the gap's own candles), `mss-1.0.0` (sweep → displacement → close, confirmed when both are known); every rule reads a bounded span (200/300). |
 | T12 | **Liquidity** | T11 | I-10–14 | Resting/taken levels, equal highs/lows, sweep vs run. |
 | T35 | **Session-aligned 4h and daily candles** | T3 | F | Fabio asked why 4h/1d are missing (2026-10-15): aggregation counts from UTC midnight, which matches New York only up to 1h. Anchor 4h and daily buckets to the 18:00 New York session open, DST-aware, then offer them on the Chart tab and in practice. |
 
@@ -267,6 +267,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-038 ⚠️ | A simulated market **is** its seed. The public bars endpoint serves one fixed seed and rejects `seed`; practice seeds are `SecureRandom`, never the public one, and **never leave the server before COMPLETE** — and then as a string (BUG-028). |
 | DEC-041 ⚠️ | **Tradeez is an ICT trainer: paper trading on real historical charts.** `ICT_CONCEPTS.md` is the curriculum spec; ICT is the only v1 track; every milestone ships visible ICT content. |
 | DEC-045 ⚠️ | **Practice on real data:** times shown on a fictional week (same weekday, NY wall clock, `timeBasis = NEW_YORK_WALL_CLOCK`) — the real date never reaches the client before COMPLETE; fills on the finest bars stored (`fill-1.1.0`); picker by killzone/weekday; `data_source` instead of a seed (V9). |
+| DEC-052 | **Market structure on one swing rule, each rule with a bounded memory** (200 candles; 300 for ranks): swings, ranks, HH/HL labels, BOS/CHoCH (SMC words, same rule), displacement = the gap's own candles, MSS confirmed at the later of break and displacement. |
 | DEC-051 | **A replay can be looked at on any timeframe (1m–1h):** the forming candle only from what came before the cursor; a step is one viewed candle (completing the forming one first); fills unchanged. |
 | DEC-050 | **Imbalances and gaps, measured on real NQ first:** `fvg-1.0.0` kept (~3 per 30 candles, every timeframe); `fvg-state` with a 500-candle memory, `ifvg`, `bpr`, `vi` (≥ 4 ticks, because body gaps do not scale with the timeframe), `void` (runs must progress), `opening-gap` (closures from the data), `org` (its own rule). `kind` joins a hit's identity (V13). |
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
@@ -1771,3 +1772,34 @@ typecheck, knip and build clean; backend `tests=306 errors=0 skipped=0 failures=
 
 **2026-10-15 — T34 merged.** Merged `--no-ff` as `ec617ca`. Next: T11 (market structure) on
 `feat/market-structure`.
+
+**2026-10-15 — T11: market structure (DEC-052).** On `feat/market-structure`, not merged:
+- **Measured first** (scratch scripts on the two years of real NQ, not committed): swings with one
+  candle each side ~13.5 per 30 candles on every timeframe; an ITH's span ≤ 36 candles, an LTH's
+  ≤ 160; displacement tied to its gap at 2× the recent range = about half of all gaps (1.5 per 30 on
+  5m). The draft's numbers kept.
+- **Six rules** on a shared `SwingPoints`: `SWING`, `SWING_TIER`, `STRUCTURE`, `BOS_CHOCH` (ICT-06,
+  same `structure-1.0.0`), `DISPLACEMENT`, `MSS`. Each reads at most a fixed span to its
+  confirmation (200, ranks 300): finite lookback for rules over swings any distance back. Lookbacks
+  understated (MSS 50, ranks 100) were tried and caught by the contract test.
+- **Found while building it:** (1) the drafted MSS required the displacement to be known by the
+  breaking close, but the displacement candle is often the one that breaks and its gap is known a
+  candle later — the commonest shift would never fire. Found by building that case by hand; now
+  confirmed at the later of the two, and the old behaviour fails the test. (2) The first MSS code
+  rescanned every swing at every candle: the contract test passed 10 minutes and was stopped (its
+  stray Maven and test JVMs ended by hand). Rewritten — the contract test with fourteen rules takes
+  ~12 s. (3) My first expectations for the hand-built tests were wrong twice — the ends of a zigzag
+  cannot be swings, and the MSS candles held two extra gaps — corrected before the run.
+- **Tests:** `StructureDetectorsTest` (9), the contract test for all fourteen rules, `SetupApiTest`'s
+  replay-equals-chart for all fourteen (each found something in the replay's window). Frontend: points
+  above highs and below lows, ranks and labels named, breaks as lines.
+- **Checked in the browser**, real NQ 5m, two weeks (2,760 candles): 622 swing highs and 610 lows,
+  168 ITH / 147 ITL / 46 LTH / 42 LTL, 312 HH / 308 LH / 325 HL / 282 LL, 145 BOS / 124 CHoCH,
+  129 displacement legs, 43 MSS. First scan of the six 1.5 s, again 0.15 s. A real screenshot showed
+  ranks over and under the swings, BOS/CHoCH and MSS lines, displacement boxes. The sign-in had
+  lapsed during the long test runs; signed in again with the local test account.
+- Backend 306 → 315, frontend 230 → 233.
+
+**2026-10-15 — T11 fresh-clone check.** `a917c2d` cloned clean, no `.env`: frontend 233/233, lint,
+typecheck, knip and build clean; backend `tests=315 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
+Fabio: "merge it and then do T12".

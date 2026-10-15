@@ -115,12 +115,12 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | F-3 | NQ, the contract | 0 | D | 📝 | — | instrument registry |
 | F-4 | The New York clock | 0 | D | ✅ partly (New York time axis, T3) | — | session calendar |
 | F-5 | Risk in R, position size | 0 | D | ✅ partly (practice slice) | — | — |
-| ICT-01 | Swing high / swing low | 1 | D | 📐 | `swing-1.0.0` | 1m |
-| ICT-02 | Short-, intermediate-, long-term highs and lows | 1 | D | 📐 | `swing-tier-1.0.0` | 1m |
-| ICT-03 | Market structure and order flow | 1 | D / J | 📐 | `structure-1.0.0` | 1m |
-| ICT-04 | Displacement | 1 | R | 📐 | `displacement-1.0.0` | 1m |
-| ICT-05 | Market structure shift (MSS) | 1 | R | 📐 | `mss-1.0.0` | 1m |
-| ICT-06 | BOS / CHoCH (SMC aliases) | 1 | R | 📐 | `structure-1.0.0` | 1m |
+| ICT-01 | Swing high / swing low | 1 | D | ✅ `swing-1.0.0` (DEC-052) | `swing-1.0.0` | 1m |
+| ICT-02 | Short-, intermediate-, long-term highs and lows | 1 | D | ✅ `swing-tier-1.0.0` (DEC-052) | `swing-tier-1.0.0` | 1m |
+| ICT-03 | Market structure and order flow | 1 | D / J | ✅ `structure-1.0.0` (DEC-052) | `structure-1.0.0` | 1m |
+| ICT-04 | Displacement | 1 | R | ✅ `displacement-1.0.0` (DEC-052) | `displacement-1.0.0` | 1m |
+| ICT-05 | Market structure shift (MSS) | 1 | R | ✅ `mss-1.0.0` (DEC-052) | `mss-1.0.0` | 1m |
+| ICT-06 | BOS / CHoCH (SMC aliases) | 1 | R | ✅ `structure-1.0.0` (DEC-052) | `structure-1.0.0` | 1m |
 | ICT-10 | Buy-side and sell-side liquidity | 2 | D | 📐 | `liquidity-1.0.0` | 1m |
 | ICT-11 | Reference highs and lows (PDH/PDL, PWH/PWL, sessions) | 2 | D | ✅ | `levels-1.0.0` | 1m, sessions |
 | ICT-12 | Relative equal highs / lows | 2 | R | 📐 | `eqhl-1.0.0` | 1m |
@@ -317,7 +317,7 @@ teaching.
 **Why ICT cares.** Swing points are where stops rest (liquidity, ICT-10) and what structure breaks
 (ICT-05) are measured against.
 
-**Tradeez rule — `swing-1.0.0` (draft).**
+**Tradeez rule — `swing-1.0.0` ✅ (DEC-052).**
 - Candle *i* is a swing high when its high is **strictly greater** than the highs of the *N* candles to
   its left and **greater than or equal to** the highs of the *N* candles to its right. Default *N* = 1.
 - The asymmetry settles ties: of two adjacent equal highs, the earlier one is the swing.
@@ -327,6 +327,9 @@ teaching.
 
 **Disagreements.** Some traders use *N* = 2 (five-candle fractals, as in Bill Williams' fractals); ICT
 uses three-candle swings for short-term structure.
+
+*Implemented in T11:* one candle each side, as drafted. Measured on real NQ: about 13.5 swings
+per 30 candles on every timeframe, highs and lows together — dense, which is why the ranks matter.
 
 **Teach.** A (click the swing highs), B (swing or not?).
 
@@ -340,9 +343,12 @@ intermediate-term high with lower intermediate-term highs on both sides. Lows mi
 matters more than breaking a short-term one, and intermediate-term points frame dealing ranges
 (ICT-40).
 
-**Tradeez rule — `swing-tier-1.0.0` (draft).** Tiers are computed from `swing-1.0.0` points exactly as
+**Tradeez rule — `swing-tier-1.0.0` ✅ (DEC-052).** Tiers are computed from `swing-1.0.0` points exactly as
 defined above. **Confirmation:** an ITH is known only once the next short-term high to its right is
 confirmed — a deliberate lag the overlays must respect.
+
+*Implemented in T11:* reported as `ITH`/`LTH`/`ITL`/`LTL` (every swing is short-term). A rank
+reads at most 300 candles; measured spans never passed 160.
 
 **Teach.** A (mark the intermediate-term highs), B (tier of the marked swing).
 
@@ -353,10 +359,13 @@ confirmed — a deliberate lag the overlays must respect.
 bullish order flow, bullish PD arrays (Part 4–5) hold when price returns to them and bearish ones
 fail; bearish order flow is the reverse.
 
-**Tradeez rule — `structure-1.0.0` (draft).** Label each confirmed swing HH / HL / LH / LL relative to
+**Tradeez rule — `structure-1.0.0` ✅ (DEC-052).** Label each confirmed swing HH / HL / LH / LL relative to
 the previous swing of the same kind. The structure state is bullish after an HH and an HL, bearish
 after an LL and an LH, and undefined otherwise. Order flow ("are PD arrays being respected?") is J and
 is taught, not computed.
+
+*Implemented in T11:* labels `HH`/`LH`/`EH`, `HL`/`LL`/`EL` against the previous swing of the
+same kind within 200 candles.
 
 **Teach.** A (label the swings), C ("bullish or bearish structure at the cursor?" — then reveal the
 next swing).
@@ -367,7 +376,7 @@ next swing).
 usually leaving fair value gaps behind. ICT treats displacement as the signature of large orders —
 a structure break without displacement is not trusted.
 
-**Tradeez rule — `displacement-1.0.0` (draft).**
+**Tradeez rule — `displacement-1.0.0` ✅ (DEC-052).**
 - A run of 1 to 3 consecutive candles in the same direction (all up-close or all down-close),
 - whose combined body is at least **2 ×** the average high–low range of the 14 candles before the
   run,
@@ -378,6 +387,10 @@ a structure break without displacement is not trusted.
 **Disagreements.** Some define displacement purely as "creates an FVG"; others by a multiple of ATR;
 ICT describes it visually. The multiple is a placeholder until measured on real NQ.
 
+*Implemented in T11, settled:* the leg is the gap's own candles — the middle one, with the first
+and third when they close the same way — so there is one displacement per gap, known with it. Two
+times the recent range marks about half of all gaps on real NQ; kept.
+
 **Teach.** A (mark displacement legs), B ("displacement or just a big candle?").
 
 ### ICT-05 · Market structure shift (MSS)
@@ -387,7 +400,7 @@ old low (sell-side liquidity), then reverses with displacement and **closes abov
 that came before that low. Bearish mirrors. In ICT's teaching the sequence matters — sweep, then
 displacement, then break — which is what separates an MSS from an ordinary break.
 
-**Tradeez rule — `mss-1.0.0` (draft), bullish case.**
+**Tradeez rule — `mss-1.0.0` ✅ (DEC-052), bullish case.**
 1. A swing low *L* trades at least one tick below an earlier, still-resting swing low (a sweep,
    ICT-13). Parameter `requiresSweep = true`.
 2. *H* is the most recent swing high confirmed before *L*.
@@ -398,6 +411,10 @@ displacement, then break — which is what separates an MSS from an ordinary bre
 
 **Disagreements.** Close versus wick beyond the level; whether the sweep is required; which swing
 counts. Each is a parameter.
+
+*Implemented in T11:* confirmed at the later of the break and the displacement's confirmation —
+often one move, the displacement candle closing through the level a candle before its gap is known.
+Everything read within 200 candles.
 
 **Teach.** A (find the MSS), B ("MSS or not — and which condition failed?"), C ("an MSS just
 confirmed: does price reach the FVG it left before making a new high?").
@@ -411,6 +428,9 @@ displacement conditions.
 
 **Tradeez.** Learners meet these words in YouTube content, so the structure overlay can label breaks
 as BOS / CHoCH on request, with a note that these are SMC terms. `structure-1.0.0` covers both.
+
+*Implemented in T11:* a `BOS_CHOCH` detector under `structure-1.0.0`: the first close beyond the
+latest swing, `BOS` with the trend, `CHOCH` against it, unnamed while structure is undefined.
 
 **Teach.** B ("BOS or CHoCH?") — the classification drill DEC-023 already names.
 
@@ -1280,7 +1300,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-21, ICT-42, ICT-43 | — | Fibonacci with ICT preset, zone + CE | A | drawn by the learner | T8 |
 | (all) | S-1, S-2, S-3 | — | — | — | T9 |
 | ICT-20 – ICT-28 | `fvg` (re-measured), `fvg-state`, `ifvg`, `bpr`, `vi`, `void`, `opening-gap`, `org` | zones with state | A, B, C | G: fill rates, the ORG claim | T10 ✅ (detectors and overlay; drills T13, evidence T21) |
-| ICT-01 – ICT-06 | `swing`, `swing-tier`, `structure`, `displacement`, `mss` | swing markers, structure labels | A, B, C | — | T11 |
+| ICT-01 – ICT-06 | `swing`, `swing-tier`, `structure`, `displacement`, `mss` | swing markers, structure labels | A, B, C | — | T11 ✅ (detectors and overlay; drills T13) |
 | ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 |
 | (all D/R) | — | — | S-4 engine, S-5 state | — | T13, T16 |
 | ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 |

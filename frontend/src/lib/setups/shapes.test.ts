@@ -70,6 +70,31 @@ describe('what each hit looks like on the chart', () => {
     expect(second).toMatchObject({ from: 230_000, to: 'edge', label: 'NWOG' })
   })
 
+  it('puts highs above and lows below, names ranks and labels, and leaves plain swings unnamed (T11)', () => {
+    const point = (detector: string, kind: string, direction: Setup['direction']) =>
+      setup({ detector, kind, direction, shape: 'POINT', lowTicks: 120, highTicks: 120 })
+    const [swing, ith, hh, hl] = toShapes(
+      layer([
+        point('SWING', 'HIGH', 'BEARISH'),
+        point('SWING_TIER', 'ITH', 'BEARISH'),
+        point('STRUCTURE', 'HH', 'BULLISH'),
+        point('STRUCTURE', 'HL', 'BULLISH'),
+      ]),
+      STEP,
+    )
+    expect(swing).toMatchObject({ above: true, label: '' })
+    expect(ith).toMatchObject({ above: true, label: 'ITH' })
+    // A higher high is bullish structure, but it is still a high: above the candle.
+    expect(hh).toMatchObject({ above: true, label: 'HH' })
+    expect(hl).toMatchObject({ above: false, label: 'HL' })
+  })
+
+  it('draws a break as a line from the swing to the candle that broke it, by its SMC name', () => {
+    const choch = setup({ detector: 'BOS_CHOCH', kind: 'CHOCH', shape: 'LEVEL', start: 0, anchor: 900, end: 900 })
+    const [shape] = toShapes(layer([choch]), STEP)
+    expect(shape).toMatchObject({ from: 0, to: 1200, label: 'CHoCH' })
+  })
+
   it('runs an opening range gap from 09:30 to the next one’s 16:15 close, with its quarters', () => {
     const monday = setup({ detector: 'ORG', start: 0, anchor: 60_000, end: 60_000 })
     const tuesday = setup({ detector: 'ORG', start: 84_000, anchor: 145_000, end: 145_000 })

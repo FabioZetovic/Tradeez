@@ -55,7 +55,8 @@ class DetectorContractTest extends AbstractIntegrationTest {
 	@DisplayName("every detector is registered once, names a lookback, and finds something on every timeframe here")
 	void registered() {
 		assertThat(detectors.all()).extracting(Detector::id)
-			.containsExactlyInAnyOrder("BPR", "FVG", "FVG_STATE", "IFVG", "OPENING_GAP", "ORG", "VI", "VOID");
+			.containsExactlyInAnyOrder("BPR", "FVG", "FVG_STATE", "IFVG", "OPENING_GAP", "ORG", "VI", "VOID",
+				"SWING", "SWING_TIER", "STRUCTURE", "BOS_CHOCH", "DISPLACEMENT", "MSS");
 		for (Timeframe timeframe : SERIES.keySet()) {
 			List<Bar> bars = bars(timeframe);
 			for (Detector detector : detectors.all()) {

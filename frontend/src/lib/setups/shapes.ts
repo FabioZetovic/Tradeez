@@ -11,6 +11,9 @@ import type { Setup, SetupLayer } from '../api/setups'
  * - opening gaps (OPENING_GAP): an NDOG until the next closure, an NWOG to the right edge;
  * - opening range gaps (ORG): until the next one, with its quarters.
  * Nothing live is drawn past a contract roll: no detector sees across one.
+ *
+ * Swings and their ranks are points: above a high, below a low. A break of structure or a market
+ * structure shift is a line at the level that broke, from the swing to the candle that broke it.
  */
 
 export interface SetupShape {
@@ -24,6 +27,18 @@ export interface SetupShape {
   faded: boolean
   /** Quarter lines inside the zone, as ICT reads opening range gaps (ICT-28). */
   quadrants: boolean
+  /** A point drawn above its price — a high — rather than below it. */
+  above: boolean
+}
+
+/** Kinds of point that mark a high (T11): drawn above the candle. */
+const HIGHS = new Set(['HIGH', 'ITH', 'LTH', 'HH', 'LH', 'EH'])
+
+/** What a hit is called on the chart, where its kind or rule id would not read well. */
+const LABELS: Record<string, string> = {
+  SWING: '',
+  DISPLACEMENT: 'Disp',
+  CHOCH: 'CHoCH',
 }
 
 /** The order a gap's states are reached in, for hits confirmed at the same moment. */
@@ -46,7 +61,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
   const lifecycles = new Map<string, Setup>()
 
   for (const setup of layer.setups) {
-    const base = { setup, faded: false, quadrants: false }
+    const base = { setup, faded: false, quadrants: false, above: HIGHS.has(setup.kind ?? '') }
     switch (setup.detector) {
       case 'FVG_STATE': {
         const key = `${setup.anchor}|${setup.direction}`
@@ -86,7 +101,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
           ...base,
           from: setup.start,
           to: setup.end + step,
-          label: setup.kind ?? setup.detector,
+          label: LABELS[setup.detector] ?? LABELS[setup.kind ?? ''] ?? setup.kind ?? setup.detector,
         })
     }
   }
@@ -100,6 +115,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
       label: STATE_LABEL[state.kind ?? ''] ?? 'FVG',
       faded: !live,
       quadrants: false,
+      above: false,
     })
   }
   return shapes

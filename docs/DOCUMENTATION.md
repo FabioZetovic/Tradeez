@@ -1589,6 +1589,18 @@ moment. The subtle part is the candle that has not finished yet: five minutes in
 candle, the chart shows exactly those five minutes, as a live chart would, and never the ten still
 to come. Stepping moves one candle of whatever is on screen, completing the unfinished one first.
 
+**Market structure.** The next chapter of the curriculum is how ICT reads the shape of the market:
+swing highs and lows, which of them matter most (intermediate- and long-term), whether price is
+making higher highs and higher lows, displacement — a forceful move — and the market structure shift,
+ICT's sign that direction may have turned: a sweep of an old low, a forceful move up, a close through
+the last high. All of it is now on the chart, each part its own switch.
+
+Building the shift turned up a real flaw in the drafted rule: it asked for the forceful move to be
+confirmed by the moment the high was broken, but most often the forceful candle *is* the one that
+breaks it — and the gap that proves it was forceful is only known a candle later. The commonest
+shift would never have been recognised. A test built from exactly that case found it before anything
+was committed.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1603,9 +1615,9 @@ the example file contains a key — and it names the setting without ever printi
 bars, the import ledger, the real NQ instrument; V8: the simulated markets leave the list), 697,003
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
-the detector framework, imbalances and gaps, any timeframe in practice): backend 223 → 306,
-frontend 148 → 230, V9 to V13,
-DEC-044 to DEC-051.*
+the detector framework, imbalances and gaps, any timeframe in practice, market structure): backend 223 → 315,
+frontend 148 → 233, V9 to V13,
+DEC-044 to DEC-052.*
 
 ---
 

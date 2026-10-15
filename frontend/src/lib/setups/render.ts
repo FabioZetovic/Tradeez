@@ -67,7 +67,7 @@ export function renderSetups(
         break
       case 'POINT': {
         const x = timeToX(shape.setup.anchor + step / 2, bars, step, projection)
-        if (x !== null) drawPoint(ctx, shape.setup, x, rgb, projection)
+        if (x !== null) drawPoint(ctx, shape, x, rgb, projection)
         break
       }
     }
@@ -138,17 +138,17 @@ function drawLevel(
   label(ctx, shape.label, x0 + 3, yy - 13, x1 - x0, 12, rgb, alpha)
 }
 
-/** Under a bullish point's price, over a bearish one's: where the eye looks for a low or a high. */
+/** Over a high, under a low — where the eye looks for one — with its name beyond the mark. */
 function drawPoint(
   ctx: CanvasRenderingContext2D,
-  setup: Setup,
+  shape: SetupShape,
   x: number,
   rgb: string,
   projection: Projection,
 ): void {
-  const y = projection.priceToY(setup.lowTicks)
+  const y = projection.priceToY(shape.setup.lowTicks)
   if (y === null) return
-  const below = setup.direction !== 'BEARISH'
+  const below = !shape.above
   const tip = below ? y + 4 : y - 4
   const base = below ? tip + 6 : tip - 6
   ctx.fillStyle = `rgba(${rgb}, 0.9)`
@@ -158,6 +158,9 @@ function drawPoint(
   ctx.lineTo(x + 4, base)
   ctx.closePath()
   ctx.fill()
+  if (!shape.label) return
+  const width = ctx.measureText(shape.label).width
+  ctx.fillText(shape.label, x - width / 2, below ? base + 2 : base - 12)
 }
 
 /** Text only where it fits inside the shape: a label spilling out would name the wrong one. */

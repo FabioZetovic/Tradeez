@@ -14,6 +14,11 @@ const LABELS: Record<string, string> = {
   FVG_STATE: 'FVG state',
   OPENING_GAP: 'NWOG/NDOG',
   VOID: 'Gaps/voids',
+  SWING: 'Swings',
+  SWING_TIER: 'ITH/LTH',
+  STRUCTURE: 'HH/HL',
+  BOS_CHOCH: 'BOS/CHoCH',
+  DISPLACEMENT: 'Displacement',
 }
 
 /** Every rule starts off: a learner should find a gap before being shown one. */

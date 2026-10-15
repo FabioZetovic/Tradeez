@@ -203,6 +203,9 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Chart | `vi-1.0.0`'s minimum is 4 ticks, not a share of the range | Measured: body gaps do not grow with the timeframe. Four ticks is one NQ point — right for NQ and MNQ, and to be measured again for any other instrument |
 | Chart | Opening gaps on charts of an hour or less; opening range gaps on 1m–15m | A 4-hour or daily candle straddles the closure, and a 30-minute or hourly candle has no close at 16:15 New York |
 | Chart | With several rules on, a zoomed-out chart is busy | Every rule is its own switch, off by default; finished gaps are drawn faint. A detector-aware decluttering (e.g. hiding filled gaps) is a later design choice |
+| Chart | Swings are dense: about 13 per 30 candles | `swing-1.0.0` is ICT's one-candle swing (DEC-052). Read the chart with the ranks (ITH/LTH) or the labels instead; the plain swings switch is for learning what a swing is |
+| Chart | Structure rules read at most 200 candles back (ranks 300) | The bound that keeps their lookback finite (DEC-052). Far above anything measured on real NQ, but a structure reaching further would not be labelled |
+| Chart | BOS and CHoCH are not named while structure is undefined | Only after an HH and an HL (bullish) or an LL and an LH (bearish) — mixed structure has no trend for a break to agree or disagree with |
 | Chart | No infinite scroll into older history | Each view loads a fixed window ending at the chosen date; the date picker and the 1W–2Y jumps move it |
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |
 | Fill engine | `AMBIGUOUS` is a legitimate outcome, not a failure | DEC-008 — candle data genuinely cannot always say which of TP/SL came first |
