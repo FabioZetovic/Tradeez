@@ -55,7 +55,9 @@ final class DayBarCache {
 	/** Whether this cache may answer the range — see the class comment for why this is the guard. */
 	static boolean covers(Timeframe timeframe, Instant from, Instant to) {
 		long step = timeframe.seconds();
-		return timeframe != Timeframe.S1
+		// A 4-hour or daily candle counts from 18:00 New York and can straddle UTC midnight: a cache of UTC
+		// days would build it in two halves (T35).
+		return timeframe != Timeframe.S1 && !timeframe.sessionAnchored()
 			&& SECONDS_PER_DAY % step == 0
 			&& to.isAfter(from)
 			&& Math.floorMod(from.getEpochSecond(), step) == 0

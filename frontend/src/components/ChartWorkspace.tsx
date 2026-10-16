@@ -29,6 +29,7 @@ import { DrawingToolbar } from './DrawingToolbar'
 import { SetupOverlay } from './SetupOverlay'
 import { SetupToggles } from './SetupToggles'
 import { useClockLayers } from '@/hooks/useClockLayers'
+import { drawsClock } from '@/lib/clock/layers'
 import { useSetupLayers } from '@/hooks/useSetupLayers'
 import { useDrawings } from '@/hooks/useDrawings'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
@@ -128,7 +129,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   const [clock, setClock] = useState<{ key: string; layer: ClockLayer | null } | null>(null)
   const { shown: clockShown, toggle: toggleClock } = useClockLayers()
   useEffect(() => {
-    if (windowEnd === null || requestKey === null) return
+    if (windowEnd === null || requestKey === null || !drawsClock(timeframe)) return
     let cancelled = false
     const { from, to } = chartWindow(timeframe, windowEnd)
     getChartClock(symbol, from, to)
@@ -285,7 +286,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
 
       {instrument && series && !error && (
         <div className="flex flex-wrap items-start gap-2 self-start">
-          <ClockToggles shown={clockShown} onToggle={toggleClock} />
+          <ClockToggles shown={clockShown} onToggle={toggleClock} available={drawsClock(timeframe)} />
           <SetupToggles rules={setupRules} shown={setupsShown} onToggle={toggleSetup} />
         </div>
       )}
@@ -317,18 +318,21 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
             tickSize={instrument.tickSize}
             exchangeTimezone={instrument.exchangeTimezone}
             axisTimezone={axisTimezone}
+            daily={timeframe === '1d'}
             adapterFactory={adapterFactory}
             recentBars={RECENT_BARS}
             overlay={(adapter) => (
               <>
-                <ClockOverlay
-                  adapter={adapter}
-                  layer={clock?.layer ?? null}
-                  bars={series.bars}
-                  timeframe={series.timeframe}
-                  tickSize={instrument.tickSize}
-                  shown={clockShown}
-                />
+                {drawsClock(series.timeframe) && (
+                  <ClockOverlay
+                    adapter={adapter}
+                    layer={clock?.layer ?? null}
+                    bars={series.bars}
+                    timeframe={series.timeframe}
+                    tickSize={instrument.tickSize}
+                    shown={clockShown}
+                  />
+                )}
                 <SetupOverlay
                   adapter={adapter}
                   layer={setups?.key === setupsKey ? setups.layer : null}

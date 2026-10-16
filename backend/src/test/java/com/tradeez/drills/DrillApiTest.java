@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -183,9 +184,12 @@ class DrillApiTest extends AbstractIntegrationTest {
 			Instant from = Instant.ofEpochSecond(times.getFirst());
 			Instant to = Instant.ofEpochSecond(times.getLast() + 300);
 
-			// Recomputed independently: the detector over the same market, with its lookback.
+			// Recomputed independently: the detector over the same market, with days of history before the
+			// window. Not 15 × 5 minutes: a window opening just after the 17:00 halt would have only the
+			// minutes since 18:00 behind it, and miss a gap the rule finds with the candles before the halt
+			// (BUG-065). More history than the lookback changes nothing (DetectorContractTest).
 			Instrument nq = marketData.requireInstrument("DEMO-NQ");
-			List<Bar> bars = marketData.internalBars(nq, Timeframe.M5, from.minusSeconds(15 * 300),
+			List<Bar> bars = marketData.internalBars(nq, Timeframe.M5, from.minus(Duration.ofDays(4)),
 				to, MarketDataService.PUBLIC_CHART_SEED).bars();
 			List<Long> expected = FvgDetector.detect(bars, Timeframe.M5,
 					FvgDetector.Parameters.DEFAULT).stream()

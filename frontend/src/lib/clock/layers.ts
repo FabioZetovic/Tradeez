@@ -17,6 +17,14 @@ export const CLOCK_LAYERS = [
 
 export type ClockLayerKey = (typeof CLOCK_LAYERS)[number]['key']
 
+/**
+ * The clock is drawn on intraday charts, up to 4h (T35). On a daily chart each of its windows is a
+ * sliver inside one candle and each day separator a candle's edge: nothing left to read.
+ */
+export function drawsClock(timeframe: string): boolean {
+  return timeframe !== '1d'
+}
+
 /** What a first look shows: the day's shape and the prices most often read off it. */
 export const DEFAULT_CLOCK_LAYERS: readonly ClockLayerKey[] = [
   'days',

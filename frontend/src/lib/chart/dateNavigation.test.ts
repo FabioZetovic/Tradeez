@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { drawsClock } from '../clock/layers'
 import {
   chartWindow,
   clampEnd,
@@ -33,13 +34,27 @@ describe('moving around real history (T3)', () => {
   })
 
   it('loads a calendar window per timeframe that stays under the backend cap of 20,000 bars', () => {
-    const seconds: Record<string, number> = { '1m': 60, '3m': 180, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600 }
+    const seconds: Record<string, number> = {
+      '1m': 60, '3m': 180, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '4h': 14_400, '1d': 86_400,
+    }
+    expect(Object.keys(WINDOW_DAYS)).toEqual(Object.keys(seconds))
     for (const [tf, days] of Object.entries(WINDOW_DAYS)) {
       expect((days * DAY) / seconds[tf]).toBeLessThan(20_000)
+      // And inside the backend's widest range, 400 days.
+      expect(days).toBeLessThanOrEqual(400)
       // Long enough that a window ending on a Monday morning still reaches back past the weekend.
       expect(days).toBeGreaterThanOrEqual(4)
     }
     expect(chartWindow('5m', 1_000_000_000)).toEqual({ from: 1_000_000_000 - 14 * DAY, to: 1_000_000_000 })
+  })
+
+  it('T35: where the New York clock is drawn, its range covers the whole window — 200 days at most', () => {
+    // The server refuses a wider clock (ClockService.MAX_RANGE), and the overlay would quietly vanish.
+    for (const [tf, days] of Object.entries(WINDOW_DAYS)) {
+      if (drawsClock(tf)) expect(days, tf).toBeLessThanOrEqual(200)
+    }
+    expect(drawsClock('4h')).toBe(true)
+    expect(drawsClock('1d')).toBe(false)
   })
 
   it('keeps the window end inside the imported data', () => {

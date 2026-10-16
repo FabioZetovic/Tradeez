@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T16, T34, DEC-056–059 and the bug hunt merged; T35 (session-aligned 4h/daily) next
+last_session: 017   # in progress — T1–T16, T34, DEC-056–059 and the bug hunt merged; T35 (session-aligned 4h/daily, DEC-060) built on feat/session-candles, waiting for "merge"
 last_author: CLAUDE
 last_updated: 2026-10-16
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: feat/session-candles                      # T35 (DEC-060, BUG-063, BUG-064), not merged; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 460/460 (Testcontainers), frontend 287/287 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 474/474 (Testcontainers), frontend 296/296 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -81,7 +81,7 @@ files_in_repo:
     common/      # health endpoint; validation errors for every controller, never echoing or logging the rejected value (BUG-054)
     config/      # SecurityConfig (CSRF, CORS, filter chain), OpenApiConfig
     identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
-    marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015)
+    marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015); Timeframe.bucketStart = where a candle starts: 4h/1d from the 18:00 New York open (017, T35, DEC-060)
       importing/ # shared: ImportLedger, ImportCommand (CLI), ImportReport, ImportChunks     (017)
       databento/ # Databento client + cost-capped importer (DEC-040)                          (017)
       massive/   # Massive client, request pacer, quarterly contracts, volume roll, importer (017, DEC-042)
@@ -122,7 +122,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T35 (session-aligned 4h and daily candles) next, then M3 (T17 blocks).
+blocked_on: nothing — T35 waits for Fabio's "merge"; then M3 (T17 blocks).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -150,7 +150,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T16 learning state (DEC-059), on branch feat/learning-state (2026-10-16)
+claimed_files:      # session 017 (CLAUDE) — T35 session-aligned 4h/daily (DEC-060), on branch feat/session-candles (2026-10-16)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -167,7 +167,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, on branch).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -202,7 +202,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T34 | ~~**Switchable timeframes in practice**~~ | T5 | F | ✅ Session 017, **merged 2026-10-15 as `ec617ca`** (DEC-051): any of 1m–1h mid-replay; the forming candle built only from minutes before the cursor (tested, and a leak mutation caught); steps and skip in viewed candles, never past the limit; chart updates the forming candle in place; clock, setups and finished trades follow the view. |
 | T11 | ~~**Market structure**~~ | T9 | I-01–06 | ✅ Session 017, **merged 2026-10-15 as `57af061`** (DEC-052): measured first (swings ~13.5/30 candles, rank spans ≤ 160, displacement 2× = half of all gaps); `swing-1.0.0`, `swing-tier-1.0.0` (ITH/LTH/ITL/LTL), `structure-1.0.0` labels and its BOS/CHoCH breaks, `displacement-1.0.0` (the gap's own candles), `mss-1.0.0` (sweep → displacement → close, confirmed when both are known); every rule reads a bounded span (200/300). |
 | T12 | ~~**Liquidity**~~ | T11 | I-10–14 | ✅ Session 017, **merged 2026-10-15 as `1cb0c52`** (DEC-053): measured first (half of swing levels taken within 5 candles, 95% within 500; 50% sweep / 29% run / 21% undecided; EQH/EQL 1.3–2.2 per 30); `liquidity-1.0.0` (RESTING → TAKEN/EXPIRED) on swings and on the clock's PDH/PWH/killzone levels (taken minute; a resting level makes the replay re-ask each step, revealing nothing); `eqhl-1.0.0`; `sweep-1.0.0` (sweep/run, judged on the most extreme level); turtle soup on equal pools. |
-| T35 | **Session-aligned 4h and daily candles** | T3 | F | Fabio asked why 4h/1d are missing (2026-10-15): aggregation counts from UTC midnight, which matches New York only up to 1h. Anchor 4h and daily buckets to the 18:00 New York session open, DST-aware, then offer them on the Chart tab and in practice. |
+| T35 | ~~**Session-aligned 4h and daily candles**~~ | T3 | F | ✅ Session 017 (DEC-060), on `feat/session-candles`: `Timeframe.bucketStart`, the one place a candle's start is decided — 4h at 18, 22, 02, 06, 10, 14 New York (the last 3h), daily 18:00 → 17:00 named by its trading day, safe across clock changes; the Chart tab and practice offer both (practice reaches back 30 / 120 days); the clock up to 4h, none on daily (BUG-063); detectors get their whole history on coarse charts and a request reads it once (BUG-064; nine rules on a cold daily chart 9.8 s → 3.0 s). |
 
 **M2 — The learning loop**
 
@@ -277,6 +277,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-060 | **4h and daily candles count from the trading day's 18:00 New York open** (`Timeframe.bucketStart`, one place): 4h at 18, 22, 02, 06, 10, 14 (the last 3h), daily 18:00 → 17:00 named by the next day (no Sunday candle); up to 1h from the epoch; never through the UTC day cache; practice's coarse views reach back 30 / 120 days on real data; daily labels name the trading day (weekday only on a hidden date); no New York clock on daily charts. |
 | DEC-059 | **The learning state, `learning-1.0.0`:** computed on every request from graded drills (real data only) and cards read, never stored; rated where a marking or naming drill grades (solid = ≥ 10 attempts and ≥ 80% over the last 20; attempts scored as the drill's result scores them); predictions are practice; unrated concepts done by reading; SM-2 reviews, one a day; the ladder's rules settled — it suggests, never locks. |
 | DEC-058 | **Prediction drills (mode C), `predict-1.0.0`:** the chart stops at a moment, two targets drawn (nearest resting BSL vs SSL with obstacle counts; or after a level was taken, the untapped gap behind vs the next level beyond — ERL/IRL); answered by the first candle within 100 to reach either (ties by minutes, else never asked; never across a roll); question and outcome written at creation (V16), nothing after the moment sent before the answer; real data only. |
 | DEC-057 | **A draft is not a trade; a placed trade can be closed at market.** Plan long/short only draws a draft (titled so, discardable); Place trade sends it. Close at market fills at the next fine bar's open (`fill-1.2.0`, `CLOSED`), stored in `practice_close` (V15) beside the untouched planned result; the plan's own stop/target wins a tie. |
@@ -2112,3 +2113,52 @@ clean. Waiting for Fabio to say merge.
 
 **2026-10-16 — T16 merged.** Fabio: "sure then merge and continue". `feat/learning-state` merged `--no-ff` as
 `a16f0d1`. Next: T35, session-aligned 4h and daily candles.
+
+**2026-10-16 — T35: session-aligned 4h and daily candles (DEC-060).** On `feat/session-candles`, not merged.
+- **One place decides where a candle starts:** `Timeframe.bucketStart`. Up to 1h from the epoch, as before;
+  4h and 1d from the trading day's 18:00 New York open — 4h at 18, 22, 02, 06, 10, 14 (the last three
+  hours long), a daily candle 18:00 → 17:00 and named by the next day. Aggregation, practice's steps and
+  its forming candle all use it; `DayBarCache` keeps out of 4h/1d (they straddle UTC days). Safe across
+  clock changes because New York changes clocks while CME is shut.
+- **Offered on the Chart tab and in practice.** Practice's coarse views reach back 30 days (4h) and 120
+  days (1d) before the hidden moment, real data only. Daily candles are labelled by trading day ("Mon, 9
+  Jun 2025"; the weekday alone on a hidden date). The frontend reads where a candle starts from the
+  chart's own candles (`candleAt`) — a finished trade's box, the running trade's anchor — instead of
+  `time − time % step`, which is wrong for both new timeframes.
+- **Found and fixed while checking it in the browser:** BUG-063 — the New York clock vanished on 4h/1d
+  (window wider than the clock's 200 days; 4h window now 200 days, no clock on daily, the switches say
+  why). BUG-064 — on coarse charts a detector got less history than its lookback (one ten-day margin for
+  closures; a daily chart lost two days in seven), so results could depend on where a scan began; it
+  now reaches back until it has the candles. Measuring it: each rule read two years of minutes and
+  looked up their rolls for itself — now once per request; nine rules on a cold daily chart 9.8 s → 3.0 s,
+  practice 1d 4.1 s → 1.1 s, 4h 1.2 s → 0.34 s, the same hits. ENV-011 — a mutation run counted a
+  build that never started as kills; both runners now need a passing baseline and a failing test.
+- **Checked live** (Chart tab at 1920 px, then a practice replay): 171 daily candles over eight months, all
+  opening 18:00 New York on Sunday–Thursday evenings; 4h candles only at the six hours (four fewer at
+  14:00 — early-close holidays); 400 days of daily candles in 1.2 s; the crosshair reads "Fri, 21 Aug
+  2026"; on a hidden date "Wed"; the clock on 4h, "On intraday charts, up to 4h" on daily.
+- Tests: TimeframeTest (6, including both sides of 9 March and 5,000 random moments), BarAggregatorTest
+  +2, DayBarCacheTest, RealPracticeApiTest +1 (`sessionCandles`, a session planted after the clock
+  change: hidden-clock hours, exactly 8 daily and 47 four-hour candles of history, the forming candle,
+  a daily step returning the whole day and landing on the next 18:00), ScanHistoryTest (4),
+  SetupScannerTest +1 (together = alone); frontend timeAxis +3, timeToX +2, plan +1, dateNavigation +1,
+  ClockToggles (2).
+- Mutations, one at a time after a passing baseline. 14 backend (the open at 17:00, counting from the
+  coming open, 4h from the epoch or on epoch multiples, the open read in Chicago, aggregation ignoring
+  the anchor, the UTC day cache, practice refusing 1d, no extra history, practice stepping from epoch
+  starts, one widening only, rolls ignored, an unscanned stretch trusted): 13 caught, two of them only
+  after `sessionCandles` was planted late and made to check the day a step returns. The 14th, every
+  detector given the longest lookback, is equivalent: DetectorContractTest proves a detector finds the
+  same with more history. 14 frontend (candle lookup, trading-day labels and zones, the hidden date,
+  finished-trade boxes, window sizes, the timeframe list, the clock on daily): all caught.
+- Backend 460 → 474, frontend 287 → 296.
+
+**2026-10-16 — Fresh-clone check of `48bab07`: one failure, fixed.** `DrillApiTest.answerKeyIsTheRule` — its
+independent recomputation had five candles of context for a drill window opening at 18:25, just after the
+daily reopen, and missed a gap the app had found correctly (BUG-065, a test bug: recomputing that exact
+window with days of context gives exactly the app's answer key). Everything else green: backend 473 of 474,
+frontend npm audit 0, lint, typecheck, knip, 296/296, build.
+
+**2026-10-16 — Fresh-clone check of `71c6e46`** (`feat/session-candles`), no `.env`: backend 474 test cases,
+0 failures, 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 296/296, build
+clean. Waiting for Fabio to say merge.

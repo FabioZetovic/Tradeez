@@ -66,9 +66,9 @@ public class SetupService {
 			Instant scanFrom, Instant scanTo, Instant until, List<String> detectorIds,
 			ToLongFunction<Instant> time) {
 		List<Detector> chosen = resolve(detectorIds);
+		scanner.ensureScanned(chosen, instrument, timeframe, seed, scanFrom, scanTo);
 		List<DetectedSetup> found = new ArrayList<>();
 		for (Detector detector : chosen) {
-			scanner.ensureScanned(detector, instrument, timeframe, seed, scanFrom, scanTo);
 			found.addAll(scanner.visible(detector, instrument, timeframe, seed, from, until, until));
 		}
 		return SetupDtos.of(chosen, found, marketData.rolls(instrument, from, until), time);

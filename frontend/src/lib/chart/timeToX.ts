@@ -17,7 +17,29 @@ export function timeToX(
   projection: Projection,
 ): number | null {
   if (bars.length === 0) return null
-  // The last bar opening at or before the time.
+  const index = lastAtOrBefore(time, bars)
+  const at = Math.max(index, 0)
+  const x = projection.timeToX(bars[at].time)
+  if (x === null) return null
+  const spacing = barSpacing(at, bars, projection)
+  if (index === -1) return x - spacing / 2
+  const fraction = Math.min(time - bars[at].time, step) / step
+  return x - spacing / 2 + fraction * spacing
+}
+
+/**
+ * The start of the candle a time falls in, read from the candles themselves: the last opening at or
+ * before it. The chart's candles are the authority on where one starts — on 4h and daily charts that is
+ * the trading day's 18:00 New York open (T35), not a multiple of the timeframe. The time itself when no
+ * candle comes before it.
+ */
+export function candleAt(time: number, bars: readonly DomainBar[]): number {
+  const index = lastAtOrBefore(time, bars)
+  return index === -1 ? time : bars[index].time
+}
+
+/** The index of the last bar opening at or before the time, or −1. */
+function lastAtOrBefore(time: number, bars: readonly DomainBar[]): number {
   let lo = 0
   let hi = bars.length - 1
   let index = -1
@@ -30,13 +52,7 @@ export function timeToX(
       hi = mid - 1
     }
   }
-  const at = Math.max(index, 0)
-  const x = projection.timeToX(bars[at].time)
-  if (x === null) return null
-  const spacing = barSpacing(at, bars, projection)
-  if (index === -1) return x - spacing / 2
-  const fraction = Math.min(time - bars[at].time, step) / step
-  return x - spacing / 2 + fraction * spacing
+  return index
 }
 
 function barSpacing(index: number, bars: readonly DomainBar[], projection: Projection): number {

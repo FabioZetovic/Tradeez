@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DomainBar } from './types'
 import type { Projection } from '../drawing/types'
-import { timeToX } from './timeToX'
+import { candleAt, timeToX } from './timeToX'
 
 /**
  * Five-minute bars with a closed market in the middle — 00:15 to 01:00 has no bars, as a
@@ -52,3 +52,19 @@ describe('placing a time on the chart', () => {
   })
 })
 
+
+describe('the candle a time falls in', () => {
+  it('is the last candle opening at or before it — across a closure too', () => {
+    expect(candleAt(0, BARS)).toBe(0)
+    expect(candleAt(299, BARS)).toBe(0)
+    expect(candleAt(300, BARS)).toBe(300)
+    // Inside the closed market: the candle before the gap.
+    expect(candleAt(2000, BARS)).toBe(600)
+    expect(candleAt(99_999, BARS)).toBe(3900)
+  })
+
+  it('is the time itself before the first candle, or with no candles at all', () => {
+    expect(candleAt(-5, BARS)).toBe(-5)
+    expect(candleAt(42, [])).toBe(42)
+  })
+})

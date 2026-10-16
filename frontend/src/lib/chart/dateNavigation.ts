@@ -22,6 +22,10 @@ export const WINDOW_DAYS: Record<string, number> = {
   '15m': 40,
   '30m': 80,
   '1h': 160,
+  // The New York clock's widest range (ClockService.MAX_RANGE), so it covers the whole window.
+  '4h': 200,
+  // The backend's widest range: about 280 trading days. No clock on daily charts (drawsClock).
+  '1d': 400,
 }
 
 /** "5m" → 300. */

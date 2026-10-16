@@ -367,6 +367,73 @@ Spot FX has no consolidated tape; price and volume vary by venue, which does not
 model. "Forex" enters the app as **FX futures** (6E, 6B, 6J) once appropriately licensed CME data
 is available. Phase 0 does not use a spot-FX or crypto proxy.
 
+**DEC-060 — 4-hour and daily candles count from the trading day's 18:00 New York open**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-16), T35 — Fabio asked why 4h and 1d were missing
+(2026-10-15)
+
+- **Why the epoch was wrong for them.** Candles counted from the Unix epoch, that is from UTC
+  midnight. Up to an hour that matches New York, whose offset is a whole number of hours. A 4-hour
+  candle does not: from UTC midnight it opens at 20, 00, 04 … New York in summer and 19, 23, 03 … in
+  winter, so its hours would move twice a year and never meet the 18:00 open. A daily candle from UTC
+  midnight would run 20:00 to 20:00 New York, two hours into the next trading day. Futures platforms
+  count both from the session's open.
+- **The rule, in one place (`Timeframe.bucketStart`).** The CME trading day opens at 18:00 New York
+  (17:00 Chicago) and belongs to the next calendar day: Sunday evening's open is Monday's. A daily
+  candle is one trading day, 18:00 to the 17:00 halt — five a week, no Sunday candle. 4-hour candles
+  open at 18, 22, 02, 06, 10 and 14 New York; the last holds three hours, because the market halts at
+  17:00. Up to 1h nothing changed. Aggregation, practice's steps and its forming candle all call the
+  same function.
+- **Safe across clock changes by construction.** New York changes its clocks at 02:00 on a Sunday,
+  while the market is closed, so inside one trading day the offset never changes and a candle's hours
+  never shift. Tested on both sides of 9 March 2025, winter against summer, and by a property over
+  5,000 random moments: every one lands in the candle that starts at or before it, less than its
+  length earlier, on an allowed hour.
+- **The day cache stays out of it.** `DayBarCache` keeps candles per UTC day; a 4h or daily candle
+  straddles UTC midnight and would be built in two halves, so those are always built from the minutes.
+- **On the Chart tab and in practice.** Both offer 4h and 1d. In practice a coarse view reaches further
+  back than the usual four days, which would be four daily candles: 30 days before the hidden moment on
+  4h, 120 on 1d (real data only; a simulated market keeps its own history). The forming candle is built
+  only from the minutes before the cursor, as on every view (DEC-051); a step on 1d completes the day
+  and lands on the next 18:00. The hidden-date clock (DEC-045) keeps New York's wall time, so candles
+  open at 18:00 there too. Four months of daily candles do not weaken the hidden date beyond what
+  DEC-045 already states: the price level hints at the era either way.
+- **Labelled by trading day.** A daily candle is named by its day, not its open: "Mon, 9 Jun 2025", not
+  Sunday 18:00. On a hidden date only the weekday — the date is the secret.
+- **The frontend asks the chart's candles.** Where a time falls — a trade's entry and exit, the running
+  trade's anchor — is read from the candles on the chart (`candleAt`), not from `time − time % step`,
+  which is wrong for both new timeframes and would have stayed wrong silently.
+
+- **The New York clock up to 4h.** On 4h it is drawn as on every intraday chart, over a 200-day window
+  (the clock's widest range — a wider one was refused and the overlay vanished, BUG-063). On a daily
+  chart it is not drawn: each of its windows would be a sliver inside one candle and each day separator
+  a candle's edge. Its switches say so rather than doing nothing.
+
+Measured on the dev database (two years of real NQ minutes), the Chart tab and a practice replay:
+
+| Request | Before | After |
+|---|---|---|
+| Daily candles, 400 days (Chart tab) | — | 1.2 s |
+| 4h candles, 200 days, with the clock (Chart tab) | — | 0.6 s + 0.5 s |
+| Nine detectors, daily, 400 days (Chart tab), first time | 9.8 s | 3.0 s |
+| Nine detectors, daily, practice, first time | 4.1 s | 1.1 s |
+| Nine detectors, 4h, practice, first time | 1.2 s | 0.34 s |
+| The same, asked again | | 0.1–0.7 s |
+
+A detector's lookback on a daily chart is two years of minutes. Each rule read them, and looked up the
+contract rolls in them, for itself; now a request reads them once for all its rules. Measuring it found
+BUG-064 too: the history handed to a detector was short on coarse charts, fixed with it. Setups stay off
+by default (DEC-049, S-3) and load beside the chart, never in front of it.
+
+A detector's candle is treated as ending one full length after its open. For the three-hour last
+candle, and for Friday's 23-hour day, that is an hour after the real end: confirmation can come late,
+never early, so nothing is shown before it was known (DEC-009).
+
+Not in this decision: weekly and monthly candles, and session-aligned candles below 4h (2h, for
+instance, which 18:00 divides evenly but no learner has asked for).
+
+**Reconsider if** CME moves the session open or the halt, or Tradeez adds an instrument whose day is
+not CME's — the open becomes per instrument then.
+
 ---
 
 ### The replay and simulation engine
@@ -494,6 +561,9 @@ already gone — the next trade happens at the next open, which is also how the 
 
 Not in this decision: remembering the viewed timeframe when a session is resumed (it reopens on its
 own), and 4h/daily, which need session-aligned candles first (T35).
+
+*Extended by DEC-060 (Session 017, T35):* 4h and daily are offered too, counted from the 18:00 New York
+open, with weeks of history before the replay's start.
 
 **DEC-047 — The New York clock layer: three versioned rules, computed from minutes, never ahead of
 the cursor**

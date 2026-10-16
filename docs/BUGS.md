@@ -22,13 +22,28 @@ and none was open — found four that had never been logged (BUG-040 to BUG-043)
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
 building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), the upgrade to the newest
 versions three (BUG-052 to BUG-054, one a security bug), Fabio's practice report two (BUG-055,
-BUG-056), the bug hunt Fabio asked for four (BUG-057 to BUG-060), and building T16 two (BUG-061, BUG-062). All
-twenty-three are fixed, and ENV-007 with them.
+BUG-056), the bug hunt Fabio asked for four (BUG-057 to BUG-060), building T16 two (BUG-061, BUG-062), and
+building T35 two (BUG-063, BUG-064), and its fresh-clone check one (BUG-065). All twenty-six are fixed, and
+ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
 
 ## Environment
+
+### ENV-011 🟡 A mutation run counted a build that never started as fourteen kills
+
+**Status:** verified and fixed (session 017, T35, 2026-10-16)
+
+The backend mutation script ran `mvnw.cmd` through Node, and Node's shell on this machine does not look
+in the working directory: every run failed at once with "not recognized", and the script counted any
+failure as a test catching the mutation. Fourteen kills arrived in seconds, which is what gave it away —
+a Testcontainers run takes a minute or two. The sources were intact (each restore ran). Fixed in the
+runner: it calls `.\mvnw.cmd`, runs the unmutated code first and stops unless that passes, counts a
+kill only when the output shows a failing test, and reports a compile error or a launch failure as
+what it is. The frontend runner got the same checks and was re-run. While fixing it, a backtick inside a
+double-quoted shell string was executed as a command and started a stray test run (stopped): scripts
+with backticks are written to a file, never inlined.
 
 ### ENV-010 🟡 Summing Surefire's report headers undercounts tests in nested classes
 
@@ -548,6 +563,59 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-065 🟡 A drill test recomputed its answer key with too little history after the daily halt
+
+**Status:** verified — failed in the fresh-clone check of T35 (session 017, 2026-10-16), passed locally
+**Affects:** `backend/src/test/.../drills/DrillApiTest.java` `answerKeyIsTheRule` — the test, not the app
+
+**What happened.** The test checks a drill's answer key against the FVG rule run again independently,
+over the drill's window and "its lookback", written as 15 × 5 minutes before the window. The window is
+random. This time it opened at 18:25 New York, 25 minutes after the daily reopen, so those 75 minutes
+held five candles. The rule measures a gap against the 14 candles before it, so the recomputation could
+not see the gap at 18:50 that the app had found correctly, with the candles before the 17:00 halt.
+Recomputed on that exact window: five candles of context give the test's expectation, four days give
+exactly the app's answer key. A window that close to a reopen comes up a few runs in a hundred, which
+is why it had not failed before. The same calendar-for-candles mistake as BUG-064, in a test.
+
+**✅ FIXED — Session 017.** The recomputation starts four days before the window, past any halt or
+weekend; more history than the lookback changes nothing (DetectorContractTest). DrillApiTest 16/16.
+
+### BUG-064 🟠 On coarse charts a detector saw less history than its lookback
+
+**Status:** verified — found while measuring setup detection on 4h and daily charts (session 017, T35)
+**Affects:** `backend/.../analysis/SetupScanner.java` `history`
+
+**What happened.** Before scanning a stretch the scanner hands each detector the candles it needs before
+it — its lookback, 200 or 503 candles — "exactly that many, so what is found never depends on where a
+scan started" (DEC-049). It guessed the calendar span as lookback × candle length and, when that held too
+few candles, widened it once by ten days for closures. Ten days covers an hourly chart's weekends. A
+daily chart loses two days in seven: 200 daily candles span about 290 calendar days, and the guess
+found about 147. So on 4h and 1d a scan's results could depend on where it began. On master, which stops
+at 1h, only the 503-candle rules (liquidity, sweeps, turtle soup) could come up a few candles short, in
+a stretch with a holiday in it.
+
+**✅ FIXED — Session 017, T35.** It reaches back until it has the candles, stopping only at a stretch
+with none at all, where the data begins. `ScanHistoryTest` builds a market shut at weekends and checks
+a daily chart gets 200 candles, a 4h chart 503, the data's start ends the search, and a short lookback is
+the end of a long one; planting the old single widening fails it. The same change reads a stretch's
+candles and contract rolls once for every rule in a request (`SetupScannerTest`: rules scanned together
+store exactly what each stores alone) — nine rules on a cold daily chart went from 9.8 s to 3.0 s.
+
+### BUG-063 🟡 The New York clock vanished on 4h and daily charts
+
+**Status:** verified — found in the browser check of T35, before it was merged (session 017)
+**Affects:** `frontend/.../lib/chart/dateNavigation.ts`, `components/ChartWorkspace.tsx`
+
+**What happened.** The clock is asked for the chart's whole window, and the server covers at most 200
+days at a time (`ClockService.MAX_RANGE`). The new 4h window was 240 days and the daily one 400, so
+the request was refused — and since a clock that fails costs only the overlay, nothing said so: the
+switches stayed on and nothing was drawn.
+
+**✅ FIXED — Session 017, T35.** The 4h window is 200 days, so the clock covers all of it, and a test
+holds every window the clock is drawn on to that range. A daily chart draws no clock — each of its
+windows would be a sliver inside one candle — and asks for none; its switches give way to "On intraday
+charts, up to 4h" (`ClockToggles.test`).
 
 ### BUG-062 🟡 The random TP/SL test could fail by chance
 

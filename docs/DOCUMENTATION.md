@@ -1700,6 +1700,20 @@ suggests the next concept to study — the first one not yet done in a level tha
 locks anything: a curious learner can read any card at any time. Only drills on real market data
 count; a practice drill on the simulated market changes nothing, by design.
 
+**4-hour and daily candles.** Fabio asked why the chart stopped at one hour. Candles had been counted
+from midnight UTC, which lines up with New York for every size up to an hour but not beyond: a 4-hour
+candle would have opened at 20:00 New York in summer and 19:00 in winter, and a "daily" one at 20:00,
+two hours into the next trading day. Futures traders count both from the session's open, 18:00 New
+York, and now so does Tradeez. A daily candle runs from 18:00 to the 17:00 halt and is named by the day
+it belongs to (Sunday evening's is Monday's); 4-hour candles open at 18, 22, 02, 06, 10 and 14.
+Daylight saving cannot shift them, because New York changes its clocks at 2 a.m. on a Sunday, while
+the market is shut. Both work on the Chart tab and in practice, where a daily view reaches back four
+months instead of four days. Checking them in the browser turned up two problems before they reached
+the main branch. The New York clock overlay quietly disappeared on the new charts, because it was being
+asked for a longer stretch than it serves. And the pattern detectors were handed too little history on
+coarse charts, so what they found could depend on where a scan began. Both are fixed, and the second
+fix also made pattern detection on a daily chart three times faster.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1716,8 +1730,8 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills, the bug hunt, the learning state): backend 223 → 460, frontend 148 → 287, V9 to V17,
-DEC-044 to DEC-059.*
+prediction drills, the bug hunt, the learning state, 4-hour and daily candles): backend 223 → 474,
+frontend 148 → 296, V9 to V17, DEC-044 to DEC-060.*
 
 ---
 

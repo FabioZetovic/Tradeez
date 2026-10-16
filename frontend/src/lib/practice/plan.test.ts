@@ -16,6 +16,7 @@ import {
   TRADE_DRAWING_PREFIX,
 } from './plan'
 import { timeframeSeconds } from '../chart/dateNavigation'
+import { candleAt } from '../chart/timeToX'
 
 const REF = 80_000
 const T = 1_710_338_400
@@ -31,8 +32,11 @@ describe('finished trades on the chart (DEC-046)', () => {
     plannedRewardRisk: 2,
   }
 
+  /** The chart's five-minute candles, as a function: where the candle a time falls in starts. */
+  const fiveMinutes = (t: number) => t - (t % 300)
+
   it('draws nothing for a trade still running: its exit is the future', () => {
-    expect(closedTradeDrawing({ number: 1, plan, entry: { time: T, ticks: REF + 1 } }, '5m')).toBeNull()
+    expect(closedTradeDrawing({ number: 1, plan, entry: { time: T, ticks: REF + 1 } }, fiveMinutes)).toBeNull()
   })
 
   it('spans entry bar to exit bar, at the real fill, with the planned stop and target', () => {
@@ -58,13 +62,35 @@ describe('finished trades on the chart (DEC-046)', () => {
           fillModelVersion: 'slip-1t/comm-250c',
         },
       },
-      '5m',
+      fiveMinutes,
     )
     expect(drawing?.id).toBe(`${TRADE_DRAWING_PREFIX}3`)
     // Snapped to the five-minute bars the chart draws: 09:00:07 → 09:00, 09:20:34 → 09:20.
     expect(drawing?.anchors.map((a) => a.time)).toEqual([T, T, T])
     expect(drawing?.endTime).toBe(T + 1200)
     expect(drawing?.anchors.map((a) => a.priceTicks)).toEqual([REF + 1, REF - 40, REF + 80])
+  })
+
+  it('T35: on a daily chart, snaps to the candles the chart has — opening at 18:00 New York, not on a multiple of a day', () => {
+    // Two daily candles opening at 18:00 EDT, 22:00 UTC: Monday's (Sunday evening) and Tuesday's.
+    const monday = Date.UTC(2025, 5, 8, 22) / 1000
+    const daily = [monday, monday + 86_400].map((time) => ({ time, open: 1, high: 1, low: 1, close: 1, volume: 1 }))
+    const drawing = closedTradeDrawing(
+      {
+        number: 1,
+        plan,
+        result: {
+          outcome: 'STOP', entryTime: monday + 3_600 * 15, entryTicks: REF, exitTime: monday + 86_400 + 600,
+          exitTicks: REF - 41, pnlTicks: -41, netPnlCents: -20_750, commissionCents: 250, maeTicks: 41, mfeTicks: 3,
+          gapExit: false, rMultiple: -1.03, resolution: 'M1', engineVersion: 'fill-1.2.0', fillModelVersion: 'slip-1t/comm-250c',
+        },
+      },
+      (t) => candleAt(t, daily),
+    )
+    expect(drawing?.anchors[0].time).toBe(monday)
+    expect(drawing?.endTime).toBe(monday + 86_400)
+    // A multiple of a day would have been UTC midnight, the wrong side of the open.
+    expect(monday % 86_400).not.toBe(0)
   })
 
   it('reads timeframe codes', () => {

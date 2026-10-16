@@ -37,6 +37,8 @@ export interface ChartMountOptions {
   axisTimezone: AxisTimezone
   /** Shown in the chart's corner so simulated data is never mistaken for market history. */
   watermark?: string
+  /** Daily candles: labelled by trading day rather than by their 18:00 open (T35). */
+  daily?: boolean
 }
 
 /**

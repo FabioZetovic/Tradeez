@@ -357,7 +357,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("T34: setups follow the viewed timeframe; nothing outside 1m–1h is offered")
+	@DisplayName("T34: setups follow the viewed timeframe; one-second candles are not offered")
 	void viewedTimeframes() throws Exception {
 		JsonNode session = created("{\"timeframe\":\"5m\"}");
 		String id = session.at("/state/id").asString();
@@ -371,13 +371,64 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 			assertThat(s.get("start").asLong() % 900).isZero();
 		}
 
-		mockMvc.perform(get("/api/practice/sessions/" + id).param("timeframe", "4h").cookie(alice))
+		mockMvc.perform(get("/api/practice/sessions/" + id).param("timeframe", "1s").cookie(alice))
 			.andExpect(status().isBadRequest());
 		mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())
 				.contentType(MediaType.APPLICATION_JSON).content("{\"bars\":1,\"timeframe\":\"1s\"}"))
 			.andExpect(status().isBadRequest());
 		mockMvc.perform(get("/api/practice/sessions/" + id + "/setups").param("detectors", "FVG")
-				.param("timeframe", "1d").cookie(alice))
+				.param("timeframe", "1s").cookie(alice))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("T35: 4h and daily candles open on New York's 18:00 day, with weeks of history, the last from minutes before the cursor")
+	void sessionCandles() throws Exception {
+		String id = created("{\"timeframe\":\"5m\"}").at("/state/id").asString();
+		// Planted late in the data, after the 9 March clock change, as if the random pick had landed on
+		// Wednesday the 12th at 10:00 New York: four days of history would hold three daily candles.
+		Instant moment = Instant.parse("2025-03-12T14:00:00Z");
+		jdbc.update("UPDATE practice_session SET history_from = ?, start_time = ?, cursor_time = ? WHERE id = ?::uuid",
+			Timestamp.from(moment.minusSeconds(4 * 86_400)), Timestamp.from(moment), Timestamp.from(moment), id);
+		// Into the day, so the daily candle is still forming: 10:15.
+		advance(id, 3, "5m");
+		Instant cursor = realCursor(id);
+
+		for (String timeframe : List.of("4h", "1d")) {
+			JsonNode session = read(mockMvc.perform(get("/api/practice/sessions/" + id).param("timeframe", timeframe)
+				.cookie(alice)).andExpect(status().isOk()));
+			JsonNode bars = session.get("bars");
+			long shownCursor = session.at("/state/cursor").asLong();
+			assertThat(bars).isNotEmpty();
+			for (JsonNode bar : bars) {
+				long shown = bar.get("time").asLong();
+				assertThat(shown).isBetween(YEAR_2000, YEAR_2001).isLessThan(shownCursor);
+				// The hidden-date clock keeps New York's wall time: a daily candle opens at 18:00, a
+				// 4-hour one at 18, 22, 2, 6, 10 or 14 — on both sides of the 9 March clock change.
+				LocalDateTime at = rendered(shown);
+				assertThat(at.getMinute()).isZero();
+				if (timeframe.equals("1d")) {
+					assertThat(at.getHour()).as("a daily candle opens at 18:00 New York").isEqualTo(18);
+				} else {
+					assertThat(at.getHour()).as("a 4-hour candle at %s", at).isIn(18, 22, 2, 6, 10, 14);
+				}
+			}
+			// What the coarse view shows is the minutes folded, the forming candle only up to the cursor.
+			com.tradeez.marketdata.Timeframe tf = com.tradeez.marketdata.Timeframe.fromCode(timeframe);
+			assertThat(ohlc(bars.get(bars.size() - 1))).containsExactly(candle(tf.bucketStart(cursor), cursor));
+			// Weeks of history, not the four days a five-minute view shows — here, all the data there is:
+			// eight trading days from Monday the 3rd, the last forming; on 4h six candles a day for seven
+			// days and five on the 12th (18, 22, 02, 06 and the forming 10:00).
+			assertThat(bars).as("candles on %s", timeframe).hasSize(timeframe.equals("1d") ? 8 : 47);
+		}
+
+		// A step on the daily chart completes today's candle — all of it, from its 18:00 open rather than
+		// from UTC midnight — and the cursor lands on the next 18:00.
+		JsonNode stepped = advance(id, 1, "1d");
+		Instant next = realCursor(id);
+		assertThat(ohlc(stepped.get("bars").get(0)))
+			.containsExactly(candle(com.tradeez.marketdata.Timeframe.D1.bucketStart(cursor), next));
+		assertThat(next.atZone(ZoneId.of("America/New_York")).toLocalTime()).isEqualTo(LocalTime.of(18, 0));
+		assertThat(next).isEqualTo(com.tradeez.marketdata.Timeframe.D1.bucketStart(cursor).plusSeconds(86_400));
 	}
 }
