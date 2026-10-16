@@ -78,10 +78,17 @@ export function ResultCard({
         </dd>
       </dl>
 
-      {result.gapExit && (
-        <p className="mt-3 text-xs text-subtle">
-          The market opened beyond your order, so it filled at the opening price rather than at your
-          level. Real stops do this too.
+      {/* BUG-059: a gap is bad news for a stop and good news for a target — say which this was. */}
+      {result.gapExit && result.outcome === 'STOP' && (
+        <p className="mt-3 text-xs text-subtle" data-testid="gap-note">
+          The market opened beyond your stop, so it filled at the opening price — worse than your stop.
+          Real stops do this too.
+        </p>
+      )}
+      {result.gapExit && result.outcome === 'TARGET' && (
+        <p className="mt-3 text-xs text-subtle" data-testid="gap-note">
+          The market opened beyond your target, so it filled at the opening price — better than your
+          target. A resting limit fills at the open when the market opens past it.
         </p>
       )}
 

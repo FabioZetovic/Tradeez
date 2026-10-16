@@ -63,14 +63,15 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/prediction-drills (T15, DEC-058) not merged; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060; branched from feat/prediction-drills, so merging it brings T15) not merged; feat/prediction-drills (T15, DEC-058) not merged; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 413/413 (Testcontainers), frontend 254/254 + typecheck + build; npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 433/433 (Testcontainers), frontend 283/283 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
   backend:  Spring Boot 4.1.1 / Java 25 target (JDK 26 installed) / Maven 3.10.0 / springdoc 3.1.1 / Jackson 3
   frontend: Node 24.20 LTS / npm 12.2 / React 19.3 / Vite 8.3 / Vitest 5 / TypeScript 7 / Tailwind CSS 4 (DEC-044)
+  coverage: JaCoCo 0.8.15 (Maven profile `coverage`, opt-in) / @vitest/coverage-v8 5.0.5 (`npm run coverage`)
   database: PostgreSQL 17 via docker-compose (17.11; Fabio kept 17 — 18 needs a dump and restore of the imported data, DEC-056)
 
 files_in_repo:
@@ -120,7 +121,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: Fabio's "merge" for feat/prediction-drills (T15, DEC-058); then T16 (learning state).
+blocked_on: Fabio's "merge" for test/practice-coverage (which carries T15, DEC-058); then T16 (learning state).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -148,7 +149,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T15 prediction drills (DEC-058), on branch feat/prediction-drills (2026-10-16)
+claimed_files:      # session 017 (CLAUDE) — bug hunt and tests, on branch test/practice-coverage (2026-10-16)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -2028,3 +2029,36 @@ lint, typecheck, `npm run knip`, 250/250 and build clean. Waiting for Fabio to s
 **2026-10-16 — Fresh-clone check of `3749d91`** (`feat/prediction-drills`), no `.env`: backend
 `tests=413 errors=0 skipped=0 failures=0`, no `[ERROR]` lines; frontend `npm audit` 0 vulnerabilities,
 lint, typecheck, `npm run knip`, 254/254 and build clean. Waiting for Fabio to say merge; then T16.
+
+**2026-10-16 — Bug hunt and missing tests, on Fabio's request.** On `test/practice-coverage` (from
+`feat/prediction-drills`), not merged. Fabio: "check for bugs now. any sneaky bugs", "write new tests
+for parts that dont have them", and tests "for tp sl and stuff like that in the practice section". He
+had noticed the test count looked flat: the number of frontend test *files* had stayed 23–24 since T10,
+and frontend tests grew by only 1–3 for T11–T13 (backend kept growing).
+- **Coverage measured, then kept as tooling:** backend 95.3% of lines / 88.4% of branches (practice
+  97%), frontend 82.6% / 73.9%. Weakest: the drill overlay's painting (18%, jsdom has no canvas), the
+  keyboard shortcuts (33%), resuming a practice session, and — found this way — the per-address sign-in
+  limit's refusal, which no test had ever made happen (it works: now tested).
+- **TP/SL end to end on real NQ:** 175 random brackets through the dev API (long and short, 1–320
+  ticks, 34 ambiguous) and 45 closes at market, each recomputed from the stored minutes by a separate
+  implementation — outcome, entry, exit, P&L, net, commission, MAE, MFE, gap flag, reference: all agree.
+- **Found and fixed:** BUG-057 (Close at market refused with Skip's message), BUG-058 (2.7 contracts
+  printed "$553.50.000000000007276"), BUG-059 (a target gap explained as if it were a stop), BUG-060
+  (a test that passed only by test-class order). Reviewed and kept, as designed: an ambiguous result's
+  best point counts the target (price did reach it); an entry opening past the target is a 0-tick
+  "target hit", as a real bracket would be.
+- **New tests:** `BracketOutcomeApiTest` (10 — worked TP/SL examples through the API on hand-written
+  minutes: long and short targets and stops, a tick short, gaps either way, entry at the next price
+  with R from the plan, three contracts, ambiguity, the session close, a close at market; and 40 random
+  brackets against an independent replay), FillEngineTest +7 (the open exactly at a level, entries past
+  a level, a short's ambiguity and time exit, contracts), the per-address limit, ResultCard.test (8),
+  PracticeView +8 (a short end to end, flip, Next 10, play stopping on an error, resume, review, a load
+  failure), useDrawingShortcuts.test (5), DrillOverlay.test (3, with a recording canvas now shared in
+  `src/test/canvasRecorder.ts`), plan.test +4. Mutations, one at a time: 13 backend on TP/SL (slippage the wrong way, a stop or target needing a tick
+  beyond, a gapped stop not slipped, an exact open called a gap, ambiguity resolved for the trader, entry
+  at the close, the time exit at the open, commission once per trade, R off its base, the session an hour
+  long, the reference from an older minute, ambiguity unlabelled) and 11 frontend — all caught.
+- Backend 413 → 433, frontend 254 → 283 (24 → 27 files). Coverage after: backend 95.4% of lines / 88.8% of
+  branches (it was already high; the new backend tests check that the numbers are right), frontend
+  88.3% / 79.6% (from 82.6% / 73.9%).
+

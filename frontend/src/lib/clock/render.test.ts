@@ -5,6 +5,7 @@ import type { Projection } from '../drawing/types'
 import type { ClockLayerKey } from './layers'
 import { killzoneColor } from './layers'
 import { renderClock } from './render'
+import { recorder } from '@/test/canvasRecorder'
 
 /**
  * Five-minute bars with a closed market in the middle — 00:15 to 01:00 has no bars, as a
@@ -30,26 +31,6 @@ const projection: Projection = {
   priceToY: (ticks) => 200 - ticks,
   xToTime: () => null,
   yToPrice: () => null,
-}
-
-/** A context that records what was painted. */
-function recorder() {
-  const calls: Array<{ op: string; args: unknown[]; fill?: unknown; stroke?: unknown }> = []
-  const state: Record<string, unknown> = {}
-  const record = (op: string) => (...args: unknown[]) =>
-    calls.push({ op, args, fill: state.fillStyle, stroke: state.strokeStyle })
-  const ctx = new Proxy(state, {
-    get: (target, key: string) => {
-      if (key === 'measureText') return (text: string) => ({ width: text.length * 2 })
-      if (key in target) return target[key]
-      return record(key)
-    },
-    set: (target, key: string, value) => {
-      target[key] = value
-      return true
-    },
-  }) as unknown as CanvasRenderingContext2D
-  return { ctx, calls }
 }
 
 const LAYER: ClockLayer = {

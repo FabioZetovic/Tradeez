@@ -1676,6 +1676,19 @@ on this data it reached the gap first only 39–47% of the time. That is not a v
 which the app never gives; it is a fact a learner can weigh, and the evidence view planned for later
 will show such numbers with their sample sizes.
 
+**Looking for the bugs nobody had found.** Fabio asked for a deliberate hunt, and for tests where there
+were none — the stop loss and take profit above all. Two methods. First, coverage: running every test
+with a tool that marks each line it executes, which showed exactly what had never been tried. Most of
+the backend was (95% of its lines); the gaps were telling — the protection against password guessing
+from one address had never once been made to refuse anyone (it works; now there is a test). Second, a
+check of the trading itself that does not trust the code: 175 random trades and 45 early closes placed
+through the running app on the real NQ history, every result then worked out again from the stored
+prices by a separate program written for the purpose. All 220 agreed, to the tick and the cent. The
+hunt still found four small bugs — a wrong message, a price printed with fifteen decimals while a
+number was being typed, a sentence that described a lucky fill as an unlucky one, and a test that only
+passed because of the order tests happened to run in — all fixed. The practice section now has worked
+examples for every way a trade can end, readable like the lessons they are.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1692,7 +1705,7 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills): backend 223 → 413, frontend 148 → 254, V9 to V16, DEC-044 to DEC-058.*
+prediction drills, the bug hunt): backend 223 → 433, frontend 148 → 283, V9 to V16, DEC-044 to DEC-058.*
 
 ---
 

@@ -197,6 +197,19 @@ running. If it is not, the tests say so in plain words rather than failing with 
 error (ENV-001). An in-memory database would pass while hiding migration and schema-validation
 failures.
 
+Which lines the tests run, file by file — a map of what is untested, not a score to chase:
+
+```bash
+cd backend && ./mvnw -Pcoverage test
+```
+
+```bash
+cd frontend && npm run coverage
+```
+
+The backend report is `backend/target/site/jacoco/index.html`, the frontend's
+`frontend/coverage/index.html`. Neither is committed.
+
 ### API types
 
 DEC-007 makes the OpenAPI document the contract, and `npm run api:types` (backend running) generates

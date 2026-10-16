@@ -21,8 +21,9 @@
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
 building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), the upgrade to the newest
-versions three (BUG-052 to BUG-054, one a security bug), and Fabio's practice report two (BUG-055,
-BUG-056). All seventeen are fixed, and ENV-007 with them.
+versions three (BUG-052 to BUG-054, one a security bug), Fabio's practice report two (BUG-055,
+BUG-056), and the bug hunt Fabio asked for four (BUG-057 to BUG-060). All twenty-one are fixed, and
+ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -536,6 +537,58 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-060 🟡 A practice test passed only because of the order the test classes ran in
+
+**Status:** verified — failed as soon as a new test class sorted before it (session 017, 2026-10-16)
+**Affects:** `backend/src/test/.../practice/PracticeApiTest.java` `defaults` (since T4)
+
+**What happened.** The test checks that starting a session with nothing imported says so. It assumed
+an empty market table, but the test classes share one database, and the real-data ones (clock,
+setups, drills, lessons) import minutes and leave them there. It passed only while it happened to
+run before all of them; a new test class that imported NQ and sorted earlier made it fail.
+
+**✅ FIXED — Session 017.** The test empties the market itself first, as the drills' and lessons' own
+"nothing imported" tests already did.
+
+### BUG-059 🟡 A target the market opened beyond was explained as if it were a stop
+
+**Status:** verified — reasoned from the card, then a test fails on the old code (session 017, 2026-10-16)
+**Affects:** `frontend/src/components/practice/ResultCard.tsx` (since session 014)
+
+**What happened.** A gapped exit was explained with one sentence for both: "filled at the opening price
+rather than at your level. Real stops do this too." For a stop that is right — the fill is worse. For
+a target it is backwards: a resting limit the market opens beyond fills at the open, *better* than the
+target, and nothing about stops applies.
+
+**✅ FIXED — Session 017.** One sentence each: worse than your stop, or better than your target.
+`ResultCard.test` (new) checks both; a mutation swapping them is caught.
+
+### BUG-058 🟡 A fraction of a contract printed money like "$553.50.000000000007276"
+
+**Status:** verified — in the app at 1920px and in a test (session 017, 2026-10-16)
+**Affects:** `frontend/src/lib/practice/plan.ts` `formatCents` (since session 014)
+
+**What happened.** The contracts box takes any number while it is typed. 2.7 contracts on a 41-tick
+stop is 55,350.000000000007 cents in floating point, and the formatter printed the remainder as it
+was. The plan was refused ("Contracts must be a whole number") — but next to a price that looked
+broken.
+
+**✅ FIXED — Session 017.** The formatter rounds to a whole cent first, and takes the sign after it (a
+first version printed "−$0.00" for −0.4 cents; its own test caught that). Checked in the app: "41 ticks
+· $553.50". `plan.test` and `PracticeView.test` cover it.
+
+### BUG-057 🟡 Close at market, refused, gave Skip to result's reason
+
+**Status:** verified — seen in the end-to-end TP/SL check against the dev API (session 017, 2026-10-16)
+**Affects:** `backend/.../practice/PracticeService.java` (since DEC-057)
+
+**What happened.** Closing when no trade was running — a trade that had just ended during play, a
+double click — answered 409 with "There is no running trade to skip to the end of." Both commands
+threw the same exception, written for Skip.
+
+**✅ FIXED — Session 017.** The exception names the command: "…to close." / "…to skip to the end of."
+`PracticeApiTest` checks both messages.
 
 ### BUG-055 🟠 A drafted bracket looked like a placed trade, and could not be thrown away
 

@@ -3,6 +3,7 @@ import type { Setup, SetupLayer } from '../api/setups'
 import type { DomainBar } from '../chart/types'
 import type { Projection } from '../drawing/types'
 import { renderSetups } from './render'
+import { recorder } from '@/test/canvasRecorder'
 
 /** Five-minute bars ten pixels apart; a tick is one pixel, higher prices higher up. */
 const STEP = 300
@@ -20,26 +21,6 @@ const projection: Projection = {
   priceToY: (ticks) => 200 - ticks,
   xToTime: () => null,
   yToPrice: () => null,
-}
-
-/** A context that records what was painted. */
-function recorder() {
-  const calls: Array<{ op: string; args: unknown[]; fill?: unknown; stroke?: unknown }> = []
-  const state: Record<string, unknown> = {}
-  const record = (op: string) => (...args: unknown[]) =>
-    calls.push({ op, args, fill: state.fillStyle, stroke: state.strokeStyle })
-  const ctx = new Proxy(state, {
-    get: (target, key: string) => {
-      if (key === 'measureText') return (text: string) => ({ width: text.length * 2 })
-      if (key in target) return target[key]
-      return record(key)
-    },
-    set: (target, key: string, value) => {
-      target[key] = value
-      return true
-    },
-  }) as unknown as CanvasRenderingContext2D
-  return { ctx, calls }
 }
 
 const GAP: Setup = {

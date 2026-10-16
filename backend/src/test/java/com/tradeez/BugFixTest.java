@@ -3,6 +3,9 @@ package com.tradeez;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
@@ -152,6 +155,33 @@ class BugFixTest extends AbstractIntegrationTest {
 			assertThat(throttled)
 				.as("guessing must stop being free after a handful of attempts")
 				.isPositive();
+		}
+
+		@Test
+		@DisplayName("one address is throttled across many accounts: the 21st sign-in attempt is refused with 429")
+		void addressIsThrottled() throws Exception {
+			// Every attempt names a different account, so the per-account limit never trips: this is the
+			// per-address one, which no test had ever made refuse anything (found by coverage, 2026-10-16).
+			for (int i = 0; i < 20; i++) {
+				int status = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"nobody" + i + "@example.com\",\"password\":\"wrong-guess\"}"))
+					.andReturn().getResponse().getStatus();
+				assertThat(status).as("attempt %d is still allowed", i + 1).isEqualTo(401);
+			}
+			mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+					.content("{\"email\":\"nobody20@example.com\",\"password\":\"wrong-guess\"}"))
+				.andExpect(status().isTooManyRequests())
+				.andExpect(header().string("Retry-After", "300"))
+				.andExpect(jsonPath("$.message").value(containsString("Too many attempts")));
+
+			// Registering is counted on its own; another address is its own; and the rest of the API is
+			// never limited by this filter.
+			register("still-welcome@example.com");
+			mockMvc.perform(post("/api/auth/login").header("X-Forwarded-For", "203.0.113.7")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"email\":\"still-welcome@example.com\",\"password\":\"" + PASSWORD + "\"}"))
+				.andExpect(status().isOk());
+			mockMvc.perform(get("/api/health")).andExpect(status().isOk());
 		}
 
 		@Test

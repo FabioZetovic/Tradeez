@@ -143,6 +143,39 @@ describe('practice plan helpers', () => {
         /within/,
       )
     })
+
+    it('draws the lines exactly where the server does: at the price is refused, a tick away is not', () => {
+      const short = { direction: 'SHORT' as const, stopTicks: REF + 40, targetTicks: REF - 80, contracts: 1 }
+      expect(planProblem(short, REF)).toBeNull()
+      // A stop at the price would be filled the moment the trade is entered.
+      expect(planProblem({ ...ok, stopTicks: REF }, REF)).toMatch(/stop below/)
+      expect(planProblem({ ...short, stopTicks: REF }, REF)).toMatch(/stop above/)
+      expect(planProblem({ ...short, targetTicks: REF }, REF)).toMatch(/stop above/)
+      expect(planProblem({ ...ok, stopTicks: REF - 1, targetTicks: REF + 1 }, REF)).toBeNull()
+      expect(planProblem({ ...short, stopTicks: REF + 1, targetTicks: REF - 1 }, REF)).toBeNull()
+      // The farthest allowed, and one beyond, either way.
+      expect(planProblem({ ...ok, stopTicks: REF - MAX_BRACKET_TICKS }, REF)).toBeNull()
+      expect(planProblem({ ...ok, stopTicks: REF - MAX_BRACKET_TICKS - 1 }, REF)).toMatch(/within/)
+      expect(planProblem({ ...short, targetTicks: REF - MAX_BRACKET_TICKS - 1 }, REF)).toMatch(/within/)
+      expect(planProblem({ ...ok, contracts: 100 }, REF)).toBeNull()
+    })
+  })
+
+  it("computes a short's risk above and reward below", () => {
+    expect(
+      planNumbers({ direction: 'SHORT', stopTicks: REF + 10, targetTicks: REF - 25, contracts: 3 }, REF, 500),
+    ).toEqual({ riskTicks: 10, rewardTicks: 25, ratio: 2.5, riskCents: 15_000, rewardCents: 37_500 })
+  })
+
+  it('has no reward : risk without a risk', () => {
+    expect(planNumbers({ ...ok(), stopTicks: REF }, REF, 500).ratio).toBeNull()
+  })
+
+  it('BUG-058: never prints a fraction of a cent, whatever is typed in the contracts box', () => {
+    const typed = planNumbers({ ...ok(), stopTicks: REF - 41, contracts: 2.7 }, REF, 500)
+    expect(formatCents(typed.riskCents)).toBe('$553.50')
+    expect(formatCents(26_650.000000000004)).toBe('$266.50')
+    expect(formatCents(-0.4)).toBe('$0.00')
   })
 
   it('computes risk and reward in integer cents, scaled by contracts', () => {
@@ -177,5 +210,18 @@ describe('practice plan helpers', () => {
     expect(outcomeLabel('AMBIGUOUS')).toMatch(/Ambiguous/)
     expect(outcomeLabel('AMBIGUOUS')).not.toMatch(/Stopped/)
     expect(outcomeLabel('STOP')).toBe('Stopped out')
+  })
+})
+
+function ok() {
+  return { direction: 'LONG' as const, stopTicks: REF - 40, targetTicks: REF + 80, contracts: 1 }
+}
+
+describe('what each outcome is called', () => {
+  it('names every outcome a trade can have, the learner\'s own close included', () => {
+    expect(outcomeLabel('TARGET')).toBe('Target hit')
+    expect(outcomeLabel('STOP')).toBe('Stopped out')
+    expect(outcomeLabel('TIME_EXIT')).toBe('Closed at the session end')
+    expect(outcomeLabel('CLOSED')).toBe('Closed by you')
   })
 })
