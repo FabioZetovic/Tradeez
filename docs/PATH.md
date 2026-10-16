@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T16, T34, DEC-056–059 and the bug hunt merged; T35 (session-aligned 4h/daily, DEC-060) built on feat/session-candles, waiting for "merge"
+last_session: 017   # in progress — T1–T16, T34, T35, DEC-056–060 and the bug hunt merged; T17 (blocks) next
 last_author: CLAUDE
 last_updated: 2026-10-16
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,7 +63,7 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: feat/session-candles                      # T35 (DEC-060, BUG-063, BUG-064), not merged; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
 build_passing: true  # backend 474/474 (Testcontainers), frontend 296/296 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
@@ -122,7 +122,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T35 waits for Fabio's "merge"; then M3 (T17 blocks).
+blocked_on: nothing — M3 next: T17 blocks.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -167,7 +167,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, on branch).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -202,7 +202,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T34 | ~~**Switchable timeframes in practice**~~ | T5 | F | ✅ Session 017, **merged 2026-10-15 as `ec617ca`** (DEC-051): any of 1m–1h mid-replay; the forming candle built only from minutes before the cursor (tested, and a leak mutation caught); steps and skip in viewed candles, never past the limit; chart updates the forming candle in place; clock, setups and finished trades follow the view. |
 | T11 | ~~**Market structure**~~ | T9 | I-01–06 | ✅ Session 017, **merged 2026-10-15 as `57af061`** (DEC-052): measured first (swings ~13.5/30 candles, rank spans ≤ 160, displacement 2× = half of all gaps); `swing-1.0.0`, `swing-tier-1.0.0` (ITH/LTH/ITL/LTL), `structure-1.0.0` labels and its BOS/CHoCH breaks, `displacement-1.0.0` (the gap's own candles), `mss-1.0.0` (sweep → displacement → close, confirmed when both are known); every rule reads a bounded span (200/300). |
 | T12 | ~~**Liquidity**~~ | T11 | I-10–14 | ✅ Session 017, **merged 2026-10-15 as `1cb0c52`** (DEC-053): measured first (half of swing levels taken within 5 candles, 95% within 500; 50% sweep / 29% run / 21% undecided; EQH/EQL 1.3–2.2 per 30); `liquidity-1.0.0` (RESTING → TAKEN/EXPIRED) on swings and on the clock's PDH/PWH/killzone levels (taken minute; a resting level makes the replay re-ask each step, revealing nothing); `eqhl-1.0.0`; `sweep-1.0.0` (sweep/run, judged on the most extreme level); turtle soup on equal pools. |
-| T35 | ~~**Session-aligned 4h and daily candles**~~ | T3 | F | ✅ Session 017 (DEC-060), on `feat/session-candles`: `Timeframe.bucketStart`, the one place a candle's start is decided — 4h at 18, 22, 02, 06, 10, 14 New York (the last 3h), daily 18:00 → 17:00 named by its trading day, safe across clock changes; the Chart tab and practice offer both (practice reaches back 30 / 120 days); the clock up to 4h, none on daily (BUG-063); detectors get their whole history on coarse charts and a request reads it once (BUG-064; nine rules on a cold daily chart 9.8 s → 3.0 s). |
+| T35 | ~~**Session-aligned 4h and daily candles**~~ | T3 | F | ✅ Session 017 (DEC-060), **merged 2026-10-16 as `25fc962`**: `Timeframe.bucketStart`, the one place a candle's start is decided — 4h at 18, 22, 02, 06, 10, 14 New York (the last 3h), daily 18:00 → 17:00 named by its trading day, safe across clock changes; the Chart tab and practice offer both (practice reaches back 30 / 120 days); the clock up to 4h, none on daily (BUG-063); detectors get their whole history on coarse charts and a request reads it once (BUG-064; nine rules on a cold daily chart 9.8 s → 3.0 s). |
 
 **M2 — The learning loop**
 
@@ -2162,3 +2162,6 @@ frontend npm audit 0, lint, typecheck, knip, 296/296, build.
 **2026-10-16 — Fresh-clone check of `71c6e46`** (`feat/session-candles`), no `.env`: backend 474 test cases,
 0 failures, 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 296/296, build
 clean. Waiting for Fabio to say merge.
+
+**2026-10-16 — T35 merged.** Fabio: "merge it and do T17". `feat/session-candles` merged `--no-ff` as
+`25fc962`. Next: T17, blocks.
