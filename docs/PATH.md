@@ -2101,3 +2101,7 @@ undercount nested classes, ENV-010); frontend `npm audit` 0, lint, typecheck, kn
   models, the suggestion button).
 - Backend 433 → 460, frontend 283 → 287.
 
+**2026-10-16 — Fresh-clone check of `f6ad72a`: one failure, fixed.** `BracketOutcomeApiTest.randomBrackets`
+failed its own sample check (no exit at a gapped open) — the sessions started at random moments, so the
+sample changed between runs (BUG-062). Every bracket still agreed with the independent replay. The moments
+are seeded now; green twice locally.
