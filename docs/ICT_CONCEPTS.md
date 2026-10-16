@@ -1290,19 +1290,25 @@ sample sizes, are tasks T22 and T25.
 | Level | Theme | Concepts | Unlocks when |
 |---|---|---|---|
 | 0 | Foundations | F-1 … F-5 | always open |
-| 1 | Market structure | ICT-01 … ICT-06 | Level 0 cards read and the F-5 risk drill passed |
-| 2 | Liquidity | ICT-10 … ICT-17 | Level 1 identification at ≥ 80% over the last 20 attempts |
-| 3 | Imbalances and gaps | ICT-20 … ICT-29 | Level 1 solid (FVG may be opened early — it already exists) |
-| 4 | Blocks | ICT-30 … ICT-37 | Levels 2 and 3 solid |
-| 5 | Ranges and Fibonacci | ICT-40 … ICT-44 | Level 1 solid |
+| 1 | Market structure | ICT-01 … ICT-06 | Level 0 complete — its cards read (the F-5 risk drill joins this when it exists, T26) |
+| 2 | Liquidity | ICT-10 … ICT-17 | Level 1 complete |
+| 3 | Imbalances and gaps | ICT-20 … ICT-29 | Level 1 complete (FVG may be opened early — it already exists) |
+| 4 | Blocks | ICT-30 … ICT-37 | Levels 2 and 3 complete |
+| 5 | Ranges and Fibonacci | ICT-40 … ICT-44 | Level 1 complete |
 | 6 | Time | ICT-50 … ICT-57 | always open — it is reference knowledge |
-| 7 | Narrative and bias | ICT-60 … ICT-67 | Levels 2, 5 and 6 solid |
-| 8 | Entry models | ICT-70 … ICT-78 | each model unlocks when its component concepts are solid |
+| 7 | Narrative and bias | ICT-60 … ICT-67 | Levels 2, 5 and 6 complete |
+| 8 | Entry models | ICT-70 … ICT-78 | each model when the concepts it builds on are complete |
 | 9 | Execution | ICT-80 … ICT-84 | with the first model |
 
 "Solid" is measured on D and R concepts only (graded drills on real data). J concepts unlock by use,
-never by a score. Thresholds are placeholders until the learning-state task (T16) settles them;
-everything below Level 8 stays reachable for revision.
+never by a score. Everything below Level 8 stays reachable for revision.
+
+**Settled by `learning-1.0.0` (T16, DEC-059).** A concept a marking or naming drill grades is **solid**
+with at least 10 attempts and an average of 80% or more over the last 20 — each attempt scoring 0 to 1,
+a name right or wrong, marks by the share of the answer found with misses and extra marks counting
+against it. A concept no drill grades is **done** once its card is read, or practised with a prediction
+drill. A level is **complete** when every concept in it is solid or done. Reviews follow SM-2, one a day
+per concept.
 
 The practice replay is never locked: a beginner can paper-trade from day one. The ladder shapes what
 the app *suggests*, not what the learner is allowed to look at.

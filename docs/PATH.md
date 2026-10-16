@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T15, T34, DEC-056–058 and the bug hunt merged; T16 (learning state) next
+last_session: 017   # in progress — T1–T15, T34, DEC-056–058 and the bug hunt merged; T16 (learning state, DEC-059) on feat/learning-state
 last_author: CLAUDE
 last_updated: 2026-10-16
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/learning-state (T16, DEC-059) not merged; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 433/433 (Testcontainers), frontend 283/283 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 460/460 (Testcontainers), frontend 287/287 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -90,8 +90,9 @@ files_in_repo:
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), chart endpoint (017, T7, T12)
     analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
+    learning/    # learning-1.0.0 (DEC-059): progress computed from graded drills (drills/DrillAttempts) and cards read — solid, SM-2 reviews, the ladder's unlocks; GET /api/learning, POST /api/learning/concepts/{id}/read  (017, T16)
     drills/      # drill engine (DEC-054): DrillKind catalogue (twelve drills, modes A, B and C), windows on real NQ, answer key = stored hits, excused candles; Prediction + PredictionText = predict-1.0.0 (mode C: two targets, the future withheld until the answer, DEC-058); FVG fixture on simulated data  (016, 017 T13, T15)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome) · V17 cards read (concept_read)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts, drills, lessons
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -121,7 +122,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T16 (learning state and curriculum map) next.
+blocked_on: Fabio's "merge" for feat/learning-state (T16, DEC-059); then T35 (session-aligned 4h/daily) or M3 (T17 blocks).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -149,7 +150,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — bug hunt and tests, on branch test/practice-coverage (2026-10-16)
+claimed_files:      # session 017 (CLAUDE) — T16 learning state (DEC-059), on branch feat/learning-state (2026-10-16)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -166,7 +167,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, branch).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -210,7 +211,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T13 | ~~**Drill engine for every detector**~~ | T10–T12 | C §6, D-023, D-034 | ✅ Session 017, **merged 2026-10-15 as `e4f7cba`** (DEC-054): ten drills — spot gaps, swing highs, swing lows, VIs, displacement, equal highs/lows, sweeps; name a swing's label, BOS or CHoCH, sweep or run — on real NQ 1m/5m/15m, graded against the rule; the key is the rule's stored hits shown whole, a hit the window cuts is excused (BUG-050); the subject is sent without its name; explanations rendered server-side from evidence; V14. The other rules are one constant each when wanted. |
 | T14 | ~~**Lesson cards**~~ | T13 | I Part 0 | ✅ Session 017, **merged 2026-10-16 as `37f8513`** (DEC-055): a Learn tab with the curriculum ladder (72 concepts) and a card per concept — the document's What, prerequisites and what it builds toward, every rule in words (all 18 now, guarded by the contract test), the drills that practise it ("Practise it" opens the drill), and three real NQ examples found at random, each explained from its evidence; clock-drawn and undetected concepts say so. |
 | T15 | ~~**Prediction drills**~~ | T13 | C §6.1, I-15–17 | ✅ Session 017 (DEC-058), `predict-1.0.0`: measured first (nearer level first 68–69%, fewer obstacles 65–67%, the gap after taking a level 39–47%); "which liquidity is taken first" — the nearest resting BSL and SSL, labelled ERL, open gaps between labelled IRL, each path's obstacles shown — and "external or internal next" after a level is taken; graded by the first candle within 100 to reach either; the future withheld until the answer, then revealed and ringed; V16; real data only. A B drill "ERL or IRL?" waits for T18's dealing range. |
-| T16 | **Learning state and curriculum map** | T13 | C §6.3, I Part 12 | Per-concept rating, spaced repetition, unlocks; real-data attempts only (INVARIANT 8b). |
+| T16 | ~~**Learning state and curriculum map**~~ | T13 | C §6.3, I Part 12 | ✅ Session 017 (DEC-059), `learning-1.0.0`: progress computed from graded drills (real data only) and cards read, never stored; solid = ≥ 10 attempts and ≥ 80% over the last 20; predictions practice, unrated concepts done by reading; SM-2 reviews a day; Part 12's unlocks settled (suggest, never lock); the Learn tab shows it all, with *Mark as read*. V17. ELO and serving drills by what is due are not in it. |
 
 **M3 — Blocks, ranges, time models**
 
@@ -276,6 +277,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-059 | **The learning state, `learning-1.0.0`:** computed on every request from graded drills (real data only) and cards read, never stored; rated where a marking or naming drill grades (solid = ≥ 10 attempts and ≥ 80% over the last 20; attempts scored as the drill's result scores them); predictions are practice; unrated concepts done by reading; SM-2 reviews, one a day; the ladder's rules settled — it suggests, never locks. |
 | DEC-058 | **Prediction drills (mode C), `predict-1.0.0`:** the chart stops at a moment, two targets drawn (nearest resting BSL vs SSL with obstacle counts; or after a level was taken, the untapped gap behind vs the next level beyond — ERL/IRL); answered by the first candle within 100 to reach either (ties by minutes, else never asked; never across a roll); question and outcome written at creation (V16), nothing after the moment sent before the answer; real data only. |
 | DEC-057 | **A draft is not a trade; a placed trade can be closed at market.** Plan long/short only draws a draft (titled so, discardable); Place trade sends it. Close at market fills at the next fine bar's open (`fill-1.2.0`, `CLOSED`), stored in `practice_close` (V15) beside the untouched planned result; the plan's own stop/target wins a tie. |
 | DEC-046 ⚠️ | **A session is a replay with several trades, one at a time.** Flat → in trade → flat; each trade numbered and immutable (V10); its result revealed when the replay passes its exit; the seed or date only when the session **ends** (learner ends it while flat, or a flat replay hits its limit); score over closed trades only. |
@@ -2070,3 +2072,32 @@ undercount nested classes, ENV-010); frontend `npm audit` 0, lint, typecheck, kn
 
 **2026-10-16 — T15 and the bug hunt merged.** Fabio: "merge it and do T16". `test/practice-coverage`
 (which carries `feat/prediction-drills`) merged `--no-ff` as `581b30a`. Next: T16.
+
+**2026-10-16 — T16: the learning state (DEC-059).** On `feat/learning-state`, not merged.
+- **Design:** nothing about progress is stored — `learning-1.0.0` reads it afresh from graded drills
+  (immutable once answered) and V17's `concept_read` (immutable; a learner's own "Mark as read").
+  Rated concepts are the eight a marking or naming drill grades; each attempt is scored as the drill's
+  own result scores it (`drills/DrillAttempts`). Solid: ≥ 10 attempts, ≥ 80% over the last 20.
+  Predictions are practice. Unrated concepts are done when read or practised. SM-2 reviews, one per
+  concept per UTC day. Part 12's placeholders settled in `ICT_CONCEPTS.md` (the F-5 risk drill waits for
+  T26); the ladder suggests the first open, incomplete concept and never locks a card.
+- **Frontend:** the Learn tab's summary (solid, complete, next, due), a mark per concept and a line per
+  level in the ladder (now a named landmark), and a "Your progress" panel on every card with *Mark as
+  read* and the rule in words.
+- **Found and fixed:** BUG-061 — the ladder's buttons were named "F-1Candle anatomy", and an old test
+  had been clicking a link on the card instead of the list.
+- **Checked live** on the local test account (47 graded drills from earlier testing): all eight rated
+  concepts learning and due, the two prediction concepts done by use, F-1 suggested; marking F-1 read
+  (a permanent record on that test account) completed it.
+- Tests: LearningRuleTest (17), LearningApiTest (8: the start, reads opening level 1, ten perfect drills
+  making a concept solid, partial and excused marks scored as the result scores them, naming, simulated
+  fixtures and unanswered drills never counting, predictions as practice, two learners apart),
+  LearnView +4. Mutations, one at a time: 18 backend (solid without ten attempts or only above 80%,
+  accuracy over every attempt, predictions rating, a lapse keeping its interval, every attempt a review,
+  due a day late, a half passing, liquidity opening with the foundations, an empty level complete, entry
+  models ignoring prerequisites, a read not completing, a complete concept suggested, a second read
+  failing, simulated drills counting, excused marks counting against, extra marks free, naming always
+  right) and 7 frontend — all caught; three first survived and got their tests (an empty level, entry
+  models, the suggestion button).
+- Backend 433 → 460, frontend 283 → 287.
+

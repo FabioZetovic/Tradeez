@@ -5,6 +5,7 @@ import { LearnView } from './LearnView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
 import type { Curriculum } from '@/lib/api/concepts'
 import type { Lesson } from '@/lib/api/lessons'
+import type { ConceptProgress, Learning } from '@/lib/api/learning'
 
 const T0 = 1_710_338_400
 
@@ -37,6 +38,34 @@ const CURRICULUM: Curriculum = {
     { concept: concept('F-1', 'Candle anatomy', 0), detectors: [] },
     { concept: concept('ICT-20', 'Fair value gap', 3, 'IMPLEMENTED'), detectors: [FVG_RULE] },
   ],
+}
+
+const progress = (over: Partial<ConceptProgress> & { id: string }): ConceptProgress => ({
+  rated: false,
+  state: 'UNREAD',
+  attempts: 0,
+  recentCount: 0,
+  practised: 0,
+  due: false,
+  open: true,
+  ...over,
+})
+
+/** F-1 unread; the gap learning, at 64% over 11, due today; level 3 not suggested yet. */
+const LEARNING: Learning = {
+  version: 'learning-1.0.0',
+  rule: 'learning-1.0.0. A concept is solid once it has at least 10 attempts and the last 20 average at least 80%.',
+  summary: { concepts: 2, complete: 0, rated: 1, solid: 0, due: 1, ratedAttempts: 11, predictions: 0 },
+  levels: [
+    { level: 0, theme: 'Foundations', open: true, complete: false, unlocksWhen: 'always open' },
+    { level: 3, theme: 'Imbalances', open: false, complete: false, unlocksWhen: 'Level 1 complete' },
+  ],
+  concepts: [
+    progress({ id: 'F-1' }),
+    progress({ id: 'ICT-20', rated: true, state: 'LEARNING', attempts: 11, recentCount: 11, recentAccuracy: 0.636, nextReview: '2026-10-16', due: true, open: false }),
+  ],
+  suggested: 'F-1',
+  due: ['ICT-20'],
 }
 
 const bars = Array.from({ length: 40 }, (_, i) => ({
@@ -114,6 +143,16 @@ const CANDLE_LESSON: Lesson = {
 }
 
 let urls: string[] = []
+/** What GET /api/learning answers; null for a failure. */
+let learningNow: Learning | null = LEARNING
+/** What the server answers once F-1 is marked read: done, level 0 complete, the gap suggested. */
+const afterRead: Learning = {
+  ...LEARNING,
+  summary: { ...LEARNING.summary, complete: 1 },
+  levels: [{ ...LEARNING.levels[0], complete: true }, LEARNING.levels[1]],
+  concepts: [progress({ id: 'F-1', state: 'DONE', readAt: Date.UTC(2026, 9, 16) / 1000 }), LEARNING.concepts[1]],
+  suggested: 'ICT-20',
+}
 
 function mockApi(lesson: (url: string) => { status?: number; body: unknown }) {
   urls = []
@@ -121,7 +160,13 @@ function mockApi(lesson: (url: string) => { status?: number; body: unknown }) {
     'fetch',
     vi.fn((url: string) => {
       urls.push(url)
-      const { status = 200, body } = url.endsWith('/api/concepts') ? { body: CURRICULUM } : lesson(url)
+      const { status = 200, body } = url.endsWith('/api/concepts')
+        ? { body: CURRICULUM }
+        : url.endsWith('/api/learning')
+          ? learningNow ? { body: learningNow } : { status: 500, body: {} }
+          : url.endsWith('/read')
+            ? { body: afterRead }
+            : lesson(url)
       return Promise.resolve({
         ok: status < 400,
         status,
@@ -138,6 +183,8 @@ const lessons = (url: string) => ({
   body: url.includes('/api/concepts/F-1/') ? CANDLE_LESSON : { ...FVG_LESSON, timeframe: new URL(url, 'http://x').searchParams.get('timeframe') ?? '5m' },
 })
 
+const ladder = () => screen.getByRole('navigation', { name: 'Curriculum ladder' })
+
 const lessonRequests = () => urls.filter((u) => u.includes('/lesson'))
 
 function renderView(onPractise = vi.fn()) {
@@ -148,14 +195,17 @@ function renderView(onPractise = vi.fn()) {
 afterEach(() => vi.restoreAllMocks())
 
 describe('Learn — lesson cards', () => {
-  beforeEach(() => mockApi(lessons))
+  beforeEach(() => {
+    learningNow = LEARNING
+    mockApi(lessons)
+  })
 
   it('lists the curriculum by level, and opens on the first concept Tradeez detects', async () => {
     renderView()
     expect(await screen.findByTestId('lesson-title')).toHaveTextContent('Fair value gap')
     const curriculum = screen.getByRole('region', { name: 'Curriculum' })
     expect(within(curriculum).getByText(/Level 0 · Foundations/)).toBeInTheDocument()
-    expect(within(curriculum).getByRole('button', { name: /ICT-20/ })).toHaveAttribute('aria-current', 'true')
+    expect(within(ladder()).getByRole('button', { name: /ICT-20/ })).toHaveAttribute('aria-current', 'true')
     expect(lessonRequests()[0]).toContain('/api/concepts/ICT-20/lesson?timeframe=5m')
   })
 
@@ -184,14 +234,14 @@ describe('Learn — lesson cards', () => {
   it('opens a concept from the list and from its links, and says when there is nothing to show', async () => {
     const { user } = renderView()
     await screen.findByTestId('lesson-title')
-    await user.click(screen.getByRole('button', { name: /F-1 Candle anatomy/ }))
+    await user.click(within(ladder()).getByRole('button', { name: /F-1 Candle anatomy/ }))
     expect(await screen.findByTestId('examples-note')).toHaveTextContent('does not detect this concept yet')
     expect(screen.getByTestId('lesson-title')).toHaveTextContent('Candle anatomy')
     expect(screen.queryByRole('region', { name: 'The rule' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Show others' })).not.toBeInTheDocument()
 
     // Its "builds toward" link leads back to the gap.
-    await user.click(screen.getByRole('button', { name: 'ICT-20 Fair value gap' }))
+    await user.click(within(screen.getByRole('article', { name: 'Lesson: Candle anatomy' })).getByRole('button', { name: 'ICT-20 Fair value gap' }))
     await waitFor(() => expect(screen.getByTestId('lesson-title')).toHaveTextContent('Fair value gap'))
   })
 
@@ -209,7 +259,7 @@ describe('Learn — lesson cards', () => {
     }))
     const { user, onPractise } = renderView()
     await screen.findByTestId('lesson-title')
-    await user.click(screen.getByRole('button', { name: /F-1 Candle anatomy/ }))
+    await user.click(within(ladder()).getByRole('button', { name: /F-1 Candle anatomy/ }))
     await user.click(await screen.findByRole('button', { name: 'Predict: Which liquidity is taken first' }))
     expect(onPractise).toHaveBeenCalledWith('LIQUIDITY_FIRST_PREDICTION')
   })
@@ -218,5 +268,64 @@ describe('Learn — lesson cards', () => {
     mockApi(() => ({ status: 400, body: { message: 'Examples are shown on [1m, 5m, 15m] charts.' } }))
     renderView()
     expect(await screen.findByRole('alert')).toHaveTextContent('Examples are shown on [1m, 5m, 15m] charts.')
+  })
+})
+
+describe('Learn — progress (T16, DEC-059)', () => {
+  beforeEach(() => {
+    learningNow = LEARNING
+    mockApi(lessons)
+  })
+
+  it("marks each concept in the ladder, says what is due and what is next, and when a level opens", async () => {
+    const { user } = renderView()
+    const summary = await screen.findByTestId('learning-summary')
+    expect(summary).toHaveTextContent('0 of 1 graded concepts solid')
+    expect(summary).toHaveTextContent('0 of 2 complete')
+    expect(screen.getByTestId('suggested')).toHaveTextContent('F-1 Candle anatomy')
+    expect(within(screen.getByTestId('due')).getByRole('button', { name: 'Review ICT-20 Fair value gap' })).toHaveTextContent('ICT-20')
+    const gap = within(ladder()).getByRole('button', { name: /ICT-20 Fair value gap/ })
+    expect(within(gap).getByTestId('status-mark')).toHaveTextContent('64%')
+    expect(within(gap).getByTestId('status-mark')).toHaveTextContent('due')
+    expect(screen.getByTestId('level-3')).toHaveTextContent('· later')
+    expect(within(screen.getByTestId('level-3')).getByTitle('Opens when: Level 1 complete')).toBeInTheDocument()
+    // The next step opens its card.
+    await user.click(screen.getByTestId('suggested'))
+    await waitFor(() => expect(screen.getByTestId('lesson-title')).toHaveTextContent('Candle anatomy'))
+    // The ladder suggests; it never locks. A card of a later level still opens.
+    await user.click(within(screen.getByTestId('due')).getByRole('button'))
+    await waitFor(() => expect(screen.getByTestId('lesson-title')).toHaveTextContent('Fair value gap'))
+  })
+
+  it("shows the learner's record on the card, with the rule it is measured by", async () => {
+    renderView()
+    const panel = await screen.findByRole('region', { name: 'Your progress' })
+    expect(panel).toHaveTextContent('Learning')
+    expect(screen.getByTestId('progress-line')).toHaveTextContent('11 graded attempts · 64% over the last 11 attempts.')
+    expect(screen.getByTestId('review-line')).toHaveTextContent('Due for review today.')
+    expect(within(panel).getByText(/at least 10 attempts/)).toBeInTheDocument()
+  })
+
+  it('marks a card as read, and takes the new state from the server', async () => {
+    const { user } = renderView()
+    await screen.findByTestId('lesson-title')
+    await user.click(within(ladder()).getByRole('button', { name: /F-1 Candle anatomy/ }))
+    await waitFor(() => expect(screen.getByTestId('lesson-title')).toHaveTextContent('Candle anatomy'))
+    expect(screen.getByRole('region', { name: 'Your progress' })).toHaveTextContent('Not read yet')
+
+    await user.click(screen.getByRole('button', { name: 'Mark as read' }))
+    expect(await screen.findByTestId('read-on')).toHaveTextContent('Card read 16 Oct 2026')
+    expect(urls.some((u) => u.endsWith('/api/learning/concepts/F-1/read'))).toBe(true)
+    expect(screen.getByTestId('suggested')).toHaveTextContent('ICT-20')
+    expect(screen.getByTestId('level-0')).toHaveTextContent('· complete')
+    expect(screen.queryByRole('button', { name: 'Mark as read' })).not.toBeInTheDocument()
+  })
+
+  it('still reads when progress cannot be loaded', async () => {
+    learningNow = null
+    renderView()
+    expect(await screen.findByTestId('lesson-title')).toHaveTextContent('Fair value gap')
+    expect(screen.queryByTestId('learning-summary')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Your progress' })).not.toBeInTheDocument()
   })
 })
