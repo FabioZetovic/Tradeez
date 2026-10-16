@@ -2158,3 +2158,7 @@ independent recomputation had five candles of context for a drill window opening
 daily reopen, and missed a gap the app had found correctly (BUG-065, a test bug: recomputing that exact
 window with days of context gives exactly the app's answer key). Everything else green: backend 473 of 474,
 frontend npm audit 0, lint, typecheck, knip, 296/296, build.
+
+**2026-10-16 — Fresh-clone check of `71c6e46`** (`feat/session-candles`), no `.env`: backend 474 test cases,
+0 failures, 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 296/296, build
+clean. Waiting for Fabio to say merge.
