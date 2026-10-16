@@ -2152,3 +2152,9 @@ clean. Waiting for Fabio to say merge.
   same with more history. 14 frontend (candle lookup, trading-day labels and zones, the hidden date,
   finished-trade boxes, window sizes, the timeframe list, the clock on daily): all caught.
 - Backend 460 → 474, frontend 287 → 296.
+
+**2026-10-16 — Fresh-clone check of `48bab07`: one failure, fixed.** `DrillApiTest.answerKeyIsTheRule` — its
+independent recomputation had five candles of context for a drill window opening at 18:25, just after the
+daily reopen, and missed a gap the app had found correctly (BUG-065, a test bug: recomputing that exact
+window with days of context gives exactly the app's answer key). Everything else green: backend 473 of 474,
+frontend npm audit 0, lint, typecheck, knip, 296/296, build.

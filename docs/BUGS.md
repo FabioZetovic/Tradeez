@@ -23,7 +23,8 @@ merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-0
 building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), the upgrade to the newest
 versions three (BUG-052 to BUG-054, one a security bug), Fabio's practice report two (BUG-055,
 BUG-056), the bug hunt Fabio asked for four (BUG-057 to BUG-060), building T16 two (BUG-061, BUG-062), and
-building T35 two (BUG-063, BUG-064). All twenty-five are fixed, and ENV-007 with them.
+building T35 two (BUG-063, BUG-064), and its fresh-clone check one (BUG-065). All twenty-six are fixed, and
+ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -562,6 +563,23 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-065 🟡 A drill test recomputed its answer key with too little history after the daily halt
+
+**Status:** verified — failed in the fresh-clone check of T35 (session 017, 2026-10-16), passed locally
+**Affects:** `backend/src/test/.../drills/DrillApiTest.java` `answerKeyIsTheRule` — the test, not the app
+
+**What happened.** The test checks a drill's answer key against the FVG rule run again independently,
+over the drill's window and "its lookback", written as 15 × 5 minutes before the window. The window is
+random. This time it opened at 18:25 New York, 25 minutes after the daily reopen, so those 75 minutes
+held five candles. The rule measures a gap against the 14 candles before it, so the recomputation could
+not see the gap at 18:50 that the app had found correctly, with the candles before the 17:00 halt.
+Recomputed on that exact window: five candles of context give the test's expectation, four days give
+exactly the app's answer key. A window that close to a reopen comes up a few runs in a hundred, which
+is why it had not failed before. The same calendar-for-candles mistake as BUG-064, in a test.
+
+**✅ FIXED — Session 017.** The recomputation starts four days before the window, past any halt or
+weekend; more history than the lookback changes nothing (DetectorContractTest). DrillApiTest 16/16.
 
 ### BUG-064 🟠 On coarse charts a detector saw less history than its lookback
 
