@@ -15,8 +15,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 
 - **Accounts:** register and sign in. Sessions use HttpOnly cookies with rotating refresh tokens.
 - **Chart:** two years of **real NQ** one-minute history (Oct 2024 →), from Massive's free plan
-  (DEC-042), aggregated to 3-minute … 1-hour candles. Jump to any date or 1W–2Y back; times in New
-  York time, the clock ICT is taught in. Every series names its source.
+  (DEC-042), aggregated to 3-minute … 1-hour, 4-hour and daily candles — the last two counted from the
+  trading day's 18:00 New York open (DEC-060). Jump to any date or 1W–2Y back; times in New York time,
+  the clock ICT is taught in. Every series names its source.
 - **New York clock** over every chart (DEC-047): trading-day separators, ICT killzones, Silver Bullet
   hours and macros shaded; midnight, 08:30, 09:30 and weekly opens, PDH/PDL, PWH/PWL and killzone
   highs/lows drawn — each switchable, computed from one-minute bars under versioned rules, never
@@ -35,7 +36,7 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date
   hidden** until the session ends (only the weekday and New York time are shown, DEC-045). Step it
-  bar by bar or play it at 1–8 bars a second, on any timeframe from 1m to 1h — switch at any moment;
+  bar by bar or play it at 1–8 bars a second, on any timeframe from 1m to daily — switch at any moment;
   the candle still forming is built only from what came before (DEC-051) — and place a bracket trade
   whenever you see a setup; when it is over, take the next (DEC-046).
   - A bracket is a draft until you place it — it says so, and can be discarded. A placed trade ends

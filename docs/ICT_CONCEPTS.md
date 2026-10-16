@@ -252,7 +252,9 @@ likely going (narrative, ICT-60); the lower timeframe decides *when and where* t
 "fractal" in ICT's language — an FVG on a daily chart is the same shape as one on a 1-minute chart.
 
 **Tradeez.** Every coarser timeframe is aggregated from stored 1-minute bars (DEC-040). The chart
-already switches timeframes.
+switches between 1m and daily, on the Chart tab and in a replay; 4-hour and daily candles count from the
+trading day's 18:00 New York open, as futures platforms do, and a daily candle is named by the day it
+belongs to — Sunday evening's is Monday's (DEC-060).
 
 **Teach.** L; A drills that show the same moment on two timeframes ("this 15-minute FVG — find it on
 the 1-minute chart").
