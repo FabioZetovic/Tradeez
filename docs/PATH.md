@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T13 and T34 merged; T14 and the upgrade to the newest versions (DEC-056) built on chore/upgrade-dependencies, not merged
+last_session: 017   # in progress — T1–T14, T34 and DEC-056 merged; practice trade bugs, then T15 (prediction drills)
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,7 +63,7 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
 build_passing: true  # backend 379/379 (Testcontainers), frontend 245/245 + typecheck + build; npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
@@ -120,7 +120,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — chore/upgrade-dependencies (on top of feat/lesson-cards: T14 + DEC-056) waiting for Fabio to say merge. Then T15 (prediction drills).
+blocked_on: nothing — fixing the practice trade bugs Fabio reported (stop/target not closing a trade; no way to cancel), then T15 (prediction drills).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -165,7 +165,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, built, not merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -207,7 +207,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
 | T13 | ~~**Drill engine for every detector**~~ | T10–T12 | C §6, D-023, D-034 | ✅ Session 017, **merged 2026-10-15 as `e4f7cba`** (DEC-054): ten drills — spot gaps, swing highs, swing lows, VIs, displacement, equal highs/lows, sweeps; name a swing's label, BOS or CHoCH, sweep or run — on real NQ 1m/5m/15m, graded against the rule; the key is the rule's stored hits shown whole, a hit the window cuts is excused (BUG-050); the subject is sent without its name; explanations rendered server-side from evidence; V14. The other rules are one constant each when wanted. |
-| T14 | ~~**Lesson cards**~~ | T13 | I Part 0 | ✅ Session 017, on `feat/lesson-cards`, **not merged** (DEC-055): a Learn tab with the curriculum ladder (72 concepts) and a card per concept — the document's What, prerequisites and what it builds toward, every rule in words (all 18 now, guarded by the contract test), the drills that practise it ("Practise it" opens the drill), and three real NQ examples found at random, each explained from its evidence; clock-drawn and undetected concepts say so. |
+| T14 | ~~**Lesson cards**~~ | T13 | I Part 0 | ✅ Session 017, **merged 2026-10-16 as `37f8513`** (DEC-055): a Learn tab with the curriculum ladder (72 concepts) and a card per concept — the document's What, prerequisites and what it builds toward, every rule in words (all 18 now, guarded by the contract test), the drills that practise it ("Practise it" opens the drill), and three real NQ examples found at random, each explained from its evidence; clock-drawn and undetected concepts say so. |
 | T15 | **Prediction drills** | T13 | C §6.1, I-15–17 | Mode C ("which liquidity is taken first?"); ERL/IRL labels, DOL questions, obstacle counts. |
 | T16 | **Learning state and curriculum map** | T13 | C §6.3, I Part 12 | Per-concept rating, spaced repetition, unlocks; real-data attempts only (INVARIANT 8b). |
 
@@ -1955,3 +1955,8 @@ memory (ENV-009, open, harmless). Waiting for Fabio to say merge; merging this b
 **2026-10-15 — Fresh-clone check of `49ca427`** (frontend only changed since `e2ab13c`, whose backend
 was green): `npm audit` 0 in the app and in `tools/api-types`, lint, typecheck, `npm run knip`,
 245/245 and build clean. Waiting for Fabio to say merge; merging this branch brings T14 too.
+
+**2026-10-16 — T14 and DEC-056 merged.** `chore/upgrade-dependencies` merged `--no-ff` as `37f8513`.
+Fabio: "merge it and then do T15, but i think we have a problem" — in practice, a stop or target being
+hit does not close the trade, and a trade cannot be cancelled once placed. Those first (bugs before new
+work, the working agreement), then T15.
