@@ -287,6 +287,92 @@ class FillEngineTest {
 	}
 
 	@Nested
+	@DisplayName("stops and targets at the edges")
+	class Edges {
+
+		@Test
+		@DisplayName("a market opening exactly at the stop fills there, slipped — not a gap")
+		void opensAtTheStop() {
+			Fill f = FillEngine.resolve(longTrade(990, 1020), List.of(
+				s(0, 1000, 1002, 995, 997),
+				s(1, 990, 992, 985, 988)), FillModel.DEFAULT);
+			assertThat(f.outcome()).isEqualTo(Outcome.STOP);
+			assertThat(f.exitTicks()).isEqualTo(989);
+			assertThat(f.gapExit()).as("it opened at the stop, not beyond it").isFalse();
+		}
+
+		@Test
+		@DisplayName("a market opening exactly at the target fills there — not a gap")
+		void opensAtTheTarget() {
+			Fill f = FillEngine.resolve(shortTrade(1010, 980), List.of(
+				s(0, 1000, 1002, 995, 996),
+				s(1, 980, 983, 975, 978)), FillModel.DEFAULT);
+			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(f.exitTicks()).isEqualTo(980);
+			assertThat(f.pnlTicks()).isEqualTo(20);
+			assertThat(f.gapExit()).isFalse();
+		}
+
+		@Test
+		@DisplayName("an entry that opens beyond the stop is stopped at once: a tick of slippage lost")
+		void entryBeyondTheStop() {
+			// Planned at 1000 with the stop at 998; the next price is 995.
+			Fill f = FillEngine.resolve(longTrade(998, 1010), List.of(
+				s(0, 995, 999, 994, 996)), FillModel.DEFAULT);
+			assertThat(f.outcome()).isEqualTo(Outcome.STOP);
+			assertThat(f.entryTicks()).isEqualTo(995);
+			assertThat(f.exitTicks()).isEqualTo(994);
+			assertThat(f.pnlTicks()).isEqualTo(-1);
+			assertThat(f.gapExit()).isTrue();
+		}
+
+		@Test
+		@DisplayName("an entry that opens beyond the target is out at once, at the same price: zero ticks")
+		void entryBeyondTheTarget() {
+			// A bracket's limit below the market fills at the market: in and out at one price.
+			Fill f = FillEngine.resolve(longTrade(990, 1004), List.of(
+				s(0, 1006, 1008, 1004, 1007)), FillModel.DEFAULT);
+			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(f.exitTicks()).isEqualTo(1006);
+			assertThat(f.pnlTicks()).isZero();
+			assertThat(f.netPnlCents(500, 1, FillModel.DEFAULT)).isEqualTo(-250);
+		}
+
+		@Test
+		@DisplayName("a short's ambiguous second assumes its stop above, slipped up")
+		void shortAmbiguous() {
+			Fill f = FillEngine.resolve(shortTrade(1010, 990), List.of(
+				s(0, 1000, 1011, 989, 1000)), FillModel.DEFAULT);
+			assertThat(f.outcome()).isEqualTo(Outcome.AMBIGUOUS);
+			assertThat(f.exitTicks()).isEqualTo(1011);
+			assertThat(f.pnlTicks()).isEqualTo(-11);
+			assertThat(f.maeTicks()).isEqualTo(11);
+			assertThat(f.mfeTicks()).isEqualTo(10);
+		}
+
+		@Test
+		@DisplayName("a short flattened at the session's end gains what price fell, and its excursions are its own")
+		void shortTimeExit() {
+			Fill f = FillEngine.resolve(shortTrade(1050, 950), List.of(
+				s(0, 1000, 1004, 996, 998),
+				s(1, 998, 999, 990, 993)), FillModel.DEFAULT);
+			assertThat(f.outcome()).isEqualTo(Outcome.TIME_EXIT);
+			assertThat(f.exitTicks()).isEqualTo(993);
+			assertThat(f.pnlTicks()).isEqualTo(7);
+			assertThat(f.maeTicks()).as("the 1004 high, against a short").isEqualTo(4);
+			assertThat(f.mfeTicks()).as("the 990 low, for it").isEqualTo(10);
+		}
+
+		@Test
+		@DisplayName("money scales with contracts, commission too")
+		void contracts() {
+			Fill f = FillEngine.resolve(new FillEngine.Plan(Direction.LONG, 990, 1010, 4), List.of(
+				s(0, 1000, 1010, 999, 1008)), FillModel.DEFAULT);
+			assertThat(f.netPnlCents(500, 4, FillModel.DEFAULT)).isEqualTo(10 * 500 * 4 - 250 * 4);
+		}
+	}
+
+	@Nested
 	@DisplayName("costs")
 	class Costs {
 

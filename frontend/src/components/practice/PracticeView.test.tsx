@@ -547,6 +547,109 @@ describe('Practice — playing', () => {
   })
 })
 
+describe('Practice — a short, and the bracket around it', () => {
+  beforeEach(() => mockApi(happyServer()))
+
+  it('builds a short: stop above the price, target below, and sends exactly that', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+
+    // The price is 80,006 (20,001.50): the default short risks 40 ticks above for 80 below.
+    await user.click(screen.getByRole('button', { name: /plan short/i }))
+    expect(screen.getByTestId('draft-title')).toHaveTextContent(/draft · short at market/i)
+    expect(screen.getByLabelText('Stop')).toHaveValue('20011.50')
+    expect(screen.getByLabelText('Target')).toHaveValue('19981.50')
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('40 ticks · $200.00')
+
+    // A stop below the price is not a short's stop.
+    const stop = screen.getByLabelText('Stop')
+    await user.clear(stop)
+    await user.type(stop, '20000{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent(/short needs its stop above the current price/)
+    expect(screen.getByRole('button', { name: /place trade/i })).toBeDisabled()
+
+    await user.clear(stop)
+    await user.type(stop, '20004{Enter}')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('10 ticks · $50.00')
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('8.00')
+
+    const contracts = screen.getByLabelText('Contracts')
+    await user.clear(contracts)
+    await user.type(contracts, '3')
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('10 ticks · $150.00')
+
+    await user.click(screen.getByRole('button', { name: /place trade/i }))
+    await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade'))
+    expect(calls.find((c) => is(c, 'POST', '/plan'))?.body).toEqual({
+      direction: 'SHORT',
+      stopTicks: 80_016,
+      targetTicks: 79_926,
+      contracts: 3,
+    })
+  })
+
+  it('flips a draft long into the mirror-image short through the price, and back', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    expect(screen.getByLabelText('Stop')).toHaveValue('19991.50')
+    expect(screen.getByLabelText('Target')).toHaveValue('20021.50')
+
+    await user.click(screen.getByRole('button', { name: /flip to short/i }))
+    expect(screen.getByTestId('draft-title')).toHaveTextContent(/short/i)
+    expect(screen.getByLabelText('Stop')).toHaveValue('20011.50')
+    expect(screen.getByLabelText('Target')).toHaveValue('19981.50')
+
+    await user.click(screen.getByRole('button', { name: /flip to long/i }))
+    expect(screen.getByLabelText('Stop')).toHaveValue('19991.50')
+  })
+
+  it('BUG-058: shows whole cents while a fraction of a contract is typed, and refuses it', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    const stop = screen.getByLabelText('Stop')
+    await user.clear(stop)
+    await user.type(stop, '19991.25{Enter}') // 41 ticks of risk
+    const contracts = screen.getByLabelText('Contracts')
+    await user.clear(contracts)
+    await user.type(contracts, '2.7')
+    expect(screen.getByTestId('plan-numbers')).toHaveTextContent('41 ticks · $553.50')
+    expect(screen.getByTestId('plan-numbers').textContent).not.toMatch(/\.\d{3}/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/whole number/)
+    expect(screen.getByRole('button', { name: /place trade/i })).toBeDisabled()
+  })
+
+  it('steps ten candles at once with Next 10', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /next 10/i }))
+    await waitFor(() => expect(calls.find((c) => is(c, 'POST', '/advance'))?.body).toEqual({ bars: 10, timeframe: '5m' }))
+  })
+
+  it('stops playing when a step is refused, and says why', async () => {
+    const server = happyServer()
+    mockApi((call) =>
+      is(call, 'POST', '/advance')
+        ? { status: 409, body: { message: 'The replay has reached its end.' } }
+        : server(call),
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: 'Play' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('The replay has reached its end.')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument())
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+    expect(calls.filter((c) => is(c, 'POST', '/advance'))).toHaveLength(1)
+  })
+})
+
 describe('Practice — the New York clock (T7)', () => {
   it('asks for the clock once, then again only when the replay reaches its next change', async () => {
     const server = happyServer()
@@ -806,6 +909,72 @@ describe('Practice — journal', () => {
     expect(done).toHaveTextContent('+3.00R')
     expect(done).toHaveTextContent('$792.50')
     expect(within(done).getByRole('button')).toHaveTextContent('Review')
+  })
+
+  const journalRow = (status: SessionSummary['status']): SessionSummary => ({
+    id: ID,
+    instrument: 'DEMO-NQ',
+    timeframe: '5m',
+    status,
+    createdAt: CURSOR,
+    trades: 1,
+    score: NO_SCORE,
+  })
+
+  it('resumes a running trade where it was left: placed, its levels kept, and closable', async () => {
+    mockApi((call) => {
+      if (is(call, 'GET', '/api/practice/sessions')) return { body: [journalRow('IN_TRADE')] }
+      if (is(call, 'GET', `/api/practice/sessions/${ID}`)) {
+        return { body: { state: { ...ANALYSING, status: 'IN_TRADE', trades: [ENTERED] }, bars: BARS } }
+      }
+      return { status: 404, body: { message: 'not found' } }
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await user.click(within(await screen.findByTestId('journal-row')).getByRole('button', { name: 'Resume' }))
+
+    expect(await screen.findByText(/Trade 1 · Long 1 — placed/)).toBeInTheDocument()
+    expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade')
+    const trade = screen.getByRole('region', { name: 'Trade' })
+    expect(trade).toHaveTextContent('19990.00') // the stop as it was placed
+    expect(trade).toHaveTextContent('20021.50') // and the target
+    expect(screen.getByRole('button', { name: /close at market/i })).toBeEnabled()
+    // Resuming is a read: nothing was moved or placed to get here.
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0)
+  })
+
+  it('reviews an ended session: its result, and no way to trade on', async () => {
+    mockApi((call) => {
+      if (is(call, 'GET', '/api/practice/sessions')) return { body: [journalRow('COMPLETE')] }
+      if (is(call, 'GET', `/api/practice/sessions/${ID}`)) {
+        return {
+          body: {
+            state: { ...ANALYSING, status: 'COMPLETE', cursor: CURSOR + 1500, trades: [CLOSED], score: AFTER_ONE, seed: SEED },
+            bars: BARS,
+          },
+        }
+      }
+      return { status: 404, body: { message: 'not found' } }
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await user.click(within(await screen.findByTestId('journal-row')).getByRole('button', { name: 'Review' }))
+
+    await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('Ended'))
+    expect(screen.getAllByTestId('trade-row')[0]).toHaveTextContent('Ambiguous')
+    expect(screen.queryByRole('button', { name: /plan long/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /close at market/i })).not.toBeInTheDocument()
+  })
+
+  it('says so when a session cannot be opened', async () => {
+    mockApi((call) => {
+      if (is(call, 'GET', '/api/practice/sessions')) return { body: [journalRow('ANALYSING')] }
+      return { status: 500, body: {} }
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await user.click(within(await screen.findByTestId('journal-row')).getByRole('button', { name: 'Resume' }))
+    expect(await screen.findByText('Could not load this session.')).toBeInTheDocument()
   })
 })
 

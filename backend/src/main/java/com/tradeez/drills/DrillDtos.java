@@ -17,7 +17,8 @@ import jakarta.validation.constraints.Size;
  * not a secret in the security sense — the candles are all there — but a response that carried it
  * would turn "find the gaps" into "read the JSON", and the rule is simpler kept absolute. A
  * classification drill's subject is sent as what the chart shows — a price, a candle, which side —
- * and nothing that would give its name away.
+ * and nothing that would give its name away. A prediction drill's candles stop at the moment asked
+ * about; the ones after it, and which target they reached, are sent only with the answer (DEC-058).
  */
 public final class DrillDtos {
 
@@ -37,14 +38,15 @@ public final class DrillDtos {
 		@Schema(description = "Identification: epoch seconds of each marked candle in the window")
 		List<Long> marks,
 		@Size(max = 16)
-		@Schema(description = "Classification: one of the drill's options")
+		@Schema(description = "Classification and prediction: one of the drill's options")
 		String choice) {
 	}
 
 	@Schema(description = "One drill there is")
 	public record KindView(
 		String kind,
-		@Schema(description = "IDENTIFY (mark every instance) or CLASSIFY (name the marked one)") String mode,
+		@Schema(description = "IDENTIFY (mark every instance), CLASSIFY (name the marked one) or PREDICT "
+			+ "(say what price does next)") String mode,
 		String title,
 		String conceptId,
 		String detector,
@@ -72,6 +74,43 @@ public final class DrillDtos {
 		@Schema(description = "Where the level starts, epoch seconds: the swing it comes from") long fromTime,
 		@Schema(description = "The marked candle, epoch seconds") long time,
 		long priceTicks) {
+	}
+
+	@Schema(description = "What a prediction drill asks: two targets, and what the chart says about each "
+		+ "(predict-1.0.0). Built from candles before the moment only")
+	public record QuestionView(
+		String version,
+		@Schema(description = "How the targets are chosen and how what price did answers, in words")
+		String definition,
+		@Schema(description = "The last close on the chart, in ticks") long closeTicks,
+		List<TargetView> targets,
+		@Schema(description = "Drawn for context: gaps inside the range (IRL), or the level just taken")
+		List<ContextView> context) {
+	}
+
+	@Schema(description = "One of a prediction's two answers, as drawn on the chart")
+	public record TargetView(
+		@Schema(description = "The answer's name: BSL, SSL, IRL or ERL") String value,
+		@Schema(description = "ERL (an edge of the range) or IRL (inside it), ICT-15") String role,
+		@Schema(description = "LEVEL (taken a tick beyond) or ZONE (a gap, reached when traded into)") String shape,
+		@Schema(description = "ABOVE or BELOW the last close") String side,
+		@Schema(description = "Where it starts, epoch seconds: its swing, or its gap's first candle") long fromTime,
+		long lowTicks,
+		long highTicks,
+		@Schema(description = "Ticks from the last close") long distanceTicks,
+		@Schema(description = "Which is taken first: swing points between price and it (ICT-17)") Integer obstacleSwings,
+		@Schema(description = "Which is taken first: open gaps facing the move on the way (ICT-17)") Integer obstacleGaps,
+		@Schema(description = "\"Buy-side at 20140.25\"") String label) {
+	}
+
+	@Schema(description = "Something a prediction drill draws for context, not to be chosen")
+	public record ContextView(
+		@Schema(description = "IRL_BULLISH_GAP | IRL_BEARISH_GAP | TAKEN_BSL | TAKEN_SSL") String what,
+		@Schema(description = "LEVEL or ZONE") String shape,
+		long fromTime,
+		long lowTicks,
+		long highTicks,
+		String label) {
 	}
 
 	@Schema(description = "One hit from the answer key, with the numbers that qualified it")
@@ -102,9 +141,13 @@ public final class DrillDtos {
 		@Schema(description = "Identification: marks on candles the rule cannot judge from this chart, "
 			+ "counted neither way")
 		List<Long> excusedMarks,
-		@Schema(description = "Classification: the rule's name for the subject") String answer,
-		@Schema(description = "Classification") Boolean correct,
-		List<SetupView> setups) {
+		@Schema(description = "Classification: the rule's name for the subject. Prediction: the target price "
+			+ "reached first") String answer,
+		@Schema(description = "Classification and prediction") Boolean correct,
+		List<SetupView> setups,
+		@Schema(description = "Prediction: the candle that decided it, epoch seconds") Long outcomeTime,
+		@Schema(description = "Prediction: how many candles after the chart that was, from 1") Integer candlesAfter,
+		@Schema(description = "Prediction: what happened, in words — prices, never times") List<String> explanation) {
 	}
 
 	public record DrillResponse(
@@ -130,9 +173,12 @@ public final class DrillDtos {
 		RuleView rule,
 		List<BarResponse> bars,
 		@Schema(description = "Classification: the structure to name") SubjectView subject,
-		@Schema(description = "Classification: the names to choose from") List<OptionView> options,
+		@Schema(description = "Classification and prediction: the answers to choose from") List<OptionView> options,
+		@Schema(description = "Prediction: the targets and what the chart says about them") QuestionView question,
 		@Schema(description = "Identification, absent until answered") List<Long> marks,
-		@Schema(description = "Classification, absent until answered") String choice,
-		@Schema(description = "Absent until answered") ResultView result) {
+		@Schema(description = "Classification and prediction, absent until answered") String choice,
+		@Schema(description = "Absent until answered") ResultView result,
+		@Schema(description = "Prediction, absent until answered: the candles after the chart, up to a few past "
+			+ "the one that decided it") List<BarResponse> revealed) {
 	}
 }

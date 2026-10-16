@@ -414,7 +414,7 @@ public class PracticeService {
 		Snapshot seen = snapshot(userId, sessionId);
 		PracticeResult open = seen.openResult();
 		if (open == null) {
-			throw new NotInTradeException();
+			throw new NotInTradeException("skip to the end of");
 		}
 		Timeframe timeframe = viewOf(seen.session(), timeframeCode);
 		Instant end = endOfBarContaining(open.getExitTime(), timeframe);
@@ -436,7 +436,7 @@ public class PracticeService {
 		Snapshot seen = snapshot(userId, sessionId);
 		PracticeResult open = seen.openResult();
 		if (open == null) {
-			throw new NotInTradeException();
+			throw new NotInTradeException("close");
 		}
 		PracticeSession session = seen.session();
 		TradePlan plan = seen.trades().getLast().plan();
@@ -1034,8 +1034,9 @@ public class PracticeService {
 	}
 
 	public static class NotInTradeException extends RuntimeException {
-		public NotInTradeException() {
-			super("There is no running trade to skip to the end of.");
+		/** @param action what was asked of the trade: "close", "skip to the end of" (BUG-057) */
+		public NotInTradeException(String action) {
+			super("There is no running trade to " + action + ".");
 		}
 	}
 

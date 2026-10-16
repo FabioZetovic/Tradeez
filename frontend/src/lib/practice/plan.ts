@@ -165,10 +165,17 @@ export function planNumbers(
   }
 }
 
-/** "$1,234.50" or "−$40.00". Cents in, text out; no float arithmetic on money before this. */
+/**
+ * "$1,234.50" or "−$40.00". Cents in, text out; no float arithmetic on money before this.
+ *
+ * Rounded to a whole cent first. Money from the server is always whole cents, but the plan panel
+ * multiplies by whatever is in the contracts box while it is being typed — 2.7 contracts made
+ * "$553.50.000000000007276" (BUG-058).
+ */
 export function formatCents(cents: number): string {
-  const sign = cents < 0 ? '−' : ''
-  const abs = Math.abs(cents)
+  const whole = Math.round(cents)
+  const sign = whole < 0 ? '−' : ''
+  const abs = Math.abs(whole)
   const dollars = Math.floor(abs / 100).toLocaleString('en-US')
   return `${sign}$${dollars}.${String(abs % 100).padStart(2, '0')}`
 }

@@ -242,7 +242,11 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("defaults to real NQ, and says so plainly when no history has been imported")
 		void defaults() throws Exception {
-			// This database has no imported bars. RealPracticeApiTest covers the default with data.
+			// No imported bars — made so here, not assumed: the test classes share one database, and the
+			// real-data ones leave theirs behind, so this passed only when it ran before them (BUG-060).
+			// RealPracticeApiTest covers the default with data.
+			jdbc.update("DELETE FROM market_bar");
+			jdbc.update("DELETE FROM market_data_import");
 			mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
@@ -811,7 +815,11 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		void rules() throws Exception {
 			JsonNode session = create(alice);
 			String id = session.at("/state/id").asString();
-			close(alice, id).andExpect(status().isConflict());
+			// BUG-057: the refusal names the command that was refused, not Skip to result.
+			close(alice, id).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.message").value("There is no running trade to close."));
+			skip(alice, id).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.message").value("There is no running trade to skip to the end of."));
 			wideLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
 			close(bob, id).andExpect(status().isNotFound());
 			close(alice, id).andExpect(status().isOk());

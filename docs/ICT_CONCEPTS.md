@@ -126,9 +126,9 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-12 | Relative equal highs / lows | 2 | R | ✅ `eqhl-1.0.0` (DEC-053) | `eqhl-1.0.0` | 1m |
 | ICT-13 | Liquidity sweep vs run | 2 | R | ✅ `sweep-1.0.0` (DEC-053) | `sweep-1.0.0` | 1m |
 | ICT-14 | Turtle soup (pattern) | 2 | R | ✅ of equal highs/lows (DEC-053) | via `sweep-1.0.0` | 1m |
-| ICT-15 | External vs internal range liquidity | 2 | R / J | 📝 | — | 1m |
-| ICT-16 | Draw on liquidity | 2 | J | 📝 | — | 1m |
-| ICT-17 | Low / high resistance liquidity runs | 2 | R / J | 📝 | — | 1m |
+| ICT-15 | External vs internal range liquidity | 2 | R / J | ✅ partly (ERL/IRL labels, a prediction drill, DEC-058) | `predict-1.0.0` | 1m |
+| ICT-16 | Draw on liquidity | 2 | J | ✅ partly (a prediction drill, DEC-058) | `predict-1.0.0` | 1m |
+| ICT-17 | Low / high resistance liquidity runs | 2 | R / J | ✅ partly (obstacle counts, DEC-058) | `predict-1.0.0` | 1m |
 | ICT-20 | Fair value gap (BISI / SIBI) | 3 | D | ✅ `fvg-1.0.0`, re-measured on real NQ, unchanged (DEC-050) | `fvg-1.0.0` (DEC-039) | 1m |
 | ICT-21 | Consequent encroachment | 3 | D | ✅ drawn in every zone (T8, T9), reached in `fvg-state-1.0.0` (T10) | part of each zone rule | — |
 | ICT-22 | FVG lifecycle (tapped, CE, filled) | 3 | D | ✅ `fvg-state-1.0.0` (DEC-050) | `fvg-state-1.0.0` | 1m |
@@ -212,7 +212,7 @@ Every concept is taught with the same loop, in this order:
 | **L** Lesson card | Reads a short card built from this file plus detected real examples — ✅ the Learn tab, T14 (DEC-055) | 1 min | none |
 | **A** Identification | Clicks every instance on a static chart | ~15 s | precision / recall against the rule |
 | **B** Classification | Chooses the name of a marked structure | ~10 s | against the rule |
-| **C** Prediction | Answers a question about the hidden future, then sees it | ~20 s | against real price (real data only) |
+| **C** Prediction | Answers a question about the hidden future, then sees it — ✅ T15 (DEC-058): which liquidity is taken first; external or internal next | ~20 s | against real price (real data only) |
 | **D** Execution | Paper-trades a replay: plan → locked bracket → candle-by-candle replay → result | 3–10 min | scorecard (DEC-027): process and outcome shown separately |
 | **E** Management | Decides mid-trade (hold, breakeven, partial) and sees each alternative's outcome | ~30 s | against real price |
 | **F** Risk | Computes contracts, risk in R and dollars under a time limit | ~15 s | arithmetic |
@@ -539,6 +539,14 @@ within *N* candles?
 
 **Teach.** B (ERL or IRL?), G.
 
+*Implemented in T15 (DEC-058), `predict-1.0.0`:* the range is the nearest resting buy-side above price
+and sell-side below it — its two levels are labelled ERL, the open gaps between them IRL — until the
+dealing range of T18 can stand in. The alternation claim is a C drill: the last candle took a resting
+level; does price next reach the nearest untapped gap behind it (IRL) or the next resting level beyond
+(ERL)? **Measured on two years of real NQ: the gap came first 47% of the time on 1m, 46% on 5m, 39% on
+15m** — not the alternation the claim describes, at this scale and with these rules. A B drill waits for
+the dealing range.
+
 ### ICT-16 · Draw on liquidity (DOL)
 
 **What.** The level price is expected to reach next — the "magnet". Choosing it is the heart of ICT
@@ -549,14 +557,26 @@ analysis and pure judgement: higher-timeframe narrative, nearby pools, imbalance
   happened.
 - **Practice plans** ask for the learner's DOL. Review shows whether price reached it, and when.
 
+*Implemented in T15 (DEC-058), `predict-1.0.0`:* "Which liquidity is taken first" — the nearest resting
+buy-side above the close or the nearest sell-side below it, graded by which real price took first within
+100 candles. **Measured on two years of real NQ (1m, 5m, 15m): either side first about half the time
+(51–53% buy-side); the nearer level first 68–69%** — 53–56% when the distances are within 1.5× of each
+other, 87–88% beyond 5×. The drill shows the distances and does not filter them: these are the market's
+base rates, and the evidence view (T21) is where they belong on screen.
+
 ### ICT-17 · Low / high resistance liquidity runs (LRLR / HRLR)
 
 **What.** The path to a target. A **low-resistance** run has little in the way — few opposing swing
 points or PD arrays — and tends to move cleanly; a **high-resistance** run is choppy, with many
 obstacles.
 
-**Tradeez.** 📝 Partly measurable: count the opposing swings and PD arrays between price and the
+**Tradeez.** Partly measurable: count the opposing swings and PD arrays between price and the
 target, and show that count as a fact. Calling it "low resistance" stays the learner's judgement.
+
+*Implemented in T15 (DEC-058), `predict-1.0.0`:* each path in "which liquidity is taken first" carries
+its obstacles — the swing points between price and the level, and the open fair value gaps facing the
+move — shown before the answer as a fact. **Measured: the path with fewer obstacles was taken first
+65–67% of the time**, which overlaps with distance (a farther level has more in the way).
 
 **Teach.** B with two charts side by side ("which path is low-resistance?"), G (time to target
 against the obstacle count).
@@ -1298,7 +1318,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | S-1 | Detector framework | A `Detector` contract: rule id and version, parameters, evidence, **confirmation time**; the "never across a session break or contract roll" rule shared; `detected_setup` generalised to every kind; on-demand scanning over real data (DEC-026). ✅ T9 (DEC-049): `Detector` + `Detection`, `Segments`, V12, checked by `DetectorContractTest` for every detector. |
 | S-2 | Concept registry | The concepts of this file as data: id, level, detectability, prerequisites, lesson text, linked rules. ✅ T9 (DEC-049): this file **is** the registry — read at startup from the master table, each **What.** paragraph and the ladder (Part 12). Keep those three shapes, or the app will not start. |
 | S-3 | Overlay renderer | Zones (rectangle + CE line), levels (labelled lines), swing markers, session shading — drawn from detected setups, never past the replay cursor. ✅ T9 (DEC-049) for zones, levels and points; session shading is the clock layer (T7). |
-| S-4 | Drill engine | Modes A, B and C for any detector, real data only, explanations rendered from evidence. Generalises the FVG drill. ✅ T13 (DEC-054) for modes A and B: ten drills over eight rules, graded on real NQ, each hit explained from its evidence; a hit the window cuts is excused, not counted. Mode C is T15. |
+| S-4 | Drill engine | Modes A, B and C for any detector, real data only, explanations rendered from evidence. Generalises the FVG drill. ✅ T13 (DEC-054) for modes A and B: ten drills over eight rules, graded on real NQ, each hit explained from its evidence; a hit the window cuts is excused, not counted. Mode C ✅ T15 (DEC-058): two prediction drills, the future withheld until the answer and graded by what real price did. |
 | S-5 | Learning state | Attempts, per-concept rating, spaced repetition, unlocks (INVARIANT 8b). |
 | S-6 | Evidence engine | Batch statistics per rule over the imported history, with sample size and date range; worded as description, never as edge. |
 | S-7 | Practice for ICT | Replay paper-trading mode; plan fields for model, DOL, bias, killzone; checklist checked at the decision moment; review overlay. |
@@ -1315,7 +1335,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-01 – ICT-06 | `swing`, `swing-tier`, `structure`, `displacement`, `mss` | swing markers, structure labels | A, B, C | — | T11 ✅ (detectors and overlay; drills ✅ T13: spot swing highs, lows and displacement; name a swing's label and BOS or CHoCH) |
 | ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 ✅ (detectors, clock levels taken, overlay; drills ✅ T13: spot equal highs/lows and sweeps; name sweep or run) |
 | (all D/R) | — | — | S-4 engine, S-5 state | — | T13 ✅ (S-4, DEC-054), T16 |
-| ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 |
+| ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 ✅ (`predict-1.0.0`: ERL/IRL labels, obstacle counts, two C drills — DEC-058; B waits for T18's dealing range) |
 | ICT-30 – ICT-37 | `ob`, `breaker`, `mitigation`, `rejection`, `unicorn` | zones | A, B, C | G: reaction rates | T17 |
 | ICT-40 – ICT-44 | `dealing-range`, `pd`, `ote`, `stdev` | range, equilibrium, OTE zone | A, B, C | premium/discount fact in review | T18 |
 | ICT-53, ICT-54, ICT-57, ICT-62 – ICT-65 | `po3`, `judas`, `daily-profile`, `weekly-profile`, `ipda` | windows, labels | B, C | G: profile distributions | T19 |

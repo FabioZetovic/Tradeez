@@ -445,6 +445,11 @@ public final class RuleText {
 	}
 
 	/** Ticks as a price at the instrument's tick size, the way the chart shows it (INVARIANT 3). */
+	/** A price in ticks, in the instrument's own decimals: what every sentence here prints. */
+	public static String price(long ticks, BigDecimal tickSize) {
+		return new Prices(tickSize).of(ticks);
+	}
+
 	private record Prices(BigDecimal tickSize) {
 
 		String of(long ticks) {

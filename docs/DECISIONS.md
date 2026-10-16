@@ -1084,6 +1084,57 @@ read (T16).
 **Reconsider if** random examples too often show a rule's odd cases to a beginner — then order them
 (cleanest first) without hand-picking: by the rule's own numbers, stated on the card.
 
+**DEC-058 — Prediction drills: the chart stops, two targets, real price decides** `IMPLEMENTED` ·
+Claude, Session 017 (2026-10-16), T15 — mode C, ICT-15 to ICT-17
+
+Mode C of the drill engine (DEC-054): a chart that stops at a moment, two targets drawn on it, and
+the question which price reaches first. Never "was the reading right" — only what real price did
+next. One rule, `predict-1.0.0` (`drills/Prediction`), named on screen with its definition.
+
+- **Which liquidity is taken first** (ICT-16, the draw on liquidity). The targets: the nearest
+  resting buy-side above the last close and sell-side below it (`liquidity-1.0.0`), from swings on the
+  chart. They bracket price: the range's **external** liquidity (ERL, ICT-15); the open gaps inside it
+  are drawn and labelled **internal** (IRL). Each path is given its **obstacles** as a fact (ICT-17):
+  the swing points between price and the level, and the open gaps (`fvg-state-1.0.0`) facing the move.
+  Calling a path "low resistance" stays the learner's judgement.
+- **External or internal next** (ICT-15's alternation claim). The last candle took a resting level on
+  one side — external liquidity. The targets: the nearest gap behind it that no candle has traded into
+  (still `OPEN`), against the next resting level beyond. Most moments are not one: the window slides
+  over a stretch of 69 candles until one is.
+- **Answered by the future.** A level is taken a tick beyond, a gap reached when traded into. Within
+  100 candles of the moment, the first candle to reach either decides; when one reached both, its
+  one-minute candles decide, and when one minute did, the question is never asked. Nor is one the
+  horizon does not answer, or whose future crosses a contract roll (the future is cut there).
+- **Decided when made, sent only with the answer.** The question and the outcome are written with the
+  drill (V16: `question` JSONB, `outcome`, `outcome_at`, `reveal_to`), immutable like the answer. Before
+  the answer, no candle at or after the moment and no outcome leaves the server, on the first response
+  or a reload (tested). With the answer come the candles after the moment, to ten past the deciding one;
+  the chart is reframed around the whole story, with a line where it stopped and the deciding candle
+  ringed. The explanation is in prices, ends with "not a verdict on how the chart was read".
+- **Real data only.** A simulated future is a formula: refused (DEC-034), and the database refuses a
+  prediction row on simulated data (`ck_drill_prediction_real`). Graded, kept for T16.
+
+**Measured first** (two years of real NQ, 40-candle windows, the same rules re-implemented outside
+the app, 1m / 5m / 15m), then again through the app (240 drills on the dev database):
+- *Which is taken first* is askable in 77–83% of windows; neither within 100 candles ≤ 0.4%; one
+  candle reaching both ≈ 1%. Median wait 2–3 candles (p99 41–74). The buy-side came first 51–53% of the
+  time. **The nearer level came first 68–69%** — 53–56% when the two were within 1.5× of each other's
+  distance, 87–88% beyond 5× — and the path with fewer obstacles 65–67% (the two overlap: a farther level
+  has more in the way). Not filtered for distance: the drill shows the market's own base rates.
+- *External or internal next*: about 5% of windows qualify. **The gap behind came first 39–47% of the
+  time** (1m 47%, 5m 46%, 15m 39%) — ICT's claim that price seeks internal liquidity after taking
+  external is not what these two years show at this scale. A fact for T21's evidence view, not a
+  verdict on the method (INVARIANT 8).
+- Through the app: every one of 240 drills found a moment, median 95–145 ms (max 536 ms); stored
+  outcomes matched (buy-side 50%, nearer 67.5%, the gap 46.7% over 120 drills each at 5m).
+
+Not in this decision: a mode B drill "ERL or IRL?" (it needs the dealing range of T18 to mean more
+than "is it at the edge"), reference levels (PDH/PDL) as targets, the learner's own drawn DOL, and
+these base rates on screen — that is T21's evidence view, with sample sizes.
+
+**Reconsider if** "which is taken first" proves too easy to game by distance alone — then offer
+pairs at comparable distances as a separate drill, saying so, rather than filtering this one.
+
 **DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
 The first detector under DEC-026. The rule:
 

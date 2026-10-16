@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T14, T34, DEC-056 and the practice fix (DEC-057) merged; T15 (prediction drills) next
+last_session: 017   # in progress — T1–T14, T34, DEC-056 and the practice fix (DEC-057) merged; T15 (prediction drills, DEC-058) on feat/prediction-drills
 last_author: CLAUDE
 last_updated: 2026-10-16
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,14 +63,15 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060; branched from feat/prediction-drills, so merging it brings T15) not merged; feat/prediction-drills (T15, DEC-058) not merged; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 388/388 (Testcontainers), frontend 250/250 + typecheck + build; npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 433/433 (Testcontainers), frontend 283/283 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
   backend:  Spring Boot 4.1.1 / Java 25 target (JDK 26 installed) / Maven 3.10.0 / springdoc 3.1.1 / Jackson 3
   frontend: Node 24.20 LTS / npm 12.2 / React 19.3 / Vite 8.3 / Vitest 5 / TypeScript 7 / Tailwind CSS 4 (DEC-044)
+  coverage: JaCoCo 0.8.15 (Maven profile `coverage`, opt-in) / @vitest/coverage-v8 5.0.5 (`npm run coverage`)
   database: PostgreSQL 17 via docker-compose (17.11; Fabio kept 17 — 18 needs a dump and restore of the imported data, DEC-056)
 
 files_in_repo:
@@ -89,8 +90,8 @@ files_in_repo:
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), chart endpoint (017, T7, T12)
     analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
-    drills/      # drill engine (DEC-054): DrillKind catalogue (ten drills, modes A and B), windows on real NQ, answer key = stored hits, excused candles, DrillText (rules and explanations from evidence); FVG fixture on simulated data  (016, 017 T13)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close)
+    drills/      # drill engine (DEC-054): DrillKind catalogue (twelve drills, modes A, B and C), windows on real NQ, answer key = stored hits, excused candles; Prediction + PredictionText = predict-1.0.0 (mode C: two targets, the future withheld until the answer, DEC-058); FVG fixture on simulated data  (016, 017 T13, T15)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts, drills, lessons
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -120,7 +121,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T15 (prediction drills) next.
+blocked_on: Fabio's "merge" for test/practice-coverage (which carries T15, DEC-058); then T16 (learning state).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -148,7 +149,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — practice fix (DEC-057), on branch fix/practice-trades (2026-10-16)
+claimed_files:      # session 017 (CLAUDE) — bug hunt and tests, on branch test/practice-coverage (2026-10-16)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -165,7 +166,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, branch).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -208,7 +209,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 |---|---|---|---|---|
 | T13 | ~~**Drill engine for every detector**~~ | T10–T12 | C §6, D-023, D-034 | ✅ Session 017, **merged 2026-10-15 as `e4f7cba`** (DEC-054): ten drills — spot gaps, swing highs, swing lows, VIs, displacement, equal highs/lows, sweeps; name a swing's label, BOS or CHoCH, sweep or run — on real NQ 1m/5m/15m, graded against the rule; the key is the rule's stored hits shown whole, a hit the window cuts is excused (BUG-050); the subject is sent without its name; explanations rendered server-side from evidence; V14. The other rules are one constant each when wanted. |
 | T14 | ~~**Lesson cards**~~ | T13 | I Part 0 | ✅ Session 017, **merged 2026-10-16 as `37f8513`** (DEC-055): a Learn tab with the curriculum ladder (72 concepts) and a card per concept — the document's What, prerequisites and what it builds toward, every rule in words (all 18 now, guarded by the contract test), the drills that practise it ("Practise it" opens the drill), and three real NQ examples found at random, each explained from its evidence; clock-drawn and undetected concepts say so. |
-| T15 | **Prediction drills** | T13 | C §6.1, I-15–17 | Mode C ("which liquidity is taken first?"); ERL/IRL labels, DOL questions, obstacle counts. |
+| T15 | ~~**Prediction drills**~~ | T13 | C §6.1, I-15–17 | ✅ Session 017 (DEC-058), `predict-1.0.0`: measured first (nearer level first 68–69%, fewer obstacles 65–67%, the gap after taking a level 39–47%); "which liquidity is taken first" — the nearest resting BSL and SSL, labelled ERL, open gaps between labelled IRL, each path's obstacles shown — and "external or internal next" after a level is taken; graded by the first candle within 100 to reach either; the future withheld until the answer, then revealed and ringed; V16; real data only. A B drill "ERL or IRL?" waits for T18's dealing range. |
 | T16 | **Learning state and curriculum map** | T13 | C §6.3, I Part 12 | Per-concept rating, spaced repetition, unlocks; real-data attempts only (INVARIANT 8b). |
 
 **M3 — Blocks, ranges, time models**
@@ -275,6 +276,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-058 | **Prediction drills (mode C), `predict-1.0.0`:** the chart stops at a moment, two targets drawn (nearest resting BSL vs SSL with obstacle counts; or after a level was taken, the untapped gap behind vs the next level beyond — ERL/IRL); answered by the first candle within 100 to reach either (ties by minutes, else never asked; never across a roll); question and outcome written at creation (V16), nothing after the moment sent before the answer; real data only. |
 | DEC-057 | **A draft is not a trade; a placed trade can be closed at market.** Plan long/short only draws a draft (titled so, discardable); Place trade sends it. Close at market fills at the next fine bar's open (`fill-1.2.0`, `CLOSED`), stored in `practice_close` (V15) beside the untouched planned result; the plan's own stop/target wins a tie. |
 | DEC-046 ⚠️ | **A session is a replay with several trades, one at a time.** Flat → in trade → flat; each trade numbered and immutable (V10); its result revealed when the replay passes its exit; the seed or date only when the session **ends** (learner ends it while flat, or a flat replay hits its limit); score over closed trades only. |
 | DEC-044 | **Tailwind CSS 4 for all styling.** Tokens in `src/index.css` (`@theme`), shared with the chart; `components/ui.tsx` + `lib/styles.ts`; no other CSS. Never give one element two utilities for the same property. |
@@ -1993,3 +1995,75 @@ lint, typecheck, `npm run knip`, 250/250 and build clean. Waiting for Fabio to s
 
 **2026-10-16 — The practice fix merged.** Fabio: "merge". `fix/practice-trades` merged `--no-ff` into
 `master` as `7f013a9` (BUG-055, BUG-056, DEC-057). Next: T15, prediction drills.
+
+**2026-10-16 — T15: prediction drills (DEC-058).** On `feat/prediction-drills`, not merged.
+- **ENV-001 recurred** first: Docker Desktop had quit entirely, taking the database and the backend
+  with it. Started again (documented fix); the database came back intact.
+- **Measured first**, on two years of real NQ exported from the dev database (scratchpad script, rules
+  re-implemented): which of the nearest resting BSL/SSL is taken first — askable 77–83% of windows,
+  ties ≈ 1%, neither within 100 candles ≤ 0.4%, buy-side 51–53%, nearer 68–69%, fewer obstacles 65–67%;
+  after a level is taken, the untapped gap behind first 39–47% (≈ 5% of windows qualify).
+- **Built:** mode C in the drill engine — `Prediction` (`predict-1.0.0`: targets from the moment's stored
+  `liquidity-1.0.0` and `fvg-state-1.0.0` hits, ERL/IRL roles, obstacle counts, resolution by the first
+  candle to reach either, ties on one-minute candles, else not asked; 100-candle horizon cut at a roll),
+  `PredictionText` (rule, labels, explanation in prices), two drills (`LIQUIDITY_FIRST_PREDICTION` ICT-16,
+  `ERL_IRL_PREDICTION` ICT-15), V16 (`question`, `outcome`, `outcome_at`, `reveal_to`; checks that a
+  prediction has all of them, never before the window's end, and never on simulated data). Frontend:
+  the Predict group, targets and context drawn and labelled, each target's distance and obstacles, the
+  answer reveals the hidden candles with a "chart ended" line and the deciding candle ringed, the chart
+  reframed around the whole story; lesson cards name prediction drills ("Predict: …") — found missing
+  while building, fixed before commit.
+- **Through the app** on the dev database: 240 drills, every one found a moment, median 95–145 ms (max
+  536 ms); stored outcomes matched the measurement. Checked live at 1920px: both drills, answered, the
+  reveal reframed.
+- Tests: PredictionTest (11), RealPredictionApiTest (12: nothing after the moment before the answer,
+  on create or reload; targets resting and on screen; the answer checked against stored candles and
+  minutes independently of the engine; the roll cut; the database rules), DrillView (+3), LearnView
+  (+1), catalogue and registry tests updated. Mutations, one at a time: 18 backend, all caught in the
+  end — two first survived (a level whose swing is off the chart; gap states confirmed after the moment,
+  a lookahead), so the selectors moved into `Prediction` over a plain `Hit` record and got direct tests;
+  8 frontend, all caught.
+- Backend 388 → 413, frontend 250 → 254; tsc, lint, knip, build clean.
+
+
+**2026-10-16 — Fresh-clone check of `3749d91`** (`feat/prediction-drills`), no `.env`: backend
+`tests=413 errors=0 skipped=0 failures=0`, no `[ERROR]` lines; frontend `npm audit` 0 vulnerabilities,
+lint, typecheck, `npm run knip`, 254/254 and build clean. Waiting for Fabio to say merge; then T16.
+
+**2026-10-16 — Bug hunt and missing tests, on Fabio's request.** On `test/practice-coverage` (from
+`feat/prediction-drills`), not merged. Fabio: "check for bugs now. any sneaky bugs", "write new tests
+for parts that dont have them", and tests "for tp sl and stuff like that in the practice section". He
+had noticed the test count looked flat: the number of frontend test *files* had stayed 23–24 since T10,
+and frontend tests grew by only 1–3 for T11–T13 (backend kept growing).
+- **Coverage measured, then kept as tooling:** backend 95.3% of lines / 88.4% of branches (practice
+  97%), frontend 82.6% / 73.9%. Weakest: the drill overlay's painting (18%, jsdom has no canvas), the
+  keyboard shortcuts (33%), resuming a practice session, and — found this way — the per-address sign-in
+  limit's refusal, which no test had ever made happen (it works: now tested).
+- **TP/SL end to end on real NQ:** 175 random brackets through the dev API (long and short, 1–320
+  ticks, 34 ambiguous) and 45 closes at market, each recomputed from the stored minutes by a separate
+  implementation — outcome, entry, exit, P&L, net, commission, MAE, MFE, gap flag, reference: all agree.
+- **Found and fixed:** BUG-057 (Close at market refused with Skip's message), BUG-058 (2.7 contracts
+  printed "$553.50.000000000007276"), BUG-059 (a target gap explained as if it were a stop), BUG-060
+  (a test that passed only by test-class order). Reviewed and kept, as designed: an ambiguous result's
+  best point counts the target (price did reach it); an entry opening past the target is a 0-tick
+  "target hit", as a real bracket would be.
+- **New tests:** `BracketOutcomeApiTest` (10 — worked TP/SL examples through the API on hand-written
+  minutes: long and short targets and stops, a tick short, gaps either way, entry at the next price
+  with R from the plan, three contracts, ambiguity, the session close, a close at market; and 40 random
+  brackets against an independent replay), FillEngineTest +7 (the open exactly at a level, entries past
+  a level, a short's ambiguity and time exit, contracts), the per-address limit, ResultCard.test (8),
+  PracticeView +8 (a short end to end, flip, Next 10, play stopping on an error, resume, review, a load
+  failure), useDrawingShortcuts.test (5), DrillOverlay.test (3, with a recording canvas now shared in
+  `src/test/canvasRecorder.ts`), plan.test +4. Mutations, one at a time: 13 backend on TP/SL (slippage the wrong way, a stop or target needing a tick
+  beyond, a gapped stop not slipped, an exact open called a gap, ambiguity resolved for the trader, entry
+  at the close, the time exit at the open, commission once per trade, R off its base, the session an hour
+  long, the reference from an older minute, ambiguity unlabelled) and 11 frontend — all caught.
+- Backend 413 → 433, frontend 254 → 283 (24 → 27 files). Coverage after: backend 95.4% of lines / 88.8% of
+  branches (it was already high; the new backend tests check that the numbers are right), frontend
+  88.3% / 79.6% (from 82.6% / 73.9%).
+
+
+**2026-10-16 — Fresh-clone check of `53d7c3c`** (`test/practice-coverage`), no `.env`: backend 433 test
+cases, 0 failures, 0 errors, no `[ERROR]` lines (counted as `<testcase>` elements — the reports' headers
+undercount nested classes, ENV-010); frontend `npm audit` 0, lint, typecheck, knip, 283/283, coverage
+88.3% of lines, build clean. Waiting for Fabio to say merge (it brings T15 too); then T16.

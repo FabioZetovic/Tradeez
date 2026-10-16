@@ -1660,6 +1660,35 @@ outcome is still worked out and stored when it is placed, and stays unchanged; t
 beside it as a separate record. If the trade's own stop or target would have filled first, that is
 what the learner sees — closing never lets anyone escape a stop that had already been hit.
 
+**Predicting, graded by what happened.** The third kind of drill asks about the future. The chart
+stops, and two targets are drawn on it: the nearest buy-side liquidity resting above price and the
+nearest sell-side below — which does price take first? Or, just after price has run a high: does it
+come back to the gap it left behind, or carry on to the next high? The learner answers, and only then
+does the server send the candles that were hidden, with a line where the chart stopped and the
+deciding candle circled. Nothing is graded as a "correct reading" — ICT's draw on liquidity is a
+judgement — only against what real price did next, and the explanation says so.
+
+Before building it, the questions were measured on the two years of real NQ, and the numbers are worth
+knowing in their own right. Either side is taken first about half the time; the nearer of the two
+about two times in three, and nearly nine in ten when one is five times closer. Most interesting is
+ICT's claim that after price takes "external" liquidity it seeks "internal" liquidity — a gap — next:
+on this data it reached the gap first only 39–47% of the time. That is not a verdict on the method,
+which the app never gives; it is a fact a learner can weigh, and the evidence view planned for later
+will show such numbers with their sample sizes.
+
+**Looking for the bugs nobody had found.** Fabio asked for a deliberate hunt, and for tests where there
+were none — the stop loss and take profit above all. Two methods. First, coverage: running every test
+with a tool that marks each line it executes, which showed exactly what had never been tried. Most of
+the backend was (95% of its lines); the gaps were telling — the protection against password guessing
+from one address had never once been made to refuse anyone (it works; now there is a test). Second, a
+check of the trading itself that does not trust the code: 175 random trades and 45 early closes placed
+through the running app on the real NQ history, every result then worked out again from the stored
+prices by a separate program written for the purpose. All 220 agreed, to the tick and the cent. The
+hunt still found four small bugs — a wrong message, a price printed with fifteen decimals while a
+number was being typed, a sentence that described a lucky fill as an unlucky one, and a test that only
+passed because of the order tests happened to run in — all fixed. The practice section now has worked
+examples for every way a trade can end, readable like the lessons they are.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1675,8 +1704,8 @@ bars, the import ledger, the real NQ instrument; V8: the simulated markets leave
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
-the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market):
-backend 223 → 388, frontend 148 → 250, V9 to V15, DEC-044 to DEC-057.*
+the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
+prediction drills, the bug hunt): backend 223 → 433, frontend 148 → 283, V9 to V16, DEC-044 to DEC-058.*
 
 ---
 

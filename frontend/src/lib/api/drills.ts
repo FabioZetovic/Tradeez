@@ -8,8 +8,11 @@ import type { DomainBar } from '../chart/types'
  * answered, or only in one mode, are optional: the server leaves null fields out of the JSON.
  */
 
-/** IDENTIFY: mark every instance (mode A). CLASSIFY: name the marked structure (mode B). */
-type DrillMode = 'IDENTIFY' | 'CLASSIFY'
+/**
+ * IDENTIFY: mark every instance (mode A). CLASSIFY: name the marked structure (mode B). PREDICT: say
+ * which of two targets price reaches first after the chart stops (mode C, DEC-058).
+ */
+type DrillMode = 'IDENTIFY' | 'CLASSIFY' | 'PREDICT'
 
 export interface DrillKindView {
   kind: string
@@ -45,6 +48,45 @@ export interface SubjectView {
   priceTicks: number
 }
 
+/** One of a prediction's two answers, as drawn on the chart. Built from the candles before the moment only. */
+export interface TargetView {
+  /** BSL, SSL, IRL or ERL. */
+  value: string
+  /** ERL: an edge of the range. IRL: inside it (ICT-15). */
+  role: 'ERL' | 'IRL'
+  /** A level is taken a tick beyond; a zone (a gap) is reached when traded into. */
+  shape: 'LEVEL' | 'ZONE'
+  side: 'ABOVE' | 'BELOW'
+  /** Its swing, or its gap's first candle. */
+  fromTime: number
+  lowTicks: number
+  highTicks: number
+  distanceTicks: number
+  /** Which is taken first: what lies on the way (ICT-17). */
+  obstacleSwings?: number
+  obstacleGaps?: number
+  label: string
+}
+
+/** Drawn for context, not to be chosen: a gap inside the range, or the level just taken. */
+export interface ContextView {
+  what: 'IRL_BULLISH_GAP' | 'IRL_BEARISH_GAP' | 'TAKEN_BSL' | 'TAKEN_SSL'
+  shape: 'LEVEL' | 'ZONE'
+  fromTime: number
+  lowTicks: number
+  highTicks: number
+  label: string
+}
+
+export interface QuestionView {
+  version: string
+  /** How the targets are chosen and how what price did answers, in words. */
+  definition: string
+  closeTicks: number
+  targets: TargetView[]
+  context: ContextView[]
+}
+
 export interface SetupView {
   id: string
   direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
@@ -72,10 +114,16 @@ export interface ResultView {
   extraMarks?: number[]
   /** Marks on candles the rule cannot judge from this chart: counted neither way. */
   excusedMarks?: number[]
-  /** Classification: the rule's name for the subject. */
+  /** Classification: the rule's name for the subject. Prediction: the target price reached first. */
   answer?: string
   correct?: boolean
   setups: SetupView[]
+  /** Prediction: the candle that decided it. */
+  outcomeTime?: number
+  /** Prediction: how many candles after the chart that was. */
+  candlesAfter?: number
+  /** Prediction: what happened, in the server's words (prices, never times). */
+  explanation?: string[]
 }
 
 export interface DrillResponse {
@@ -102,9 +150,13 @@ export interface DrillResponse {
   bars: DomainBar[]
   subject?: SubjectView
   options?: OptionView[]
+  /** Prediction: the targets and what the chart says about them. */
+  question?: QuestionView
   marks?: number[]
   choice?: string
   result?: ResultView
+  /** Prediction, once answered: the candles after the chart, to a few past the deciding one. */
+  revealed?: DomainBar[]
 }
 
 export const DRILL_TIMEFRAMES = ['1m', '5m', '15m'] as const
