@@ -2062,3 +2062,8 @@ and frontend tests grew by only 1–3 for T11–T13 (backend kept growing).
   branches (it was already high; the new backend tests check that the numbers are right), frontend
   88.3% / 79.6% (from 82.6% / 73.9%).
 
+
+**2026-10-16 — Fresh-clone check of `53d7c3c`** (`test/practice-coverage`), no `.env`: backend 433 test
+cases, 0 failures, 0 errors, no `[ERROR]` lines (counted as `<testcase>` elements — the reports' headers
+undercount nested classes, ENV-010); frontend `npm audit` 0, lint, typecheck, knip, 283/283, coverage
+88.3% of lines, build clean. Waiting for Fabio to say merge (it brings T15 too); then T16.

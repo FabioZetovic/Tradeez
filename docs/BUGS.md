@@ -30,6 +30,17 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ## Environment
 
+### ENV-010 🟡 Summing Surefire's report headers undercounts tests in nested classes
+
+**Status:** verified (session 017, 2026-10-16) — **worked around**
+
+The fresh-clone check added up the `tests=` attribute of each `TEST-*.xml` report. For
+`BracketOutcomeApiTest` that attribute says 10 while the file holds 12 `<testcase>` elements — its two
+`@Nested` groups are partly left out of the header — so the clone seemed to run 431 tests against
+Maven's 433. Nothing was missing. **Count `<testcase>` elements** (and `<failure` / `<error` ones) instead;
+the check does so from now on. A stale report from a deleted test class can also linger in a local
+`target/`; a fresh clone has none.
+
 ### ENV-009 🟡 knip sometimes cannot allocate its parser's memory
 
 **Status:** verified (session 017, after DEC-056) — **fixed**
