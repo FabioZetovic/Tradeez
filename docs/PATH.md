@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T15, T34, DEC-056–058 and the bug hunt merged; T16 (learning state, DEC-059) on feat/learning-state
+last_session: 017   # in progress — T1–T16, T34, DEC-056–059 and the bug hunt merged; T35 (session-aligned 4h/daily) next
 last_author: CLAUDE
 last_updated: 2026-10-16
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,7 +63,7 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/learning-state (T16, DEC-059) not merged; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
 build_passing: true  # backend 460/460 (Testcontainers), frontend 287/287 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
@@ -122,7 +122,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: Fabio's "merge" for feat/learning-state (T16, DEC-059); then T35 (session-aligned 4h/daily) or M3 (T17 blocks).
+blocked_on: nothing — T35 (session-aligned 4h and daily candles) next, then M3 (T17 blocks).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -167,7 +167,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, branch).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -2109,3 +2109,6 @@ are seeded now; green twice locally.
 **2026-10-16 — Fresh-clone check of `673d86c`** (`feat/learning-state`), no `.env`: backend 460 test cases,
 0 failures, 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 287/287, build
 clean. Waiting for Fabio to say merge.
+
+**2026-10-16 — T16 merged.** Fabio: "sure then merge and continue". `feat/learning-state` merged `--no-ff` as
+`a16f0d1`. Next: T35, session-aligned 4h and daily candles.
