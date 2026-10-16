@@ -20,8 +20,9 @@
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
-building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), and the upgrade to the newest
-versions three (BUG-052 to BUG-054, one a security bug). All fifteen are fixed, and ENV-007 with them.
+building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), the upgrade to the newest
+versions three (BUG-052 to BUG-054, one a security bug), and Fabio's practice report two (BUG-055,
+BUG-056). All seventeen are fixed, and ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -530,6 +531,46 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-055 🟠 A drafted bracket looked like a placed trade, and could not be thrown away
+
+**Status:** verified — reproduced in the app and through the API (session 017, 2026-10-16); tests fail
+on the old code
+**Affects:** `frontend/src/components/practice/PlanPanel.tsx`, `PracticeSession.tsx` (since T5)
+
+**What happened.** Fabio: "hitting stop loss or take profit doesnt close the trade, trade keeps running
+until the session ends", and "there is no way to cancel trade once you press go long or go short". The
+server was right: a *placed* trade closed exactly at the first minute that touched its stop or target
+(checked on his own session's trades against the stored bars, and replayed through the API and the
+UI). But "Place long" did not place anything — it drew a bracket on the chart, titled "Long at
+market", with the same lines a running trade has. Until "Lock plan" there was no trade, so price
+crossing the lines did nothing and the bracket stayed; and there was no button to remove it. A screen
+that looks like a position must be one, or say clearly that it is not.
+
+**✅ FIXED — Session 017 (DEC-057).** The buttons say *Plan long* / *Plan short*; the panel is titled
+*Draft · long at market* with a *not placed* chip and a **Discard** button; *Place trade* (was *Lock
+plan*) is the only thing that sends it. `PlanPanel.test` checks the title and Discard;
+`PracticeView.test` discards a draft and checks nothing was sent. Mutations caught: Discard doing
+nothing, Discard removing another drawing, the chip removed. Checked live at 1920px on real NQ.
+
+### BUG-056 🟠 A placed trade could not be left before its stop or target
+
+**Status:** verified (session 017, 2026-10-16) — a missing feature with a bug's effect
+**Affects:** practice (since session 014)
+
+**What happened.** Once placed, a trade could only end at its stop, its target or the session's end.
+On a real platform you can always close at market; here a learner who changed their mind had to sit
+through the rest of the trade, and a wide bracket could run for the rest of the replay.
+
+**✅ FIXED — Session 017 (DEC-057).** *Close at market* on the running trade: it exits at the next
+open on the fill engine's bars, as the entry does (`fill-1.2.0`, `CLOSED`), stored as its own
+immutable record (V15 `practice_close`) beside the untouched planned result; if the plan's own stop or
+target fills first, that exit is revealed instead. `FillEngineTest` (five cases), `PracticeApiTest`
+(close, close at once, the plan exiting first, the rules) and `PracticeView.test`. Thirteen backend
+mutations caught (the fill ignoring a touch at the open or before it, the fill left out of MAE or MFE,
+the cursor left on the fill, the status left in trade, refusing instead of revealing the plan's exit,
+the score or a reload ignoring the close, the close not stored, and an older target-gap MFE check
+added on the way), and two frontend (the button calling Skip, the timeframe dropped).
 
 ### BUG-054 🔴 A rejected password was written to the server log
 

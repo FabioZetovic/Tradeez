@@ -1644,6 +1644,22 @@ up a real security bug that had been there since registration was first built: w
 rejected for being too short, the server wrote it into its log in plain text. It no longer does, for
 any form, and a test makes sure.
 
+**"The stop doesn't close the trade."** Fabio reported that in practice a trade kept running after
+price hit its stop or target, and that once he pressed "go long" there was no way back. The first
+thing was to find out which part was true. The server was not at fault: replaying his own trades
+against the stored prices showed every one had closed at exactly the first minute that touched its
+stop or target. The trouble was the screen. "Place long" did not place anything — it drew a bracket
+that looked just like a running trade, and only "Lock plan" made it real. So price could cross a
+stop that did not exist yet, and there was no button to take the bracket away. Now the panel calls it
+a *draft*, marks it *not placed*, and has a *Discard* button; *Place trade* is the step that counts.
+
+The second half of his complaint was fair on its own: a real platform always lets you close a
+position at market, and Tradeez did not. Now it does. Closing fills at the next price, the same way
+the entry does, and the result appears straight away. One detail mattered for honesty: every trade's
+outcome is still worked out and stored when it is placed, and stays unchanged; the close is stored
+beside it as a separate record. If the trade's own stop or target would have filled first, that is
+what the learner sees — closing never lets anyone escape a stop that had already been hit.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1659,8 +1675,8 @@ bars, the import ledger, the real NQ instrument; V8: the simulated markets leave
 real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum document. *Later in the
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
-the drill engine, lesson cards, the upgrade to the newest versions): backend 223 → 379, frontend 148 → 245,
-V9 to V14, DEC-044 to DEC-056.*
+the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market):
+backend 223 → 388, frontend 148 → 250, V9 to V15, DEC-044 to DEC-057.*
 
 ---
 

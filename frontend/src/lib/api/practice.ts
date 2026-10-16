@@ -14,7 +14,7 @@ import type { DomainBar } from '../chart/types'
 export type Direction = 'LONG' | 'SHORT'
 /** ANALYSING is flat: no trade running. COMPLETE is ended: no more trades (DEC-046). */
 type PracticeStatus = 'ANALYSING' | 'IN_TRADE' | 'COMPLETE'
-export type Outcome = 'TARGET' | 'STOP' | 'AMBIGUOUS' | 'TIME_EXIT'
+export type Outcome = 'TARGET' | 'STOP' | 'AMBIGUOUS' | 'TIME_EXIT' | 'CLOSED'
 
 export type TimeBasis = 'UTC' | 'NEW_YORK_WALL_CLOCK'
 
@@ -186,6 +186,12 @@ export const advanceSession = (id: string, bars: number, timeframe?: string) =>
 
 export const skipToResult = (id: string, timeframe?: string) =>
   apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/skip${onTimeframe(timeframe)}`, {
+    method: 'POST',
+  })
+
+/** Closes the running trade at the next price, and moves the replay to the fill (DEC-057). */
+export const closeTrade = (id: string, timeframe?: string) =>
+  apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/close${onTimeframe(timeframe)}`, {
     method: 'POST',
   })
 

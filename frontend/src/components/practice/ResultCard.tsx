@@ -91,6 +91,8 @@ export function ResultCard({
           Resolved on {resolution} bars ({result.resolution}) by {result.engineVersion} with{' '}
           {result.fillModelVersion}: stops slip one tick, commission per contract per round trip,
           flat at the session close.
+          {result.outcome === 'CLOSED' &&
+            ' You closed it at market: it filled at the open of the next bar, without slippage, as the entry did.'}
         </p>
       </details>
     </Panel>

@@ -55,17 +55,17 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T14, T34 and DEC-056 merged; practice trade bugs, then T15 (prediction drills)
+last_session: 017   # in progress — T1–T14, T34 and DEC-056 merged; practice fix (DEC-057) on fix/practice-trades, then T15 (prediction drills)
 last_author: CLAUDE
-last_updated: 2026-10-15
+last_updated: 2026-10-16
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # fix/practice-trades (BUG-055, BUG-056, DEC-057) not merged; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 379/379 (Testcontainers), frontend 245/245 + typecheck + build; npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 388/388 (Testcontainers), frontend 250/250 + typecheck + build; npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -85,12 +85,12 @@ files_in_repo:
       databento/ # Databento client + cost-capped importer (DEC-040)                          (017)
       massive/   # Massive client, request pacer, quarterly contracts, volume roll, importer (017, DEC-042)
     charting/    # saved drawings                                              (session 012)
-    practice/    # fill engine, sessions, plans, results, replay API          (session 014)
+    practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), chart endpoint (017, T7, T12)
     analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
     drills/      # drill engine (DEC-054): DrillKind catalogue (ten drills, modes A and B), windows on real NQ, answer key = stored hits, excused candles, DrillText (rules and explanations from evidence); FVG fixture on simulated data  (016, 017 T13)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts, drills, lessons
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -120,7 +120,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — fixing the practice trade bugs Fabio reported (stop/target not closing a trade; no way to cancel), then T15 (prediction drills).
+blocked_on: Fabio's "merge" for fix/practice-trades (BUG-055, BUG-056, DEC-057); then T15 (prediction drills).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -148,7 +148,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T13 drill engine, on branch feat/drill-engine (2026-10-15)
+claimed_files:      # session 017 (CLAUDE) — practice fix (DEC-057), on branch fix/practice-trades (2026-10-16)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -165,7 +165,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, branch).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -275,6 +275,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-057 | **A draft is not a trade; a placed trade can be closed at market.** Plan long/short only draws a draft (titled so, discardable); Place trade sends it. Close at market fills at the next fine bar's open (`fill-1.2.0`, `CLOSED`), stored in `practice_close` (V15) beside the untouched planned result; the plan's own stop/target wins a tie. |
 | DEC-046 ⚠️ | **A session is a replay with several trades, one at a time.** Flat → in trade → flat; each trade numbered and immutable (V10); its result revealed when the replay passes its exit; the seed or date only when the session **ends** (learner ends it while flat, or a flat replay hits its limit); score over closed trades only. |
 | DEC-044 | **Tailwind CSS 4 for all styling.** Tokens in `src/index.css` (`@theme`), shared with the chart; `components/ui.tsx` + `lib/styles.ts`; no other CSS. Never give one element two utilities for the same property. |
 | DEC-043 | **Default ICT reading = the 2022 mentorship** (FVG entries after sweep + displacement MSS, midnight open); thin topics (blocks, PD matrix, IPDA, weekly profiles) from 2016–17, labelled; `sessions-1.0.0` = index-futures killzones. Every rule names its source. |
@@ -1960,3 +1961,28 @@ was green): `npm audit` 0 in the app and in `tools/api-types`, lint, typecheck, 
 Fabio: "merge it and then do T15, but i think we have a problem" — in practice, a stop or target being
 hit does not close the trade, and a trade cannot be cancelled once placed. Those first (bugs before new
 work, the working agreement), then T15.
+
+**2026-10-16 — Fabio's practice report: BUG-055, BUG-056, DEC-057.** On `fix/practice-trades`, not merged.
+Fabio: a stop or target being hit "doesnt close the trade", and "there is no way to cancel trade once
+you press go long or go short".
+- **Diagnosis first.** The server was right: his own session's trades exited at exactly the first
+  1m bar touching the stop or target (checked in the DB), and a lock-then-step replay through the API
+  and the UI settled at once. The fault was the screen: "Place long" only drew an unlocked draft that
+  looked like a position; nothing traded until "Lock plan", and the draft had no discard (BUG-055).
+  And a placed trade could not be left early (BUG-056).
+- **Draft UX:** *Plan long / Plan short*, the panel titled *Draft · long at market* with a *not placed*
+  chip, **Discard**, *Place trade* (was *Lock plan*); the running trade's panel says *placed*.
+- **Close at market (DEC-057):** `POST /api/practice/sessions/{id}/close` — fills at the open of the
+  first fine bar (1s or 1m) at or after the cursor, no slippage, commission charged
+  (`FillEngine.closeAtMarket`, `fill-1.2.0`, `Outcome.CLOSED`); the cursor moves one fine bar past the
+  fill. If the stop or target was touched before, or at that very open, the plan's exit is revealed
+  instead (as Skip). Stored in `practice_close` (V15, immutable trigger) beside the untouched
+  `practice_result`; score, journal and trade log read the close.
+- The result card's "How this was decided" says how a close fills.
+- Tests: FillEngineTest +5 (and an MFE check on the older gap-through-target path, which a misaimed
+  mutation showed was unchecked), PracticeApiTest +4, PlanPanel.test +3, PracticeView.test +2 (old
+  texts updated). Mutations, one at a time: 13 backend and 7 frontend, all caught.
+- **Checked live** at 1920px on real NQ: draft, Discard, Place trade, Next bar, Close at market →
+  "Closed by you", −$2.50 (filled at the 1m open, which happened to equal the entry; MAE 16 / MFE 26
+  ticks match the stored bars), trade log and score updated, `/close?timeframe=5m` 200, V15 applied.
+- Backend 379 → 388, frontend 245 → 250; tsc, lint, knip, build clean.

@@ -129,6 +129,17 @@ public class PracticeController {
 		return practice.skipToResult(principal.id(), id, timeframe);
 	}
 
+	@PostMapping("/{id}/close")
+	@Operation(summary = "Close the running trade at market",
+		description = "Exits at the next price there is, and moves the replay to that moment (DEC-057). If "
+			+ "the trade's own stop or target fills at that price, the plan's exit is revealed instead.")
+	public AdvanceResponse close(
+			@AuthenticationPrincipal AuthenticatedUser principal,
+			@PathVariable UUID id,
+			@RequestParam(required = false) String timeframe) {
+		return practice.close(principal.id(), id, timeframe);
+	}
+
 	@PostMapping("/{id}/end")
 	@Operation(summary = "End the session",
 		description = "Only while flat. No more trades; the seed of a simulated market, or the date of "

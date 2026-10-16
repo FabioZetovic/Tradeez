@@ -41,6 +41,9 @@ import com.tradeez.marketdata.Bar;
  *       sparse — a quiet minute has no bar — and fill-1.0.0's rule that any gap meant the session had
  *       ended would have closed real trades early (T4).</li>
  *   <li>Commission is charged per contract per round trip.</li>
+ *   <li>A running trade can be closed at market ({@link #closeAtMarket}, fill-1.2.0, DEC-057): it
+ *       exits at the open of the first bar at or after the moment it is closed, like the entry — unless
+ *       that open already reaches the stop or the target, which then fill first.</li>
  * </ul>
  *
  * Changing any of these changes results, so {@link #VERSION} must change with them. Every stored
@@ -51,7 +54,7 @@ import com.tradeez.marketdata.Bar;
 public final class FillEngine {
 
 	/** Bump on ANY change to fill behaviour. Stored on every result. */
-	public static final String VERSION = "fill-1.1.0";
+	public static final String VERSION = "fill-1.2.0";
 
 	private FillEngine() {
 	}
@@ -76,7 +79,9 @@ public final class FillEngine {
 		 */
 		AMBIGUOUS,
 		/** Neither was reached before the session closed; flattened at the last close. */
-		TIME_EXIT
+		TIME_EXIT,
+		/** The learner closed the position at market before the plan's own exit (DEC-057). */
+		CLOSED
 	}
 
 	/** The bars the resolution walked. */
@@ -238,6 +243,53 @@ public final class FillEngine {
 		Bar last = bars.getLast();
 		return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks(),
 			sign, mae, mfe, false, resolution);
+	}
+
+	/**
+	 * Closes a running trade at market at {@code at} (DEC-057).
+	 *
+	 * <p>A market order fills at the next price there is: the open of the first bar at or after
+	 * {@code at} — the same rule as the entry, and like the entry without slippage. Every bar before it
+	 * was survived (the trade is still running), so their extremes count as excursions; the exit price
+	 * is the last one that does.
+	 *
+	 * @param bars the bars the trade was resolved on: from the lock to the session's close
+	 * @return the close, or null when the trade's own exit comes first — its stop or target is reached
+	 *         before {@code at}, or the very open the close would fill at already reaches one of them,
+	 *         where the resting order fills first
+	 */
+	public static Fill closeAtMarket(Plan plan, List<Bar> bars, Instant at, Resolution resolution) {
+		if (bars.isEmpty()) {
+			throw new IllegalArgumentException("No market data to close the trade in.");
+		}
+		final Direction dir = plan.direction();
+		final int sign = dir.sign();
+		final Bar first = bars.getFirst();
+		final Instant entryTime = first.openTime();
+		final long entry = first.openTicks();
+		long mae = 0;
+		long mfe = 0;
+		for (Bar bar : bars) {
+			long open = bar.openTicks();
+			if (!bar.openTime().isBefore(at)) {
+				if (stopTouched(dir, open, open, plan.stopTicks()) || targetTouched(dir, open, open, plan.targetTicks())) {
+					return null;
+				}
+				return fill(Outcome.CLOSED, entryTime, entry, bar.openTime(), open, sign,
+					Math.max(mae, adverse(sign, entry, open)), Math.max(mfe, favourable(sign, entry, open)), false,
+					resolution);
+			}
+			if (stopTouched(dir, bar.lowTicks(), bar.highTicks(), plan.stopTicks())
+					|| targetTouched(dir, bar.lowTicks(), bar.highTicks(), plan.targetTicks())) {
+				return null;
+			}
+			long worst = dir == Direction.LONG ? bar.lowTicks() : bar.highTicks();
+			long best = dir == Direction.LONG ? bar.highTicks() : bar.lowTicks();
+			mae = Math.max(mae, adverse(sign, entry, worst));
+			mfe = Math.max(mfe, favourable(sign, entry, best));
+		}
+		// No bar after the moment: the session closed first, and the plan's time exit stands.
+		return null;
 	}
 
 	private static boolean stopTouched(Direction dir, long low, long high, long stop) {

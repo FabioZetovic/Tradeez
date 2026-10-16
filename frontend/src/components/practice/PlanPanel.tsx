@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Direction, PlanRequest } from '@/lib/api/practice'
 import { formatPrice, priceToTicks } from '@/lib/chart/priceFormat'
 import { formatCents, planNumbers, planProblem } from '@/lib/practice/plan'
-import { Button, Panel } from '../ui'
+import { Button, Chip, Panel } from '../ui'
 import { errorClass, fieldClass, keyValueClass, panelTitle } from '@/lib/styles'
 
 interface PlanPanelProps {
@@ -14,6 +14,8 @@ interface PlanPanelProps {
   busy: boolean
   onPlace: (direction: Direction) => void
   onFlip: () => void
+  /** Throws the draft away: nothing has been placed yet. */
+  onDiscard: () => void
   onChangeLevel: (level: 'stop' | 'target', ticks: number) => void
   onChangeContracts: (contracts: number) => void
   onLock: (plan: PlanRequest) => void
@@ -23,7 +25,11 @@ interface PlanPanelProps {
  * Building the trade before committing to it.
  *
  * The chart is where the bracket is shaped — drag the stop and target handles — and this panel is
- * where it is read back in numbers and locked. Both edit the same drawing, so they cannot disagree.
+ * where it is read back in numbers and placed. Both edit the same drawing, so they cannot disagree.
+ *
+ * Until "Place trade" there is no trade, only a draft — and the panel says so in its title, because
+ * a bracket on the chart looks like a position: stepping the replay past a draft's stop does nothing,
+ * and a learner who thought they were in a trade would think the stop was broken.
  */
 export function PlanPanel({
   plan,
@@ -33,6 +39,7 @@ export function PlanPanel({
   busy,
   onPlace,
   onFlip,
+  onDiscard,
   onChangeLevel,
   onChangeContracts,
   onLock,
@@ -42,16 +49,16 @@ export function PlanPanel({
       <Panel aria-label="Plan">
         <h3 className={panelTitle}>Plan a trade</h3>
         <p className="text-sm text-subtle">
-          Price is <strong className="text-ink">{formatPrice(referenceTicks, tickSize)}</strong>. Place a
-          bracket, then drag its stop and target on the chart. Or step the replay forward and wait for a
-          setup.
+          Price is <strong className="text-ink">{formatPrice(referenceTicks, tickSize)}</strong>. Draft a
+          bracket, drag its stop and target on the chart, then place the trade. Or step the replay forward
+          and wait for a setup.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button variant="buy" onClick={() => onPlace('LONG')}>
-            Place long
+            Plan long
           </Button>
           <Button variant="sell" onClick={() => onPlace('SHORT')}>
-            Place short
+            Plan short
           </Button>
         </div>
       </Panel>
@@ -63,9 +70,10 @@ export function PlanPanel({
 
   return (
     <Panel aria-label="Plan">
-      <h3 className={panelTitle}>
-        {plan.direction === 'LONG' ? 'Long' : 'Short'} at market{' '}
-        <Button variant="link" className="ml-1 font-normal" onClick={onFlip}>
+      <h3 className={`${panelTitle} flex flex-wrap items-center gap-2`} data-testid="draft-title">
+        Draft · {plan.direction === 'LONG' ? 'long' : 'short'} at market
+        <Chip tone="caution">not placed</Chip>
+        <Button variant="link" className="font-normal" onClick={onFlip}>
           flip to {plan.direction === 'LONG' ? 'short' : 'long'}
         </Button>
       </h3>
@@ -122,12 +130,17 @@ export function PlanPanel({
       )}
 
       <p className="my-3 text-xs text-subtle">
-        Locking is final: the plan cannot be changed afterwards, and the outcome is decided the moment
-        you lock it. The replay only reveals it.
+        Nothing is traded until you place it. Once placed, the stop and target cannot be changed — but you
+        can close the trade at market at any time.
       </p>
-      <Button variant="primary" disabled={problem !== null || busy} onClick={() => onLock(plan)}>
-        Lock plan
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="primary" disabled={problem !== null || busy} onClick={() => onLock(plan)}>
+          Place trade
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={onDiscard}>
+          Discard
+        </Button>
+      </div>
     </Panel>
   )
 }
