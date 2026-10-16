@@ -2105,3 +2105,7 @@ undercount nested classes, ENV-010); frontend `npm audit` 0, lint, typecheck, kn
 failed its own sample check (no exit at a gapped open) — the sessions started at random moments, so the
 sample changed between runs (BUG-062). Every bracket still agreed with the independent replay. The moments
 are seeded now; green twice locally.
+
+**2026-10-16 — Fresh-clone check of `673d86c`** (`feat/learning-state`), no `.env`: backend 460 test cases,
+0 failures, 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 287/287, build
+clean. Waiting for Fabio to say merge.
