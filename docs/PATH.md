@@ -2024,3 +2024,7 @@ lint, typecheck, `npm run knip`, 250/250 and build clean. Waiting for Fabio to s
   8 frontend, all caught.
 - Backend 388 → 413, frontend 250 → 254; tsc, lint, knip, build clean.
 
+
+**2026-10-16 — Fresh-clone check of `3749d91`** (`feat/prediction-drills`), no `.env`: backend
+`tests=413 errors=0 skipped=0 failures=0`, no `[ERROR]` lines; frontend `npm audit` 0 vulnerabilities,
+lint, typecheck, `npm run knip`, 254/254 and build clean. Waiting for Fabio to say merge; then T16.
