@@ -28,7 +28,7 @@ const DETECTABILITY: Record<string, string> = {
   J: 'judgement',
 }
 
-const MODE = { IDENTIFY: 'Spot', CLASSIFY: 'Name' } as const
+const MODE = { IDENTIFY: 'Spot', CLASSIFY: 'Name', PREDICT: 'Predict' } as const
 
 /**
  * One concept's lesson card (T14, DEC-055), in the order of the concept loop: what it is, the exact

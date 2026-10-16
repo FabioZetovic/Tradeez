@@ -74,7 +74,11 @@ class ConceptRegistryTest {
 		assertThat(concept("ICT-01").status()).isEqualTo(Status.IMPLEMENTED);
 		assertThat(concept("ICT-10").status()).isEqualTo(Status.IMPLEMENTED);
 		assertThat(concept("ICT-30").status()).isEqualTo(Status.DRAFTED);
-		assertThat(concept("ICT-15").status()).isEqualTo(Status.DESCRIBED);
+		assertThat(concept("ICT-29").status()).isEqualTo(Status.DESCRIBED);
+		// Implemented as a question rather than a detector (DEC-058): listed with its rule, partly.
+		assertThat(concept("ICT-16").status()).isEqualTo(Status.IMPLEMENTED);
+		assertThat(concept("ICT-16").rules()).containsExactly("predict-1.0.0");
+		assertThat(concept("ICT-16").statusNote()).isEqualTo("partly (a prediction drill, DEC-058)");
 		assertThat(concept("F-4").statusNote()).isEqualTo("partly (New York time axis, T3)");
 	}
 

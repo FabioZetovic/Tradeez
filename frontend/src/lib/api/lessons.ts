@@ -26,7 +26,7 @@ interface RuleCard {
 
 interface DrillRef {
   kind: string
-  mode: 'IDENTIFY' | 'CLASSIFY'
+  mode: 'IDENTIFY' | 'CLASSIFY' | 'PREDICT'
   title: string
 }
 

@@ -34,6 +34,15 @@ const KINDS: DrillKindView[] = [
     ruleVersion: 'structure-1.0.0',
     instructions: 'Is this a break of structure or a change of character?',
   },
+  {
+    kind: 'LIQUIDITY_FIRST_PREDICTION',
+    mode: 'PREDICT',
+    title: 'Which liquidity is taken first',
+    conceptId: 'ICT-16',
+    detector: 'LIQUIDITY',
+    ruleVersion: 'liquidity-1.0.0',
+    instructions: 'The chart stops here. Which does price take first?',
+  },
 ]
 
 const DRILL: DrillResponse = {
@@ -132,6 +141,93 @@ const NAMED = (choice: string): DrillResponse => ({
   },
 })
 
+/** The chart stops after candle 29; above rests buy-side at 80,030, below sell-side at 79,980. */
+const PREDICTION: DrillResponse = {
+  ...DRILL,
+  id: 'drill-3',
+  kind: 'LIQUIDITY_FIRST_PREDICTION',
+  mode: 'PREDICT',
+  title: 'Which liquidity is taken first',
+  conceptId: 'ICT-16',
+  markName: undefined,
+  instructions: 'The chart stops here. Which does price take first?',
+  rule: { ...DRILL.rule, detector: 'LIQUIDITY', version: 'liquidity-1.0.0' },
+  question: {
+    version: 'predict-1.0.0',
+    definition: 'predict-1.0.0. The targets: the nearest resting buy-side and sell-side either side of the close.',
+    closeTicks: 80_005,
+    targets: [
+      {
+        value: 'BSL',
+        role: 'ERL',
+        shape: 'LEVEL',
+        side: 'ABOVE',
+        fromTime: T0 + 20 * 300,
+        lowTicks: 80_030,
+        highTicks: 80_030,
+        distanceTicks: 25,
+        obstacleSwings: 2,
+        obstacleGaps: 1,
+        label: 'Buy-side at 20007.50',
+      },
+      {
+        value: 'SSL',
+        role: 'ERL',
+        shape: 'LEVEL',
+        side: 'BELOW',
+        fromTime: T0 + 22 * 300,
+        lowTicks: 79_980,
+        highTicks: 79_980,
+        distanceTicks: 25,
+        obstacleSwings: 0,
+        obstacleGaps: 0,
+        label: 'Sell-side at 19995.00',
+      },
+    ],
+    context: [
+      {
+        what: 'IRL_BULLISH_GAP',
+        shape: 'ZONE',
+        fromTime: T0 + 15 * 300,
+        lowTicks: 79_990,
+        highTicks: 79_995,
+        label: 'IRL · bullish gap',
+      },
+    ],
+  },
+  options: [
+    { value: 'BSL', label: 'Buy-side at 20007.50' },
+    { value: 'SSL', label: 'Sell-side at 19995.00' },
+  ],
+}
+
+/** The hidden future: the second candle after the chart takes the sell-side. */
+const REVEALED = [30, 31, 32].map((i) => ({
+  time: T0 + i * 300,
+  open: 80_000,
+  high: 80_010,
+  low: i === 31 ? 79_975 : 79_990,
+  close: 80_000,
+  volume: 10,
+}))
+
+const PREDICTED = (choice: string): DrillResponse => ({
+  ...PREDICTION,
+  choice,
+  revealed: REVEALED,
+  result: {
+    answer: 'SSL',
+    correct: choice === 'SSL',
+    setups: [],
+    outcomeTime: T0 + 31 * 300,
+    candlesAfter: 2,
+    explanation: [
+      'Price took the sell-side at 19995.00 first — 2 candles after the chart ended.',
+      'The buy-side at 20007.50, 25 ticks from the last close, had not been taken by then.',
+    ],
+  },
+})
+
 interface Call {
   method: string
   url: string
@@ -176,7 +272,10 @@ function server({
     if (call.method === 'GET' && call.url.endsWith('/api/drills/kinds')) return { body: KINDS }
     if (call.method === 'POST' && call.url.endsWith('/api/drills')) {
       const kind = (call.body as { kind?: string }).kind
-      return { status: 201, body: kind === 'BOS_CHOCH_CLASSIFICATION' ? CLASSIFY : drill }
+      return {
+        status: 201,
+        body: kind === 'BOS_CHOCH_CLASSIFICATION' ? CLASSIFY : kind === 'LIQUIDITY_FIRST_PREDICTION' ? PREDICTION : drill,
+      }
     }
     if (call.method === 'POST' && call.url.endsWith('/answer')) {
       return answer(call.body as { marks?: number[]; choice?: string })
@@ -347,6 +446,63 @@ describe('Drills — name (classification)', () => {
     const user = await startDrill('BOS_CHOCH_CLASSIFICATION')
     await user.click(screen.getByRole('button', { name: 'Change of character (CHoCH)' }))
     expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Correct — Change of character (CHoCH)')
+  })
+})
+
+describe('Drills — predict', () => {
+  beforeEach(() =>
+    mockApi(server({ answer: (body) => ({ body: PREDICTED(body.choice ?? '') }) })),
+  )
+
+  it('draws two targets with what the chart says about each — and nothing after the moment', async () => {
+    await startDrill('LIQUIDITY_FIRST_PREDICTION')
+    expect(started()?.body).toMatchObject({ kind: 'LIQUIDITY_FIRST_PREDICTION' })
+    expect(screen.getByTestId('graded')).toHaveTextContent('Graded by what price did · predict-1.0.0')
+    expect(screen.getByText('The rule (predict-1.0.0, on liquidity-1.0.0)')).toBeInTheDocument()
+    expect(screen.getByText(/the nearest resting buy-side and sell-side/)).toBeInTheDocument()
+    const facts = screen.getAllByTestId('target-facts')
+    expect(facts[0]).toHaveTextContent('25 ticks away · on the way: 2 swing points, 1 open gap')
+    expect(facts[1]).toHaveTextContent('25 ticks away · nothing on the way')
+    expect(screen.queryByTestId('mark-count')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('drill-summary')).not.toBeInTheDocument()
+  })
+
+  it('answers with the target chosen, then shows the hidden candles and what decided it', async () => {
+    const adapters: FakeChartAdapter[] = []
+    const user = userEvent.setup()
+    render(
+      <DrillView
+        adapterFactory={() => {
+          const adapter = new FakeChartAdapter()
+          adapters.push(adapter)
+          return adapter
+        }}
+      />,
+    )
+    await screen.findByRole('option', { name: 'Which liquidity is taken first' })
+    await user.selectOptions(screen.getByLabelText('Drill'), 'LIQUIDITY_FIRST_PREDICTION')
+    await user.click(screen.getByRole('button', { name: /start a drill/i }))
+    await waitFor(() => expect(adapters.at(-1)?.bars).toHaveLength(30))
+
+    await user.click(screen.getByRole('button', { name: 'Buy-side at 20007.50' }))
+    expect(calls.find((c) => c.url.endsWith('/answer'))?.body).toEqual({ choice: 'BSL' })
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent(
+      'Not this time — Sell-side at 19995.00 came first; you chose Buy-side at 20007.50',
+    )
+    expect(screen.getByTestId('drill-grade')).toHaveTextContent('2 candles after the chart')
+    expect(screen.getByText(/had not been taken by then/)).toBeInTheDocument()
+    // The candles that were hidden are on the chart now, after the ones that were shown, and the
+    // chart is framed afresh around all of them.
+    await waitFor(() => expect(adapters.at(-1)?.bars).toHaveLength(33))
+    expect(adapters.at(-1)?.bars.at(-1)?.time).toBe(T0 + 32 * 300)
+    expect(adapters.at(-1)?.fitCalls).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Sell-side at 19995.00' })).not.toBeInTheDocument()
+  })
+
+  it('says so when the target chosen came first', async () => {
+    const user = await startDrill('LIQUIDITY_FIRST_PREDICTION')
+    await user.click(screen.getByRole('button', { name: 'Sell-side at 19995.00' }))
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Yes — Sell-side at 19995.00 came first')
   })
 })
 

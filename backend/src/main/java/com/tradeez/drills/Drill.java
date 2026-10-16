@@ -3,6 +3,7 @@ package com.tradeez.drills;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -26,7 +27,8 @@ import jakarta.persistence.Table;
 /**
  * One drill: a window of market, the answer key, and — once given — the learner's answer: the
  * candles marked (identification) or the name chosen (classification). Maps {@code drill} and
- * {@code drill_setup} from V6, with V14's choice and excused candles.
+ * {@code drill_setup} from V6, with V14's choice and excused candles, and V16's prediction: the question,
+ * and the outcome that answers it — written when the drill is made, sent only once it is answered.
  */
 @Entity
 @Table(name = "drill")
@@ -88,6 +90,23 @@ public class Drill {
 	@Column(name = "excused", nullable = false, updatable = false)
 	private List<Long> excused = List.of();
 
+	/** Prediction: the targets and what the chart says about them ({@link Prediction}). */
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "question", updatable = false)
+	private Map<String, Object> question;
+
+	/** Prediction: which target price reached first. Never sent before the answer. */
+	@Column(name = "outcome", updatable = false)
+	private String outcome;
+
+	/** Prediction: the candle that decided it. */
+	@Column(name = "outcome_at", updatable = false)
+	private Instant outcomeAt;
+
+	/** Prediction: the end of the future shown once answered, exclusive. */
+	@Column(name = "reveal_to", updatable = false)
+	private Instant revealTo;
+
 	@Column(name = "answered_at")
 	private Instant answeredAt;
 
@@ -123,6 +142,18 @@ public class Drill {
 		this.setupIds = new HashSet<>(setupIds);
 		this.excused = List.copyOf(excused);
 		this.createdAt = Instant.now();
+	}
+
+	/** A prediction drill (mode C): its question, and the outcome decided by the candles after the window. */
+	public Drill(UUID userId, String kind, UUID instrumentId, String timeframe, DataClass dataClass, String detector,
+			String ruleVersion, Instant windowFrom, Instant windowTo, Set<UUID> setupIds, Map<String, Object> question,
+			String outcome, Instant outcomeAt, Instant revealTo) {
+		this(userId, kind, instrumentId, timeframe, dataClass, null, null, detector, ruleVersion, windowFrom, windowTo,
+			setupIds, List.of());
+		this.question = question;
+		this.outcome = outcome;
+		this.outcomeAt = outcomeAt;
+		this.revealTo = revealTo;
 	}
 
 	/** Records an identification answer. Once only: the service checks, and a database trigger enforces it. */
@@ -211,6 +242,22 @@ public class Drill {
 
 	public List<Long> getExcused() {
 		return excused;
+	}
+
+	public Map<String, Object> getQuestion() {
+		return question;
+	}
+
+	public String getOutcome() {
+		return outcome;
+	}
+
+	public Instant getOutcomeAt() {
+		return outcomeAt;
+	}
+
+	public Instant getRevealTo() {
+		return revealTo;
 	}
 
 	public Instant getCreatedAt() {

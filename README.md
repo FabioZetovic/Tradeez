@@ -56,8 +56,12 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   The answer is the versioned rule's, named on screen and withheld until you answer; each hit is
   explained in the rule's own numbers, and a candle the chart cuts off counts neither way. On the
   simulated market only the FVG drill is left, labelled a developer fixture and never graded.
+  *Predict* (DEC-058): the chart stops and two targets are drawn — which liquidity is taken first, the
+  buy-side above or the sell-side below (each with its distance and the obstacles on the way); or, just
+  after price took a level, does it reach the gap behind it (internal) or the next level beyond
+  (external)? The candles after the moment arrive only with your answer, and grade it.
 
-**Not built yet:** prediction drills, the ICT detectors for blocks, ranges and beyond,
+**Not built yet:** the ICT detectors for blocks, ranges and beyond,
 a learning record across drills, a score across sessions or any rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 

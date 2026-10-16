@@ -233,6 +233,11 @@ It stopped again overnight before the 2026-09-30 re-check (third occurrence in t
 restart fixed it in about fifteen seconds. Frequent enough that a first step of any session should be
 `docker version` — the Server line, not just the client.
 
+**Recurred in session 017 (2026-10-16), mid-session:** this time Docker Desktop had quit altogether, not
+just its daemon — no Docker process was left, so the database and the running backend went with it.
+Starting Docker Desktop again brought the daemon back within a minute and the database container with
+it, its data intact. Possibly memory pressure (the machine had little free); not investigated further.
+
 ---
 
 ## Known limitations

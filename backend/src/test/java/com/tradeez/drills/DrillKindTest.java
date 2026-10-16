@@ -15,7 +15,7 @@ class DrillKindTest {
 	void catalogueIsComplete() {
 		for (DrillKind kind : DrillKind.values()) {
 			assertThat(kind.instructions()).isNotBlank();
-			assertThat(kind.markName() == null).isEqualTo(kind.mode() == DrillKind.Mode.CLASSIFY);
+			assertThat(kind.markName() == null).isEqualTo(kind.mode() != DrillKind.Mode.IDENTIFY);
 		}
 		assertThat(RuleText.NAMES).containsKeys("HH", "LH", "EH", "HL", "LL", "EL", "BOS", "CHOCH", "SWEEP", "RUN");
 	}

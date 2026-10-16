@@ -193,7 +193,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		JsonNode kinds = read(mockMvc.perform(get("/api/drills/kinds").cookie(alice)).andExpect(status().isOk()));
 		assertThat(kinds).hasSize(DrillKind.values().length);
 		assertThat(kinds.findValuesAsString("kind")).contains("FVG_IDENTIFICATION", "BOS_CHOCH_CLASSIFICATION");
-		assertThat(kinds.findValuesAsString("mode")).containsOnly("IDENTIFY", "CLASSIFY");
+		assertThat(kinds.findValuesAsString("mode")).containsOnly("IDENTIFY", "CLASSIFY", "PREDICT");
 		assertThat(kinds.get(0).get("ruleVersion").asString()).isEqualTo("fvg-1.0.0");
 	}
 

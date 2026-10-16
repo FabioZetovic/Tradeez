@@ -201,6 +201,19 @@ describe('Learn — lesson cards', () => {
     expect(onPractise).toHaveBeenCalledWith('FVG_IDENTIFICATION')
   })
 
+  it('names a prediction drill as one, on a concept nothing detects (DEC-058)', async () => {
+    mockApi((url) => ({
+      body: url.includes('/api/concepts/F-1/')
+        ? { ...CANDLE_LESSON, drills: [{ kind: 'LIQUIDITY_FIRST_PREDICTION', mode: 'PREDICT', title: 'Which liquidity is taken first' }] }
+        : FVG_LESSON,
+    }))
+    const { user, onPractise } = renderView()
+    await screen.findByTestId('lesson-title')
+    await user.click(screen.getByRole('button', { name: /F-1 Candle anatomy/ }))
+    await user.click(await screen.findByRole('button', { name: 'Predict: Which liquidity is taken first' }))
+    expect(onPractise).toHaveBeenCalledWith('LIQUIDITY_FIRST_PREDICTION')
+  })
+
   it("shows the server's reason when a lesson cannot be loaded", async () => {
     mockApi(() => ({ status: 400, body: { message: 'Examples are shown on [1m, 5m, 15m] charts.' } }))
     renderView()

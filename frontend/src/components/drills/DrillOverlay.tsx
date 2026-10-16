@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { ResultView, SetupView, SubjectView } from '@/lib/api/drills'
+import type { ContextView, QuestionView, ResultView, SetupView, SubjectView, TargetView } from '@/lib/api/drills'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import type { Projection } from '@/lib/drawing/types'
 import { pickCandle } from '@/lib/drills/marks'
@@ -15,12 +15,18 @@ interface DrillOverlayProps {
   subject?: SubjectView
   /** Present once answered: the rule's hits are drawn and marking stops. */
   result?: ResultView
+  /** Prediction: the two targets and the context drawn with them. */
+  question?: QuestionView
+  /** Prediction: where the chart stopped — the first moment after its last candle. */
+  moment?: number
 }
 
 /** A click that moved further than this was a pan, not a mark. */
 const DRAG_TOLERANCE_PX = 5
 
 const ACCENT = '#58a6ff'
+const TEXT = '#e6edf3'
+const MUTED = '#8b949e'
 const FILL: Record<SetupView['direction'], string> = {
   BULLISH: 'rgba(63, 185, 80, 0.22)',
   BEARISH: 'rgba(248, 81, 73, 0.22)',
@@ -28,13 +34,13 @@ const FILL: Record<SetupView['direction'], string> = {
 }
 
 /**
- * Marks, the subject and the answer, painted over the drill's chart.
+ * Marks, the subject, a prediction's targets and the answer, painted over the drill's chart.
  *
  * The canvas never takes the pointer. Clicks are read from the chart frame they bubble up to, and a
  * click that travelled is ignored — so the learner can still pan and zoom the chart they are
  * searching, which a pointer-capturing overlay would prevent.
  */
-export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result }: DrillOverlayProps) {
+export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, question, moment }: DrillOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const draw = useCallback(() => {
@@ -52,6 +58,17 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result }
 
     // The question, until it is answered.
     if (subject && !result) drawSubject(ctx, projection, subject, byTime)
+
+    // A prediction: the targets stay drawn after the answer, so the future can be read against them.
+    if (question) {
+      const lastX = bars.length > 0 ? projection.timeToX(bars[bars.length - 1].time) : null
+      const right = lastX === null ? canvas.width : lastX + 10
+      for (const item of question.context) drawContext(ctx, projection, item, right, moment)
+      for (const target of question.targets) drawTarget(ctx, projection, target, right)
+      if (result && moment !== undefined) drawMoment(ctx, projection, moment, canvas.height)
+      const answered = question.targets.find((t) => t.value === result?.answer)
+      if (answered && result?.outcomeTime !== undefined) drawDecided(ctx, projection, answered, result.outcomeTime)
+    }
 
     // The learner's marks, above each marked candle.
     const extra = new Set(result?.extraMarks ?? [])
@@ -79,7 +96,7 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result }
       }
       ctx.restore()
     }
-  }, [adapter, bars, marks, subject, result])
+  }, [adapter, bars, marks, subject, result, question, moment])
 
   useOverlayCanvas(canvasRef, adapter, draw)
   useEffect(draw, [draw])
@@ -207,6 +224,104 @@ function drawSubject(
     ctx.fill()
   }
   ctx.restore()
+}
+
+/**
+ * A prediction's target: a level from its swing, or a gap from its first candle, out past the last candle
+ * shown — where price would have to go — with its name on it.
+ */
+function drawTarget(ctx: CanvasRenderingContext2D, projection: Projection, target: TargetView, right: number) {
+  const x = projection.timeToX(target.fromTime)
+  const yLow = projection.priceToY(target.lowTicks)
+  const yHigh = projection.priceToY(target.highTicks)
+  if (x === null || yLow === null || yHigh === null) return
+  ctx.save()
+  ctx.strokeStyle = ACCENT
+  ctx.lineWidth = 1.5
+  if (target.shape === 'LEVEL') {
+    ctx.setLineDash([6, 4])
+    ctx.beginPath()
+    ctx.moveTo(x, yLow)
+    ctx.lineTo(right, yLow)
+    ctx.stroke()
+  } else {
+    ctx.fillStyle = target.side === 'BELOW' ? FILL.BULLISH : FILL.BEARISH
+    const top = Math.min(yLow, yHigh)
+    const height = Math.max(Math.abs(yLow - yHigh), 2)
+    ctx.fillRect(x, top, right - x, height)
+    ctx.strokeRect(x, top, right - x, height)
+  }
+  ctx.setLineDash([])
+  label(ctx, target.label, right, target.side === 'ABOVE' ? Math.min(yLow, yHigh) - 5 : Math.max(yLow, yHigh) + 13, TEXT)
+  ctx.restore()
+}
+
+/** Context: an open gap inside the range, faint; or the level the last candle just took, to that candle. */
+function drawContext(
+  ctx: CanvasRenderingContext2D,
+  projection: Projection,
+  item: ContextView,
+  right: number,
+  moment: number | undefined,
+) {
+  const x = projection.timeToX(item.fromTime)
+  const yLow = projection.priceToY(item.lowTicks)
+  const yHigh = projection.priceToY(item.highTicks)
+  if (x === null || yLow === null || yHigh === null) return
+  ctx.save()
+  if (item.shape === 'ZONE') {
+    ctx.fillStyle = item.what === 'IRL_BULLISH_GAP' ? 'rgba(63, 185, 80, 0.10)' : 'rgba(248, 81, 73, 0.10)'
+    ctx.fillRect(x, Math.min(yLow, yHigh), right - x, Math.max(Math.abs(yLow - yHigh), 1))
+    label(ctx, item.label, right, Math.min(yLow, yHigh) - 3, MUTED)
+  } else {
+    const end = moment === undefined ? right : (projection.timeToX(moment) ?? right)
+    ctx.strokeStyle = MUTED
+    ctx.setLineDash([2, 3])
+    ctx.beginPath()
+    ctx.moveTo(x, yLow)
+    ctx.lineTo(end, yLow)
+    ctx.stroke()
+    label(ctx, item.label, end, yLow + (item.what === 'TAKEN_BSL' ? -5 : 13), MUTED)
+  }
+  ctx.restore()
+}
+
+/** Once answered: the line where the chart stopped. Everything right of it was hidden. */
+function drawMoment(ctx: CanvasRenderingContext2D, projection: Projection, moment: number, height: number) {
+  const x = projection.timeToX(moment)
+  if (x === null) return
+  ctx.save()
+  ctx.strokeStyle = MUTED
+  ctx.setLineDash([4, 4])
+  ctx.beginPath()
+  ctx.moveTo(x, 0)
+  ctx.lineTo(x, height)
+  ctx.stroke()
+  ctx.restore()
+  ctx.save()
+  ctx.fillStyle = MUTED
+  ctx.font = '11px system-ui, sans-serif'
+  ctx.fillText('chart ended', x + 4, 14)
+  ctx.restore()
+}
+
+/** The candle that answered it, ringed where it reached the target. */
+function drawDecided(ctx: CanvasRenderingContext2D, projection: Projection, target: TargetView, time: number) {
+  const x = projection.timeToX(time)
+  const y = projection.priceToY(target.side === 'ABOVE' ? target.lowTicks : target.highTicks)
+  if (x === null || y === null) return
+  ctx.save()
+  ctx.strokeStyle = '#d29922'
+  ctx.fillStyle = 'rgba(210, 153, 34, 0.25)'
+  ctx.lineWidth = 2
+  ring(ctx, x, y, 8)
+  ctx.restore()
+}
+
+function label(ctx: CanvasRenderingContext2D, text: string, right: number, y: number, color: string) {
+  ctx.font = '11px system-ui, sans-serif'
+  ctx.fillStyle = color
+  ctx.fillText(text, right - ctx.measureText(text).width - 4, y)
 }
 
 function ring(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number) {

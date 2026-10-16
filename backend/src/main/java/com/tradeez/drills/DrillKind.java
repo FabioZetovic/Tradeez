@@ -6,12 +6,14 @@ import java.util.Set;
 import com.tradeez.analysis.DetectedSetup;
 
 /**
- * Every drill there is (T13, DEC-054): one question a versioned rule can answer about a static chart.
+ * Every drill there is (T13, DEC-054): one question a versioned rule can answer about a chart.
  *
- * <p>Two modes, from the curriculum's teaching modes. <b>Identify</b> (A): "mark every …" — the rule's
+ * <p>Three modes, from the curriculum's teaching modes. <b>Identify</b> (A): "mark every …" — the rule's
  * hits in the window are the answer key, and the learner's marks are compared with it. <b>Classify</b>
  * (B): one structure is drawn and the learner names it — the rule's own name for it is the answer.
  * Both are graded against the rule, which is named on screen; neither says the structure matters.
+ * <b>Predict</b> (C, T15, DEC-058): two targets are drawn and the chart stops — which does price reach
+ * first? Graded by what real price did ({@link Prediction}), never by whether a reading was "right".
  *
  * <p>A new drill is a new constant here (and in V14's {@code ck_drill_kind}): the engine — window,
  * answer key, grading, explanations — is the same for all of them.
@@ -66,15 +68,29 @@ public enum DrillKind {
 	SWEEP_RUN_CLASSIFICATION(Mode.CLASSIFY, "SWEEP", "ICT-13", "Sweep or run", Set.of(),
 		List.of(List.of("SWEEP", "RUN")), 1, 0, 0,
 		"The marked candle traded beyond the swing level drawn. Did it sweep the level, or run through it?",
+		null),
+
+	LIQUIDITY_FIRST_PREDICTION(Mode.PREDICT, "LIQUIDITY", "ICT-16", "Which liquidity is taken first", Set.of(),
+		List.of(List.of("BSL", "SSL")), 1, 0, 0,
+		"The chart stops here. Above price rests the nearest buy-side liquidity, below it the nearest "
+			+ "sell-side: the edges of the range price is in. Which does price take first?",
+		null),
+
+	ERL_IRL_PREDICTION(Mode.PREDICT, "LIQUIDITY", "ICT-15", "External or internal liquidity next", Set.of(),
+		List.of(List.of("IRL", "ERL")), 1, 0, 0,
+		"The last candle took resting liquidity — external liquidity. Does price next reach the gap left "
+			+ "behind (internal), or the next resting level beyond (external)?",
 		null);
 
 	public enum Mode {
 		/** Mode A: mark every instance. */
 		IDENTIFY,
 		/** Mode B: name the marked structure. */
-		CLASSIFY;
+		CLASSIFY,
+		/** Mode C: say what price does next; the future decides. */
+		PREDICT;
 
-		/** Candles shown: a glance for A; for B, room for the context the name depends on. */
+		/** Candles shown: a glance for A; for B and C, room for the context the answer depends on. */
 		int windowBars() {
 			return this == IDENTIFY ? DrillService.WINDOW_BARS : DrillService.CLASSIFY_WINDOW_BARS;
 		}
@@ -157,6 +173,11 @@ public enum DrillKind {
 			return kinds.isEmpty() || kinds.contains(hit.getKind());
 		}
 		return options.stream().anyMatch(group -> group.contains(hit.getKind()));
+	}
+
+	/** For C: the two answers, in the order offered. */
+	List<String> predictions() {
+		return options.getFirst();
 	}
 
 	/** For B: the names offered for this subject — the group its own name is in. */
