@@ -35,6 +35,12 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	FvgDetector fvg;
 
 	@Autowired
+	SwingDetector swing;
+
+	@Autowired
+	LiquidityDetector liquidity;
+
+	@Autowired
 	MarketDataService marketData;
 
 	@Autowired
@@ -106,6 +112,22 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("T35: rules scanned together read their candles once, and store exactly what each stores alone")
+	void togetherAsAlone() {
+		List<Detector> rules = List.of(fvg, swing, liquidity);
+		scanner.ensureScanned(rules, nq, Timeframe.M5, 42, FROM, TO);
+		List<String> together = stored();
+		jdbc.update("DELETE FROM detected_setup");
+
+		for (Detector rule : rules) {
+			scanner.ensureScanned(rule, nq, Timeframe.M5, 42, FROM, TO);
+		}
+		assertThat(stored()).isEqualTo(together);
+		assertThat(together).anyMatch(r -> r.startsWith("FVG ")).anyMatch(r -> r.startsWith("SWING "))
+			.anyMatch(r -> r.startsWith("LIQUIDITY "));
+	}
+
+	@Test
 	@DisplayName("two scans of overlapping stretches at once do not collide")
 	void concurrentScans() {
 		// Two drills picking overlapping windows at the same moment. The insert ignores duplicates,
@@ -139,6 +161,13 @@ class SetupScannerTest extends AbstractIntegrationTest {
 		return scanner.visible(fvg, instrument, timeframe, seed, from, to, to).stream()
 			.filter(s -> !s.getAnchorTime().isBefore(from) && s.getAnchorTime().isBefore(to))
 			.toList();
+	}
+
+	private List<String> stored() {
+		return jdbc.queryForList("""
+			SELECT format('%s %s %s %s %s %s %s %s', detector, kind, direction, start_time, end_time,
+			    confirmed_at, zone_low_ticks, zone_high_ticks)
+			FROM detected_setup ORDER BY 1""", String.class);
 	}
 
 	private int rows() {

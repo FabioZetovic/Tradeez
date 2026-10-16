@@ -310,8 +310,7 @@ public class DrillService {
 			if (stretch.size() != stretchBars) {
 				continue;
 			}
-			scanner.ensureScanned(liquidity, instrument, timeframe, SEED, from, to);
-			scanner.ensureScanned(gapRule, instrument, timeframe, SEED, from, to);
+			scanner.ensureScanned(List.of(liquidity, gapRule), instrument, timeframe, SEED, from, to);
 			List<Hit> levelHits = hits(scanner.visible(liquidity, instrument, timeframe, SEED, from, to, to));
 			List<Hit> gapHits = hits(scanner.visible(gapRule, instrument, timeframe, SEED, from, to, to));
 
