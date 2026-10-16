@@ -130,6 +130,11 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			.with(csrf()));
 	}
 
+	private ResultActions close(Cookie who, String id) throws Exception {
+		return mockMvc.perform(post("/api/practice/sessions/" + id + "/close").cookie(who)
+			.with(csrf()));
+	}
+
 	private ResultActions end(Cookie who, String id) throws Exception {
 		return mockMvc.perform(post("/api/practice/sessions/" + id + "/end").cookie(who)
 			.with(csrf()));
@@ -725,6 +730,94 @@ class PracticeApiTest extends AbstractIntegrationTest {
 				VALUES (?::uuid, 1, 'STOP', now(), 100, now(), 99, -1, -100, 0, 1, 0, false,
 				    'S1', 'test', 'test', 'test', 1)""", id))
 				.hasMessageContaining("fk_practice_result_plan");
+		}
+	}
+
+	@Nested
+	@DisplayName("closing at market (DEC-057)")
+	class CloseAtMarket {
+
+		/** A long with 100 points of room either side: it will not settle on its own in a few bars. */
+		private ResultActions wideLong(Cookie who, String id, long reference) throws Exception {
+			return plan(who, id, "LONG", reference - 400, reference + 800);
+		}
+
+		@Test
+		@DisplayName("closes the running trade at the next price, and the replay moves to the fill")
+		void closes() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asString();
+			wideLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
+			advance(alice, id, 2).andExpect(status().isOk());
+
+			JsonNode closed = read(close(alice, id).andExpect(status().isOk()));
+			JsonNode state = closed.get("state");
+			JsonNode result = state.at("/trades/0/result");
+			assertThat(state.get("status").asString()).isEqualTo("ANALYSING");
+			assertThat(result.get("outcome").asString()).isEqualTo("CLOSED");
+			assertThat(result.has("assumption")).isFalse();
+			assertThat(result.get("pnlTicks").asLong())
+				.isEqualTo(result.get("exitTicks").asLong() - result.get("entryTicks").asLong());
+			// The fill is in the past now, by one bar of the engine's resolution and no more.
+			long cursor = state.get("cursor").asLong();
+			assertThat(cursor).isGreaterThan(result.get("exitTime").asLong())
+				.isLessThanOrEqualTo(result.get("exitTime").asLong() + 60);
+			assertThat(closed.get("bars")).allSatisfy(bar -> assertThat(bar.get("time").asLong()).isLessThan(cursor));
+			assertThat(state.at("/score/closedTrades").asInt()).isEqualTo(1);
+			assertThat(state.at("/score/netPnlCents").asLong()).isEqualTo(result.get("netPnlCents").asLong());
+
+			// The planned outcome is still the record of what the plan would have done, unchanged.
+			assertThat(jdbc.queryForObject("SELECT outcome FROM practice_result WHERE session_id = ?::uuid",
+				String.class, id)).isIn("TARGET", "STOP", "AMBIGUOUS", "TIME_EXIT");
+			assertThat(jdbc.queryForObject("SELECT count(*) FROM practice_close WHERE session_id = ?::uuid",
+				Long.class, id)).isEqualTo(1L);
+
+			// Flat again: the next trade can follow, and the closed one stays closed.
+			JsonNode next = read(tightLong(alice, id, lastClose(closed.get("bars"))).andExpect(status().isOk()));
+			assertThat(next.get("status").asString()).isEqualTo("IN_TRADE");
+			assertThat(next.at("/trades/0/result/outcome").asString()).isEqualTo("CLOSED");
+		}
+
+		@Test
+		@DisplayName("closed the moment it is placed: in and out at one price, the commission is the cost")
+		void atOnce() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asString();
+			wideLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
+			JsonNode result = read(close(alice, id).andExpect(status().isOk())).at("/state/trades/0/result");
+			assertThat(result.get("pnlTicks").asLong()).isZero();
+			assertThat(result.get("netPnlCents").asLong()).isEqualTo(-result.get("commissionCents").asLong());
+		}
+
+		@Test
+		@DisplayName("when the plan's own exit comes first, that exit is revealed and nothing is closed")
+		void planExitsFirst() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asString();
+			tightLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
+			// Planted: the replay already past the second the plan's stop or target filled in. In play
+			// this is a gap at the open the close would take, which the simulator cannot be told to make.
+			jdbc.update("UPDATE practice_session SET cursor_time = (SELECT exit_time FROM practice_result "
+				+ "WHERE session_id = ?::uuid) + interval '1 second' WHERE id = ?::uuid", id, id);
+
+			JsonNode result = read(close(alice, id).andExpect(status().isOk())).at("/state/trades/0/result");
+			assertThat(result.get("outcome").asString()).isIn("TARGET", "STOP", "AMBIGUOUS");
+			assertThat(jdbc.queryForObject("SELECT count(*) FROM practice_close WHERE session_id = ?::uuid",
+				Long.class, id)).isZero();
+		}
+
+		@Test
+		@DisplayName("only a running trade can be closed, and a close is never changed afterwards")
+		void rules() throws Exception {
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asString();
+			close(alice, id).andExpect(status().isConflict());
+			wideLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
+			close(bob, id).andExpect(status().isNotFound());
+			close(alice, id).andExpect(status().isOk());
+			close(alice, id).andExpect(status().isConflict());
+			assertThatThrownBy(() -> jdbc.update("UPDATE practice_close SET exit_ticks = 1 WHERE session_id = ?::uuid", id))
+				.hasMessageContaining("immutable");
 		}
 	}
 

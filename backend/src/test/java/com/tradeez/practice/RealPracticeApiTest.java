@@ -212,7 +212,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 		assertThat(closed.get("status").asString()).isEqualTo("ANALYSING");
 		JsonNode result = closed.at("/trades/0/result");
 		assertThat(result.get("resolution").asString()).isEqualTo("M1");
-		assertThat(result.get("engineVersion").asString()).isEqualTo("fill-1.1.0");
+		assertThat(result.get("engineVersion").asString()).isEqualTo(FillEngine.VERSION);
 		assertThat(result.get("entryTime").asLong()).isBetween(YEAR_2000, YEAR_2001);
 		assertThat(result.get("exitTime").asLong()).isBetween(YEAR_2000, YEAR_2001);
 		if ("AMBIGUOUS".equals(result.get("outcome").asString())) {

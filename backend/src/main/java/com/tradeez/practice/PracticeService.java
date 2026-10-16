@@ -148,6 +148,7 @@ public class PracticeService {
 	private final PracticeSessionRepository sessions;
 	private final TradePlanRepository plans;
 	private final PracticeResultRepository results;
+	private final PracticeCloseRepository closes;
 	private final InstrumentRepository instruments;
 	private final MarketDataService marketData;
 	private final ClockService clocks;
@@ -170,12 +171,13 @@ public class PracticeService {
 	private final TransactionTemplate readTx;
 
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
-			PracticeResultRepository results, InstrumentRepository instruments,
+			PracticeResultRepository results, PracticeCloseRepository closes, InstrumentRepository instruments,
 			MarketDataService marketData, ClockService clocks, SetupService setupService,
 			PlatformTransactionManager transactionManager) {
 		this.sessions = sessions;
 		this.plans = plans;
 		this.results = results;
+		this.closes = closes;
 		this.instruments = instruments;
 		this.marketData = marketData;
 		this.clocks = clocks;
@@ -189,12 +191,28 @@ public class PracticeService {
 		this.readTx.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
 	}
 
-	/** A plan and its result. Written together, so neither exists without the other. */
-	private record Trade(TradePlan plan, PracticeResult result) {
+	/**
+	 * A plan and its result, written together, so neither exists without the other — and the close,
+	 * when the learner left at market before the plan's own exit (DEC-057). Then the close is what
+	 * happened, and the planned result stays only as the record of what the plan would have done.
+	 */
+	private record Trade(TradePlan plan, PracticeResult result, PracticeClose close) {
+
+		Instant exitTime() {
+			return close != null ? close.getExitTime() : result.getExitTime();
+		}
+
+		long pnlTicks() {
+			return close != null ? close.getPnlTicks() : result.getPnlTicks();
+		}
+
+		long netPnlCents() {
+			return close != null ? close.getNetPnlCents() : result.getNetPnlCents();
+		}
 
 		/** True once the replay has passed the exit: the result is the past now. */
 		boolean closedBy(Instant cursor) {
-			return cursor.isAfter(result.getExitTime());
+			return cursor.isAfter(exitTime());
 		}
 
 		/**
@@ -205,7 +223,7 @@ public class PracticeService {
 		 */
 		double r() {
 			long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
-			return (double) result.getPnlTicks() / risk;
+			return (double) pnlTicks() / risk;
 		}
 	}
 
@@ -343,7 +361,7 @@ public class PracticeService {
 			current.setStatus(Status.IN_TRADE);
 			sessions.saveAndFlush(current);
 			List<Trade> trades = new ArrayList<>(seen.trades());
-			trades.add(new Trade(plan, result));
+			trades.add(new Trade(plan, result, null));
 			return state(current, instrument, trades);
 		});
 	}
@@ -403,6 +421,50 @@ public class PracticeService {
 		List<Bar> bars = generate(seen.session(), seen.instrument(), timeframe,
 			startOfBarContaining(seen.session().getCursorTime(), timeframe), end);
 		return reveal(userId, seen, end, bars);
+	}
+
+	/**
+	 * Closes the running trade at market (DEC-057), as on any real platform.
+	 *
+	 * <p>It exits at the next price there is — the open of the first bar of the fill engine's
+	 * resolution at or after the cursor, as the entry did — and the replay moves to that moment, one
+	 * such bar on, so the fill is seen at once. When that very price reaches the trade's own stop or
+	 * target, the resting order fills first: then it is the plan's exit that is revealed, as Skip to
+	 * result would. The planned result is left as it was written at the lock.
+	 */
+	public AdvanceResponse close(UUID userId, UUID sessionId, String timeframeCode) {
+		Snapshot seen = snapshot(userId, sessionId);
+		PracticeResult open = seen.openResult();
+		if (open == null) {
+			throw new NotInTradeException();
+		}
+		PracticeSession session = seen.session();
+		TradePlan plan = seen.trades().getLast().plan();
+		Resolution resolution = Resolution.valueOf(open.getResolution());
+		Instant locked = plan.getSubmittedCursor();
+		// The same bars the trade was resolved on at the lock: the data does not change.
+		List<Bar> walked = fine(session, seen.instrument(), resolution, locked, sessionEnd(locked));
+		Fill fill = FillEngine.closeAtMarket(new FillEngine.Plan(plan.getDirection(), plan.getStopTicks(),
+			plan.getTargetTicks(), plan.getContracts()), walked, session.getCursorTime(), resolution);
+		if (fill == null) {
+			return skipToResult(userId, sessionId, timeframeCode);
+		}
+		Timeframe timeframe = viewOf(session, timeframeCode);
+		Instant cursor = fill.exitTime().plus(resolution == Resolution.S1 ? Duration.ofSeconds(1) : Duration.ofMinutes(1));
+		List<Bar> bars = generate(session, seen.instrument(), timeframe,
+			startOfBarContaining(session.getCursorTime(), timeframe), cursor);
+		return writeTx.execute(tx -> {
+			PracticeSession current = requireUnchanged(userId, session);
+			PracticeClose saved = closes.save(new PracticeClose(plan, fill, seen.instrument().getTickValueCents(),
+				FillModel.DEFAULT));
+			current.moveCursorTo(cursor);
+			current.setStatus(Status.ANALYSING);
+			settle(current, null);
+			sessions.saveAndFlush(current);
+			List<Trade> trades = new ArrayList<>(seen.trades());
+			trades.set(trades.size() - 1, new Trade(plan, open, saved));
+			return new AdvanceResponse(state(current, seen.instrument(), trades), toDto(bars, current.getClock()));
+		});
 	}
 
 	/**
@@ -495,12 +557,14 @@ public class PracticeService {
 			.collect(Collectors.groupingBy(TradePlan::getSessionId));
 		Map<UUID, List<PracticeResult>> resultsBySession = results.findAllBySessionIdIn(ids).stream()
 			.collect(Collectors.groupingBy(PracticeResult::getSessionId));
+		Map<UUID, List<PracticeClose>> closesBySession = closes.findAllBySessionIdIn(ids).stream()
+			.collect(Collectors.groupingBy(PracticeClose::getSessionId));
 		Map<UUID, String> symbols = instruments.findAll().stream()
 			.collect(Collectors.toMap(Instrument::getId, Instrument::getSymbol));
 
 		return recent.stream().map(s -> {
 			List<Trade> trades = pair(plansBySession.getOrDefault(s.getId(), List.of()),
-				resultsBySession.getOrDefault(s.getId(), List.of()));
+				resultsBySession.getOrDefault(s.getId(), List.of()), closesBySession.getOrDefault(s.getId(), List.of()));
 			// The journal is a listing, and a listing is an easy place to leak an outcome by
 			// accident. Same rule as everywhere else: a trade counts once its exit is revealed.
 			return new SessionSummary(
@@ -570,13 +634,13 @@ public class PracticeService {
 				continue;
 			}
 			closed++;
-			long ticks = trade.result().getPnlTicks();
+			long ticks = trade.pnlTicks();
 			wins += ticks > 0 ? 1 : 0;
 			losses += ticks < 0 ? 1 : 0;
 			// The sum of the R column as the learner sees it, so adding it up by hand agrees with
 			// the total. Summing the unrounded values could differ in the last digit (BUG-039).
 			totalR += round2(trade.r());
-			net += trade.result().getNetPnlCents();
+			net += trade.netPnlCents();
 		}
 		return new ScoreView(closed, wins, losses, round2(totalR), net);
 	}
@@ -591,6 +655,13 @@ public class PracticeService {
 
 	private static ResultView resultView(Trade trade, PracticeClock clock) {
 		PracticeResult result = trade.result();
+		PracticeClose close = trade.close();
+		if (close != null) {
+			return new ResultView(Outcome.CLOSED.name(), null, clock.show(result.getEntryTime()), result.getEntryTicks(),
+				clock.show(close.getExitTime()), close.getExitTicks(), close.getPnlTicks(), close.getNetPnlCents(),
+				close.getCommissionCents(), close.getMaeTicks(), close.getMfeTicks(), false, round2(trade.r()),
+				close.getResolution(), close.getEngineVersion(), close.getFillModelVersion());
+		}
 		return new ResultView(
 			result.getOutcome().name(),
 			result.getOutcome() == Outcome.AMBIGUOUS
@@ -640,14 +711,16 @@ public class PracticeService {
 			PracticeSession session = require(userId, sessionId);
 			return new Snapshot(session, instrumentOf(session),
 				pair(plans.findAllBySessionId(session.getId()),
-					results.findAllBySessionId(session.getId())));
+					results.findAllBySessionId(session.getId()), closes.findAllBySessionId(session.getId())));
 		});
 	}
 
-	/** Each plan with its result, in the order the plans were locked. */
-	private static List<Trade> pair(List<TradePlan> plans, List<PracticeResult> results) {
+	/** Each plan with its result and any close, in the order the plans were locked. */
+	private static List<Trade> pair(List<TradePlan> plans, List<PracticeResult> results, List<PracticeClose> closed) {
 		Map<Integer, PracticeResult> bySeq = results.stream()
 			.collect(Collectors.toMap(PracticeResult::getSeq, Function.identity()));
+		Map<Integer, PracticeClose> closeBySeq = closed.stream()
+			.collect(Collectors.toMap(PracticeClose::getSeq, Function.identity()));
 		return plans.stream()
 			.sorted(Comparator.comparingInt(TradePlan::getSeq))
 			.map(plan -> {
@@ -655,7 +728,7 @@ public class PracticeService {
 				if (result == null) {
 					throw new IllegalStateException("Plan " + plan.getId() + " has no result");
 				}
-				return new Trade(plan, result);
+				return new Trade(plan, result, closeBySeq.get(plan.getSeq()));
 			})
 			.toList();
 	}

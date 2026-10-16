@@ -444,6 +444,32 @@ historical charts, taking trades whenever the candles say so
 Not in this decision: limit entries, scaling, partial targets (T28), and moving a stop after the
 lock — DEC-013's revision log is where that belongs.
 
+**DEC-057 — A draft is not a trade; a placed trade can be closed at market**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-16) — Fabio's report: "hitting stop loss or take profit
+doesnt close the trade", and "there is no way to cancel trade once you press go long or go short"
+(BUG-055, BUG-056)
+
+- **A draft says it is a draft.** "Plan long" / "Plan short" draws a bracket and nothing else: the panel
+  is titled *Draft · long at market — not placed*, the bracket can be reshaped, flipped or
+  **discarded**, and price crossing its lines does nothing because there is no trade. "Place trade"
+  (was "Lock plan") is the only thing that sends the plan; from then on it is immutable (DEC-013).
+- **A placed trade can be closed at market at any time** (`POST /api/practice/sessions/{id}/close`).
+  It exits at the open of the first bar of the fill engine's resolution at or after the cursor —
+  exactly how the entry fills — with no slippage and the normal commission (`fill-1.2.0`,
+  `Outcome.CLOSED`). The replay moves to one such bar after the fill, so the result is shown at once.
+- **The plan's own exit wins a tie.** If the stop or target was touched before the cursor, or is
+  touched by that very open (a gap), the resting order fills first: the close reveals the plan's exit
+  as Skip to result would, and nothing is written.
+- **The close is a second immutable fact, not an edit.** `practice_close` (V15) sits beside the planned
+  result, keyed by the same session and trade number, with its own engine and fill-model versions, and
+  the database refuses an update (the same `forbid_update` trigger). `practice_result` stays exactly as
+  written at the lock (INVARIANT 2): it is what the plan would have done, not shown to the learner yet.
+  Score, journal and the trade log read the close when there is one.
+
+Rejected: rewriting the stored result on close (breaks INVARIANT 2 and loses the planned outcome a
+later review, T24, will want), and filling the close at the last close on screen (that price is
+already gone — the next trade happens at the next open, which is also how the entry fills).
+
 **DEC-051 — A replay can be looked at on any timeframe** `IMPLEMENTED` · Claude, Session 017
 (2026-10-15), T34 — Fabio: "on practice chart you can switch time frames too"
 

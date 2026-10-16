@@ -76,7 +76,7 @@ public final class PracticeDtos {
 
 	@Schema(description = "What happened. Present only once the replay has passed the exit.")
 	public record ResultView(
-		@Schema(description = "TARGET | STOP | AMBIGUOUS | TIME_EXIT") String outcome,
+		@Schema(description = "TARGET | STOP | AMBIGUOUS | TIME_EXIT | CLOSED (closed at market by the learner)") String outcome,
 		@Schema(description = """
 			Present when the outcome is an assumption rather than a fact (INVARIANT 6). Must be \
 			shown to the learner wherever the result is.""")

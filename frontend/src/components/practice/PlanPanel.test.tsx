@@ -6,7 +6,7 @@ import type { PlanRequest } from '@/lib/api/practice'
 
 const REF = 80_006
 
-function panel(plan: PlanRequest, onChangeLevel = vi.fn()) {
+function panel(plan: PlanRequest | null, onChangeLevel = vi.fn(), onDiscard = vi.fn()) {
   return (
     <PlanPanel
       plan={plan}
@@ -16,6 +16,7 @@ function panel(plan: PlanRequest, onChangeLevel = vi.fn()) {
       busy={false}
       onPlace={vi.fn()}
       onFlip={vi.fn()}
+      onDiscard={onDiscard}
       onChangeLevel={onChangeLevel}
       onChangeContracts={vi.fn()}
       onLock={vi.fn()}
@@ -24,6 +25,32 @@ function panel(plan: PlanRequest, onChangeLevel = vi.fn()) {
 }
 
 const LONG: PlanRequest = { direction: 'LONG', stopTicks: 79_966, targetTicks: 80_086, contracts: 1 }
+
+describe('PlanPanel draft', () => {
+  it('says that nothing is placed yet', () => {
+    // A bracket on the chart looks like a position. Until it is placed, it is not one.
+    render(panel(LONG))
+    expect(screen.getByTestId('draft-title')).toHaveTextContent(/draft · long at market/i)
+    expect(screen.getByTestId('draft-title')).toHaveTextContent(/not placed/i)
+    expect(screen.getByRole('button', { name: /place trade/i })).toBeEnabled()
+  })
+
+  it('can be thrown away', async () => {
+    const onDiscard = vi.fn()
+    const user = userEvent.setup()
+    render(panel(LONG, vi.fn(), onDiscard))
+
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+    expect(onDiscard).toHaveBeenCalledOnce()
+  })
+
+  it('is only drafted, not placed, from the empty panel', () => {
+    render(panel(null))
+    expect(screen.getByRole('button', { name: /plan long/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /plan short/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /place trade/i })).not.toBeInTheDocument()
+  })
+})
 
 describe('PlanPanel price boxes', () => {
   it('follow the bracket when it is dragged on the chart', () => {

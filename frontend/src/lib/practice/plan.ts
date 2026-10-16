@@ -202,5 +202,7 @@ export function outcomeLabel(outcome: Outcome): string {
       return 'Ambiguous — worst case assumed'
     case 'TIME_EXIT':
       return 'Closed at the session end'
+    case 'CLOSED':
+      return 'Closed by you'
   }
 }

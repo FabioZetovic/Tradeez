@@ -200,6 +200,8 @@ class FillEngineTest {
 			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
 			assertThat(f.exitTicks()).isEqualTo(1100);
 			assertThat(f.gapExit()).isTrue();
+			// The open it filled at is the best the trade saw, beyond the target's own price.
+			assertThat(f.mfeTicks()).isEqualTo(100);
 		}
 
 		@Test
@@ -447,6 +449,76 @@ class FillEngineTest {
 			// Recorded rather than asserted: how often one-second data still cannot decide.
 			System.out.printf("oracle: %d decided, %d ambiguous at one-second resolution%n",
 				decided, ambiguous);
+		}
+	}
+
+	@Nested
+	@DisplayName("closing at market (DEC-057)")
+	class CloseAtMarket {
+
+		/** A long entered at 100, stop 90, target 120, drifting between them. */
+		private final List<Bar> drift = List.of(
+			s(0, 100, 104, 98, 102),
+			s(1, 102, 106, 97, 105),
+			s(2, 105, 108, 101, 103),
+			s(3, 103, 107, 100, 106));
+
+		@Test
+		@DisplayName("exits at the open of the first bar at or after the moment, counting the bars survived before it")
+		void exitsAtTheNextOpen() {
+			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), drift, T0.plusSeconds(2), Resolution.S1);
+			assertThat(close.outcome()).isEqualTo(Outcome.CLOSED);
+			assertThat(close.entryTicks()).isEqualTo(100);
+			assertThat(close.exitTime()).isEqualTo(T0.plusSeconds(2));
+			assertThat(close.exitTicks()).isEqualTo(105);
+			assertThat(close.pnlTicks()).isEqualTo(5);
+			// The two bars before it went 3 against and 6 in favour.
+			assertThat(close.maeTicks()).isEqualTo(3);
+			assertThat(close.mfeTicks()).isEqualTo(6);
+			assertThat(close.resolution()).isEqualTo(Resolution.S1);
+		}
+
+		@Test
+		@DisplayName("a moment between bars fills at the next one; a short gains as price falls")
+		void betweenBarsAndShorts() {
+			List<Bar> sparse = List.of(s(0, 100, 101, 99, 100), s(60, 96, 97, 95, 96));
+			Fill close = FillEngine.closeAtMarket(shortTrade(110, 80), sparse, T0.plusSeconds(1), Resolution.M1);
+			assertThat(close.exitTime()).isEqualTo(T0.plusSeconds(60));
+			assertThat(close.pnlTicks()).isEqualTo(4);
+			// The fill itself is the best price the short saw.
+			assertThat(close.maeTicks()).isEqualTo(1);
+			assertThat(close.mfeTicks()).isEqualTo(4);
+		}
+
+		@Test
+		@DisplayName("a fill that gaps against the trade is its worst excursion")
+		void gapAgainst() {
+			List<Bar> gap = List.of(s(0, 100, 101, 99, 100), s(1, 95, 96, 94, 95));
+			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), gap, T0.plusSeconds(1), Resolution.S1);
+			assertThat(close.exitTicks()).isEqualTo(95);
+			assertThat(close.maeTicks()).isEqualTo(5);
+			assertThat(close.mfeTicks()).isEqualTo(1);
+		}
+
+		@Test
+		@DisplayName("closed the moment it was placed: in and out at the same price")
+		void atOnce() {
+			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), drift, T0, Resolution.S1);
+			assertThat(close.exitTime()).isEqualTo(close.entryTime());
+			assertThat(close.pnlTicks()).isZero();
+			assertThat(close.netPnlCents(500, 1, FillModel.DEFAULT)).isEqualTo(-250);
+		}
+
+		@Test
+		@DisplayName("no close when the plan's own exit comes first: a level touched before, or at the very open")
+		void planExitsFirst() {
+			// Stop at 98 is touched by the first bar, before the moment.
+			assertThat(FillEngine.closeAtMarket(longTrade(98, 120), drift, T0.plusSeconds(2), Resolution.S1)).isNull();
+			// Target 105 is the open the close would fill at: the resting order fills first.
+			List<Bar> gap = List.of(s(0, 100, 104, 99, 103), s(1, 110, 111, 109, 110));
+			assertThat(FillEngine.closeAtMarket(longTrade(90, 105), gap, T0.plusSeconds(1), Resolution.S1)).isNull();
+			// No bar after the moment: the session closed, and the plan's time exit stands.
+			assertThat(FillEngine.closeAtMarket(longTrade(90, 120), drift, T0.plusSeconds(10), Resolution.S1)).isNull();
 		}
 	}
 }

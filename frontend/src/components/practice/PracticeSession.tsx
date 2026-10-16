@@ -91,6 +91,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     setSpeed,
     advance,
     skip,
+    close,
     lockPlan,
     end,
   } = usePracticeSession(sessionId, initial)
@@ -253,6 +254,8 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     dispatch({ type: 'add', drawing: defaultBracket(direction, referenceTicks, anchorTime) })
   }
   const flip = () => planDrawing && dispatch({ type: 'update', drawing: flipBracket(planDrawing) })
+  // A draft is only a drawing until it is placed: throwing it away costs nothing.
+  const discard = () => dispatch({ type: 'remove', id: PLAN_DRAWING_ID })
   const changeLevel = (level: 'stop' | 'target', ticks: number) => {
     if (!planDrawing) return
     const anchors = [...planDrawing.anchors]
@@ -445,6 +448,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
             busy={busy}
             onPlace={place}
             onFlip={flip}
+            onDiscard={discard}
             onChangeLevel={changeLevel}
             onChangeContracts={setContracts}
             onLock={(plan) => {
@@ -462,7 +466,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
           <Panel aria-label="Trade">
             <h3 className={panelTitle}>
               Trade {openTrade.number} · {openTrade.plan.direction === 'LONG' ? 'Long' : 'Short'}{' '}
-              {openTrade.plan.contracts} — locked
+              {openTrade.plan.contracts} — placed
             </h3>
             <dl className={keyValueClass}>
               <dt>Entry</dt>
@@ -479,8 +483,11 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
               <dd>{openTrade.plan.plannedRewardRisk.toFixed(2)}</dd>
             </dl>
             <p className="mt-3 text-xs text-subtle">
-              The outcome was decided when you locked the plan. Step forward to watch it happen.
+              Step forward to watch it play out, or close it whenever you choose — at the next price.
             </p>
+            <Button className="mt-3" disabled={busy} onClick={() => void close()}>
+              Close at market
+            </Button>
           </Panel>
         )}
 

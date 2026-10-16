@@ -72,6 +72,21 @@ const AMBIGUOUS: ResultView = {
   fillModelVersion: 'slip-1t/comm-250c',
 }
 
+/** Closed by the learner at market, two bars in (DEC-057): no assumption, the planned exit unseen. */
+const CLOSED_BY_YOU: ResultView = {
+  ...AMBIGUOUS,
+  outcome: 'CLOSED',
+  assumption: undefined,
+  exitTime: CURSOR + 600,
+  exitTicks: 80_015,
+  pnlTicks: 8,
+  netPnlCents: 3_750,
+  maeTicks: 8,
+  mfeTicks: 9,
+  rMultiple: 0.17,
+  engineVersion: 'fill-1.2.0',
+}
+
 const OPEN: TradeView = { number: 1, plan: PLAN }
 const ENTERED: TradeView = { ...OPEN, entry: { time: CURSOR, ticks: 80_007 } }
 const CLOSED: TradeView = { ...ENTERED, result: AMBIGUOUS }
@@ -171,6 +186,22 @@ function happyServer(overrides: Partial<Record<'plan', { status: number; body: u
         },
       }
     }
+    if (is(call, 'POST', '/close')) {
+      return {
+        body: {
+          state: {
+            ...ANALYSING,
+            cursor: CURSOR + 601,
+            trades: [{ ...ENTERED, result: CLOSED_BY_YOU }],
+            score: { closedTrades: 1, wins: 1, losses: 0, totalR: 0.17, netPnlCents: 3_750 },
+          },
+          bars: [
+            { time: CURSOR + 300, open: 80_010, high: 80_016, low: 80_004, close: 80_015, volume: 10 },
+            { time: CURSOR + 600, open: 80_015, high: 80_015, low: 80_015, close: 80_015, volume: 1 },
+          ],
+        },
+      }
+    }
     if (is(call, 'POST', '/end')) {
       return {
         body: {
@@ -197,9 +228,9 @@ async function startSession(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function lockLong(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: /place long/i }))
-  await user.click(screen.getByRole('button', { name: /lock plan/i }))
-  await screen.findByText(/— locked/)
+  await user.click(screen.getByRole('button', { name: /plan long/i }))
+  await user.click(screen.getByRole('button', { name: /place trade/i }))
+  await screen.findByText(/— placed/)
 }
 
 async function endSession(user: ReturnType<typeof userEvent.setup>) {
@@ -231,7 +262,7 @@ describe('Practice — a replay', () => {
     renderPractice()
     await startSession(user)
 
-    await user.click(screen.getByRole('button', { name: /place long/i }))
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
     const numbers = screen.getByTestId('plan-numbers')
     expect(numbers).toHaveTextContent('40 ticks · $200.00')
     expect(numbers).toHaveTextContent('80 ticks · $400.00')
@@ -242,13 +273,13 @@ describe('Practice — a replay', () => {
     await user.clear(stop)
     await user.type(stop, '20005{Enter}')
     expect(screen.getByRole('alert')).toHaveTextContent(/stop below the current price/)
-    expect(screen.getByRole('button', { name: /lock plan/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /place trade/i })).toBeDisabled()
 
     await user.clear(stop)
     await user.type(stop, '19990{Enter}')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /lock plan/i }))
+    await user.click(screen.getByRole('button', { name: /place trade/i }))
     await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade'))
 
     const lock = calls.find((c) => is(c, 'POST', '/plan'))
@@ -259,13 +290,51 @@ describe('Practice — a replay', () => {
       contracts: 1,
     })
     // Nothing about the outcome is on screen yet, and neither is the entry price.
-    expect(screen.getByText(/Trade 1 · Long 1 — locked/)).toBeInTheDocument()
+    expect(screen.getByText(/Trade 1 · Long 1 — placed/)).toBeInTheDocument()
     expect(screen.getByTestId('trade-entry')).toHaveTextContent('at the next price')
     expect(screen.queryByTestId('result-outcome')).not.toBeInTheDocument()
     expect(screen.getAllByTestId('trade-row')[0]).toHaveTextContent('Running')
     expect(screen.getByTestId('score-trades')).toHaveTextContent('0')
     // No ending a session with a trade still running.
     expect(screen.queryByRole('button', { name: /end session/i })).not.toBeInTheDocument()
+  })
+
+  it('throws a draft away: nothing was placed, so nothing is sent', async () => {
+    // Fabio's report: a bracket drawn with "Place long" looked like a trade and could not be taken
+    // back, and price crossing its stop did nothing. It was a draft all along — now it says so, and
+    // it can be discarded.
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    expect(screen.getByTestId('draft-title')).toHaveTextContent(/not placed/i)
+    expect(screen.getByTestId('practice-status')).toHaveTextContent('Flat')
+
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+    expect(screen.queryByTestId('plan-numbers')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /plan long/i })).toBeInTheDocument()
+    expect(calls.some((c) => is(c, 'POST', '/plan'))).toBe(false)
+  })
+
+  it('closes a running trade at market, and shows the fill at once', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await lockLong(user)
+    // A placed trade has no Discard any more: it can only be closed.
+    expect(screen.queryByRole('button', { name: /discard/i })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /close at market/i }))
+    const outcome = await screen.findByTestId('result-outcome')
+    expect(calls.find((c) => is(c, 'POST', '/close'))?.url).toContain('timeframe=5m')
+    expect(outcome).toHaveTextContent('Trade 1 · Closed by you')
+    expect(screen.getByTestId('result-net')).toHaveTextContent('$37.50')
+    expect(screen.getByRole('region', { name: 'Result' })).toHaveTextContent(/You closed it at market/)
+    expect(screen.getByTestId('practice-status')).toHaveTextContent('Flat')
+    expect(screen.getAllByTestId('trade-row')[0]).toHaveTextContent('Closed by you')
+    expect(screen.getByTestId('score-trades')).toHaveTextContent('1')
+    expect(screen.queryByRole('button', { name: /close at market/i })).not.toBeInTheDocument()
   })
 
   it('reveals the entry with the next bar, then the result — labelled as an assumption', async () => {
@@ -293,7 +362,7 @@ describe('Practice — a replay', () => {
     expect(screen.getByTestId('score-r')).toHaveTextContent('−1.04R')
     expect(screen.getByTestId('score-net')).toHaveTextContent('−$242.50')
     expect(screen.queryByTestId('result-seed')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /place long/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /plan long/i })).toBeInTheDocument()
   })
 
   it('takes a second trade after the first, priced from where the replay is now', async () => {
@@ -313,7 +382,7 @@ describe('Practice — a replay', () => {
       targetTicks: 80_050,
       contracts: 1,
     })
-    expect(screen.getByText(/Trade 2 · Long 1 — locked/)).toBeInTheDocument()
+    expect(screen.getByText(/Trade 2 · Long 1 — placed/)).toBeInTheDocument()
     const rows = screen.getAllByTestId('trade-row')
     expect(rows).toHaveLength(2)
     expect(rows[0]).toHaveTextContent('Ambiguous')
@@ -336,7 +405,7 @@ describe('Practice — a replay', () => {
       await user.click(screen.getByTitle('Undo (Ctrl+Z)'))
       expect(screen.queryByTestId('plan-numbers')).not.toBeInTheDocument()
     }
-    expect(screen.getByText(/Place a bracket/i)).toBeInTheDocument()
+    expect(screen.getByText(/Draft a bracket/i)).toBeInTheDocument()
   })
 
   it('BUG-045: an unanswered "End the session?" does not come back after a trade', async () => {
@@ -415,7 +484,7 @@ describe('Practice — a replay', () => {
     expect(screen.getByTestId('result-seed')).toHaveTextContent(new RegExp(`^${SEED}$`))
     expect(screen.getByText('Session over')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /play/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /place long/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /plan long/i })).not.toBeInTheDocument()
   })
 
   it('ignores a second click while a step is in flight', async () => {
@@ -665,7 +734,7 @@ describe('Practice — waiting for a setup', () => {
     const user = userEvent.setup()
     renderPractice()
     await startSession(user)
-    await user.click(screen.getByRole('button', { name: /place long/i }))
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
     expect(screen.getByTestId('plan-numbers')).toHaveTextContent('40 ticks · $200.00')
 
     await user.click(screen.getByRole('button', { name: /next bar/i }))
@@ -690,8 +759,8 @@ describe('Practice — refusals', () => {
     const user = userEvent.setup()
     renderPractice()
     await startSession(user)
-    await user.click(screen.getByRole('button', { name: /place long/i }))
-    await user.click(screen.getByRole('button', { name: /lock plan/i }))
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    await user.click(screen.getByRole('button', { name: /place trade/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/market is closed/)
     expect(screen.getByTestId('practice-status')).toHaveTextContent('Flat')

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/lib/api/client'
 import {
   advanceSession,
+  closeTrade,
   endSession,
   getSession,
   skipToResult,
@@ -115,6 +116,16 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
     [exclusive, reveal, sessionId, viewed],
   )
 
+  /** Closes the running trade at market: the fill is revealed with the step it takes (DEC-057). */
+  const close = useCallback(
+    () =>
+      exclusive(async () => {
+        setPlaying(false)
+        reveal(await closeTrade(sessionId, viewed))
+      }),
+    [exclusive, reveal, sessionId, viewed],
+  )
+
   /**
    * Looks at the replay in another timeframe (T34): the same moment, its candles rebuilt by the
    * server — the last one perhaps still forming. Takes effect only once they have arrived.
@@ -183,6 +194,7 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
     setSpeed,
     advance,
     skip,
+    close,
     lockPlan,
     end,
   }
