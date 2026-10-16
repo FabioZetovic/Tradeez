@@ -1986,3 +1986,7 @@ you press go long or go short".
   "Closed by you", −$2.50 (filled at the 1m open, which happened to equal the entry; MAE 16 / MFE 26
   ticks match the stored bars), trade log and score updated, `/close?timeframe=5m` 200, V15 applied.
 - Backend 379 → 388, frontend 245 → 250; tsc, lint, knip, build clean.
+
+**2026-10-16 — Fresh-clone check of `60b666f`** (`fix/practice-trades`), no `.env`: backend
+`tests=388 errors=0 skipped=0 failures=0`, no `[ERROR]` lines; frontend `npm audit` 0 vulnerabilities,
+lint, typecheck, `npm run knip`, 250/250 and build clean. Waiting for Fabio to say merge; then T15.
