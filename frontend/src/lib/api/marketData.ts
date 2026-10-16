@@ -40,7 +40,8 @@ export interface BarSeries {
   bars: DomainBar[]
 }
 
-export const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '1h'] as const
+/** 4h and 1d count from the 18:00 New York open of the trading day, as the server builds them (T35). */
+export const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'] as const
 export type TimeframeCode = (typeof TIMEFRAMES)[number]
 
 export const listInstruments = () => apiFetch<Instrument[]>('/api/market/instruments')

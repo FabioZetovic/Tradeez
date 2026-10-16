@@ -135,3 +135,33 @@ describe('the hidden-date clock (T4, DEC-025)', () => {
     expect(nextAxisTimezone('wall-clock')).toBe('wall-clock')
   })
 })
+
+describe('daily candles (T35)', () => {
+  // Monday 9 June 2025's trading day opens on Sunday the 8th at 18:00 EDT: 22:00 UTC.
+  const MONDAY_OPEN = Date.UTC(2025, 5, 8, 22) / 1000
+  // Monday 13 January 2025's opens on Sunday the 12th at 18:00 EST: 23:00 UTC.
+  const WINTER_OPEN = Date.UTC(2025, 0, 12, 23) / 1000
+
+  it('names the trading day, not the 18:00 open the evening before, whatever the axis zone', () => {
+    for (const mode of ['new-york', 'exchange', 'utc'] as const) {
+      expect(createTimeFormatter(CHICAGO, mode, true)(MONDAY_OPEN)).toBe('Mon, 9 Jun 2025')
+      expect(createTimeFormatter(CHICAGO, mode, true)(WINTER_OPEN)).toBe('Mon, 13 Jan 2025')
+    }
+    expect(createTickMarkFormatter(CHICAGO, 'new-york', true)(MONDAY_OPEN, 'day')).toBe('9 Jun')
+    expect(createTickMarkFormatter(CHICAGO, 'new-york', true)(MONDAY_OPEN, 'month')).toBe('Jun')
+    expect(createTickMarkFormatter(CHICAGO, 'new-york', true)(WINTER_OPEN, 'year')).toBe('2025')
+  })
+
+  it('on a hidden date names the weekday only (DEC-025)', () => {
+    // Wall-clock time written as UTC: the open reads 18:00 on a Sunday of the fictional calendar.
+    const shown = Date.UTC(2000, 0, 9, 18) / 1000
+    expect(createTimeFormatter(CHICAGO, 'wall-clock', true)(shown)).toBe('Mon')
+    for (const kind of ['day', 'month', 'year'] as const) {
+      expect(createTickMarkFormatter(CHICAGO, 'wall-clock', true)(shown, kind)).toBe('Mon')
+    }
+  })
+
+  it('leaves intraday labels as they were', () => {
+    expect(createTimeFormatter(CHICAGO, 'exchange')(SUMMER)).toBe('09:00')
+  })
+})

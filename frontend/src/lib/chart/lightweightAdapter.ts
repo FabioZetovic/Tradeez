@@ -37,7 +37,7 @@ export class LightweightChartAdapter implements ChartAdapter {
   mount(container: HTMLElement, options: ChartMountOptions): void {
     this.destroy()
     this.tickSize = options.tickSize
-    const tickLabel = createTickMarkFormatter(options.exchangeTimezone, options.axisTimezone)
+    const tickLabel = createTickMarkFormatter(options.exchangeTimezone, options.axisTimezone, options.daily)
 
     this.chart = createChart(container, {
       autoSize: true,
@@ -69,7 +69,7 @@ export class LightweightChartAdapter implements ChartAdapter {
         // (INVARIANT 4) and this is purely a presentation concern, but it is not cosmetic: session
         // times are what an ICT curriculum is built on, and daylight saving means a fixed offset
         // would be wrong for half the year.
-        timeFormatter: createTimeFormatter(options.exchangeTimezone, options.axisTimezone),
+        timeFormatter: createTimeFormatter(options.exchangeTimezone, options.axisTimezone, options.daily),
       },
     })
 

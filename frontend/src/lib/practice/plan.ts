@@ -8,7 +8,6 @@ import type {
 } from '../api/practice'
 import type { Anchor, Drawing } from '../drawing/types'
 import { DEFAULT_STYLES } from '../drawing/types'
-import { timeframeSeconds } from '../chart/dateNavigation'
 
 /**
  * The practice plan, as the learner builds it on the chart.
@@ -74,12 +73,13 @@ export const TRADE_DRAWING_PREFIX = 'practice-trade-'
 /**
  * A finished trade on the chart, from the bar it was entered in to the bar it left in — at the
  * price it was really filled, with the stop and target it was planned with. Null while it runs.
+ *
+ * @param candleOf the start of the chart's candle a time falls in (T35: not always a multiple of it)
  */
-export function closedTradeDrawing(trade: TradeView, timeframe: string): Drawing | null {
+export function closedTradeDrawing(trade: TradeView, candleOf: (time: number) => number): Drawing | null {
   const result = trade.result
   if (!result) return null
-  const step = timeframeSeconds(timeframe)
-  const start = result.entryTime - (result.entryTime % step)
+  const start = candleOf(result.entryTime)
   return {
     id: `${TRADE_DRAWING_PREFIX}${trade.number}`,
     kind: 'position',
@@ -89,7 +89,7 @@ export function closedTradeDrawing(trade: TradeView, timeframe: string): Drawing
       { time: start, priceTicks: trade.plan.targetTicks },
     ],
     style: DEFAULT_STYLES.position,
-    endTime: result.exitTime - (result.exitTime % step),
+    endTime: candleOf(result.exitTime),
   }
 }
 

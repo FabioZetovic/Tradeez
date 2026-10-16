@@ -20,10 +20,11 @@ public final class BarAggregator {
 	/**
 	 * Groups {@code source} bars into {@code target} buckets.
 	 *
-	 * <p>Buckets are aligned to the epoch, not to the first bar, so the same wall-clock minute
-	 * always produces the same candle regardless of where the requested range happens to start.
+	 * <p>Buckets are fixed by {@link Timeframe#bucketStart}, not by the first bar, so the same wall-clock
+	 * minute always produces the same candle regardless of where the requested range happens to start.
 	 * Aligning to the first bar would make a 09:31 request and a 09:30 request disagree about where
-	 * every subsequent candle begins.
+	 * every subsequent candle begins. Up to an hour that is the epoch; 4-hour and daily candles count
+	 * from the trading day's 18:00 New York open (T35).
 	 *
 	 * <p>Empty buckets produce no bar. A gap in the output is real information — the market was
 	 * closed — and inventing a flat candle to fill it would be inventing price action.
@@ -32,7 +33,6 @@ public final class BarAggregator {
 		if (source.isEmpty()) {
 			return List.of();
 		}
-		long bucketSeconds = target.seconds();
 		List<Bar> out = new ArrayList<>();
 
 		long currentBucket = Long.MIN_VALUE;
@@ -43,11 +43,11 @@ public final class BarAggregator {
 		long volume = 0;
 
 		for (Bar bar : source) {
-			long bucket = Math.floorDiv(bar.openTime().getEpochSecond(), bucketSeconds);
+			long bucket = target.bucketStart(bar.openTime()).getEpochSecond();
 
 			if (bucket != currentBucket) {
 				if (currentBucket != Long.MIN_VALUE) {
-					out.add(new Bar(Instant.ofEpochSecond(currentBucket * bucketSeconds),
+					out.add(new Bar(Instant.ofEpochSecond(currentBucket),
 						open, high, low, close, volume));
 				}
 				currentBucket = bucket;
@@ -63,7 +63,7 @@ public final class BarAggregator {
 			volume += bar.volume();
 		}
 
-		out.add(new Bar(Instant.ofEpochSecond(currentBucket * bucketSeconds),
+		out.add(new Bar(Instant.ofEpochSecond(currentBucket),
 			open, high, low, close, volume));
 		return out;
 	}

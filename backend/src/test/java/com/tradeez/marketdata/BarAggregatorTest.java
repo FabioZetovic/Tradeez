@@ -3,6 +3,9 @@ package com.tradeez.marketdata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -132,5 +135,51 @@ class BarAggregatorTest {
 		assertThat(candlesLow).isEqualTo(secondsLow);
 		assertThat(fiveMinutes.stream().mapToLong(Bar::volume).sum())
 			.isEqualTo(seconds.stream().mapToLong(Bar::volume).sum());
+	}
+
+	/** One bar for every open minute from {@code from} to {@code to}, each a tick above the last. */
+	private static List<Bar> minutes(Instant from, Instant to) {
+		List<Bar> out = new ArrayList<>();
+		long price = 80_000;
+		for (Instant t = from; t.isBefore(to); t = t.plusSeconds(60)) {
+			if (SessionCalendar.isOpen(t)) {
+				out.add(new Bar(t, price, price + 2, price - 1, price + 1, 1));
+				price++;
+			}
+		}
+		return out;
+	}
+
+	private static Instant ny(String localDateTime) {
+		return LocalDateTime.parse(localDateTime).atZone(ZoneId.of("America/New_York")).toInstant();
+	}
+
+	@Test
+	@DisplayName("T35: six 4-hour candles a trading day from 18:00 New York, the one across UTC midnight whole")
+	void fourHourCandles() {
+		List<Bar> day = minutes(ny("2025-06-09T18:00"), ny("2025-06-10T17:00"));
+		List<Bar> candles = BarAggregator.aggregate(day, Timeframe.H4);
+		assertThat(candles).extracting(Bar::openTime).containsExactly(ny("2025-06-09T18:00"), ny("2025-06-09T22:00"),
+			ny("2025-06-10T02:00"), ny("2025-06-10T06:00"), ny("2025-06-10T10:00"), ny("2025-06-10T14:00"));
+		// 18:00 to 22:00 New York is 22:00 to 02:00 UTC: one candle of 240 minutes, not two halves.
+		assertThat(candles.getFirst().volume()).isEqualTo(240);
+		// The last is cut short by the 17:00 close: three hours.
+		assertThat(candles.getLast().volume()).isEqualTo(180);
+		assertThat(candles.stream().mapToLong(Bar::volume).sum()).isEqualTo(day.size());
+	}
+
+	@Test
+	@DisplayName("T35: a daily candle per trading day, Sunday evening's minutes in Monday's")
+	void dailyCandles() {
+		List<Bar> week = minutes(ny("2025-06-08T18:00"), ny("2025-06-13T17:00"));
+		List<Bar> days = BarAggregator.aggregate(week, Timeframe.D1);
+		assertThat(days).extracting(Bar::openTime).containsExactly(ny("2025-06-08T18:00"), ny("2025-06-09T18:00"),
+			ny("2025-06-10T18:00"), ny("2025-06-11T18:00"), ny("2025-06-12T18:00"));
+		// 23 hours of trading each: 18:00 to 17:00.
+		assertThat(days).allSatisfy(d -> assertThat(d.volume()).isEqualTo(23 * 60));
+		// Open of the first minute, close of the last, the extremes of all.
+		Bar monday = days.getFirst();
+		assertThat(monday.openTicks()).isEqualTo(week.getFirst().openTicks());
+		assertThat(monday.closeTicks()).isEqualTo(week.get(23 * 60 - 1).closeTicks());
 	}
 }

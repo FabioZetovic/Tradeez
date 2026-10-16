@@ -12,6 +12,7 @@ import { ResultCard } from './ResultCard'
 import { TradeLog } from './TradeLog'
 import { SPEEDS, usePracticeSession, type Speed } from '@/hooks/usePracticeSession'
 import { useClockLayers } from '@/hooks/useClockLayers'
+import { drawsClock } from '@/lib/clock/layers'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import { useSetupLayers } from '@/hooks/useSetupLayers'
 import type { Direction, PracticeState, SessionResponse } from '@/lib/api/practice'
@@ -21,7 +22,7 @@ import { TIMEFRAMES } from '@/lib/api/marketData'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
-import { timeframeSeconds } from '@/lib/chart/dateNavigation'
+import { candleAt } from '@/lib/chart/timeToX'
 import {
   canRedo,
   canUndo,
@@ -63,10 +64,6 @@ const STATUS_TONE = {
 } as const satisfies Record<PracticeState['status'], string>
 
 const SPEED_LABELS = SPEEDS.map((s) => `${s}×`)
-
-function candleContaining(time: number, step: number): number {
-  return time - (time % step)
-}
 
 /**
  * One replay: a hidden moment played forward, with trades placed along the way (DEC-046).
@@ -173,7 +170,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   const referenceTicks = openTrade?.plan.referenceTicks ?? lastBar?.close ?? 0
   // The candle the lock happened in, on whatever timeframe is being looked at.
   const anchorTime = openTrade
-    ? candleContaining(openTrade.plan.lockedAt - 1, timeframeSeconds(view))
+    ? candleAt(openTrade.plan.lockedAt - 1, bars)
     : (lastBar?.time ?? 0)
 
   /**
@@ -211,7 +208,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
     ...drawingState,
     drawings: [
       // First, so the learner's own analysis draws over them and wins every click.
-      ...trades.flatMap((t) => closedTradeDrawing(t, view) ?? []),
+      ...trades.flatMap((t) => closedTradeDrawing(t, (time) => candleAt(time, bars)) ?? []),
       ...drawingState.drawings.filter((d) => d.id !== PLAN_DRAWING_ID),
       ...(planDrawing ? [planDrawing] : []),
     ],
@@ -309,7 +306,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
       </div>
 
       <div className="flex flex-wrap items-start gap-2 self-start">
-        <ClockToggles shown={clockShown} onToggle={toggleClock} />
+        <ClockToggles shown={clockShown} onToggle={toggleClock} available={drawsClock(view)} />
         <SetupToggles rules={setupRules} shown={setupsShown} onToggle={toggleSetup} />
       </div>
 
@@ -331,18 +328,21 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
           tickSize={state.tickSize}
           exchangeTimezone={state.exchangeTimezone}
           axisTimezone={state.timeBasis === 'NEW_YORK_WALL_CLOCK' ? 'wall-clock' : 'exchange'}
+          daily={view === '1d'}
           adapterFactory={adapterFactory}
           recentBars={RECENT_BARS}
           overlay={(adapter) => (
             <>
-              <ClockOverlay
-                adapter={adapter}
-                layer={clock}
-                bars={bars}
-                timeframe={view}
-                tickSize={state.tickSize}
-                shown={clockShown}
-              />
+              {drawsClock(view) && (
+                <ClockOverlay
+                  adapter={adapter}
+                  layer={clock}
+                  bars={bars}
+                  timeframe={view}
+                  tickSize={state.tickSize}
+                  shown={clockShown}
+                />
+              )}
               <SetupOverlay
                 adapter={adapter}
                 layer={setups?.layer ?? null}

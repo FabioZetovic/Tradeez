@@ -9,6 +9,8 @@ interface PriceChartProps {
   tickSize: number
   exchangeTimezone: string
   axisTimezone: AxisTimezone
+  /** Daily candles: the axis and crosshair name trading days, not 18:00 opens (T35). */
+  daily?: boolean
   /**
    * Rendered on top of the chart, given the live adapter.
    *
@@ -37,6 +39,7 @@ export function PriceChart({
   tickSize,
   exchangeTimezone,
   axisTimezone,
+  daily = false,
   adapterFactory,
   overlay,
   recentBars,
@@ -79,7 +82,7 @@ export function PriceChart({
     if (!container) return
 
     const adapter = (factoryRef.current ?? (() => new LightweightChartAdapter()))()
-    adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone })
+    adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone, daily })
     adapterRef.current = adapter
     setMountedAdapter(adapter)
 
@@ -95,7 +98,7 @@ export function PriceChart({
     }
     // recentBars is listed so the effect is honest about what it reads. In practice it is a
     // constant per screen, so it never triggers a remount on its own.
-  }, [tickSize, exchangeTimezone, axisTimezone, recentBars])
+  }, [tickSize, exchangeTimezone, axisTimezone, daily, recentBars])
 
   // Data updates reuse the mounted chart.
   //

@@ -96,7 +96,15 @@ public class PracticeService {
 	 * at the cursor is built only from the minutes before it, so switching never shows the future.
 	 */
 	static final Set<Timeframe> VIEW_TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M3, Timeframe.M5,
-		Timeframe.M15, Timeframe.M30, Timeframe.H1);
+		Timeframe.M15, Timeframe.M30, Timeframe.H1, Timeframe.H4, Timeframe.D1);
+
+	/**
+	 * History a coarse view shows before the replay's start (T35): four days is four daily candles,
+	 * too few to read a higher timeframe from. Real data only — a simulated market is generated a
+	 * second at a time, and stays at its own history.
+	 */
+	static final Map<Timeframe, Duration> VIEW_HISTORY = Map.of(Timeframe.H4, Duration.ofDays(30),
+		Timeframe.D1, Duration.ofDays(120));
 
 	/** Real NQ (DEC-040, T4). Simulated markets remain available by symbol. */
 	static final String DEFAULT_INSTRUMENT = "NQ";
@@ -545,7 +553,8 @@ public class PracticeService {
 		Instant cursor = session.getCursorTime();
 		Instant end = replayEnd(session);
 		return setupService.forReplay(seen.instrument(), viewOf(session, timeframeCode),
-			seedOf(session), session.getHistoryFrom(), cursor.isAfter(end) ? cursor : end, cursor, detectors,
+			seedOf(session), historyFrom(session, seen.instrument(), viewOf(session, timeframeCode)),
+			cursor.isAfter(end) ? cursor : end, cursor, detectors,
 			session.getClock()::show);
 	}
 
@@ -750,7 +759,7 @@ public class PracticeService {
 	 * The range handed to the generator ends at the cursor, so no later bar is ever produced.
 	 */
 	private List<BarResponse> visibleBars(PracticeSession session, Instrument instrument, Timeframe timeframe) {
-		return toDto(generate(session, instrument, timeframe, session.getHistoryFrom(),
+		return toDto(generate(session, instrument, timeframe, historyFrom(session, instrument, timeframe),
 			session.getCursorTime()), session.getClock());
 	}
 
@@ -951,8 +960,17 @@ public class PracticeService {
 	}
 
 	private static Instant startOfBarContaining(Instant instant, Timeframe timeframe) {
-		long second = instant.getEpochSecond();
-		return Instant.ofEpochSecond(second - Math.floorMod(second, timeframe.seconds()));
+		return timeframe.bucketStart(instant);
+	}
+
+	/** Where the history shown in {@code timeframe} begins: further back for a coarse view of real data. */
+	private static Instant historyFrom(PracticeSession session, Instrument instrument, Timeframe timeframe) {
+		Duration longer = VIEW_HISTORY.get(timeframe);
+		if (longer == null || instrument.getDataClass() == DataClass.SIMULATED) {
+			return session.getHistoryFrom();
+		}
+		Instant earlier = session.getStartTime().minus(longer);
+		return earlier.isBefore(session.getHistoryFrom()) ? earlier : session.getHistoryFrom();
 	}
 
 	/** The timeframe a request looks at the replay in: the session's own unless it names another. */

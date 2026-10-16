@@ -41,8 +41,33 @@ export function nextAxisTimezone(mode: AxisTimezone): AxisTimezone {
   return 'new-york'
 }
 
-export function createTimeFormatter(exchangeTimezone: string, mode: AxisTimezone) {
+/**
+ * A daily candle's trading day (T35): it opens at 18:00 New York and is the next day's — Sunday
+ * evening's candle is Monday's. Six hours on from the open is that day's midnight. Read in the zone the
+ * times are New York wall time in: UTC on a hidden date (DEC-025), New York otherwise.
+ */
+function tradingDay(epochSeconds: number): Date {
+  return new Date((epochSeconds + 6 * 3600) * 1000)
+}
+
+function tradingDayZone(mode: AxisTimezone): string {
+  return mode === 'wall-clock' ? 'UTC' : NEW_YORK
+}
+
+/**
+ * The crosshair's label. Intraday: the time. Daily: the trading day — "Mon, 9 Jun 2025", or just
+ * "Mon" on a hidden date, where the date is the secret (DEC-025).
+ */
+export function createTimeFormatter(exchangeTimezone: string, mode: AxisTimezone, daily = false) {
   const timeZone = zoneFor(exchangeTimezone, mode)
+  if (daily) {
+    const day = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tradingDayZone(mode),
+      weekday: 'short',
+      ...(mode === 'wall-clock' ? {} : { day: 'numeric', month: 'short', year: 'numeric' }),
+    })
+    return (epochSeconds: number): string => day.format(tradingDay(epochSeconds))
+  }
 
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone,
@@ -73,8 +98,24 @@ export type TickKind = 'year' | 'month' | 'day' | 'time' | 'seconds'
  * and a time, e.g. "Wed 18:00" — rather than with a date that would suggest local midnight. Hour
  * and minute ticks are unaffected: the exchange zones used here are whole hours from UTC.
  */
-export function createTickMarkFormatter(exchangeTimezone: string, mode: AxisTimezone) {
+export function createTickMarkFormatter(exchangeTimezone: string, mode: AxisTimezone, daily = false) {
   const timeZone = zoneFor(exchangeTimezone, mode)
+  if (daily) {
+    // Daily candles are labelled by trading day, not by their 18:00 open (T35). On a hidden date only
+    // the weekday: a month or a year would be the fictional calendar's, and mean nothing.
+    const zone = tradingDayZone(mode)
+    const weekday = new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'short' })
+    const dayMonth = new Intl.DateTimeFormat('en-GB', { timeZone: zone, day: 'numeric', month: 'short' })
+    const monthOnly = new Intl.DateTimeFormat('en-GB', { timeZone: zone, month: 'short' })
+    const yearOnly = new Intl.DateTimeFormat('en-GB', { timeZone: zone, year: 'numeric' })
+    return (epochSeconds: number, kind: TickKind): string => {
+      const day = tradingDay(epochSeconds)
+      if (mode === 'wall-clock') return weekday.format(day)
+      if (kind === 'year') return yearOnly.format(day)
+      if (kind === 'month') return monthOnly.format(day)
+      return dayMonth.format(day)
+    }
+  }
   const time = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',

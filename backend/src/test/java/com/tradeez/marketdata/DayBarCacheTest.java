@@ -43,8 +43,7 @@ class DayBarCacheTest {
 	void identicalToGeneration() {
 		DayBarCache cache = new DayBarCache(DayBarCache.DEFAULT_MAX_BARS);
 		Random random = new Random(15);
-		Timeframe[] timeframes = { Timeframe.M1, Timeframe.M5, Timeframe.M15, Timeframe.H1,
-			Timeframe.H4, Timeframe.D1 };
+		Timeframe[] timeframes = { Timeframe.M1, Timeframe.M5, Timeframe.M15, Timeframe.H1 };
 
 		for (int i = 0; i < 24; i++) {
 			Timeframe tf = timeframes[i % timeframes.length];
@@ -97,6 +96,10 @@ class DayBarCacheTest {
 		// One-second data is never cached; empty ranges have nothing to cache.
 		assertThat(DayBarCache.covers(Timeframe.S1, aligned, aligned.plusSeconds(60))).isFalse();
 		assertThat(DayBarCache.covers(Timeframe.M5, aligned, aligned)).isFalse();
+		// 4-hour and daily candles count from 18:00 New York and can straddle UTC midnight (T35).
+		Instant day = Instant.ofEpochSecond(MONDAY);
+		assertThat(DayBarCache.covers(Timeframe.H4, day, day.plusSeconds(86_400))).isFalse();
+		assertThat(DayBarCache.covers(Timeframe.D1, day, day.plusSeconds(86_400))).isFalse();
 	}
 
 	@Test
