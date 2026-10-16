@@ -49,7 +49,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Learn**: the ICT curriculum as a ladder of levels, a card per concept (DEC-055) — what it is, in
   the words of `docs/ICT_CONCEPTS.md`; the exact rule Tradeez uses, in words generated from its
   parameters; three real NQ examples the rule found at random (never hand-picked), each explained in
-  the rule's own numbers; and a button to the drill that practises it.
+  the rule's own numbers; and a button to the drill that practises it. Your progress on it (DEC-059):
+  solid after ten graded attempts at 80% or more over the last twenty, reviews spaced as Anki spaces
+  them, cards marked read, and the next step suggested — the ladder suggests, it never locks.
 - **Drills** on real NQ, graded against the rule (DEC-054). *Spot*: mark every fair value gap, swing
   high, swing low, volume imbalance, displacement, pair of equal highs/lows or sweep in 30 candles.
   *Name*: one structure is drawn — is it a higher or lower high, a BOS or a CHoCH, a sweep or a run?
@@ -62,7 +64,7 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   (external)? The candles after the moment arrive only with your answer, and grade it.
 
 **Not built yet:** the ICT detectors for blocks, ranges and beyond,
-a learning record across drills, a score across sessions or any rating. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
+a score across sessions. The ordered roadmap is in [docs/PATH.md](docs/PATH.md) → NEXT UP.
 The history of how each piece was built is in [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 
 ---

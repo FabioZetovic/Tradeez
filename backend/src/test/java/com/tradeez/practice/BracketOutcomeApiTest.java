@@ -200,11 +200,30 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			bars.put(t, bar(t, after[k]));
 		}
 		store(bars);
+		return sessionAt(moment);
+	}
+
+	/** A new session whose replay starts at {@code moment}, as if the random pick had landed there. */
+	private String sessionAt(Instant moment) throws Exception {
 		String id = newSession();
-		// As if the random pick had landed on this minute: the replay starts here.
 		jdbc.update("UPDATE practice_session SET history_from = ?, start_time = ?, cursor_time = ? WHERE id = ?::uuid",
 			Timestamp.from(moment.minusSeconds(4 * 86_400)), Timestamp.from(moment), Timestamp.from(moment), id);
 		return id;
+	}
+
+	/**
+	 * A seeded moment of open market in the second week, with half an hour left before the close. Seeded
+	 * so the sample is the same every run (BUG-062): which rules a random sample exercises must not be
+	 * left to chance when the test checks that it exercised them.
+	 */
+	private static Instant moment(Random random) {
+		while (true) {
+			Instant t = DATA_FROM.plusSeconds(5 * 86_400L + 60L * random.nextInt(6 * 24 * 60));
+			if (SessionCalendar.isOpen(t) && SessionCalendar.isOpen(t.minusSeconds(60))
+					&& nextClose(t).getEpochSecond() - t.getEpochSecond() >= 1_800) {
+				return t;
+			}
+		}
 	}
 
 	private static Bar bar(Instant t, long[] ohlc) {
@@ -479,7 +498,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		int gaps = 0;
 		int shorts = 0;
 		for (int i = 0; i < 40; i++) {
-			String id = newSession();
+			String id = sessionAt(moment(random));
 			boolean longTrade = random.nextBoolean();
 			long reference = reference(id);
 			long risk = 1 + random.nextInt(i % 2 == 0 ? 6 : 60);

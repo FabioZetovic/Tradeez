@@ -1,4 +1,6 @@
 import { ExampleChart } from './ExampleChart'
+import { ProgressPanel } from './LearningProgress'
+import type { ConceptProgress } from '@/lib/api/learning'
 import { LESSON_TIMEFRAMES, type Lesson } from '@/lib/api/lessons'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { Button, Chip, Notice, Panel, Segmented } from '../ui'
@@ -12,6 +14,11 @@ interface LessonCardProps {
   onMoreExamples: () => void
   onPractise: (kind: string) => void
   adapterFactory?: () => ChartAdapter
+  /** The learner's record on this concept (T16); absent when it could not be loaded. */
+  progress?: ConceptProgress
+  rule?: string
+  marking?: boolean
+  onMarkRead?: () => void
 }
 
 const STATUS: Record<Lesson['status'], { label: string; tone: 'good' | 'neutral' | 'caution' }> = {
@@ -42,6 +49,10 @@ export function LessonCard({
   onMoreExamples,
   onPractise,
   adapterFactory,
+  progress,
+  rule,
+  marking = false,
+  onMarkRead = () => {},
 }: LessonCardProps) {
   const status = STATUS[lesson.status]
   const detectability = lesson.detectability
@@ -69,6 +80,8 @@ export function LessonCard({
         <ConceptLinks label="Know first" concepts={lesson.prerequisites} onOpen={onOpen} />
         <ConceptLinks label="Builds toward" concepts={lesson.unlocks} onOpen={onOpen} />
       </Panel>
+
+      <ProgressPanel progress={progress} rule={rule} busy={marking} onMarkRead={onMarkRead} />
 
       {lesson.rules.length > 0 && (
         <Panel aria-label="The rule">

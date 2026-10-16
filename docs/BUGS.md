@@ -22,8 +22,8 @@ and none was open — found four that had never been logged (BUG-040 to BUG-043)
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
 building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), the upgrade to the newest
 versions three (BUG-052 to BUG-054, one a security bug), Fabio's practice report two (BUG-055,
-BUG-056), and the bug hunt Fabio asked for four (BUG-057 to BUG-060). All twenty-one are fixed, and
-ENV-007 with them.
+BUG-056), the bug hunt Fabio asked for four (BUG-057 to BUG-060), and building T16 two (BUG-061, BUG-062). All
+twenty-three are fixed, and ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -548,6 +548,36 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-062 🟡 The random TP/SL test could fail by chance
+
+**Status:** verified — failed in the fresh-clone check of T16 (session 017, 2026-10-16), passed locally
+**Affects:** `backend/src/test/.../practice/BracketOutcomeApiTest.java` `randomBrackets` (written the same day)
+
+**What happened.** The test trades 40 seeded brackets and checks each against an independent replay —
+every one agreed — and then checks that the sample exercised the rules: some ambiguity, some exit at a
+gapped open. But each session started at a moment the app picked at random, so the sample was not the
+same from run to run, and in the fresh clone no trade happened to exit at a gap. A test that checks
+its own coverage cannot leave that coverage to chance. The same lesson as BUG-051.
+
+**✅ FIXED — Session 017.** The moments are seeded too: each session is planted at a seeded open minute,
+so the 40 trades are the same every run. Run twice, green both times; the fresh clone with it.
+
+### BUG-061 🟡 The curriculum's buttons read "ICT-20Fair value gap", and a test clicked the wrong one
+
+**Status:** verified — found while building T16 (session 017, 2026-10-16); tests fail on the old code
+**Affects:** `frontend/src/components/learn/LearnView.tsx` (since T14)
+
+**What happened.** Each concept in the Learn tab's ladder is a button holding two spans, the id and the
+name, laid out side by side. With no text between them their accessible name — what a screen reader
+says, and what tests find buttons by — ran together: "F-1Candle anatomy". The test "opens a concept
+from the list" asked for a button named "F-1 Candle anatomy", never matched the list, and clicked a
+link of that name on the lesson card instead — passing while testing something else. It showed when
+T16 added a third button of the same name.
+
+**✅ FIXED — Session 017 (T16).** A space between the spans (invisible in the flex row) names each button
+"F-1 Candle anatomy"; the ladder is a named landmark ("Curriculum ladder") and the tests look inside
+it. A mutation removing the space is caught.
 
 ### BUG-060 🟡 A practice test passed only because of the order the test classes ran in
 

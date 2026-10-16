@@ -1689,6 +1689,17 @@ number was being typed, a sentence that described a lucky fill as an unlucky one
 passed because of the order tests happened to run in — all fixed. The practice section now has worked
 examples for every way a trade can end, readable like the lessons they are.
 
+**Keeping track of what has been learnt.** With drills on every detectable concept, the app could
+finally say where a learner stands. It does so without storing a single "score": every time the Learn
+tab opens, it reads back the learner's answered drills and the cards they have marked as read, and
+works it out under a rule it shows in plain words. A concept a drill can grade becomes *solid* after
+at least ten attempts with an average of 80% or more over the last twenty; one no drill grades is done
+once its card has been read. Concepts that slip come back for review the way flash cards do in Anki,
+the next day after a bad session and further apart after good ones. The curriculum's ladder now
+suggests the next concept to study — the first one not yet done in a level that is open — but never
+locks anything: a curious learner can read any card at any time. Only drills on real market data
+count; a practice drill on the simulated market changes nothing, by design.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1705,7 +1716,8 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills, the bug hunt): backend 223 → 433, frontend 148 → 283, V9 to V16, DEC-044 to DEC-058.*
+prediction drills, the bug hunt, the learning state): backend 223 → 460, frontend 148 → 287, V9 to V17,
+DEC-044 to DEC-059.*
 
 ---
 

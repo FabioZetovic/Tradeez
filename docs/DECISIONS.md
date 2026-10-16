@@ -1135,6 +1135,54 @@ these base rates on screen — that is T21's evidence view, with sample sizes.
 **Reconsider if** "which is taken first" proves too easy to game by distance alone — then offer
 pairs at comparable distances as a separate drill, saying so, rather than filtering this one.
 
+**DEC-059 — The learning state: computed from the record, never stored; the ladder suggests, never locks**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-16), T16 — S-5, ICT_CONCEPTS.md Part 12
+
+One versioned rule, `learning-1.0.0` (`learning/LearningRule`), shown to the learner in words beside
+the result it gives.
+
+- **Computed, not stored.** Progress is worked out on every request from records that never change:
+  graded drills (V6/V14/V16, immutable once answered) and cards marked read (V17 `concept_read`,
+  immutable). Nothing about progress is written, so nothing can drift from what the learner did, and a
+  change of rule re-reads the whole history under the new version.
+- **Rated where a rule grades.** A concept is rated when a marking (A) or naming (B) drill grades it
+  against a rule — eight today (ICT-01, 03, 04, 06, 12, 13, 20, 25). Each attempt scores 0 to 1, as the
+  drill's own result scores it: a name right or wrong; marks by found ÷ (found + missed + extra),
+  excused marks counting neither way (`drills/DrillAttempts`). **Solid**: at least 10 attempts and an
+  average of 80% or more over the last 20. Prediction drills (C) are practice and never rate: a
+  judgement concept "unlocks by use, never by a score".
+- **Done by reading.** A concept no drill grades is done once its card is marked read — by the learner,
+  not by opening it (the Learn tab opens one by itself) — or practised with a prediction drill.
+- **Real data only** (INVARIANT 8b): only `graded` drills count, and the database grades a drill only on
+  real data. A simulated fixture answered perfectly changes nothing (tested).
+- **Spaced review: SM-2, a review a day.** Each UTC day a concept was practised is one review, its
+  quality the day's mean score on SM-2's 0–5 (a day at 50% or less is a lapse). A lapse is due the next
+  day; good days push it out — 1 day, 6 days, then by its ease (from 2.5, never below 1.3). Due when the
+  day comes.
+- **The ladder, settled.** Part 12's placeholders became rules (and the document's text with them): a
+  level is complete when every concept in it is solid or done; level 1 opens when level 0 is complete
+  (its cards read — the F-5 risk drill joins when it exists, T26), levels 2, 3 and 5 when level 1 is,
+  4 when 2 and 3 are, 7 when 2, 5 and 6 are; 0 and 6 are always open; each entry model (8) opens when the
+  concepts it builds on are complete, and execution (9) with the first. **Nothing is locked**: every
+  card stays open to read. The ladder decides only what is *suggested* — the next step is the first
+  concept, in the curriculum's order, that is open and not complete.
+- **Shown** on the Learn tab: a summary (solid of graded, complete of all, the next step, what is due),
+  a mark beside each concept (✓ solid, the recent accuracy while learning, "due"), each level's state
+  (complete, or "later" with when it opens), and on each card the learner's record — attempts, recent
+  accuracy, the next review — with *Mark as read*. `GET /api/learning`, `POST
+  /api/learning/concepts/{id}/read`.
+
+Measured on the dev database's local test account (47 graded drills from earlier testing): every rated
+concept learning and due, the two prediction concepts done by use, F-1 suggested — and marking its
+card read moved it on.
+
+Not in this decision: an ELO-style rating with drill difficulty (the analysis's suggestion — drills have
+no difficulty measure yet), serving drills by what is due (the Drills tab still starts the one chosen),
+streaks and daily targets, the F-5 risk drill, and charts of progress over time (T23, T25).
+
+**Reconsider if** 80% over 20 proves too easy or too hard on real use, or a review a day too coarse for
+someone doing a hundred drills a sitting — the version changes with it, and the history is re-read.
+
 **DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
 The first detector under DEC-026. The rule:
 
