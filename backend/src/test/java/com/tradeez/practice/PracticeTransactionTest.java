@@ -23,8 +23,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
@@ -103,7 +103,7 @@ class PracticeTransactionTest extends AbstractIntegrationTest {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice)
 			.with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
 			.andExpect(status().isCreated()));
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		JsonNode bars = session.get("bars");
 		long reference = bars.get(bars.size() - 1).get("close").asLong();
 
@@ -140,7 +140,7 @@ class PracticeTransactionTest extends AbstractIntegrationTest {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice)
 			.with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
 			.andExpect(status().isCreated()));
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		long cursorBefore = session.at("/state/cursor").asLong();
 
 		// Another request steps the same session while this one is generating its bars.
@@ -164,7 +164,7 @@ class PracticeTransactionTest extends AbstractIntegrationTest {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice)
 			.with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
 			.andExpect(status().isCreated()));
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		JsonNode bars = session.get("bars");
 		long reference = bars.get(bars.size() - 1).get("close").asLong();
 

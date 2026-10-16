@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
@@ -201,7 +201,7 @@ public class SetupScanner {
 	private String write(Object value) {
 		try {
 			return json.writeValueAsString(value);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new IllegalStateException("Could not serialise detector output", e);
 		}
 	}

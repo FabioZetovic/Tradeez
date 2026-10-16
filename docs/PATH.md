@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T13 and T34 merged; T14 (lesson cards) next
+last_session: 017   # in progress — T1–T13 and T34 merged; T14 and the upgrade to the newest versions (DEC-056) built on chore/upgrade-dependencies, not merged
 last_author: CLAUDE
 last_updated: 2026-10-15
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -65,19 +65,19 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 350/350 (Testcontainers), frontend 236/236 + typecheck + build; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 379/379 (Testcontainers), frontend 245/245 + typecheck + build; npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
-stack_locked:        # DEC-036 — do NOT bump to Boot 4, it breaks springdoc/DEC-007
-  backend:  Spring Boot 3.5.16 / Java 21 (JDK 26 installed, targets 21)
-  frontend: React 19 / Vite 8 / TypeScript 6 / Tailwind CSS 4 (DEC-044)
-  database: PostgreSQL 17 via docker-compose
+stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
+  backend:  Spring Boot 4.1.1 / Java 25 target (JDK 26 installed) / Maven 3.10.0 / springdoc 3.1.1 / Jackson 3
+  frontend: Node 24.20 LTS / npm 12.2 / React 19.3 / Vite 8.3 / Vitest 5 / TypeScript 7 / Tailwind CSS 4 (DEC-044)
+  database: PostgreSQL 17 via docker-compose (17.11; Fabio kept 17 — 18 needs a dump and restore of the imported data, DEC-056)
 
 files_in_repo:
   # Module map, not a file list. BUG-026: a hand-maintained file list sat six sessions out of
   # date because nothing fails when it is wrong. For individual files run `git ls-files`.
   backend/src/main/java/com/tradeez/:
-    common/      # health endpoint
+    common/      # health endpoint; validation errors for every controller, never echoing or logging the rejected value (BUG-054)
     config/      # SecurityConfig (CSRF, CORS, filter chain), OpenApiConfig
     identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
     marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015)
@@ -87,12 +87,12 @@ files_in_repo:
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), chart endpoint (017, T7, T12)
-    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053)  (016, 017 T9–T12)
-    curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9)
+    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14)
+    curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
     drills/      # drill engine (DEC-054): DrillKind catalogue (ten drills, modes A and B), windows on real NQ, answer key = stored hits, excused candles, DrillText (rules and explanations from evidence); FVG fixture on simulated data  (016, 017 T13)
   backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles)
   frontend/src/:
-    lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts
+    lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts, drills, lessons
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
     lib/drawing/  # geometry, hit testing, snapping, undo store, renderer; ict.ts = Fibonacci/CE arithmetic (DEC-048)
     lib/chart/labelSpace.ts # places canvas labels without overlap (BUG-048)
@@ -105,6 +105,7 @@ files_in_repo:
     lib/styles.ts # cx() and shared Tailwind class strings (DEC-044); tokens live in src/index.css @theme
     components/practice/  # journal, replay screen, plan panel, trade result card, trade log + score
     components/drills/    # drill screen (spot and name), overlay: marks, the subject, the answer's shapes
+    components/learn/     # Learn tab: curriculum ladder, lesson card, example charts (Setups renderer + a band on the hit)
     hooks/        # useSession, useDrawings, useDrawingShortcuts, usePracticeSession, useToggles (+ useClockLayers, useSetupLayers)
   docs/:
     - ANALYSIS_CLAUDE.md    # Claude's deep analysis      (Session 001-CLAUDE)
@@ -119,7 +120,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T14 (lesson cards) next, on feat/lesson-cards.
+blocked_on: nothing — chore/upgrade-dependencies (on top of feat/lesson-cards: T14 + DEC-056) waiting for Fabio to say merge. Then T15 (prediction drills).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -164,7 +165,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, built, not merged).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -206,7 +207,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
 | T13 | ~~**Drill engine for every detector**~~ | T10–T12 | C §6, D-023, D-034 | ✅ Session 017, **merged 2026-10-15 as `e4f7cba`** (DEC-054): ten drills — spot gaps, swing highs, swing lows, VIs, displacement, equal highs/lows, sweeps; name a swing's label, BOS or CHoCH, sweep or run — on real NQ 1m/5m/15m, graded against the rule; the key is the rule's stored hits shown whole, a hit the window cuts is excused (BUG-050); the subject is sent without its name; explanations rendered server-side from evidence; V14. The other rules are one constant each when wanted. |
-| T14 | **Lesson cards** | T13 | I Part 0 | Text from `ICT_CONCEPTS.md` plus detected real examples. |
+| T14 | ~~**Lesson cards**~~ | T13 | I Part 0 | ✅ Session 017, on `feat/lesson-cards`, **not merged** (DEC-055): a Learn tab with the curriculum ladder (72 concepts) and a card per concept — the document's What, prerequisites and what it builds toward, every rule in words (all 18 now, guarded by the contract test), the drills that practise it ("Practise it" opens the drill), and three real NQ examples found at random, each explained from its evidence; clock-drawn and undetected concepts say so. |
 | T15 | **Prediction drills** | T13 | C §6.1, I-15–17 | Mode C ("which liquidity is taken first?"); ERL/IRL labels, DOL questions, obstacle counts. |
 | T16 | **Learning state and curriculum map** | T13 | C §6.3, I Part 12 | Per-concept rating, spaced repetition, unlocks; real-data attempts only (INVARIANT 8b). |
 
@@ -280,7 +281,8 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-042 | **Massive's free plan first** (2 years of CME 1m, 5 req/min, per-contract tickers — Tradeez picks the front contract by previous-session volume); Databento later for deep history and 1s. Key `MASSIVE_API_KEY` only in `backend/.env`. |
 | DEC-040 ⚠️ | **Real NQ from Databento; the simulated market leaves the app.** Every download priced first, capped ($5/request, $100 total). Key only in `backend/.env`. `IMPORTED_PRIVATE` until display is licensed. |
 | DEC-039 | FVG rule `fvg-1.0.0`: consecutive candles, gap ≥ 25% of the prior 14 candles' average range. **Never tune the generator to produce patterns for drills** — refuse the drill instead (1m). |
-| DEC-036 ⚠️ | **Spring Boot 3.5.x + Java 21 — NOT Boot 4.** Boot 4 renames starters (`-webmvc`, per-starter `-test`) and has no springdoc, which breaks DEC-007. Do not bump the major version. |
+| ~~DEC-036~~ | ~~Spring Boot 3.5.x + Java 21 — NOT Boot 4.~~ **Superseded by DEC-056** (2026-10-15): Boot 3.5's free support ended 2026-06-30 and springdoc 3 supports Boot 4. |
+| DEC-056 ⚠️ | **Newest versions everywhere.** Spring Boot 4.1 / Java 25 / Node 24 LTS / TypeScript 7 / Vitest 5. Keep dependencies at their newest; a major upgrade is done when it lands and the tests pass. Exceptions are written down: `@types/node` follows the runtime, PostgreSQL 17 keeps its data. |
 | DEC-035 | Imported data use is environment-sensitive; jury display requires explicit source permission. |
 
 ---
@@ -1876,3 +1878,80 @@ Waiting for Fabio to say merge.
 
 **2026-10-15 — T13 merged.** Merged `--no-ff` as `e4f7cba`. Fabio: "Merge and go". Next: T14 (lesson
 cards) on `feat/lesson-cards`.
+
+**2026-10-15 — T14: lesson cards (DEC-055).** On `feat/lesson-cards`, not merged:
+- **Learn tab:** the curriculum ladder of `ICT_CONCEPTS.md` (72 concepts by level, detected ones
+  marked), opening on ICT-01; a card per concept — the document's What, level, detectability, status,
+  "know first" and "builds toward" links, the rules in words, where the app draws it, "Practise it"
+  (opens the Drills tab on that drill), and three real NQ examples. `GET /api/concepts/{id}/lesson`.
+- **Examples at random, never picked:** each from its own random two-day stretch, a random hit (whole
+  ones first), 32 candles up to the candle it is known by and 8 after, no roll, no overlap; drawn by
+  the Setups renderer with a faint band on the hit; caption with the hit's candle, date and when it was
+  known. On real NQ all 18 detected concepts gave three examples at 5m, 121–613 ms each.
+- **Every rule in words:** `drills/DrillText` → `analysis/RuleText`, extended to all 18 rules
+  (definitions, labels, explanations). `DetectorContractTest.words`: every numeric parameter appears in
+  its rule's definition, and every hit on the pattern market renders. Lifecycle and liquidity events say
+  "a later candle".
+- **Tests:** `LessonApiTest` (24, incl. every detected concept), `RuleTextTest` (9), `DrillKindTest`,
+  the contract's `words`, a `DrillView` start-on-a-drill test, `LearnView` (6), `formatSessionDate`.
+  The three-week NQ import used by three tests is now one helper, `ThreeWeeksOfNq`. Mutations caught:
+  a misspelt evidence key, a parameter dropped from a definition, deterministic examples, a dead
+  "Practise it", a caption without when-known.
+- **Environment:** ENV-007 — an npm update made outside the session (undici 8.12.2 needs Node ≥ 22.19)
+  stops vitest here; left for Fabio, kept out of the commit, tests run on the committed lockfile in a
+  scratch copy. ENV-008 — two mutation runs at once swapped two files; rebuilt and re-tested.
+- Backend 350 → 378, frontend 236 → 244.
+
+**2026-10-15 — T14 fresh-clone check, first run: one failure.** `6e33ebc` cloned clean: frontend
+244/244, lint, typecheck, knip, build clean; backend 378 with 1 failure — `SetupApiTest.practice`, whose
+random replay window held no MSS (BUG-051, a flaky assertion since T11–T12). Fixed: the replay must
+cover at least 12 rules, and a new `everyRule()` checks all 18 over a fixed fortnight. Backend 379.
+
+**2026-10-15 — T14 fresh-clone check.** `6e6d152` cloned clean, no `.env`: frontend 244/244, lint,
+typecheck, knip and build clean; backend `tests=379 errors=0 skipped=0 failures=0`, no `[ERROR]` lines.
+Waiting for Fabio to say merge. ENV-007 still open (his call).
+
+**2026-10-15 — The upgrade to the newest versions (DEC-056).** Fabio: "update undici and everything to
+the newest version, dont leave it lagging behind that leaves holes for hackers." On
+`chore/upgrade-dependencies` (branched from `feat/lesson-cards`), not merged:
+- **ENV-007 closed.** The outside npm update was discarded first (the project's Node was 22.14); that
+  showed the old undici had five high-severity advisories. Node 24.20 LTS installed with winget (Fabio
+  chose LTS over 26 Current), npm 12.2.
+- **Frontend:** every package newest — React 19.3, Vite 8.3, Vitest 5, TypeScript 7, jsdom 30.1
+  (undici 8.12.2), oxlint 1.88; `@types/node` 24 to match the runtime; `engines` Node ≥ 24.20;
+  `npm audit` 0. `openapi-typescript` (needs TS 5's compiler API, gone in TS 7) runs through `npx`
+  with its own TypeScript and left the dependencies (27 packages fewer).
+- **Backend:** Spring Boot 3.5 was past its free support (2026-06-30). Now Boot 4.1.1 (Spring 7,
+  Security 7.1, Hibernate 7.4, Jackson 3.1, Flyway 12.4, Testcontainers 2.0, JUnit 6), springdoc 3.1.1,
+  jjwt 0.13, PostgreSQL driver 42.7.14, Lombok 1.18.48, Java 25 target, Maven 3.10.0. Changes: Boot 4's
+  split starters, Testcontainers' new names, Jackson 3 imports and `asString`. All 379 tests passed.
+- **PostgreSQL** container moved to the freshly built 17-alpine image (still 17.11, the newest 17.x),
+  after a verified backup in the scratchpad; 697,003 bars intact.
+- **Found and fixed:** BUG-054 (a rejected password went to the server log — now one validation
+  handler for every controller, logging nothing and naming only field and rule), BUG-052 (the zone
+  button named today's zone, not the chart's), BUG-053 (`api:types` pointed at another app's port).
+- **Checked live** on the new stack: sign-in, chart bars, setups, clock, a lesson, a drill answered, a
+  practice session advanced, a validation reply, the January chart reading EST.
+- Backend 379 (one test reworked), frontend 244 → 245.
+
+**2026-10-15 — Fresh-clone check of `chore/upgrade-dependencies`.** `e2ab13c` cloned clean, no `.env`,
+on Node 24.20 / npm 12.2 / JDK 26 / Maven 3.10: backend `tests=379 errors=0 skipped=0 failures=0`, no
+`[ERROR]` lines; frontend `npm audit` 0 vulnerabilities, lint, typecheck (TypeScript 7), Vitest 5
+245/245 and build clean; knip clean — on its third run: the first two stopped allocating parser
+memory (ENV-009, open, harmless). Waiting for Fabio to say merge; merging this branch brings T14 too.
+
+**2026-10-15 — Fabio's follow-ups to DEC-056.** On `chore/upgrade-dependencies`:
+- **Global npm tools** updated too ("u can change the global tools as well"): Bruno CLI 3.5 → 4.2.1,
+  nodemon 2.0 → 3.1.14, TypeScript 5.1 → 7.0.2, Vite 4.4 → 8.3.4.
+- **undici 8.12.2 is the newest** (its `latest` tag, published today); jsdom asks for `^8.12.1`.
+- **openapi-typescript on TypeScript 5, properly:** its own tool package `frontend/tools/api-types`
+  (TypeScript 5.9.3, openapi-typescript 7.13.0, own lockfile, 0 vulnerabilities) instead of an
+  unlocked `npx` download. Run against the dev backend: the generated types include the lesson and
+  drill DTOs and typecheck under the app's TypeScript 7 — so the app stays on 7.
+- **ENV-009 fixed:** knip as a locked dev dependency, `npm run knip`, with
+  `KNIP_DISABLE_RAW_TRANSFER=1` from `knip.env`; a planted unused export is still caught.
+- **PostgreSQL:** asked; Fabio keeps 17 for now.
+
+**2026-10-15 — Fresh-clone check of `49ca427`** (frontend only changed since `e2ab13c`, whose backend
+was green): `npm audit` 0 in the app and in `tools/api-types`, lint, typecheck, `npm run knip`,
+245/245 and build clean. Waiting for Fabio to say merge; merging this branch brings T14 too.

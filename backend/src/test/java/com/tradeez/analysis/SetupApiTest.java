@@ -21,18 +21,17 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
+import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
 import com.tradeez.identity.RefreshTokenRepository;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketBarStore;
-import com.tradeez.marketdata.MarketBarStore.StoredBar;
 import com.tradeez.marketdata.MarketDataService;
-import com.tradeez.marketdata.SessionCalendar;
 import com.tradeez.marketdata.Timeframe;
 
 import jakarta.servlet.http.Cookie;
@@ -40,18 +39,13 @@ import jakarta.servlet.http.Cookie;
 /**
  * T9 — detected setups over the Chart tab and over a practice replay, on imported one-minute NQ.
  *
- * <p>The minutes are the simulated market's, stored as an import stores them, so they have gaps to
- * find — except that every 35th minute opens two points from where the last one closed, as real
- * minutes sometimes do and generated ones never do, so there are volume imbalances too. Three weeks from Sunday 27 April 2025, all in New York summer time, with a roll to the June
- * contract in the middle of Thursday 8 May's morning — the June contract 1,000 points higher, so the
- * jump between the two would read as an enormous gap to a detector that was handed both.
+ * <p>The minutes are {@link ThreeWeeksOfNq}: the simulated market's, stored as an import stores them,
+ * with volume imbalances added and a roll to the June contract, 1,000 points higher, in the middle of
+ * Thursday 8 May's morning — a jump that would read as an enormous gap to a detector handed both.
  */
 class SetupApiTest extends AbstractIntegrationTest {
 
-	private static final Instant DATA_FROM = Instant.parse("2025-04-27T22:00:00Z");
-	private static final Instant DATA_TO = Instant.parse("2025-05-17T00:00:00Z");
-	private static final Instant ROLL = Instant.parse("2025-05-08T14:00:00Z");
-	private static final long JUNE_PREMIUM_TICKS = 4_000;
+	private static final Instant ROLL = ThreeWeeksOfNq.ROLL;
 	/** Every detector the app has after T12 (DEC-050, DEC-052, DEC-053). */
 	private static final String ALL = "FVG,FVG_STATE,IFVG,BPR,VI,VOID,OPENING_GAP,ORG,"
 		+ "SWING,SWING_TIER,STRUCTURE,BOS_CHOCH,DISPLACEMENT,MSS,LIQUIDITY,EQHL,SWEEP,TURTLE_SOUP";
@@ -94,24 +88,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 		alice = register("alice@example.com");
 
 		nq = marketData.requireInstrument("NQ");
-		Instrument demo = marketData.requireInstrument("DEMO-NQ");
-		List<StoredBar> bars = new ArrayList<>();
-		for (Bar b : marketData.internalBars(demo, Timeframe.M1, DATA_FROM, DATA_TO, 7).bars()) {
-			if (!SessionCalendar.isOpen(b.openTime())) {
-				continue;
-			}
-			boolean june = !b.openTime().isBefore(ROLL);
-			long shift = june ? JUNE_PREMIUM_TICKS : 0;
-			long open = b.openTicks() + (b.openTime().getEpochSecond() / 60 % 35 == 0 ? 8 : 0);
-			bars.add(new StoredBar(new Bar(b.openTime(), open + shift, Math.max(b.highTicks(), open) + shift,
-				b.lowTicks() + shift, b.closeTicks() + shift, b.volume()), june ? 202506 : 202503));
-		}
-		barStore.insert(nq.getId(), "1m", bars);
-		jdbc.update("""
-			INSERT INTO market_data_import (instrument_id, source, dataset, symbol, resolution,
-			    range_from, range_to, estimated_cost_usd, bars_stored, status)
-			VALUES (?, 'massive', 'CME', 'NQ', '1m', ?, ?, 0, ?, 'DONE')""",
-			nq.getId(), Timestamp.from(DATA_FROM), Timestamp.from(DATA_TO), bars.size());
+		ThreeWeeksOfNq.insert(marketData, barStore, jdbc);
 	}
 
 	private Cookie register(String email) throws Exception {
@@ -148,8 +125,8 @@ class SetupApiTest extends AbstractIntegrationTest {
 	/** A setup as a line of text, its times shifted: enough to compare two lists exactly. */
 	private static List<String> described(JsonNode setups, long shift) {
 		List<String> out = new ArrayList<>();
-		setups.forEach(s -> out.add(s.get("detector").asText() + "/" + (s.hasNonNull("kind") ? s.get("kind").asText() : "-") + " "
-			+ s.get("direction").asText() + " " + (s.get("start").asLong() + shift) + " "
+		setups.forEach(s -> out.add(s.get("detector").asString() + "/" + (s.hasNonNull("kind") ? s.get("kind").asString() : "-") + " "
+			+ s.get("direction").asString() + " " + (s.get("start").asLong() + shift) + " "
 			+ (s.get("end").asLong() + shift) + " " + (s.get("confirmedAt").asLong() + shift) + " "
 			+ s.get("lowTicks").asLong() + "-" + s.get("highTicks").asLong()));
 		return out;
@@ -162,9 +139,9 @@ class SetupApiTest extends AbstractIntegrationTest {
 		Instant to = Instant.parse("2025-05-07T20:00:00Z");
 		JsonNode layer = read(chartRequest("NQ", "5m", from, to, "FVG").andExpect(status().isOk()));
 
-		assertThat(layer.at("/rules/0/detector").asText()).isEqualTo("FVG");
-		assertThat(layer.at("/rules/0/version").asText()).isEqualTo(FvgDetector.RULE_VERSION);
-		assertThat(layer.at("/rules/0/conceptId").asText()).isEqualTo("ICT-20");
+		assertThat(layer.at("/rules/0/detector").asString()).isEqualTo("FVG");
+		assertThat(layer.at("/rules/0/version").asString()).isEqualTo(FvgDetector.RULE_VERSION);
+		assertThat(layer.at("/rules/0/conceptId").asString()).isEqualTo("ICT-20");
 		assertThat(layer.at("/rules/0/parameters/averageRangeLookback").asInt()).isEqualTo(14);
 
 		// The same rule over the same candles, run by hand.
@@ -179,7 +156,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 		assertThat(expected).hasSizeGreaterThan(3);
 		assertThat(described(layer.get("setups"), 0)).containsExactlyElementsOf(expected);
 		assertThat(layer.toString()).doesNotContain("evidence").doesNotContain("gapTicks");
-		layer.get("setups").forEach(s -> assertThat(s.get("shape").asText()).isEqualTo("ZONE"));
+		layer.get("setups").forEach(s -> assertThat(s.get("shape").asString()).isEqualTo("ZONE"));
 	}
 
 	@Test
@@ -244,7 +221,7 @@ class SetupApiTest extends AbstractIntegrationTest {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())
 				.contentType(MediaType.APPLICATION_JSON).content("{}"))
 			.andExpect(status().isCreated()));
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		JsonNode first = practiceSetups(id, alice);
 		assertThat(first.size()).isPositive();
 		assertMatchesTheChart(id, first);
@@ -293,8 +270,18 @@ class SetupApiTest extends AbstractIntegrationTest {
 		}
 		assertThat(practice.toString()).doesNotContain(Long.toString(realStart.getEpochSecond()));
 		assertThat(described(practice, 0)).containsExactlyElementsOf(described(chartSetups(historyFrom, cursor, ALL), shift));
-		// Every rule has something to say over a replay's four days, so the comparison covers them all.
-		assertThat(described(practice, 0)).extracting(d -> d.substring(0, d.indexOf('/')))
+		// A comparison over most of the rules, not a handful. Not all of them: the replay starts at a random
+		// moment, and a rare rule (an MSS) can have nothing in its four days (BUG-051). Every rule is shown
+		// to come through the endpoint over a fixed stretch in everyRule().
+		assertThat(described(practice, 0).stream().map(d -> d.substring(0, d.indexOf('/'))).distinct().count())
+			.isGreaterThanOrEqualTo(12);
+	}
+
+	@Test
+	@DisplayName("over a fixed fortnight the chart has something from every rule, so the comparisons cover them all")
+	void everyRule() throws Exception {
+		JsonNode setups = chartSetups(Instant.parse("2025-04-28T00:00:00Z"), Instant.parse("2025-05-08T00:00:00Z"), ALL);
+		assertThat(described(setups, 0)).extracting(d -> d.substring(0, d.indexOf('/')))
 			.containsAll(List.of(ALL.split(",")));
 	}
 }

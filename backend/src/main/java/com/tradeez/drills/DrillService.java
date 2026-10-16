@@ -24,11 +24,13 @@ import com.tradeez.analysis.DetectedSetup;
 import com.tradeez.analysis.DetectedSetupRepository;
 import com.tradeez.analysis.Detector;
 import com.tradeez.analysis.DetectorRegistry;
+import com.tradeez.analysis.RuleText;
 import com.tradeez.analysis.SetupScanner;
 import com.tradeez.drills.DrillDtos.DrillResponse;
 import com.tradeez.drills.DrillDtos.KindView;
 import com.tradeez.drills.DrillDtos.OptionView;
 import com.tradeez.drills.DrillDtos.ResultView;
+import com.tradeez.drills.DrillDtos.RuleView;
 import com.tradeez.drills.DrillDtos.SetupView;
 import com.tradeez.drills.DrillDtos.SubjectView;
 import com.tradeez.drills.DrillKind.Mode;
@@ -371,13 +373,13 @@ public class DrillService {
 			fixture ? FIXTURE_NOTICE : null,
 			kind.instructions(),
 			kind.markName(),
-			DrillText.rule(detectors.require(drill.getDetector())),
+			rule(detectors.require(drill.getDetector())),
 			bars.stream()
 				.map(b -> new BarResponse(b.openTime().getEpochSecond(), b.openTicks(),
 					b.highTicks(), b.lowTicks(), b.closeTicks(), b.volume()))
 				.toList(),
 			classify ? subject(kind, subject) : null,
-			classify ? kind.optionsFor(subject).stream().map(o -> new OptionView(o, DrillKind.NAMES.get(o))).toList() : null,
+			classify ? kind.optionsFor(subject).stream().map(o -> new OptionView(o, RuleText.NAMES.get(o))).toList() : null,
 			drill.isAnswered() ? drill.getMarks() : null,
 			drill.isAnswered() ? drill.getChoice() : null,
 			drill.isAnswered() ? result(drill, key, instrument.getTickSize()) : null);
@@ -412,7 +414,13 @@ public class DrillService {
 	private static SetupView setupView(DetectedSetup s, Boolean found, BigDecimal tickSize) {
 		return new SetupView(s.getId(), s.getDirection(), s.getKind(), s.getShape(),
 			s.getStartTime().getEpochSecond(), anchor(s), s.getEndTime().getEpochSecond(), s.getZoneLowTicks(),
-			s.getZoneHighTicks(), found, DrillText.label(s), DrillText.explain(s, tickSize), s.getEvidence());
+			s.getZoneHighTicks(), found, RuleText.label(s), RuleText.explain(s, tickSize), s.getEvidence());
+	}
+
+	/** The rule a drill is graded by, in words generated from its parameters. */
+	static RuleView rule(Detector detector) {
+		return new RuleView(detector.id(), detector.ruleVersion(), detector.parameters(), RuleText.definition(detector),
+			detector.methodologySource());
 	}
 
 	private static long anchor(DetectedSetup s) {

@@ -2,6 +2,7 @@ package com.tradeez.analysis;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -9,7 +10,9 @@ import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.marketdata.Bar;
@@ -68,6 +71,46 @@ class DetectorContractTest extends AbstractIntegrationTest {
 					.isNotEmpty();
 			}
 		}
+	}
+
+	@Test
+	@DisplayName("every rule reads in words with its own numbers, and every hit explains itself (DEC-055)")
+	void words() {
+		for (Detector detector : detectors.all()) {
+			String definition = RuleText.definition(detector);
+			detector.parameters().forEach((name, value) -> {
+				if (value instanceof Number) {
+					assertThat(definition).as("%s states its %s", detector.id(), name).contains(value.toString());
+				}
+			});
+		}
+		// Every hit on every timeframe: an evidence key the words expect but the rule never wrote fails here.
+		BigDecimal tick = new BigDecimal("0.25");
+		for (Timeframe timeframe : SERIES.keySet()) {
+			List<Bar> bars = bars(timeframe);
+			for (Detector detector : detectors.all()) {
+				for (Detection detection : detector.detect(bars, timeframe)) {
+					DetectedSetup hit = stored(detector, detection);
+					assertThat(RuleText.label(hit)).as("%s %s", detector.id(), detection.kind()).isNotBlank()
+						.doesNotContain("null");
+					assertThat(RuleText.explain(hit, tick)).as("%s %s", detector.id(), detection.kind()).isNotEmpty()
+						.allSatisfy(line -> assertThat(line).doesNotContain("null").doesNotContain(".."));
+				}
+			}
+		}
+	}
+
+	/** A detection as the scanner stores it: only the fields the words read. */
+	private static DetectedSetup stored(Detector detector, Detection detection) {
+		DetectedSetup hit = BeanUtils.instantiateClass(DetectedSetup.class);
+		ReflectionTestUtils.setField(hit, "detector", detector.id());
+		ReflectionTestUtils.setField(hit, "params", detector.parameters());
+		ReflectionTestUtils.setField(hit, "kind", detection.kind());
+		ReflectionTestUtils.setField(hit, "direction", detection.direction().name());
+		ReflectionTestUtils.setField(hit, "zoneLowTicks", detection.lowTicks());
+		ReflectionTestUtils.setField(hit, "zoneHighTicks", detection.highTicks());
+		ReflectionTestUtils.setField(hit, "evidence", detection.evidence());
+		return hit;
 	}
 
 	@Test

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createTickMarkFormatter,
   createTimeFormatter,
+  formatSessionDate,
   formatSessionTime,
   nextAxisTimezone,
   timezoneLabel,
@@ -51,6 +52,13 @@ describe('formatSessionTime', () => {
   it('follows daylight saving: the same UTC hour is 08:00 CST in January', () => {
     // 2024-01-10 14:00 UTC.
     expect(formatSessionTime(1704895200, 'America/Chicago')).toBe('Wed 08:00 CST')
+  })
+})
+
+describe('formatSessionDate', () => {
+  it("names the exchange's calendar date, which can differ from UTC's", () => {
+    // 2024-02-22 00:00 UTC is still Wednesday 21 February in Chicago.
+    expect(formatSessionDate(1708560000, 'America/Chicago')).toBe('21 Feb 2024')
   })
 })
 

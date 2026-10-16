@@ -45,19 +45,21 @@ public final class SetupDtos {
 		known.""")
 	public record SetupView(String detector, Detection.Shape shape, Detection.Direction direction, String kind,
 			long start, long anchor, long end, long confirmedAt, long lowTicks, long highTicks) {
+
+		/** A stored hit, its times passed through {@code time}: a replay's clock, or plain epoch seconds. */
+		public static SetupView of(DetectedSetup s, ToLongFunction<Instant> time) {
+			return new SetupView(s.getDetector(), Detection.Shape.valueOf(s.getShape()),
+				Detection.Direction.valueOf(s.getDirection()), s.getKind(), time.applyAsLong(s.getStartTime()),
+				time.applyAsLong(s.getAnchorTime()), time.applyAsLong(s.getEndTime()),
+				time.applyAsLong(s.getConfirmedAt()), s.getZoneLowTicks(), s.getZoneHighTicks());
+		}
 	}
 
 	static SetupLayerResponse of(List<Detector> detectors, List<DetectedSetup> setups, List<Instant> rolls,
 			ToLongFunction<Instant> time) {
 		return new SetupLayerResponse(
 			detectors.stream().map(RuleView::of).toList(),
-			setups.stream()
-				.map(s -> new SetupView(s.getDetector(), Detection.Shape.valueOf(s.getShape()),
-					Detection.Direction.valueOf(s.getDirection()), s.getKind(),
-					time.applyAsLong(s.getStartTime()), time.applyAsLong(s.getAnchorTime()),
-					time.applyAsLong(s.getEndTime()), time.applyAsLong(s.getConfirmedAt()),
-					s.getZoneLowTicks(), s.getZoneHighTicks()))
-				.toList(),
+			setups.stream().map(s -> SetupView.of(s, time)).toList(),
 			rolls.stream().map(time::applyAsLong).toList());
 	}
 }

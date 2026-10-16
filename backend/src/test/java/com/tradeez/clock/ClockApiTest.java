@@ -23,8 +23,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
@@ -133,7 +133,7 @@ class ClockApiTest extends AbstractIntegrationTest {
 	private static List<JsonNode> lines(JsonNode layer, String label) {
 		List<JsonNode> found = new ArrayList<>();
 		layer.get("lines").forEach(l -> {
-			if (l.get("label").asText().equals(label)) {
+			if (l.get("label").asString().equals(label)) {
 				found.add(l);
 			}
 		});
@@ -146,9 +146,9 @@ class ClockApiTest extends AbstractIntegrationTest {
 		JsonNode layer = read(chartClock(alice, ny("2025-03-11T00:00"), ny("2025-03-12T00:00"))
 			.andExpect(status().isOk()));
 
-		assertThat(layer.at("/rules/sessions").asText()).isEqualTo("sessions-1.0.0");
-		assertThat(layer.at("/rules/opens").asText()).isEqualTo("opens-1.0.0");
-		assertThat(layer.at("/rules/levels").asText()).isEqualTo("levels-1.0.0");
+		assertThat(layer.at("/rules/sessions").asString()).isEqualTo("sessions-1.0.0");
+		assertThat(layer.at("/rules/opens").asString()).isEqualTo("opens-1.0.0");
+		assertThat(layer.at("/rules/levels").asString()).isEqualTo("levels-1.0.0");
 		assertThat(layer.has("nextChange")).isFalse();
 
 		// Tuesday's PDH is Monday's 10:00 high, drawn over Tuesday's whole session.
@@ -157,7 +157,7 @@ class ClockApiTest extends AbstractIntegrationTest {
 		assertThat(pdh.get("from").asLong()).isEqualTo(ny("2025-03-10T18:00").getEpochSecond());
 		assertThat(pdh.get("to").asLong()).isEqualTo(ny("2025-03-11T17:00").getEpochSecond());
 		assertThat(lines(layer, "PWH")).isNotEmpty();
-		assertThat(layer.get("windows").findValuesAsText("label")).contains("Tue", "London", "NY AM");
+		assertThat(layer.get("windows").findValuesAsString("label")).contains("Tue", "London", "NY AM");
 	}
 
 	@Test
@@ -198,7 +198,7 @@ class ClockApiTest extends AbstractIntegrationTest {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())
 				.contentType(MediaType.APPLICATION_JSON).content("{\"killzone\":\"NEW_YORK_AM\"}"))
 			.andExpect(status().isCreated()));
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		long cursor = session.at("/state/cursor").asLong();
 
 		JsonNode layer = read(mockMvc.perform(get("/api/practice/sessions/" + id + "/clock").cookie(alice))
@@ -235,7 +235,7 @@ class ClockApiTest extends AbstractIntegrationTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"killzone\":\"NEW_YORK_AM\",\"timeframe\":\"15m\"}"))
 			.andExpect(status().isCreated()));
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 
 		// NY AM is at most two and a half hours: ten fifteen-minute bars are past its close.
 		mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())

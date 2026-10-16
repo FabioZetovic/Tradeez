@@ -89,7 +89,7 @@ host selected from the no-cost options available at deployment time. **Phase 0 r
 requires no hosting purchase.** Render and Railway are candidates, not locked dependencies. When
 deployed, use stable `app` and `api` domains with restrictive CORS and secure token handling.
 
-**DEC-036 — Spring Boot 3.5.x on Java 21, not Spring Boot 4.x** · `AGREED` · Claude, Session 006
+**DEC-036 — Spring Boot 3.5.x on Java 21, not Spring Boot 4.x** · `SUPERSEDED` by DEC-056 (2026-10-15) · Claude, Session 006
 Discovered during Phase 0 scaffolding. Spring Initializr now defaults to **Boot 4.1.1** and offers
 Java 26 (the JDK installed on this machine). Boot 4 was scaffolded, evaluated, and **rejected**:
 
@@ -109,6 +109,48 @@ Java 26 (the JDK installed on this machine). Boot 4 was scaffolded, evaluated, a
 JDK 26, and it stays deployable on hosting platforms whose Java buildpacks track LTS releases.
 
 Revisit once springdoc ships Boot 4 support. Until then, **do not bump the major version.**
+
+**DEC-056 — Newest versions everywhere: Spring Boot 4.1, Java 25, Node 24 LTS** `IMPLEMENTED` ·
+Fabio, Session 017 (2026-10-15) — supersedes DEC-036
+
+Fabio: "update undici and everything to the newest version, dont leave it lagging behind that leaves
+holes for hackers." It started with an npm update made outside the session (ENV-007): the `undici`
+that jsdom pulls in had five high-severity advisories, and the fixed one needs Node ≥ 22.19. Checking
+the rest found worse: **Spring Boot 3.5's free security support ended on 2026-06-30** — the backend was
+on a line that no longer gets public fixes.
+
+- **Backend:** Spring Boot **4.1.1** (Spring Framework 7, Spring Security 7.1, Hibernate 7.4, Jackson
+  3.1, Flyway 12.4, Testcontainers 2.0, JUnit 6), springdoc **3.1.1**, jjwt 0.13.0, the PostgreSQL
+  driver 42.7.14 and Lombok 1.18.48 (newer patches than Boot manages), **Java 25** target (the newest
+  LTS; the JDK installed is 26), Maven **3.10.0**. DEC-036's reason is gone — it said to revisit once
+  springdoc supported Boot 4, and springdoc 3 does. The migration was the starters Boot 4 split up
+  (`-webmvc`, `-flyway`, `-webmvc-test`, Testcontainers' new artifact names and `PostgreSQLContainer`)
+  and Jackson 3 (`tools.jackson.*`; `asText` → `asString`). All 379 tests passed on it unchanged.
+  Jackson 2 remains only inside `jjwt-jackson`.
+- **Frontend:** Node **24.20 LTS** (the Node 22 line installed before is replaced; Node 26 is not yet
+  LTS), npm **12.2**, and every package at its newest — React 19.3, Vite 8.3, **Vitest 5**,
+  **TypeScript 7**, jsdom 30.1 (undici 8.12.2), oxlint 1.88. `@types/node` follows the runtime's major
+  (24), not the newest types. `engines` records Node ≥ 24.20. **`npm audit`: 0 vulnerabilities.**
+- **TypeScript 7 has no compiler API**, which `openapi-typescript` (newest 7.13) still needs. It lives
+  in its own small tool package, `frontend/tools/api-types`, locked to TypeScript 5.9.3 by its own
+  lockfile and audited like the rest; `npm run api:types` installs and runs it. The app keeps
+  TypeScript 7 — it typechecks on it, generated types included — so neither has to be held back for
+  the other. 27 packages fewer in the app's own tree.
+- **knip** is a locked dev dependency too, run as `npm run knip` (ENV-009). The global npm tools
+  were updated as well: Bruno CLI 4.2, nodemon 3.1, TypeScript 7, Vite 8.3. npm 12 no longer runs
+  packages' install scripts unless allowed; none of ours needs one.
+- **PostgreSQL stays on 17** (17.11, the newest 17.x, on a freshly built image) — Fabio's choice,
+  asked: 18 cannot read 17's data files, so moving means a dump of the database holding the imported
+  history and a restore into a fresh 18. 17 gets security fixes until November 2029.
+
+Found on the way, all fixed (BUGS.md): a rejected **password was written to the server log** on every
+failed registration validation (BUG-054); the time-zone button named today's
+zone instead of the chart's (BUG-052); the `api:types` script pointed at another app's port (BUG-053).
+
+**The rule from now on:** dependencies are kept at their newest versions; a major upgrade is done
+when it is released and the tests pass on it, not deferred. Exceptions are written down with the
+reason (here: `@types/node` follows the runtime, PostgreSQL 17 keeps its data).
+
 
 **DEC-044 — Tailwind CSS for all styling** · `IMPLEMENTED` · Fabio, Session 017 (2026-10-13)
 
@@ -972,6 +1014,49 @@ a constant when wanted. Mode C prediction drills (T15) and the learning state (T
 
 **Reconsider if** learners find the excused sweeps confusing — a longer window for the sweep drill
 would show more of the levels being swept — or if 40 candles prove too little context to name a break.
+
+**DEC-055 — Lesson cards: the curriculum's words, every rule in words, real examples at random**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-15), T14 — mode L
+
+The first step of the concept loop (`ICT_CONCEPTS.md` Part 0): a one-minute card per concept, read
+before spotting and naming it. Nothing on a card is written for the card.
+
+- **The Learn tab** lists the curriculum as the ladder of Part 12 — all 72 concepts by level, the
+  detected ones marked — and opens on the first concept Tradeez can show on a chart.
+- **A card** carries the concept's **What.** paragraph from the document, its level, detectability and
+  status, what to know first and what it builds toward (the document's own cross-references, already
+  read by the registry, DEC-049), the rules that detect it in words, where the app draws it (the
+  Setups layer or the New York clock layer), the drills that practise it — "Practise it" opens the
+  Drills tab on that drill — and up to three real NQ examples. `GET /api/concepts/{id}/lesson`.
+- **Examples are not hand-picked.** Each comes from its own random two-day stretch of the imported
+  history: the rule scans it (every hit stored, DEC-026), one hit is taken at random — those the chart
+  can show whole first — and shown on the 32 candles up to the one it is known by and 8 after, with no
+  roll inside and no overlap with another example. "Show others" asks again; 1m, 5m or 15m. On the
+  dev database's two years of real NQ every one of the 18 detected concepts gave three examples at five
+  minutes, in 121–613 ms. An opening range gap never fits whole (its 16:15 close is seventeen hours
+  before the 09:30 open) and is drawn from the chart's left edge.
+- **Drawn as the chart draws it** — the Setups layer's own renderer — with a faint band behind the
+  hit's candles, since a small gap on forty candles is easy to miss. The caption names the hit's candle
+  with its date (real history, not a replay: nothing is hidden, DEC-045 does not apply) and, when they
+  differ, the candle it became known by.
+- **Every rule in words.** The drill engine's text moved to `analysis/RuleText` and now covers all 18
+  rules: a definition generated from the parameters, a label and an explanation per hit from its
+  evidence. `DetectorContractTest` holds it to that: every numeric parameter of every rule appears in
+  its definition, and every hit of every rule on the pattern market renders without a missing evidence
+  key. Lifecycle and liquidity events now say "a later candle" — the one the caption names — rather
+  than "this candle".
+- **Concepts without a detector** still get a card — what they are, and that Tradeez does not detect
+  them yet; those the clock layer draws say so and where.
+
+Found while building it: nothing in the code. The examples' first wording called the candle that
+moved a gap "this candle" while the caption named the gap's own — fixed before it was committed.
+
+Not in this decision: drawn diagrams beyond the examples, the document's **Disagreements.** notes on
+cards, examples for the clock-drawn concepts, and the learning state that will track which cards were
+read (T16).
+
+**Reconsider if** random examples too often show a rule's odd cases to a beginner — then order them
+(cleanest first) without hand-picking: by the rule's own numbers, stated on the card.
 
 **DEC-039 — FVG rule `fvg-1.0.0`, and drills that do not bend the data** · `AGREED` · Claude, Session 016
 The first detector under DEC-026. The rule:

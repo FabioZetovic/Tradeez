@@ -20,11 +20,11 @@ import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The Massive (formerly Polygon.io) futures calls Tradeez needs: daily session bars, for choosing
@@ -138,8 +138,8 @@ public class MassiveClient {
 					each.accept(r);
 				}
 			}
-			url = body.hasNonNull("next_url") && !body.get("next_url").asText().isBlank()
-				? sameHost(body.get("next_url").asText())
+			url = body.hasNonNull("next_url") && !body.get("next_url").asString().isBlank()
+				? sameHost(body.get("next_url").asString())
 				: null;
 		}
 	}
@@ -216,11 +216,11 @@ public class MassiveClient {
 			JsonNode body;
 			try {
 				body = json.readTree(response.body());
-			} catch (JsonProcessingException e) {
+			} catch (JacksonException e) {
 				throw new MassiveException("Massive sent something that is not JSON for "
 					+ uri.getPath() + ": " + abbreviate(response.body()));
 			}
-			String status = body.path("status").asText("");
+			String status = body.path("status").asString("");
 			if (!"OK".equals(status) && !"DELAYED".equals(status)) {
 				throw new MassiveException("Massive answered status '" + status + "' for "
 					+ uri.getPath() + ": " + abbreviate(errorText(response.body())));
@@ -246,12 +246,12 @@ public class MassiveClient {
 		try {
 			JsonNode node = json.readTree(body);
 			if (node.hasNonNull("error")) {
-				return node.get("error").asText();
+				return node.get("error").asString();
 			}
 			if (node.hasNonNull("message")) {
-				return node.get("message").asText();
+				return node.get("message").asString();
 			}
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			// not JSON — fall through to the raw text
 		}
 		return body;
@@ -262,7 +262,7 @@ public class MassiveClient {
 		if (n == null || !n.isTextual()) {
 			throw new MassiveException("Massive bar has no '" + field + "': " + abbreviate(r.toString()));
 		}
-		return n.asText();
+		return n.asString();
 	}
 
 	private static long integer(JsonNode r, String field) {

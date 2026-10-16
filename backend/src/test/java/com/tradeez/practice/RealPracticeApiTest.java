@@ -27,8 +27,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
@@ -134,7 +134,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	/** The real hidden moment, read straight from the database: the client is never told it. */
 	private Instant realStart(JsonNode session) {
 		return jdbc.queryForObject("SELECT start_time FROM practice_session WHERE id = ?::uuid",
-			Timestamp.class, session.at("/state/id").asText()).toInstant();
+			Timestamp.class, session.at("/state/id").asString()).toInstant();
 	}
 
 	private static LocalDateTime rendered(long shown) {
@@ -148,11 +148,11 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 		String raw = json.writeValueAsString(session);
 		JsonNode state = session.get("state");
 
-		assertThat(state.get("instrument").asText()).isEqualTo("NQ");
-		assertThat(state.get("timeframe").asText()).isEqualTo("5m");
-		assertThat(state.get("dataClass").asText()).isEqualTo("IMPORTED_PRIVATE");
-		assertThat(state.get("timeBasis").asText()).isEqualTo(PracticeClock.NEW_YORK_WALL_CLOCK);
-		assertThat(state.get("dataSource").asText()).isEqualTo("massive");
+		assertThat(state.get("instrument").asString()).isEqualTo("NQ");
+		assertThat(state.get("timeframe").asString()).isEqualTo("5m");
+		assertThat(state.get("dataClass").asString()).isEqualTo("IMPORTED_PRIVATE");
+		assertThat(state.get("timeBasis").asString()).isEqualTo(PracticeClock.NEW_YORK_WALL_CLOCK);
+		assertThat(state.get("dataSource").asString()).isEqualTo("massive");
 		assertThat(state.has("seed")).isFalse();
 		assertThat(state.has("revealedStartTime")).isFalse();
 		assertThat(state.has("disclaimer")).isFalse();
@@ -196,7 +196,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	@DisplayName("a trade resolves on one-minute bars; the real date is revealed when the session ends")
 	void resolvesOnMinutesAndRevealsTheDate() throws Exception {
 		JsonNode session = created("{\"timeframe\":\"5m\"}");
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		JsonNode bars = session.get("bars");
 		long reference = bars.get(bars.size() - 1).get("close").asLong();
 
@@ -209,14 +209,14 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 				.cookie(alice).with(csrf()))
 			.andExpect(status().isOk())).get("state");
 
-		assertThat(closed.get("status").asText()).isEqualTo("ANALYSING");
+		assertThat(closed.get("status").asString()).isEqualTo("ANALYSING");
 		JsonNode result = closed.at("/trades/0/result");
-		assertThat(result.get("resolution").asText()).isEqualTo("M1");
-		assertThat(result.get("engineVersion").asText()).isEqualTo("fill-1.1.0");
+		assertThat(result.get("resolution").asString()).isEqualTo("M1");
+		assertThat(result.get("engineVersion").asString()).isEqualTo("fill-1.1.0");
 		assertThat(result.get("entryTime").asLong()).isBetween(YEAR_2000, YEAR_2001);
 		assertThat(result.get("exitTime").asLong()).isBetween(YEAR_2000, YEAR_2001);
-		if ("AMBIGUOUS".equals(result.get("outcome").asText())) {
-			assertThat(result.get("assumption").asText()).contains("same minute");
+		if ("AMBIGUOUS".equals(result.get("outcome").asString())) {
+			assertThat(result.get("assumption").asString()).contains("same minute");
 		}
 		// The trade is over but the session is not: another trade could still use the date.
 		assertThat(closed.has("revealedStartTime")).isFalse();
@@ -227,7 +227,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 				.cookie(alice).with(csrf()))
 			.andExpect(status().isOk()));
 		// DEC-025: now, and only now, the real date.
-		assertThat(done.get("status").asText()).isEqualTo("COMPLETE");
+		assertThat(done.get("status").asString()).isEqualTo("COMPLETE");
 		assertThat(done.get("revealedStartTime").asLong()).isEqualTo(realStart(session).getEpochSecond());
 		assertThat(done.has("seed")).isFalse();
 
@@ -251,8 +251,8 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	@DisplayName("simulated practice keeps real epoch times and its seed rules (DEC-038)")
 	void simulatedUnchanged() throws Exception {
 		JsonNode state = created("{\"instrument\":\"DEMO-NQ\"}").get("state");
-		assertThat(state.get("timeBasis").asText()).isEqualTo(PracticeClock.UTC);
-		assertThat(state.get("dataClass").asText()).isEqualTo("SIMULATED");
+		assertThat(state.get("timeBasis").asString()).isEqualTo(PracticeClock.UTC);
+		assertThat(state.get("dataClass").asString()).isEqualTo("SIMULATED");
 		assertThat(state.has("seed")).isFalse();
 		assertThat(state.get("startTime").asLong()).isGreaterThan(YEAR_2001);
 	}
@@ -295,7 +295,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("T34: on a higher timeframe the candle still forming is built only from minutes before the cursor")
 	void formingCandle() throws Exception {
-		String id = created("{\"timeframe\":\"5m\"}").at("/state/id").asText();
+		String id = created("{\"timeframe\":\"5m\"}").at("/state/id").asString();
 		// One minute at a time, until the cursor is inside a fifteen-minute candle.
 		do {
 			advance(id, 1, "1m");
@@ -316,7 +316,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	@Test
 	@DisplayName("T34: a step on 15m completes the forming candle, then reveals whole candles")
 	void stepsInViewedCandles() throws Exception {
-		String id = created("{\"timeframe\":\"5m\"}").at("/state/id").asText();
+		String id = created("{\"timeframe\":\"5m\"}").at("/state/id").asString();
 		do {
 			advance(id, 1, "1m");
 		} while (realCursor(id).getEpochSecond() % 900 == 0);
@@ -339,7 +339,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	@DisplayName("T34: skipping to a result on 1h stops at the end of the hour the trade ended in")
 	void skipsInViewedCandles() throws Exception {
 		JsonNode session = created("{\"timeframe\":\"5m\"}");
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		JsonNode bars = session.get("bars");
 		long reference = bars.get(bars.size() - 1).get("close").asLong();
 		mockMvc.perform(post("/api/practice/sessions/" + id + "/plan").cookie(alice).with(csrf())
@@ -360,7 +360,7 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	@DisplayName("T34: setups follow the viewed timeframe; nothing outside 1m–1h is offered")
 	void viewedTimeframes() throws Exception {
 		JsonNode session = created("{\"timeframe\":\"5m\"}");
-		String id = session.at("/state/id").asText();
+		String id = session.at("/state/id").asString();
 		long cursor = session.at("/state/cursor").asLong();
 
 		JsonNode setups = read(mockMvc.perform(get("/api/practice/sessions/" + id + "/setups")

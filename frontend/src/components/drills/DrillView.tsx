@@ -19,6 +19,8 @@ import { Button, Chip, Notice, Panel, Segmented } from '../ui'
 import { errorClass, fieldClass, panelTitle } from '@/lib/styles'
 
 interface DrillViewProps {
+  /** The drill to offer first: the one a lesson card sent the learner to practise. */
+  initialKind?: string
   adapterFactory?: () => ChartAdapter
 }
 
@@ -35,9 +37,9 @@ const MODE_GROUPS = [
  * named on screen, and each hit is explained from the rule's own numbers. On simulated data the one
  * drill left is a developer fixture (DEC-034), and the screen says so before anything else.
  */
-export function DrillView({ adapterFactory }: DrillViewProps) {
+export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
   const [kinds, setKinds] = useState<DrillKindView[]>([])
-  const [kind, setKind] = useState('FVG_IDENTIFICATION')
+  const [kind, setKind] = useState(initialKind ?? 'FVG_IDENTIFICATION')
   const [timeframe, setTimeframe] = useState<string>('5m')
   const [drill, setDrill] = useState<DrillResponse | null>(null)
   const [marks, setMarks] = useState<number[]>([])

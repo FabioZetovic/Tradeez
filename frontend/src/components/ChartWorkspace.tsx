@@ -171,6 +171,10 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   const series = current ? (current.series ?? null) : (loaded?.series ?? null)
 
   const lastBar = series?.bars.at(-1)
+  // The zone is named for the candles on screen — a January chart is EST, whenever it is viewed — and,
+  // before any have loaded, for the moment the chart opened.
+  const [openedAt] = useState(() => new Date())
+  const zoneAt = lastBar ? new Date(lastBar.time * 1000) : openedAt
 
   return (
     <section className="flex flex-col gap-4">
@@ -245,7 +249,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
             title="Time axis: New York → exchange → UTC"
             onClick={() => setAxisTimezone(nextAxisTimezone(axisTimezone))}
           >
-            {timezoneLabel(instrument.exchangeTimezone, axisTimezone, new Date())}
+            {timezoneLabel(instrument.exchangeTimezone, axisTimezone, zoneAt)}
           </Button>
         )}
 

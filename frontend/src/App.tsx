@@ -4,14 +4,16 @@ import { SignInForm } from '@/components/SignInForm'
 import { ChartWorkspace } from '@/components/ChartWorkspace'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
+import { LearnView } from '@/components/learn/LearnView'
 import { Button, Notice } from '@/components/ui'
 import { cx } from '@/lib/styles'
 import type { ChartAdapter } from '@/lib/chart/types'
 
-type Section = 'chart' | 'practice' | 'drills'
+type Section = 'chart' | 'learn' | 'practice' | 'drills'
 
 const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'chart', label: 'Chart' },
+  { id: 'learn', label: 'Learn' },
   { id: 'practice', label: 'Practice' },
   { id: 'drills', label: 'Drills' },
 ]
@@ -24,6 +26,12 @@ const DISCLAIMER =
 export default function App({ adapterFactory }: { adapterFactory?: () => ChartAdapter } = {}) {
   const { state, login, register, logout } = useSession()
   const [section, setSection] = useState<Section>('chart')
+  // A lesson's "Practise it" opens the Drills tab on that drill.
+  const [drillKind, setDrillKind] = useState<string | undefined>()
+  const practise = (kind: string) => {
+    setDrillKind(kind)
+    setSection('drills')
+  }
 
   if (state.status !== 'signedIn') {
     return (
@@ -86,8 +94,11 @@ export default function App({ adapterFactory }: { adapterFactory?: () => ChartAd
           pixel width it last measured — can never push it wider than the window. */}
       <main className="mx-auto w-full min-w-0 max-w-screen-2xl flex-1 px-6 py-5">
         {section === 'chart' && <ChartWorkspace adapterFactory={adapterFactory} />}
+        {section === 'learn' && <LearnView onPractise={practise} adapterFactory={adapterFactory} />}
         {section === 'practice' && <PracticeView adapterFactory={adapterFactory} />}
-        {section === 'drills' && <DrillView adapterFactory={adapterFactory} />}
+        {section === 'drills' && (
+          <DrillView key={drillKind} initialKind={drillKind} adapterFactory={adapterFactory} />
+        )}
       </main>
 
       <footer className="border-t border-line">

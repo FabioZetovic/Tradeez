@@ -378,6 +378,16 @@ describe('Drills — fixtures and refusals', () => {
     await waitFor(() => expect(started()?.body).toMatchObject({ timeframe: '1m' }))
   })
 
+  it('starts on the drill a lesson sent the learner to practise', async () => {
+    mockApi(server())
+    const user = userEvent.setup()
+    render(<DrillView initialKind="BOS_CHOCH_CLASSIFICATION" adapterFactory={() => new FakeChartAdapter()} />)
+    await screen.findByRole('option', { name: 'Fair value gaps' })
+    expect(screen.getByLabelText('Drill')).toHaveValue('BOS_CHOCH_CLASSIFICATION')
+    await user.click(screen.getByRole('button', { name: /start a drill/i }))
+    await waitFor(() => expect(started()?.body).toMatchObject({ kind: 'BOS_CHOCH_CLASSIFICATION' }))
+  })
+
   it('says so when the list of drills cannot be loaded', async () => {
     mockApi(() => ({ status: 500, body: { message: 'down' } }))
     render(<DrillView adapterFactory={() => new FakeChartAdapter()} />)

@@ -20,12 +20,66 @@
 *No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
-building T13 one (BUG-050). All eleven are fixed.
+building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), and the upgrade to the newest
+versions three (BUG-052 to BUG-054, one a security bug). All fifteen are fixed, and ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
 
 ## Environment
+
+### ENV-009 🟡 knip sometimes cannot allocate its parser's memory
+
+**Status:** verified (session 017, after DEC-056) — **fixed**
+
+Since Node 24 and knip 6.41, `npx knip` sometimes stops with "RangeError: Array buffer allocation
+failed" inside `oxc-parser`, which reserves one large block of memory per parse. In the fresh-clone
+check of `chore/upgrade-dependencies` it failed twice and passed on the next runs; in the project
+folder it passed every time. When it runs it reports nothing unused. Not a code problem: it depends on
+how much memory the machine can hand out at that moment (16 GB, about 4 free with Docker running).
+**If it happens, run it again.** Revisit if it starts failing every time.
+
+**✅ FIXED — the same session.** It did start failing every time: the machine's committed memory was
+nearly used up (5.4 of 27.4 GB free) by the apps open on it, and V8 itself could not grow. knip has a
+switch for it — `KNIP_DISABLE_RAW_TRANSFER=1` parses without the big block. knip is now a locked dev
+dependency run as `npm run knip`, which sets the switch from `frontend/knip.env`. Three runs in a
+row clean, and a planted unused export is still caught.
+
+### ENV-007 🟠 Dependencies updated outside the session stopped the frontend tests on Node 22.14
+
+**Status:** verified (session 017, T14) — **fixed** (DEC-056)
+
+While the session was paused at a usage limit (2026-10-15, 18:47 local), something outside it ran an
+npm install or update in `frontend/`: `package-lock.json` and `node_modules` moved several packages
+up within their ranges, among them `undici` 8.10.0 → 8.12.2. That version requires Node ≥ 22.19; this
+machine has 22.14, and every vitest worker now fails to start ("Cannot read properties of undefined
+(reading 'bind')" in `undici/lib/interceptor/decompress.js`). Lint, typecheck, knip and the build are
+unaffected; only the test runner loads undici.
+
+Not undone here, because the change was not this session's to undo: the lockfile change is left
+uncommitted in the working tree and kept out of every commit, and the tests were run on the committed
+lockfile in a scratch copy (`npm ci`), where all pass. A fresh clone is unaffected. **To fix, either**
+upgrade Node to ≥ 22.19 (then the update can be committed), **or** discard it:
+`git checkout frontend/package-lock.json` then `npm ci` in `frontend/`.
+
+**✅ FIXED — Session 017 (DEC-056).** The project's Node was 22.14, so the update was first discarded
+— which showed the old undici had five high-severity advisories. Fabio: update everything to the
+newest. Node is now 24.20 LTS, npm 12.2, every package at its newest, `npm audit` clean, and the tests
+run here again. (Discarding it the first time, `npm ci` failed on a file held open by a dev server
+started from VS Code and left `node_modules` half emptied; restoring one package's metadata from an
+identical copy let `npm install` finish without touching the locked file.)
+
+### ENV-008 🟡 Two mutation-check runs at once swapped two source files
+
+**Status:** verified and fixed (session 017, T14)
+
+A mutation script backs a file up, plants a bug, runs the tests and restores the backup. It was
+started twice by accident, and both runs shared one backup file: each restored the other's file, and
+`RuleText.java` ended up holding `LessonService.java`'s source while `LessonService.java` kept a
+planted bug. Caught by checking the files after the run; both were rebuilt (`RuleText` from the
+session's own record of it, `LessonService` from the copy that had landed in the wrong file) and every
+test re-run. Lessons: a mutation run's backups are named per mutation and per file, a run is started
+once and waited for, and the sources are grepped for every planted string before anything else.
 
 ### ENV-006 🟡 The Vite dev server can serve a file from before its last edit
 
@@ -476,6 +530,62 @@ series.** Volume profile, VWAP-by-volume, relative volume and delta would all be
 structure out of a formula.
 
 ---
+
+### BUG-054 🔴 A rejected password was written to the server log
+
+**Status:** verified — seen in the test log while checking the Boot 4 upgrade (session 017); a test
+fails on the old code
+**Affects:** every controller with a validated request body; registration above all (since session 008)
+
+**What happened.** A request body that failed validation was left to Spring's default handling,
+which logs the failure at WARN with each *rejected value* in it. For registration that value is the
+password: a password one character too short — quite possibly one its owner uses elsewhere — went
+into the server log in plain text. It had been there since registration was built; nobody had read
+that line of a test log closely.
+
+**✅ FIXED — Session 017 (DEC-056).** `common/ValidationExceptionHandler` handles validation failures
+for every controller: nothing is logged, and the reply names the field and the rule ("password: size
+must be between 12 and 200"), never the value. `AuthFlowTest` registers with an eleven-character
+password and checks neither the captured log nor the reply contains it; it fails without the handler.
+
+### BUG-053 🟡 The API types script asked another app on this machine for its contract
+
+**Status:** verified (session 017)
+**Affects:** `frontend/package.json` `api:types` (DEC-007)
+
+**What happened.** The script generating TypeScript types from the backend's OpenAPI document pointed
+at port 8080 — the port the backend used before session 017 moved it to 8081, and on this machine the
+port of a different project's backend. Nothing runs the script yet, so nothing broke; the first run
+would have generated another app's types. And with TypeScript 7 its tool no longer runs at all.
+
+**✅ FIXED — Session 017 (DEC-056).** Port 8081, and the tool runs through `npx` with its own
+TypeScript 5. Run against the dev backend: it generates the lesson and drill types.
+
+### BUG-052 🟡 The time-zone button named today's zone, not the chart's
+
+**Status:** verified — caught by the newer oxlint's purity rule (session 017); a test fails on the old code
+**Affects:** `frontend/src/components/ChartWorkspace.tsx`
+
+**What happened.** The axis button labels the New York zone (EDT or EST), and read the clock to do
+it — so a chart of January candles viewed in October said EDT.
+
+**✅ FIXED — Session 017.** It names the zone of the last candle on screen: January reads EST, checked
+in the app. `App.test` loads January bars and expects EST.
+
+### BUG-051 🟡 A setups test failed whenever its random replay held no market structure shift
+
+**Status:** verified — failed once in the fresh-clone check of T14, after passing in every run before
+**Affects:** `backend/src/test/.../analysis/SetupApiTest.java` (since T11–T12)
+
+**What happened.** `practice()` compares a replay's setups with the Chart tab's over the same stretch,
+then asserted that every one of the 18 rules had a hit in it, "so the comparison covers them all". But
+the replay starts at a random moment, and a rare rule can have nothing in four days of the fixture:
+that run's window held no MSS. A test that asserts a fact about random data is flaky by construction;
+it had simply been lucky.
+
+**✅ FIXED — Session 017 (T14).** The replay comparison now asks for at least 12 of the rules — a
+broad comparison, which every window gives — and a new `everyRule()` checks over a fixed fortnight of
+the fixture that every rule comes through the endpoint. Run three times, green each time.
 
 ### BUG-050 🟡 The FVG drill counted a mark as wrong on a candle nobody could judge
 

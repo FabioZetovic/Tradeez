@@ -8,8 +8,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,28 +27,25 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
+import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
 import com.tradeez.identity.RefreshTokenRepository;
-import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketBarStore;
-import com.tradeez.marketdata.MarketBarStore.StoredBar;
 import com.tradeez.marketdata.MarketDataService;
-import com.tradeez.marketdata.SessionCalendar;
-import com.tradeez.marketdata.Timeframe;
 
 import jakarta.servlet.http.Cookie;
 
 /**
  * T13 (DEC-054) — every drill, on imported one-minute NQ, graded against its rule.
  *
- * <p>The minutes are imported as {@code SetupApiTest} imports them: the simulated market's, with every
- * 35th minute opening two points from the last close (so there are volume imbalances), and a roll to
- * the June contract, 1,000 points higher, on Thursday 8 May.
+ * <p>The minutes are {@link ThreeWeeksOfNq}: the simulated market's, with every 35th minute opening two
+ * points from the last close (so there are volume imbalances), and a roll to the June contract, 1,000
+ * points higher, on Thursday 8 May.
  *
  * <p>The same three promises as the fixture drill. <b>Right</b>: the answer key is every hit of the
  * rule that the chart shows whole, and a hit the chart cuts is excused rather than counted. <b>Fair</b>:
@@ -59,11 +54,6 @@ import jakarta.servlet.http.Cookie;
  * market is real.
  */
 class RealDrillApiTest extends AbstractIntegrationTest {
-
-	private static final Instant DATA_FROM = Instant.parse("2025-04-27T22:00:00Z");
-	private static final Instant DATA_TO = Instant.parse("2025-05-17T00:00:00Z");
-	private static final Instant ROLL = Instant.parse("2025-05-08T14:00:00Z");
-	private static final long JUNE_PREMIUM_TICKS = 4_000;
 
 	@Autowired
 	MockMvc mockMvc;
@@ -95,8 +85,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		users.deleteAllInBatch(); // drills cascade from their user
 		alice = register("alice@example.com");
 		nq = marketData.requireInstrument("NQ");
-		Instant[] coverage = marketData.coverage(nq);
-		if (coverage != null && coverage[0].equals(DATA_FROM) && marketData.rolls(nq, DATA_FROM, DATA_TO).size() == 1) {
+		if (ThreeWeeksOfNq.present(marketData)) {
 			return; // already imported by an earlier test in this class: the import is the slow part
 		}
 		jdbc.update("DELETE FROM drill_setup");
@@ -104,24 +93,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		jdbc.update("DELETE FROM detected_setup");
 		jdbc.update("DELETE FROM market_bar");
 		jdbc.update("DELETE FROM market_data_import");
-		Instrument demo = marketData.requireInstrument("DEMO-NQ");
-		List<StoredBar> bars = new ArrayList<>();
-		for (Bar b : marketData.internalBars(demo, Timeframe.M1, DATA_FROM, DATA_TO, 7).bars()) {
-			if (!SessionCalendar.isOpen(b.openTime())) {
-				continue;
-			}
-			boolean june = !b.openTime().isBefore(ROLL);
-			long shift = june ? JUNE_PREMIUM_TICKS : 0;
-			long open = b.openTicks() + (b.openTime().getEpochSecond() / 60 % 35 == 0 ? 8 : 0);
-			bars.add(new StoredBar(new Bar(b.openTime(), open + shift, Math.max(b.highTicks(), open) + shift,
-				b.lowTicks() + shift, b.closeTicks() + shift, b.volume()), june ? 202506 : 202503));
-		}
-		barStore.insert(nq.getId(), "1m", bars);
-		jdbc.update("""
-			INSERT INTO market_data_import (instrument_id, source, dataset, symbol, resolution,
-			    range_from, range_to, estimated_cost_usd, bars_stored, status)
-			VALUES (?, 'massive', 'CME', 'NQ', '1m', ?, ?, 0, ?, 'DONE')""",
-			nq.getId(), Timestamp.from(DATA_FROM), Timestamp.from(DATA_TO), bars.size());
+		ThreeWeeksOfNq.insert(marketData, barStore, jdbc);
 	}
 
 	private Cookie register(String email) throws Exception {
@@ -220,9 +192,9 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		mockMvc.perform(get("/api/drills/kinds")).andExpect(status().isUnauthorized());
 		JsonNode kinds = read(mockMvc.perform(get("/api/drills/kinds").cookie(alice)).andExpect(status().isOk()));
 		assertThat(kinds).hasSize(DrillKind.values().length);
-		assertThat(kinds.findValuesAsText("kind")).contains("FVG_IDENTIFICATION", "BOS_CHOCH_CLASSIFICATION");
-		assertThat(kinds.findValuesAsText("mode")).containsOnly("IDENTIFY", "CLASSIFY");
-		assertThat(kinds.get(0).get("ruleVersion").asText()).isEqualTo("fvg-1.0.0");
+		assertThat(kinds.findValuesAsString("kind")).contains("FVG_IDENTIFICATION", "BOS_CHOCH_CLASSIFICATION");
+		assertThat(kinds.findValuesAsString("mode")).containsOnly("IDENTIFY", "CLASSIFY");
+		assertThat(kinds.get(0).get("ruleVersion").asString()).isEqualTo("fvg-1.0.0");
 	}
 
 	@ParameterizedTest
@@ -232,14 +204,14 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		JsonNode drill = start(kind, "5m");
 		assertThat(drill.get("graded").asBoolean()).isTrue();
 		assertThat(drill.get("fixture").asBoolean()).isFalse();
-		assertThat(drill.get("dataClass").asText()).isEqualTo("IMPORTED_PRIVATE");
+		assertThat(drill.get("dataClass").asString()).isEqualTo("IMPORTED_PRIVATE");
 		assertThat(drill.has("disclaimer")).isFalse();
-		assertThat(drill.get("mode").asText()).isEqualTo("IDENTIFY");
-		assertThat(drill.at("/rule/detector").asText()).isEqualTo(kind.detector());
-		assertThat(drill.at("/rule/definition").asText()).isNotBlank();
+		assertThat(drill.get("mode").asString()).isEqualTo("IDENTIFY");
+		assertThat(drill.at("/rule/detector").asString()).isEqualTo(kind.detector());
+		assertThat(drill.at("/rule/definition").asString()).isNotBlank();
 		assertThat(drill.has("result") || drill.has("subject") || drill.has("options")).isFalse();
 
-		String id = drill.get("id").asText();
+		String id = drill.get("id").asString();
 		List<Long> times = barTimes(drill);
 		assertThat(times).hasSize(DrillService.WINDOW_BARS);
 		long from = times.getFirst();
@@ -271,7 +243,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		assertThat(result.get("extra").asInt()).isZero();
 		for (JsonNode setup : result.get("setups")) {
 			assertThat(setup.get("found").asBoolean()).isTrue();
-			assertThat(setup.get("label").asText()).isNotBlank();
+			assertThat(setup.get("label").asString()).isNotBlank();
 			assertThat(setup.get("explanation")).isNotEmpty();
 			assertThat(setup.get("explanation").toString()).doesNotContain("null");
 		}
@@ -285,10 +257,10 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		// Swings at the window's edges are common: the first candle's left neighbour is off screen.
 		for (int i = 0; i < 30 && excused.isEmpty(); i++) {
 			drill = start(DrillKind.SWING_HIGH_IDENTIFICATION, "5m");
-			excused = excused(drill.get("id").asText());
+			excused = excused(drill.get("id").asString());
 		}
 		assertThat(excused).as("a drill with an excused candle").isNotEmpty();
-		String id = drill.get("id").asText();
+		String id = drill.get("id").asString();
 		Set<Long> taken = new HashSet<>(excused);
 		key(id).forEach(h -> taken.add(h.anchor()));
 		Long nothing = barTimes(drill).stream().filter(t -> !taken.contains(t)).findFirst().orElseThrow();
@@ -305,7 +277,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 	@DisplayName("classification: the subject is drawn without its name, and the rule's name is the answer")
 	void classification(DrillKind kind) throws Exception {
 		JsonNode drill = start(kind, "5m");
-		assertThat(drill.get("mode").asText()).isEqualTo("CLASSIFY");
+		assertThat(drill.get("mode").asString()).isEqualTo("CLASSIFY");
 		assertThat(drill.get("graded").asBoolean()).isTrue();
 		List<Long> times = barTimes(drill);
 		assertThat(times).hasSize(DrillService.CLASSIFY_WINDOW_BARS);
@@ -315,7 +287,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		assertThat(drill.toString()).doesNotContain("\"answer\"").doesNotContain("evidence")
 			.doesNotContain("endTime").doesNotContain("explanation");
 
-		String id = drill.get("id").asText();
+		String id = drill.get("id").asString();
 		List<Hit> key = key(id);
 		assertThat(key).hasSize(1);
 		Hit subject = key.getFirst();
@@ -341,25 +313,25 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 			}
 		}
 
-		List<String> options = drill.get("options").findValuesAsText("value");
+		List<String> options = drill.get("options").findValuesAsString("value");
 		assertThat(options).contains(subject.kind());
 		if (kind == DrillKind.STRUCTURE_CLASSIFICATION) {
-			assertThat(options).containsExactlyElementsOf("HIGH".equals(shown.get("side").asText())
+			assertThat(options).containsExactlyElementsOf("HIGH".equals(shown.get("side").asString())
 				? List.of("HH", "LH", "EH") : List.of("HL", "LL", "EL"));
 		}
 
 		String wrong = options.stream().filter(o -> !o.equals(subject.kind())).findFirst().orElseThrow();
 		JsonNode result = read(choose(id, wrong).andExpect(status().isOk())).get("result");
 		assertThat(result.get("correct").asBoolean()).isFalse();
-		assertThat(result.get("answer").asText()).isEqualTo(subject.kind());
+		assertThat(result.get("answer").asString()).isEqualTo(subject.kind());
 		assertThat(result.at("/setups/0/explanation")).isNotEmpty();
 		assertThat(result.at("/setups/0/explanation").toString()).doesNotContain("null");
 
 		JsonNode again = start(kind, "5m");
-		String right = key(again.get("id").asText()).getFirst().kind();
-		JsonNode resumed = read(choose(again.get("id").asText(), right).andExpect(status().isOk()));
+		String right = key(again.get("id").asString()).getFirst().kind();
+		JsonNode resumed = read(choose(again.get("id").asString(), right).andExpect(status().isOk()));
 		assertThat(resumed.at("/result/correct").asBoolean()).isTrue();
-		assertThat(resumed.get("choice").asText()).isEqualTo(right);
+		assertThat(resumed.get("choice").asString()).isEqualTo(right);
 	}
 
 	@Nested
@@ -369,12 +341,12 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("must fit the drill: marks for identification, one of the options for classification")
 		void fitsTheMode() throws Exception {
-			String identify = start(DrillKind.FVG_IDENTIFICATION, "5m").get("id").asText();
+			String identify = start(DrillKind.FVG_IDENTIFICATION, "5m").get("id").asString();
 			choose(identify, "BOS").andExpect(status().isBadRequest());
 			answer(identify, "{}").andExpect(status().isBadRequest());
 
 			JsonNode classify = start(DrillKind.SWEEP_RUN_CLASSIFICATION, "5m");
-			String id = classify.get("id").asText();
+			String id = classify.get("id").asString();
 			mark(id, List.of()).andExpect(status().isBadRequest());
 			choose(id, "BOS").andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value(Matchers.containsString("[SWEEP, RUN]")));
@@ -386,7 +358,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		@Test
 		@DisplayName("is kept: the database refuses to change a choice once given")
 		void choiceIsImmutable() throws Exception {
-			String id = start(DrillKind.BOS_CHOCH_CLASSIFICATION, "5m").get("id").asText();
+			String id = start(DrillKind.BOS_CHOCH_CLASSIFICATION, "5m").get("id").asString();
 			choose(id, "BOS").andExpect(status().isOk());
 			assertThatThrownBy(() -> jdbc.update("UPDATE drill SET choice = 'CHOCH' WHERE id = ?::uuid", id))
 				.hasMessageContaining("immutable");
