@@ -887,6 +887,56 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-063 — Time: four rules read off the clock, and the IPDA ranges within one contract**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-17), T19 — ICT-57, ICT-62 to ICT-65
+
+The drafts named a day, a week and a session open in ICT's words. Each was measured on the two years of
+real NQ before it was fixed, and two of them changed on the numbers. All four are read **after the
+fact** — a day is known at 17:00, a week at Friday's close, a Judas swing at the close that reverses
+it — and each is drawn over its own candles, never in force afterwards. They share one reading of the
+clock (`Periods`): the midnight day ends at the candle covering 17:00, the CME week runs from Sunday
+18:00 to the candle covering Friday 17:00.
+
+- **`po3-1.0.0` (ICT-62)** — a day from the midnight open to the 17:00 halt is power of three when it
+  closed beyond its open, its extreme against the close came first, and that extreme lay at least 15% of
+  the day's range beyond the open. **52%** of days fit (29% bullish, 23% bearish). The draft left the open
+  a parameter; from 18:00 it is 55%, from 09:30 47% — no open is special, so it is DEC-043's midnight.
+  Charts of an hour or less.
+- **`daily-profile-1.0.0` (ICT-64)** — the draft classified the CME day by session. Read from 18:00, Asia
+  makes one of the day's extremes on 44% of days (508 days), and the London shapes ICT names come to only
+  21%. The profiles are about London against New York, so the day is the midnight one, split at 08:30 —
+  London before, New York after — and three shapes cover **95%**: London low and New York higher 33%, London high
+  and New York lower 25%, a New York reversal 39%. The fourth, consolidation, needs a judgement of "no
+  expansion": not named. Charts of 30 minutes or less.
+- **`weekly-profile-1.0.0` (ICT-65)** — the weekday of the extreme against the week's close, when it
+  came first: Monday **48%**, Tuesday 20%, Wednesday 14%, Thursday 6%, the other way round 15% (96
+  weeks on one contract). Named by the plain weekday; the conditions ICT puts on the days before, and
+  the seek-and-destroy Friday, are judgements. Every chart; on 4h and daily candles a week is known an
+  hour late, never early (DEC-060).
+- **`judas-1.0.0` (ICT-63)** — the draft swept "a reference level" and read it as any one-candle swing.
+  Nine windows in ten qualified: noise. The levels are now the ones **still resting when the window
+  opens** — the previous trading day's high and low, Asia's, and in New York London's — taken a tick
+  beyond, then a close back through the window's opening price within the window. The London window
+  (00:00–05:00) has one on **60%** of days, the New York one (09:30–10:00) on **12%**: by 09:30 most
+  levels near the open are gone. Charts of 30 minutes or less.
+
+**`ipda-1.0.0` (ICT-57)** is a clock rule, not a detector: the 20-, 40- and 60-trading-day highs and lows
+over each trading day, from the days before it, taken like any level. Months of minutes would be a
+million rows; each trading day is read as one row instead — SQL groups the stored minutes by the trading
+day they belong to (18:00 starts the next date). **Within one contract only**, by DEC-047's roll rule:
+a look-back reaching another contract is not drawn, nor any longer one. NQ rolls about every 60 trading
+days, so the 20-day range is drawn on 70% of days, the 40-day on 39%, the 60-day on 7%. Back-adjusting
+the series would draw all three always, at the price of prices that never traded; that stays a possible
+later task, written down in BUGS known limitations.
+
+**On the chart:** four setup switches and an IPDA switch on the clock. The setups API sends the day's or
+week's open as the line through each range (`midHalfTicks`). A day's or week's range is framed, not
+shaded: shaded, Po3, the daily and the weekly profile stacked three fills over every candle.
+
+Not in this decision: drills on these rules and the profile distributions as evidence views (T21), a
+session's power of three, quarterly shifts (J), and no claim that a profile predicts the next day or
+week (INVARIANT 8).
+
 **DEC-062 — Ranges: one leg, read four ways** `IMPLEMENTED` · Claude, Session 017 (2026-10-17), T18 —
 ICT-40, ICT-41, ICT-42, ICT-44
 
