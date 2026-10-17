@@ -2245,3 +2245,8 @@ Next: T18, ranges and Fibonacci.
   caught. The edge cases (a tap on the OTE's edge, a close on the range's low, a swing beyond the
   reach) were written before the run, from T17's survivors.
 - Backend 492 → 499, frontend 300 → 302.
+
+**2026-10-17 — Fresh-clone check of `0f02e51`** (`feat/ranges`), no `.env`: backend 499 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 302/302, build clean. A first run was
+cut off when the session ended; Docker Desktop had then quit again (ENV-001) and was started as documented
+before the rerun. Waiting for Fabio to say merge.
