@@ -34,7 +34,13 @@ const projection: Projection = {
 }
 
 const LAYER: ClockLayer = {
-  rules: { sessions: 'sessions-1.0.0', opens: 'opens-1.0.0', levels: 'levels-1.0.0', liquidity: 'liquidity-1.0.0' },
+  rules: {
+    sessions: 'sessions-1.0.0',
+    opens: 'opens-1.0.0',
+    levels: 'levels-1.0.0',
+    liquidity: 'liquidity-1.0.0',
+    ipda: 'ipda-1.0.0',
+  },
   windows: [
     { kind: 'TRADING_DAY', label: 'Tue', from: 0, to: 3900 },
     { kind: 'KILLZONE', label: 'London', from: 0, to: 600 },
@@ -100,6 +106,35 @@ describe('painting the clock', () => {
     expect(line).toHaveLength(1)
     expect(line[0].args[1]).toBe(80.5) // priceToY(120), on the pixel grid
     expect(calls.find((c) => c.op === 'fillText')?.args[0]).toBe('PDH 30.00')
+  })
+
+  it('T19: draws the IPDA ranges only under their own switch, and labels them before the previous day', () => {
+    const ipda: ClockLayer = {
+      ...LAYER,
+      windows: [],
+      lines: [
+        { kind: 'PREVIOUS_DAY', label: 'PDH', from: 0, to: 3900, priceTicks: 120 },
+        { kind: 'IPDA', label: '20D H', from: 0, to: 3900, priceTicks: 122 },
+      ],
+    }
+    const paint = (shown: ClockLayerKey[]) => {
+      const { ctx, calls } = recorder()
+      renderClock(ctx, ipda, BARS, projection, {
+        width: 300,
+        height: 200,
+        pane: { width: 240, height: 170 },
+        shown: new Set(shown),
+        step: STEP,
+        tickSize: 0.25,
+      })
+      return calls
+    }
+    expect(paint(['previousDay']).filter((c) => c.op === 'fillText').map((c) => c.args[0])).toEqual(['PDH 30.00'])
+    const both = paint(['previousDay', 'ipda']).filter((c) => c.op === 'fillText')
+    // Two ticks apart: the 20-day high keeps its place, PDH moves out of its way.
+    expect(both[0].args).toEqual(['20D H 30.50', expect.any(Number), 71.5])
+    expect(both[1].args[0]).toBe('PDH 30.00')
+    expect(both[1].args[2]).not.toBe(73.5)
   })
 
   it('BUG-048: two labels that would overlap do not — the more important keeps its place', () => {

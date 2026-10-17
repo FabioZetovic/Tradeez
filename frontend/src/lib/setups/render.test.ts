@@ -50,6 +50,15 @@ function render(setups: Setup[], shown: string[] = ['FVG']) {
 }
 
 describe('painting detected setups', () => {
+  it("T19: frames a day's range without shading it, and still shades a Judas swing", () => {
+    const day: Setup = { ...GAP, detector: 'PO3', start: 0, end: 1200, confirmedAt: 1500 }
+    const judas: Setup = { ...GAP, detector: 'JUDAS', kind: 'LONDON' }
+    const framed = render([day], ['PO3'])
+    expect(framed.filter((c) => c.op === 'fillRect')).toHaveLength(0)
+    expect(framed.find((c) => c.op === 'strokeRect')?.args).toEqual([-4.5, 80.5, 50, 19]) // to the newest candle's right edge
+    expect(render([judas], ['JUDAS']).filter((c) => c.op === 'fillRect')).toHaveLength(1)
+  })
+
   it('boxes a gap over its own three candles, from the first one\'s left edge to the last one\'s right', () => {
     const calls = render([GAP])
     const box = calls.find((c) => c.op === 'fillRect')

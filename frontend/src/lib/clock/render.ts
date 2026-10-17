@@ -100,9 +100,10 @@ interface LineLabel {
 /** Liquidity first: the levels ICT expects price to run for, then the clock's own prices. */
 const LABEL_PRIORITY: Record<ClockLine['kind'], number> = {
   PREVIOUS_WEEK: 0,
-  PREVIOUS_DAY: 1,
-  SESSION: 2,
-  OPEN: 3,
+  IPDA: 1,
+  PREVIOUS_DAY: 2,
+  SESSION: 3,
+  OPEN: 4,
 }
 
 function drawWindow(
@@ -197,6 +198,8 @@ function lineStyle(line: ClockLine): { color: string; dash: number[]; width: num
       return { color: '#db61a2', dash: [], width: 1.5 }
     case 'SESSION':
       return { color: killzoneColor(line.label), dash: [6, 3], width: 1 }
+    case 'IPDA':
+      return { color: '#7ee787', dash: [8, 4], width: 1.5 }
   }
 }
 

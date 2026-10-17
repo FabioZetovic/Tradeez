@@ -13,6 +13,11 @@ export const CLOCK_LAYERS = [
   { key: 'previousDay', label: 'PDH/PDL', title: "The previous trading day's high and low" },
   { key: 'previousWeek', label: 'PWH/PWL', title: "The previous week's high and low" },
   { key: 'sessionLevels', label: 'Session H/L', title: "Each killzone's high and low, once it has closed" },
+  {
+    key: 'ipda',
+    label: 'IPDA',
+    title: 'The highs and lows of the last 20, 40 and 60 trading days (ipda-1.0.0), when all lie on one contract',
+  },
 ] as const
 
 export type ClockLayerKey = (typeof CLOCK_LAYERS)[number]['key']
@@ -56,6 +61,8 @@ export function lineLayer(line: ClockLine): ClockLayerKey {
       return 'previousWeek'
     case 'SESSION':
       return 'sessionLevels'
+    case 'IPDA':
+      return 'ipda'
   }
 }
 

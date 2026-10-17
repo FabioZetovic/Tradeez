@@ -94,8 +94,10 @@ function drawZone(
   const width = x1 - x0
   const height = Math.max(bottom - top, 1)
   const alpha = shape.faded ? 0.4 : 1
-  ctx.fillStyle = `rgba(${rgb}, ${0.16 * alpha})`
-  ctx.fillRect(x0, top, width, height)
+  if (!shape.framed) {
+    ctx.fillStyle = `rgba(${rgb}, ${0.16 * alpha})`
+    ctx.fillRect(x0, top, width, height)
+  }
   ctx.strokeStyle = `rgba(${rgb}, ${0.65 * alpha})`
   ctx.lineWidth = 1
   ctx.strokeRect(Math.round(x0) + 0.5, Math.round(top) + 0.5, Math.round(width), Math.round(height))
