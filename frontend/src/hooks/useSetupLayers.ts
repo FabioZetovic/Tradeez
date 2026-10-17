@@ -27,6 +27,9 @@ const LABELS: Record<string, string> = {
   MITIGATION: 'Mitigation',
   REJECTION: 'Rejection',
   UNICORN: 'Unicorn',
+  DEALING_RANGE: 'Dealing range',
+  PD: 'Premium/discount',
+  STDEV: 'Std dev',
 }
 
 /** Every rule starts off: a learner should find a gap before being shown one. */
