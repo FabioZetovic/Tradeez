@@ -115,6 +115,20 @@ const FVG_LESSON: Lesson = {
       parameters: {},
       definition: 'Bullish: candle 1 high below candle 3 low, at least 25% of the average range.',
       methodologySource: 'ICT fair value gap, as defined by rule fvg-1.0.0',
+      evidence: ['5m', '15m'].map((timeframe) => ({
+        timeframe,
+        version: 'evidence-1.0.0',
+        from: Date.UTC(2024, 9, 8) / 1000,
+        to: Date.UTC(2026, 9, 3) / 1000,
+        candles: timeframe === '5m' ? 139_414 : 46_476,
+        hits: timeframe === '5m' ? 15_174 : 5_102,
+        lines: [
+          `NQ, ${timeframe} candles: ${timeframe === '5m' ? '139,414' : '46,476'} candles.`,
+          `${timeframe === '5m' ? '15,174' : '5,102'} fair value gaps — about 10.9 per 100 candles.`,
+          'A description of what this rule found on these dates — not a forecast, and not a reason to take a trade.',
+        ],
+        computedAt: Date.UTC(2026, 9, 17) / 1000,
+      })),
     },
   ],
   shownOn: 'SETUPS',
@@ -221,6 +235,25 @@ describe('Learn — lesson cards', () => {
     expect(examples[1]).toHaveTextContent("Candle 1's high is below candle 3's low (example 2).")
     expect(examples[0]).toHaveTextContent(/Bullish gap · .*2024.* · 5m · known when the .* candle closed/)
     expect(screen.getByText(/not picked to look good/)).toBeInTheDocument()
+  })
+
+  it('T21: shows what the rule found over the history, per timeframe, with what the numbers are not', async () => {
+    renderView()
+    const evidence = await screen.findByRole('region', { name: 'Evidence' })
+    expect(evidence).toHaveTextContent('What it found on real NQ')
+    expect(within(evidence).getByText(/15,174 fair value gaps/)).toBeInTheDocument()
+    // The counts as a list; what they are not said once, under it, not as one more count.
+    expect(within(evidence).getAllByRole('listitem')).toHaveLength(2)
+    expect(evidence).toHaveTextContent('not a forecast, and not a reason to take a trade. Counted by fvg-1.0.0 under evidence-1.0.0.')
+    await userEvent.click(within(evidence).getByRole('button', { name: '15m' }))
+    expect(within(evidence).getByText(/5,102 fair value gaps/)).toBeInTheDocument()
+    expect(within(evidence).queryByText(/15,174/)).toBeNull()
+  })
+
+  it('T21: says when nothing has been counted yet', async () => {
+    mockApi(() => ({ body: { ...FVG_LESSON, rules: FVG_LESSON.rules.map((r) => ({ ...r, evidence: [] })) } }))
+    renderView()
+    expect(await screen.findByTestId('evidence-pending')).toHaveTextContent('Not counted yet')
   })
 
   it('asks again for other examples, and on another timeframe', async () => {

@@ -22,6 +22,21 @@ interface RuleCard {
   /** The rule in words, generated server-side from its parameters. */
   definition: string
   methodologySource: string
+  /** What the rule found over the imported history, per timeframe (T21); empty until counted. */
+  evidence: EvidenceView[]
+}
+
+/** A rule counted over a market's history: base rates in words, never a forecast (DEC-065). */
+interface EvidenceView {
+  timeframe: string
+  version: string
+  from: number
+  to: number
+  candles: number
+  hits: number
+  /** The counts in words; the last says what they are not. */
+  lines: string[]
+  computedAt: number
 }
 
 interface DrillRef {
