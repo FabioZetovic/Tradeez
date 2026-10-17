@@ -1714,6 +1714,22 @@ asked for a longer stretch than it serves. And the pattern detectors were handed
 coarse charts, so what they found could depend on where a scan began. Both are fixed, and the second
 fix also made pattern detection on a daily chart three times faster.
 
+**Blocks.** ICT's next level of the curriculum is "blocks": areas of the chart where, ICT claims, large
+orders were placed and price will react when it returns. The order block is the best known — the last
+down candle before a strong move up that breaks the previous high. Before writing the rules, the
+drafts were measured on the two years of real NQ, and the measurement changed one of them. Order blocks
+turned out about once per 30 candles, on every timeframe; breakers (a block that failed after a sweep
+of liquidity) and mitigation blocks (the same without the sweep) about half as often; and three
+breakers in four also count as a "unicorn", ICT's name for a breaker overlapped by a fair value gap —
+so not the rarity the name suggests, and Tradeez says so. The rejection block, drafted as "a swing
+whose wick is at least half its candle", matched a third of all swings: every candle with a wick, not
+the long wick ICT describes. Its rule now also asks that the wick be longer than the average candle
+before it. Each block is then followed for its life, as the fair value gaps are: whether price came
+back into it, whether a candle closed through its middle (which ICT reads as weakening it), and
+whether it was broken. That is what lets the chart draw a block on to the right for exactly as long as
+it stands — in a replay too, without knowing what happens next. As everywhere else, the rules say only
+where ICT's description is met; whether blocks work is left to the evidence views still to come.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1730,8 +1746,8 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills, the bug hunt, the learning state, 4-hour and daily candles): backend 223 → 474,
-frontend 148 → 296, V9 to V17, DEC-044 to DEC-060.*
+prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks): backend 223 → 492,
+frontend 148 → 300, V9 to V17, DEC-044 to DEC-061.*
 
 ---
 
