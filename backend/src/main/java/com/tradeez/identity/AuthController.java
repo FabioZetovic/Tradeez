@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.tradeez.identity.AuthService.IssuedTokens;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
+import com.tradeez.identity.dto.AuthDtos.ChangePasswordRequest;
 import com.tradeez.identity.dto.AuthDtos.LoginRequest;
 import com.tradeez.identity.dto.AuthDtos.RegisterRequest;
 import com.tradeez.identity.dto.AuthDtos.UserResponse;
@@ -82,6 +83,17 @@ public class AuthController {
 			issued = authService.refresh(raw, userAgent);
 		}
 		return respond(issued, HttpStatus.OK);
+	}
+
+	@PostMapping("/password")
+	@Operation(summary = "Change the signed-in account's password",
+		description = "Needs the current password; the new one must pass password-1.0.0 (DEC-064). Signs out "
+			+ "every other session and renews this one's cookies. Throttled per account and per address.")
+	public ResponseEntity<UserResponse> changePassword(
+			@AuthenticationPrincipal AuthenticatedUser user,
+			@Valid @RequestBody ChangePasswordRequest request,
+			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+		return respond(authService.changePassword(user.id(), request, userAgent), HttpStatus.OK);
 	}
 
 	@PostMapping("/logout")

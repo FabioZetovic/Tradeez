@@ -2,14 +2,18 @@ package com.tradeez.identity;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.tradeez.identity.PasswordPolicy.WeakPasswordException;
+import com.tradeez.identity.dto.AuthDtos.ChangePasswordRequest;
 import com.tradeez.identity.dto.AuthDtos.LoginRequest;
 import com.tradeez.identity.dto.AuthDtos.RegisterRequest;
 
@@ -36,19 +40,31 @@ public class AuthService {
 	public static final int ACCOUNT_ATTEMPTS = 10;
 	public static final Duration ACCOUNT_WINDOW = Duration.ofMinutes(15);
 
+	/** Password changes allowed per account in {@link #ACCOUNT_WINDOW}, right or wrong (DEC-064). */
+	public static final int PASSWORD_CHANGES = 5;
+
+	/**
+	 * Hashed in place of a password too long for BCrypt to hash (BUG-066), so such a sign-in takes the time
+	 * any other does. Any string of at most 72 bytes would do.
+	 */
+	private static final String TIMING_STAND_IN = "a stand-in of BCrypt's length";
+
 	private final AppUserRepository users;
 	private final RefreshTokenRepository refreshTokens;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final RateLimiter rateLimiter;
+	private final PasswordPolicy passwordPolicy;
 
 	public AuthService(AppUserRepository users, RefreshTokenRepository refreshTokens,
-			PasswordEncoder passwordEncoder, JwtService jwtService, RateLimiter rateLimiter) {
+			PasswordEncoder passwordEncoder, JwtService jwtService, RateLimiter rateLimiter,
+			PasswordPolicy passwordPolicy) {
 		this.users = users;
 		this.refreshTokens = refreshTokens;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.rateLimiter = rateLimiter;
+		this.passwordPolicy = passwordPolicy;
 	}
 
 	/** Issued credentials. The raw refresh token exists only long enough to become a cookie. */
@@ -57,13 +73,22 @@ public class AuthService {
 
 	@Transactional
 	public IssuedTokens register(RegisterRequest request, String userAgent) {
+		// password-1.0.0 first: a weak password is refused before anything is looked up (DEC-064).
+		passwordPolicy.require(request.password(), request.email(), request.displayName());
 		if (users.existsByEmailIgnoreCase(request.email())) {
 			throw new EmailAlreadyRegisteredException();
 		}
-		AppUser user = users.save(new AppUser(
-			request.email().trim(),
-			passwordEncoder.encode(request.password()),
-			request.displayName().trim()));
+		AppUser user;
+		try {
+			user = users.saveAndFlush(new AppUser(
+				request.email().trim(),
+				passwordEncoder.encode(request.password()),
+				request.displayName().trim()));
+		} catch (DataIntegrityViolationException raced) {
+			// Two sign-ups for one address at once both pass the check above; the unique index on
+			// lower(email) lets one in, and the other is the same answer as a taken address, not a 500.
+			throw new EmailAlreadyRegisteredException();
+		}
 		return issueFor(user, userAgent);
 	}
 
@@ -83,8 +108,14 @@ public class AuthService {
 
 		// Hash even when the account does not exist, so response timing does not reveal which
 		// addresses are registered. The error returned is identical either way.
-		if (user == null) {
-			passwordEncoder.encode(request.password());
+		//
+		// BUG-066: BCrypt refuses to hash more than 72 bytes and compares only the first 72. Hashing a long
+		// password for an unknown account threw — a 400 where a known account got a 401, which told the
+		// two apart — and a known account accepted its password with anything typed after it. No stored
+		// password is longer (password-1.0.0), so a longer one is simply wrong, at the usual cost.
+		boolean tooLong = PasswordPolicy.tooLong(request.password());
+		if (user == null || tooLong) {
+			passwordEncoder.encode(tooLong ? TIMING_STAND_IN : request.password());
 			throw new InvalidCredentialsException();
 		}
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
@@ -167,6 +198,38 @@ public class AuthService {
 		return issued;
 	}
 
+	/**
+	 * Changes the signed-in account's password (DEC-064): the current one must be right and the new one
+	 * pass password-1.0.0. Every session is signed out — the reason to change a password is usually that
+	 * someone else may know it — and this one is signed back in with fresh tokens.
+	 *
+	 * <p>Throttled per account as sign-in is, so a stolen session cannot be used to guess the password.
+	 */
+	@Transactional
+	public IssuedTokens changePassword(UUID userId, ChangePasswordRequest request, String userAgent) {
+		String throttleKey = "password:" + userId;
+		if (!rateLimiter.tryAcquire(throttleKey, PASSWORD_CHANGES, ACCOUNT_WINDOW)) {
+			throw new TooManyAttemptsException();
+		}
+		AppUser user = users.findById(userId).orElseThrow(InvalidRefreshTokenException::new);
+		if (PasswordPolicy.tooLong(request.currentPassword())
+				|| !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+			throw new WrongCurrentPasswordException();
+		}
+		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())
+				&& !PasswordPolicy.tooLong(request.newPassword())) {
+			throw new WeakPasswordException(List.of("It is the password you have now."));
+		}
+		passwordPolicy.require(request.newPassword(), user.getEmail(), user.getDisplayName());
+
+		user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
+		users.save(user);
+		int revoked = refreshTokens.revokeAllForUser(userId, Instant.now());
+		log.info("Password changed for user {}; {} session(s) signed out.", userId, revoked);
+		rateLimiter.reset(throttleKey);
+		return issueFor(user, userAgent);
+	}
+
 	/** Revokes the presented token only. Other devices stay signed in. */
 	@Transactional
 	public void logout(String rawRefreshToken) {
@@ -218,5 +281,8 @@ public class AuthService {
 	}
 
 	public static class TooManyAttemptsException extends RuntimeException {
+	}
+
+	public static class WrongCurrentPasswordException extends RuntimeException {
 	}
 }

@@ -35,6 +35,24 @@ export const login = (input: LoginInput) =>
 
 export const logout = () => apiFetch<void>('/api/auth/logout', { method: 'POST' })
 
+/** Every session of the account, this one included (DEC-032's logout-all). */
+export const logoutEverywhere = () => apiFetch<void>('/api/auth/logout-all', { method: 'POST' })
+
+/**
+ * A new password (DEC-064). The server signs out every other session and renews this one's cookies; a
+ * wrong current password is a 403, a weak new one a 400 naming every problem.
+ */
+export const changePassword = (input: { currentPassword: string; newPassword: string }) =>
+  apiFetch<User>('/api/auth/password', { method: 'POST', body: JSON.stringify(input) })
+
+/** The server's words for a failed request — its own message, unrephrased — or a fallback when it said none. */
+export function errorMessage(error: unknown): string {
+  if (error instanceof ApiError && typeof error.body === 'object' && error.body !== null) {
+    return (error.body as { message?: string }).message ?? 'Something went wrong.'
+  }
+  return 'Could not reach the server.'
+}
+
 const getMe = () => apiFetch<User>('/api/me')
 
 /**

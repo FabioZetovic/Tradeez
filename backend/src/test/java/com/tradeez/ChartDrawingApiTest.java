@@ -1,5 +1,6 @@
 package com.tradeez;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +47,9 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 
 	@Autowired
 	ChartDrawingRepository drawings;
+
+	@Autowired
+	com.tradeez.marketdata.MarketDataService marketData;
 
 	private Cookie alice;
 	private Cookie bob;
@@ -289,5 +293,45 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 	void unknownInstrumentIsNotFound() throws Exception {
 		mockMvc.perform(get("/api/charts/NOPE/drawings").cookie(alice))
 			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("a chart holds at most 500 drawings: the next is refused with 409, while an edit of one still saves")
+	void capped() throws Exception {
+		UUID owner = users.findByEmailIgnoreCase("alice@example.com").orElseThrow().getId();
+		UUID instrument = marketData.requireInstrument("DEMO-NQ").getId();
+		java.util.List<com.tradeez.charting.ChartDrawing> full = new java.util.ArrayList<>();
+		for (int i = 0; i < 500; i++) {
+			full.add(new com.tradeez.charting.ChartDrawing(UUID.randomUUID(), owner, instrument, "horizontal-line",
+				java.util.List.of(java.util.Map.of("time", 1710338400L, "priceTicks", 80_000L + i)),
+				java.util.Map.of("color", "#58a6ff"), null));
+		}
+		drawings.saveAll(full);
+
+		UUID next = UUID.randomUUID();
+		save(body(next, "horizontal-line", 1710338400L, 81_000L), next)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("This chart already has the maximum of 500 drawings."));
+		UUID existing = full.getFirst().getId();
+		save(body(existing, "horizontal-line", 1710338400L, 82_000L), existing).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("BUG-072 a style is a colour, a width and a fill, not any JSON of any size")
+	void styleBounded() throws Exception {
+		UUID id = UUID.randomUUID();
+		String huge = body(id, "horizontal-line", 1710338400L, 80_000L)
+			.replace("\"style\":{\"color\":\"#58a6ff\"}", "\"style\":{\"color\":\"" + "f".repeat(100_000) + "\"}");
+		save(huge, id).andExpect(status().isBadRequest());
+		StringBuilder many = new StringBuilder("\"style\":{");
+		for (int i = 0; i < 9; i++) {
+			many.append(i == 0 ? "" : ",").append("\"k").append(i).append("\":1");
+		}
+		save(body(id, "horizontal-line", 1710338400L, 80_000L)
+			.replace("\"style\":{\"color\":\"#58a6ff\"", many.toString()), id).andExpect(status().isBadRequest());
+		assertThat(drawings.count()).isZero();
+		save(body(id, "rectangle", 1710338400L, 80_000L)
+			.replace("{\"color\":\"#58a6ff\"}", "{\"color\":\"#d29922\",\"lineWidth\":1,\"fill\":\"rgba(210, 153, 34, 0.12)\"}"), id)
+			.andExpect(status().isCreated());
 	}
 }

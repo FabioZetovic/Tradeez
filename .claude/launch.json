@@ -27,6 +27,24 @@
         "VITE_API_PROXY_TARGET": "http://localhost:8081"
       },
       "autoPort": true
+    },
+    {
+      "name": "tradeez-frontend-built",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "--prefix",
+        "frontend",
+        "--",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173,
+      "env": {
+        "VITE_API_PROXY_TARGET": "http://localhost:8081"
+      }
     }
   ]
 }

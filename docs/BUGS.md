@@ -17,14 +17,36 @@
 
 ## Open
 
-*No open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
+### BUG-073 🟠 Deployed on two sites, the page could not send the CSRF token, and Safari would drop the session
+
+**Status:** reasoned (session 017's security pass, 2026-10-17) — not deployed, so not reproduced
+**Affects:** the planned deployment (DEC-002: the SPA on Vercel, the API on its own host); `client.ts`,
+`SecurityConfig`, `CookieService`
+
+DEC-032 puts the session in HttpOnly cookies and protects writes with Spring's CSRF cookie, which the
+page reads and echoes as a header. That works locally because Vite proxies `/api`, so page and API are
+one origin. Deployed on two sites, the `XSRF-TOKEN` cookie belongs to the API's site, and
+`document.cookie` on the page's site cannot see it: no header is sent, and every POST, PUT and DELETE —
+plans, drawings, drills, sign-out — would be refused with 403, the refresh too, signing the user out.
+And the session cookies themselves are then third-party cookies (`SameSite=None`), which Safari blocks
+by default and Chrome is restricting. Nothing in the code is wrong for one site; the plan of two is.
+
+**Fix, for Fabio to choose with the host:** (a) serve both from one site — the page's host proxies
+`/api` to the backend (a Vercel rewrite does this), so the cookies are first-party, `SameSite=Lax`
+suffices and CORS is not needed; or (b) sibling subdomains of one domain (`app.` and `api.`), with the
+cookies' domain set to the parent. (a) is the smaller change and the one recommended. Left open: it is
+a hosting decision, not a code fix.
+
+---
+
+*No other open bugs.* An audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
 merge of T7 found three more (BUG-044 to BUG-046), building T8 three more (BUG-047 to BUG-049), and
 building T13 one (BUG-050), the fresh-clone check of T14 one (BUG-051), the upgrade to the newest
 versions three (BUG-052 to BUG-054, one a security bug), Fabio's practice report two (BUG-055,
 BUG-056), the bug hunt Fabio asked for four (BUG-057 to BUG-060), building T16 two (BUG-061, BUG-062), and
-building T35 two (BUG-063, BUG-064), and its fresh-clone check one (BUG-065). All twenty-six are fixed, and
-ENV-007 with them.
+building T35 two (BUG-063, BUG-064), its fresh-clone check one (BUG-065), and the second bug hunt and security
+pass Fabio asked for eight (BUG-066 to BUG-073). All but BUG-073 are fixed, and ENV-007 with them.
 Every closed entry is under [Fixed](#fixed) with its original description intact.
 
 ---
@@ -274,7 +296,7 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Area | Limitation | Why |
 |---|---|---|
 | Auth | ~~No login or registration **UI**~~ | *Out of date since task 4, which shipped both screens. Struck through rather than deleted (session 014).* |
-| Auth | No email verification or password reset | Out of scope for the vertical slice |
+| Auth | No email verification or password reset | Out of scope for the vertical slice. A signed-in account can change its password (DEC-064); a forgotten one needs email, which the app does not send |
 | Market data | ~~No real NQ data anywhere in the project~~ | *Out of date since session 017: 697,003 real NQ one-minute bars from Massive (DEC-042), in the local database only. Struck through rather than deleted.* |
 | Market data | Real NQ covers about two years (Oct 2024 →), one-minute bars only | Massive's free plan (DEC-042). Five or ten years back and one-second bars need Databento or a paid plan — Fabio's decision |
 | Market data | Real data is local and private (`IMPORTED_PRIVATE`) | DEC-035 / Q-09: showing it to others, the jury included, needs the provider's written permission. Massive's free plan says "individual use" |
@@ -309,7 +331,9 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Order flow | Not implemented, likely never | Impossible without licensed depth data (open question Q-03) |
 | Demo volume | Invented, and **nothing volume-derived may be trusted** | There is no real volume to generate. Volume profile, VWAP-by-volume, relative volume and delta would all be reading structure out of a formula. Was BUG-009; it is not a defect, it is the nature of simulated data (DEC-033) |
 | Rate limiting | In-memory, therefore per-instance | A second replica would allow the full quota again. A speed bump, not a guarantee; a shared store is the upgrade path if this is ever scaled out |
-| `X-Forwarded-For` | Trusted as a best effort | The header is client-supplied and forgeable, so per-IP limits can be evaded by rotating it. The real fix belongs to the deployment's proxy, which must overwrite it — verify that wherever this is hosted |
+| ~~`X-Forwarded-For`~~ | ~~Trusted as a best effort~~ | *Out of date since session 017: it was a bug (BUG-070) and is fixed — the header is ignored unless `TRUSTED_PROXIES` says how many proxies to believe. Struck through rather than deleted.* |
+| Auth | The breach check fails open | When Have I Been Pwned does not answer within 3 seconds, sign-up goes ahead on the other rules and the miss is logged (DEC-064): failing closed would stop all sign-ups whenever a third party is down |
+| Auth | Existing passwords are not re-checked | password-1.0.0 applies to new passwords. An account made under the old rule (12 to 200 characters) keeps its password until it is changed; checking it at sign-in against breaches is a possible later step |
 | Deployment | Local only | DEC-002 — nothing is hosted yet, and nothing costs money |
 | Practice | ~~Simulated instruments only~~ | *Out of date since T4 (DEC-045): practice runs on real NQ behind a hidden date. Struck through rather than deleted.* |
 | Practice | Real sessions resolve on one-minute bars | Massive's free plan has no one-second bars (DEC-042). A minute that touches both stop and target is reported `AMBIGUOUS` — more often than on seconds. One-second data is T32 |
@@ -323,7 +347,7 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Practice | A resumed session reopens on the timeframe it started on | The timeframe being viewed is a choice of the screen, not stored with the session (DEC-051). Starting is still 1m, 5m or 15m; viewing is 1m to 1h |
 | Chart | Day ticks on the time axis sit at UTC midnight | Labelled with their true exchange-local weekday and time (e.g. *Wed 18:00*). Moving them to local midnight would mean shifting every timestamp handed to the renderer, which breaks where the zone's offset changes (BUG-029) |
 | Drills | On simulated data every drill is a developer fixture: labelled, never graded, no rating | DEC-034, enforced by a CHECK constraint. Graded drills need permitted real data |
-| Drills | FVG identification only, on 5m and 15m | One-minute drills are refused: the simulated market produces almost no qualifying gaps there, and it is deliberately not tuned to (DEC-039) |
+| Drills | ~~FVG identification only, on 5m and 15m~~ | *Out of date since T13 (DEC-054): any rule with a drill, identification and classification, and prediction drills since T15 (DEC-058), on 1m to 15m of real NQ. Struck through rather than deleted.* |
 | Drills | No drill history or statistics screen | Nothing may be aggregated into a score from fixture drills (DEC-034); answered drills are stored and immutable |
 | Practice | Results on simulated data are practice, not evidence | Stated when the session ends. A replay's own score (T5) is per session; no cross-session score exists yet, and when one does (T23), DEC-034 applies |
 
@@ -337,6 +361,98 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-072 🟡 A drawing's style was any JSON of any size
+
+**Status:** verified — a 100,000-character style saved (session 017's bug hunt, 2026-10-17)
+**Affects:** `ChartDrawingController` — `PUT /api/charts/{symbol}/drawings/{id}`
+
+The app sends a colour, a width and a fill; the server stored whatever `style` held, per drawing, up to
+500 drawings per chart — room for one account to fill the database with its own junk.
+
+**✅ FIXED — Session 017.** At most 8 entries and 512 characters, else a 400.
+`ChartDrawingApiTest.styleBounded`; the 500-drawing cap, never tested before, is `capped`.
+
+### BUG-071 🟡 A stop far enough below the price slipped past the 20,000-tick check
+
+**Status:** verified (session 017's bug hunt)
+**Affects:** `PracticeService.validateBracket`
+
+The check was `Math.abs(stop - reference) > MAX_BRACKET_TICKS`. For a stop of `Long.MIN_VALUE +
+reference` the subtraction is exactly `Long.MIN_VALUE`, whose `Math.abs` is itself — negative — so the
+plan was accepted, and its reward:risk came out negative. Harmless to anyone else; wrong all the same.
+
+**✅ FIXED — Session 017.** The bounds are compared without subtracting. `RobustnessTest.bracketOverflow`.
+
+### BUG-070 🔴 Writing a new X-Forwarded-For on each request was a new sign-in quota
+
+**Status:** verified — 21 sign-ins with 21 different headers were all answered (session 017's security pass)
+**Affects:** `AuthRateLimitFilter.clientIp`
+
+Listed until now under Known limitations as "trusted as a best effort". The filter read the header's
+**first** entry — which the client writes — so the per-IP limit on sign-in and sign-up could be walked
+around entirely. A test even relied on it, using the header to pose as a second address. Fabio asked for
+the login limit to be made real, so it is a bug, and fixed.
+
+**✅ FIXED — Session 017 (DEC-064).** Each proxy appends the address it saw, so only entries our own
+proxies add can be believed, counted from the right: `tradeez.rate-limit.trusted-proxies` of them
+(`TRUSTED_PROXIES`, default 0 — the header is ignored and the connection's address is used). Set it to 1
+behind one proxy that appends. `AuthHardeningTest.ClientAddress`; BugFixTest now sets the remote address.
+
+### BUG-069 🟡 Two sign-ups for one address at the same moment: one got a 500
+
+**Status:** reasoned, then shown with a repository that loses the race on cue (session 017's bug hunt)
+**Affects:** `AuthService.register`
+
+Both requests found the address free; the unique index on `lower(email)` let one row in, and the other's
+`DataIntegrityViolationException` reached no handler.
+
+**✅ FIXED — Session 017.** Caught at the save: the same 409 a taken address gets. `RegisterRaceTest`.
+
+### BUG-068 🟡 A time past what Java's Instant holds answered 500
+
+**Status:** verified — `to=9223372036854775807` on the bars, clock and setups endpoints (session 017's bug hunt)
+**Affects:** `MarketDataController`, `ClockController`, `SetupController`
+
+`Instant.ofEpochSecond` throws `DateTimeException` past its range, and nothing mapped it to a client
+error.
+
+**✅ FIXED — Session 017.** `Epochs.of`: an epoch second must lie in 1970–9999, else a 400 naming the
+parameter. `RobustnessTest.market`.
+
+### BUG-067 🟡 A practice filter the market never meets searched ten thousand times, then answered 500
+
+**Status:** verified (session 017's bug hunt)
+**Affects:** `PracticeService.create` and `pickStart`; the practice picker
+
+Saturday, or the Asia killzone on a Friday (the market shuts at 17:00, before Asia's 20:00), on a
+simulated market: `pickStart` drew 10,000 random moments, found none open, and threw an
+`IllegalStateException` — a 500, after a busy loop. On real data the same request was a 400 with a vague
+message. Sunday was accepted, though the API documents Monday to Friday. The picker offered Asia and
+Friday together.
+
+**✅ FIXED — Session 017.** Weekend days and Asia-on-Friday are refused up front with a reason; a search
+that finds nothing is a 400; the picker disables the impossible pair. `RobustnessTest.practice`,
+`PracticeView.test` (BUG-067).
+
+### BUG-066 🔴 A password longer than BCrypt reads: a 400 that told accounts apart, and a match on its first 72 bytes
+
+**Status:** verified (session 017's security pass, 2026-10-17)
+**Affects:** `AuthService.login` and `register`; `RegisterRequest`
+
+BCrypt hashes at most 72 bytes. Spring Security's encoder throws for more and, when checking, compares
+only the first 72. The form allowed 200 characters. So:
+
+- **sign-up** with 73 to 200 characters was refused with BCrypt's own message, "password cannot be more
+  than 72 bytes", through the global `IllegalArgumentException` handler;
+- **sign-in** hashed the typed password for an unknown address too, to keep the timing even — which
+  threw for a long one: a **400** for an address with no account, a **401** for one with an account.
+  An enumeration oracle, the thing the login's vague message exists to prevent;
+- an account whose password was 72 bytes accepted it with **anything typed after it**.
+
+**✅ FIXED — Session 017 (DEC-064).** password-1.0.0 refuses more than 72 bytes at sign-up, in words. A
+longer password at sign-in is wrong for everyone alike, after hashing a stand-in of the same cost.
+`AuthHardeningTest.LongPasswords`, `RobustnessTest.auth`.
 
 ### BUG-001 🔴 Concurrent refresh requests can log a user out of every device
 

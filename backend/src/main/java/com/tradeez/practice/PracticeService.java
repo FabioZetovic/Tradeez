@@ -275,6 +275,15 @@ public class PracticeService {
 		}
 		Killzone killzone = parseEnum(Killzone.class, killzoneCode, "killzone");
 		DayOfWeek weekday = parseEnum(DayOfWeek.class, weekdayCode, "weekday");
+		// BUG-067. Saturday never trades, and Friday's market shuts at 17:00, before Asia's 20:00: on a
+		// simulated market these sent the search through ten thousand misses into a 500.
+		if (weekday == DayOfWeek.SATURDAY || weekday == DayOfWeek.SUNDAY) {
+			throw new IllegalArgumentException("Practice weekdays are Monday to Friday.");
+		}
+		if (killzone == Killzone.ASIA && weekday == DayOfWeek.FRIDAY) {
+			throw new IllegalArgumentException(
+				"The market shuts at 17:00 on Fridays, so no Asia killzone falls on a Friday.");
+		}
 
 		if (instrument.getDataClass() == DataClass.SIMULATED) {
 			Instant start = pickStart(timeframe, killzone, weekday);
@@ -812,8 +821,10 @@ public class PracticeService {
 				: "A short needs its stop above the current price (" + reference
 					+ " ticks) and its target below it.");
 		}
-		if (Math.abs(stop - reference) > MAX_BRACKET_TICKS
-				|| Math.abs(target - reference) > MAX_BRACKET_TICKS) {
+		// Compared without subtracting: stop - reference overflows for a stop near Long.MIN_VALUE, and
+		// Math.abs of the overflow is negative — a stop that far away passed the check (BUG-071).
+		if (stop < reference - MAX_BRACKET_TICKS || stop > reference + MAX_BRACKET_TICKS
+				|| target < reference - MAX_BRACKET_TICKS || target > reference + MAX_BRACKET_TICKS) {
 			throw new IllegalArgumentException(
 				"Stop and target must be within " + MAX_BRACKET_TICKS + " ticks of the price.");
 		}
@@ -836,8 +847,9 @@ public class PracticeService {
 				return start;
 			}
 		}
-		// The market is open ~70% of the week; ten thousand misses in a row does not happen.
-		throw new IllegalStateException("Could not find an open-market start");
+		// The market is open ~70% of the week; ten thousand misses in a row means the filters ask for a
+		// moment the market never trades at — a client error, not a server one (BUG-067).
+		throw new IllegalArgumentException("No open-market moment matches those filters.");
 	}
 
 	/**

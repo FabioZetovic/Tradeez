@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
-import { ApiError } from '@/lib/api/client'
+import { useId, useState, type FormEvent } from 'react'
+import { errorMessage } from '@/lib/api/auth'
+import { PasswordRules } from './PasswordRules'
 import { Button } from './ui'
 import { errorClass, fieldClass, labelClass } from '@/lib/styles'
 
@@ -22,6 +23,7 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const rulesId = useId()
 
   const isRegister = mode === 'register'
 
@@ -39,11 +41,7 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
       // Surface the server's wording rather than inventing our own: the backend deliberately
       // returns the same message for a wrong password and an unknown account so the API cannot be
       // used to discover which addresses are registered. Rephrasing here could undo that.
-      setError(
-        e instanceof ApiError && typeof e.body === 'object' && e.body !== null
-          ? ((e.body as { message?: string }).message ?? 'Something went wrong.')
-          : 'Could not reach the server.',
-      )
+      setError(errorMessage(e))
     } finally {
       setBusy(false)
     }
@@ -79,21 +77,22 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
           />
         </label>
 
-        <label className={labelClass}>
-          Password
-          <input
-            className={fieldClass}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={isRegister ? 12 : undefined}
-            autoComplete={isRegister ? 'new-password' : 'current-password'}
-          />
-          {isRegister && (
-            <small className="font-normal">At least 12 characters. Length beats complexity.</small>
-          )}
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>
+            Password
+            <input
+              className={fieldClass}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={isRegister ? 12 : undefined}
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
+              aria-describedby={isRegister ? rulesId : undefined}
+            />
+          </label>
+          {isRegister && <PasswordRules id={rulesId} password={password} email={email} displayName={displayName} />}
+        </div>
 
         {error && (
           <p role="alert" className={errorClass}>

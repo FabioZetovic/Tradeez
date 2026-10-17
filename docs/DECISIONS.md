@@ -887,6 +887,54 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-064 — Passwords and sign-in: password-1.0.0, a breach check, a password change, a believable address**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-17), at Fabio's request — extends DEC-032
+
+Fabio asked four things. Two were already so, and are now pinned by tests; two were not:
+
+- **Is the session token in localStorage?** No, since DEC-032: it is in HttpOnly cookies the page cannot
+  read, no response body carries one (AuthFlowTest), and nothing in the frontend touches storage but two
+  toggle lists. Added, as the next line against cross-site scripting: a **Content-Security-Policy** on the
+  built page — scripts only from the app's own origin, connections only to it and the API, no objects,
+  no foreign forms. Build only, as a `<meta>`; the dev server needs inline scripts for hot reload, and
+  `frame-ancestors` waits for the host to send it as a header.
+- **Is an admin check done on the client?** There is no admin role, on either side. What a user may see
+  or change is decided on the server: every user-data query is scoped by the signed-in id, and a drawing
+  id another account owns is a 404. `RobustnessTest.anonymous` sends every endpoint the API publishes
+  without a session and expects a 401 — and compares the list with the OpenAPI document, so a new
+  endpoint cannot be left out.
+- **Rate limiting on login and the password endpoint.** Login and sign-up were limited (BUG-002), but the
+  per-IP count trusted a header the client writes (**BUG-070**). Now only entries appended by our own
+  proxies are believed: `TRUSTED_PROXIES`, default 0. There was no password endpoint; there is now —
+  see below — limited per IP with the others and per account.
+- **A leak check and real minimum requirements.** **password-1.0.0**, following NIST SP 800-63B rather
+  than composition rules ("an upper case, a digit, a symbol" produces `Password1!`, which every cracking
+  list tries early):
+  - 12 characters to **72 bytes** — BCrypt's ceiling; past it a password could not be stored, and at
+    sign-in only its first 72 bytes were compared (**BUG-066**);
+  - at least 5 different characters, and not a straight run (`abcdefghijkl`);
+  - not the email's name, the display name or the app's name;
+  - not on a short list of common long passwords, nor **in a known breach**: Have I Been Pwned's range
+    API, k-anonymous — five hex characters of the SHA-1 leave the server, never the password, padded so
+    the answer's size says nothing. Free, no key. **Fails open** after 3 seconds and logs it: failing
+    closed would stop every sign-up whenever a third party is down. Off in tests, which use a local
+    stand-in.
+
+  Every problem is named at once, and the forms tick the rules off as the password is typed; the server
+  alone judges common and breached passwords.
+
+**Changing a password** (`POST /api/auth/password`, an account menu in the header): the current
+password must be right (a wrong one is a 403, not a 401 — the session is fine, and a 401 would send the
+client off to refresh and try again); the new one must pass password-1.0.0 and differ. Then every session
+is signed out — the usual reason to change a password is that someone else may know it — and this one is
+renewed. Five tries per account in 15 minutes, right or wrong, and the per-IP limit besides. The menu
+also signs out of every device, an endpoint (`logout-all`) that had no screen and no test.
+
+**Not in this decision:** a forgotten-password reset (it needs email, which the app does not send);
+re-checking existing passwords at sign-in; and the deployment's cookie problem (**BUG-073**): on two
+sites the page cannot read the CSRF cookie and Safari drops third-party cookies — serve page and API from
+one site, Fabio's choice with the host.
+
 **DEC-063 — Time: four rules read off the clock, and the IPDA ranges within one contract**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-17), T19 — ICT-57, ICT-62 to ICT-65
 

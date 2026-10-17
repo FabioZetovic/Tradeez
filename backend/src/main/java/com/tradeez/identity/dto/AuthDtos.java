@@ -25,8 +25,9 @@ public final class AuthDtos {
 	@Schema(description = "New account registration")
 	public record RegisterRequest(
 		@NotBlank @Email @Size(max = 254) String email,
-		@NotBlank @Size(min = 12, max = 200)
-		@Schema(description = "Minimum 12 characters. Length beats complexity rules.")
+		@NotBlank @Size(max = MAX_PASSWORD_INPUT)
+		@Schema(description = """
+			password-1.0.0 (DEC-064): 12 characters to 72 bytes, at least 5 different characters and not a 			straight run, without the email name, display name or app name, not a common password and not in 			a known breach. Length beats complexity rules.""")
 		String password,
 		@NotBlank @Size(min = 1, max = 60) String displayName) {
 	}
@@ -34,8 +35,22 @@ public final class AuthDtos {
 	@Schema(description = "Credentials for an existing account")
 	public record LoginRequest(
 		@NotBlank @Email String email,
-		@NotBlank String password) {
+		@NotBlank @Size(max = MAX_PASSWORD_INPUT) String password) {
 	}
+
+	@Schema(description = "A new password for the signed-in account (DEC-064)")
+	public record ChangePasswordRequest(
+		@NotBlank @Size(max = MAX_PASSWORD_INPUT) String currentPassword,
+		@NotBlank @Size(max = MAX_PASSWORD_INPUT)
+		@Schema(description = "password-1.0.0, as for registration; not the current one")
+		String newPassword) {
+	}
+
+	/**
+	 * What a password field accepts at all: far past what the policy allows, so the policy can say what is
+	 * wrong, and short enough that no request body is spent on one.
+	 */
+	public static final int MAX_PASSWORD_INPUT = 1000;
 
 	@Schema(description = "The authenticated user. Tokens are in HttpOnly cookies, never here.")
 	public record UserResponse(

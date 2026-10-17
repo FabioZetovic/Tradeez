@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
+import { AccountMenu } from '@/components/AccountMenu'
 import { ChartWorkspace } from '@/components/ChartWorkspace'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
@@ -24,7 +25,7 @@ const DISCLAIMER =
   'Futures are leveraged instruments and most retail day traders lose money.'
 
 export default function App({ adapterFactory }: { adapterFactory?: () => ChartAdapter } = {}) {
-  const { state, login, register, logout } = useSession()
+  const { state, login, register, logout, logoutEverywhere, changePassword } = useSession()
   const [section, setSection] = useState<Section>('chart')
   // A lesson's "Practise it" opens the Drills tab on that drill.
   const [drillKind, setDrillKind] = useState<string | undefined>()
@@ -82,7 +83,7 @@ export default function App({ adapterFactory }: { adapterFactory?: () => ChartAd
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm text-subtle">
-            <span>{state.user.displayName}</span>
+            <AccountMenu user={state.user} onChangePassword={changePassword} onLogoutEverywhere={logoutEverywhere} />
             <Button variant="ghost" size="sm" onClick={logout}>
               Sign out
             </Button>

@@ -165,6 +165,8 @@ class PredictionTest {
 			assertThat(o.at()).isEqualTo(both.openTime());
 
 			assertThat(Prediction.resolve(range, List.of(both), b -> List.of(b))).isNull();
+			// No stored minutes for the candle — a gap in the import — cannot say either.
+			assertThat(Prediction.resolve(range, List.of(both), b -> List.of())).isNull();
 		}
 
 		@Test

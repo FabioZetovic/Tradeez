@@ -104,7 +104,8 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             <select className={fieldClass} value={killzone} onChange={(e) => setKillzone(e.target.value)}>
               <option value="">Any time</option>
               {KILLZONES.map((k) => (
-                <option key={k.value} value={k.value}>
+                // The market shuts at 17:00 on Fridays, before Asia's 20:00 (BUG-067).
+                <option key={k.value} value={k.value} disabled={k.value === 'ASIA' && weekday === 'FRIDAY'}>
                   {k.label}
                 </option>
               ))}
@@ -115,7 +116,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             <select className={fieldClass} value={weekday} onChange={(e) => setWeekday(e.target.value)}>
               <option value="">Any day</option>
               {WEEKDAYS.map((d) => (
-                <option key={d} value={d}>
+                <option key={d} value={d} disabled={d === 'FRIDAY' && killzone === 'ASIA'}>
                   {d.charAt(0) + d.slice(1).toLowerCase()}
                 </option>
               ))}

@@ -1762,6 +1762,28 @@ range is drawn as a frame rather than shaded: looking at it in the browser showe
 weeks stacked over the candles, hiding them. These are descriptions of what happened, and they are known
 only once the day or week is over.
 
+**A security pass.** Fabio asked for every bug to be found and fixed, and for four security questions to
+be checked: is the session token kept where a malicious script could read it, is any admin check done in
+the browser, are sign-in and password changes rate-limited, and are passwords checked against known
+leaks. The first two were already answered — the token lives in a cookie the page's JavaScript cannot
+read, and there is no admin role at all; every user's data is guarded on the server — so tests now pin
+both down, including one that calls every endpoint without a session and checks the list against the
+API's own published description, so a new endpoint cannot slip through. The other two needed work, and
+the hunt found more. A password longer than 72 bytes broke three things at once, because the hashing
+algorithm reads no further: sign-up refused it with the library's own message, a long password at
+sign-in told an attacker whether an address had an account, and a 72-byte password worked with anything
+typed after it. The sign-in limit per address could be walked around by writing a different
+"forwarded-for" header on each try. A sweep that sends every endpoint nonsense found that a time past the
+year 9999, or a practice session asked for on a Saturday or in the Asia session on a Friday, made the
+server answer "internal error" instead of "bad request"; and that a stop price absurdly far below the
+market slipped past its check, because the arithmetic overflowed. Passwords now follow the current US standard
+advice rather than "one capital, one digit": long enough, not common, not your own name, and not found in
+any known breach — checked against Have I Been Pwned without the password ever leaving the server, only
+the first five characters of a hash of it. Signed-in users can change their password, which signs every
+other device out. One problem is left for a decision: deployed with the page and the server on two
+different web addresses, as planned, the browser would block the cookies the sign-in relies on — the
+fix is to serve both from one address, which depends on the host Fabio chooses.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1778,8 +1800,8 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time): backend 223 → 517,
-frontend 148 → 305, V9 to V17, DEC-044 to DEC-063.*
+prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time, the security pass): backend
+223 → 553, frontend 148 → 316, V9 to V17, DEC-044 to DEC-064.*
 
 ---
 
