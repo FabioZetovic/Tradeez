@@ -92,6 +92,17 @@ public class MarketDataService {
 		return barStore.contractChanges(instrument.getId(), "1m", from, to);
 	}
 
+	/**
+	 * Each trading day's high and low in {@code [from, to)}, oldest first (T19). A simulated market has none:
+	 * months of its seconds would have to be generated to measure them.
+	 */
+	public List<TradingDayRange> tradingDays(Instrument instrument, Instant from, Instant to) {
+		if (instrument.getDataClass() == DataClass.SIMULATED) {
+			return List.of();
+		}
+		return barStore.tradingDays(instrument.getId(), "1m", from, to);
+	}
+
 	public Instrument requireInstrument(String symbol) {
 		return instruments.findBySymbolIgnoreCase(symbol)
 			.orElseThrow(() -> new InstrumentNotFoundException(symbol));

@@ -17,6 +17,10 @@ import type { Setup, SetupLayer } from '../api/setups'
  * - opening range gaps (ORG): until the next one, with its quarters.
  * Nothing live is drawn past a contract roll: no detector sees across one.
  *
+ * The rules read off a day, a week or a session open once it is over (PO3, DAILY_PROFILE, WEEKLY_PROFILE,
+ * JUDAS, T19) are drawn over their own candles, named for what they found. A day's or a week's range is
+ * framed, not shaded: shaded, it would cover every candle in it, and two or three of them stack.
+ *
  * Swing liquidity (LIQUIDITY) is one line per level at its latest state: running on while it rests,
  * stopped and faded once taken or expired.
  *
@@ -37,10 +41,30 @@ export interface SetupShape {
   quadrants: boolean
   /** A point drawn above its price — a high — rather than below it. */
   above: boolean
+  /** A whole day's or week's range (T19): outlined, not filled. */
+  framed: boolean
 }
 
 /** Kinds of point that mark a high (T11): drawn above the candle. */
 const HIGHS = new Set(['HIGH', 'ITH', 'LTH', 'HH', 'LH', 'EH'])
+
+/** The rules whose zone is a whole day or week (T19). */
+const PERIODS = new Set(['PO3', 'DAILY_PROFILE', 'WEEKLY_PROFILE'])
+
+/** A day's or a week's name on the chart (T19): the profile, the weekday, the window. */
+function timeLabel(setup: Setup): string | undefined {
+  switch (setup.detector) {
+    case 'PO3':
+      return 'Po3'
+    case 'DAILY_PROFILE':
+      return { LONDON_LOW: 'London low', LONDON_HIGH: 'London high', NY_REVERSAL: 'NY reversal' }[setup.kind ?? '']
+    case 'WEEKLY_PROFILE':
+      return `${(setup.kind ?? '').slice(0, 1)}${(setup.kind ?? '').slice(1, 3).toLowerCase()} ${setup.direction === 'BULLISH' ? 'low' : 'high'} of week`
+    case 'JUDAS':
+      return setup.kind === 'LONDON' ? 'Judas London' : 'Judas NY'
+  }
+  return undefined
+}
 
 /** What a hit is called on the chart, where its kind or rule id would not read well. */
 const LABELS: Record<string, string> = {
@@ -110,7 +134,13 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
   const liquidity = new Map<string, Setup>()
 
   for (const setup of layer.setups) {
-    const base = { setup, faded: false, quadrants: false, above: HIGHS.has(setup.kind ?? '') }
+    const base = {
+      setup,
+      faded: false,
+      quadrants: false,
+      above: HIGHS.has(setup.kind ?? ''),
+      framed: PERIODS.has(setup.detector),
+    }
     if (setup.detector in LIFECYCLES) {
       const key = `${setup.detector}|${setup.anchor}|${setup.direction}`
       const seen = lifecycles.get(key)
@@ -170,7 +200,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
           ...base,
           from: setup.start,
           to: setup.end + step,
-          label: LABELS[setup.detector] ?? LABELS[setup.kind ?? ''] ?? setup.kind ?? setup.detector,
+          label: timeLabel(setup) ?? LABELS[setup.detector] ?? LABELS[setup.kind ?? ''] ?? setup.kind ?? setup.detector,
         })
     }
   }
@@ -186,6 +216,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
       faded: !resting,
       quadrants: false,
       above: false,
+      framed: false,
     })
   }
 
@@ -200,6 +231,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
       faded: !stillLive,
       quadrants: false,
       above: false,
+      framed: false,
     })
   }
   return shapes

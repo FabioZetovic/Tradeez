@@ -96,6 +96,32 @@ describe('what each hit looks like on the chart', () => {
     expect(shapes[3]).toMatchObject({ setup: next, from: 1500, to: 'edge' })
   })
 
+  it('T19: names a day by its profile, a week by the day of its extreme, a Judas swing by its window', () => {
+    const shapes = toShapes(
+      layer([
+        setup({ detector: 'PO3', start: 0, end: 600 }),
+        setup({ detector: 'DAILY_PROFILE', kind: 'LONDON_HIGH', direction: 'BEARISH', start: 900, end: 1500 }),
+        setup({ detector: 'DAILY_PROFILE', kind: 'NY_REVERSAL', start: 1800, end: 2400 }),
+        setup({ detector: 'WEEKLY_PROFILE', kind: 'TUESDAY', start: 2700, end: 3300 }),
+        setup({ detector: 'WEEKLY_PROFILE', kind: 'MONDAY', direction: 'BEARISH', start: 3600, end: 4200 }),
+        setup({ detector: 'JUDAS', kind: 'LONDON', start: 4500, end: 4800 }),
+        setup({ detector: 'JUDAS', kind: 'NEW_YORK', direction: 'BEARISH', start: 5100, end: 5400 }),
+      ]),
+      STEP,
+    )
+    expect(shapes.map((s) => s.label)).toEqual([
+      'Po3',
+      'London high',
+      'NY reversal',
+      'Tue low of week',
+      'Mon high of week',
+      'Judas London',
+      'Judas NY',
+    ])
+    // Over its own candles, like any plain hit: a day is not in force once it is over.
+    expect(shapes[0]).toMatchObject({ from: 0, to: 900, faded: false })
+  })
+
   it('stops anything still in force at the next contract roll', () => {
     const live = setup({ detector: 'FVG_STATE', kind: 'CE' })
     const nwog = setup({ detector: 'OPENING_GAP', kind: 'NWOG', start: 0, anchor: 3600, end: 3600 })

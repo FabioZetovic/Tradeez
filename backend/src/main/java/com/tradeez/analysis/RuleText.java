@@ -175,6 +175,25 @@ public final class RuleText {
 				+ "direction — " + p.get("multiples") + " (the leg's length once, twice, two and a half and four times "
 				+ "past the end). A level between two ticks is rounded away from the leg. Known with the leg; "
 				+ "everything read lies within " + p.get("maxSpanCandles") + " candles.";
+			case "PO3" -> "A day from the midnight open to the 17:00 halt, New York, read after it closes. Bullish "
+				+ "power of three: it closed above its open, its low came before its high, and the low lay at least "
+				+ p.get("manipulationPercentOfRange") + "% of the day's range below the open — accumulation at the "
+				+ "open, manipulation down, distribution up. Bearish mirrors it. On charts of an hour or less.";
+			case "DAILY_PROFILE" -> "A day from midnight to the 17:00 halt, New York, read after it closes, by the "
+				+ "session its high and its low formed in — London from midnight to 08:30, New York from 08:30 on. "
+				+ "London low: London made the low and New York the high, and the day closed above its open. London "
+				+ "high: the mirror. New York reversal: New York made both, pointing from the first to the second. "
+				+ "Any other day is not named. On charts of 30 minutes or less.";
+			case "WEEKLY_PROFILE" -> "A CME week, Sunday 18:00 to Friday 17:00 New York, read after it closes: the "
+				+ "trading day that made its extreme against the close — the low of a week that closed up, the high of "
+				+ "one that closed down — when that extreme came before the other. A week the other way round is not "
+				+ "named. ICT calls a Tuesday low in a bullish week the classic profile.";
+			case "JUDAS" -> "In a window — midnight to 05:00 or 09:30 to 10:00, New York — price goes a tick beyond "
+				+ "a reference level on one side of the window's opening price, then a candle closes back through "
+				+ "that opening price, still within the window. The levels are those still resting at the window's "
+				+ "open: the previous trading day's high and low, the Asia killzone's, and for the 09:30 window the "
+				+ "London killzone's. Known at that close; the real move points the other way. On charts of 30 "
+				+ "minutes or less.";
 			default -> throw new IllegalArgumentException("No words for rule " + detector.id());
 		};
 	}
@@ -228,6 +247,14 @@ public final class RuleText {
 			case "DEALING_RANGE", "OTE" -> way + ("OTE".equals(s.getDetector()) ? " OTE" : " dealing range") + rangeState(kind);
 			case "PD" -> ("BEARISH".equals(s.getDirection()) ? "Premium" : "Discount") + rangeState(kind);
 			case "STDEV" -> "Standard deviation " + DEVIATIONS.get(kind);
+			case "PO3" -> way + " power of three";
+			case "DAILY_PROFILE" -> switch (kind) {
+				case "LONDON_LOW" -> "London low, New York higher";
+				case "LONDON_HIGH" -> "London high, New York lower";
+				default -> "New York reversal " + ("BULLISH".equals(s.getDirection()) ? "up" : "down");
+			};
+			case "WEEKLY_PROFILE" -> weekday(kind) + ("BULLISH".equals(s.getDirection()) ? " low" : " high") + " of the week";
+			case "JUDAS" -> way + " Judas swing, " + ("LONDON".equals(kind) ? "London" : "New York");
 			default -> s.getDetector();
 		};
 	}
@@ -288,6 +315,42 @@ public final class RuleText {
 			case "SWEEP" -> sweep(s, e, price);
 			case "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN" -> block(s, e, price, bullish);
 			case "DEALING_RANGE", "PD", "OTE" -> range(s, e, price);
+			case "PO3" -> List.of(
+				"The day opened at " + price.of(n(e, "openTicks")) + " at midnight and closed at " + price.of(n(e, "closeTicks"))
+					+ " at 17:00 — " + (bullish ? "up" : "down") + ".",
+				"Its " + (bullish ? "low, " + price.of(s.getZoneLowTicks()) + ", came before its high, " + price.of(s.getZoneHighTicks())
+					: "high, " + price.of(s.getZoneHighTicks()) + ", came before its low, " + price.of(s.getZoneLowTicks()))
+					+ ", and lay " + ticks(n(e, "manipulationTicks")) + " " + (bullish ? "below" : "above") + " the open: "
+					+ (100 * n(e, "manipulationTicks") / n(e, "rangeTicks")) + "% of the day's " + n(e, "rangeTicks")
+					+ "-tick range. Accumulation, manipulation " + (bullish ? "down" : "up") + ", distribution "
+					+ (bullish ? "up" : "down") + ": power of three, in ICT's words.");
+			case "DAILY_PROFILE" -> {
+				String high = price.of(s.getZoneHighTicks());
+				String low = price.of(s.getZoneLowTicks());
+				yield List.of(switch (s.getKind()) {
+					case "LONDON_LOW" -> "London made the day's low at " + low + "; New York made its high at " + high
+						+ ", and the day closed at " + price.of(n(e, "closeTicks")) + ", above the midnight open at "
+						+ price.of(n(e, "openTicks")) + ".";
+					case "LONDON_HIGH" -> "London made the day's high at " + high + "; New York made its low at " + low
+						+ ", and the day closed at " + price.of(n(e, "closeTicks")) + ", below the midnight open at "
+						+ price.of(n(e, "openTicks")) + ".";
+					default -> "New York made both the day's " + (bullish ? "low, at " + low + ", and then its high, at " + high
+						: "high, at " + high + ", and then its low, at " + low) + ": a New York reversal.";
+				});
+			}
+			case "WEEKLY_PROFILE" -> List.of("The week opened at " + price.of(n(e, "openTicks")) + " and closed at "
+				+ price.of(n(e, "closeTicks")) + " — " + (bullish ? "up" : "down") + ". Its " + (bullish ? "low, "
+					+ price.of(s.getZoneLowTicks()) : "high, " + price.of(s.getZoneHighTicks())) + ", formed on " + weekday(s.getKind())
+				+ ", before its " + (bullish ? "high, " + price.of(s.getZoneHighTicks()) : "low, " + price.of(s.getZoneLowTicks()))
+				+ ": a " + weekday(s.getKind()) + (bullish ? " low" : " high") + " of the week"
+				+ ("TUESDAY".equals(s.getKind()) && bullish ? " — ICT's classic profile." : "."));
+			case "JUDAS" -> List.of(
+				"The " + ("LONDON".equals(s.getKind()) ? "midnight" : "09:30") + " window opened at " + price.of(n(e, "openTicks"))
+					+ ". Price went " + (bullish ? "down" : "up") + " to " + price.of(n(e, "extremeTicks")) + ", beyond "
+					+ LEVEL_NAMES.get(String.valueOf(e.get("level"))) + " at " + price.of(n(e, "levelPrice")) + ", which was still resting.",
+				"Then a candle closed at " + price.of(n(e, "closeTicks")) + ", back " + (bullish ? "above" : "below")
+					+ " the opening price, within the window: the move " + (bullish ? "down" : "up")
+					+ " was a Judas swing, in ICT's word, and the real move points " + (bullish ? "up." : "down."));
 			case "STDEV" -> {
 				boolean up = n(e, "endPrice") > n(e, "startPrice");
 				yield List.of(leg(e, price, up) + " " + DEVIATIONS.get(s.getKind()).substring(1) + " leg-lengths "
@@ -641,6 +704,16 @@ public final class RuleText {
 			default -> List.of(what + ".");
 		};
 	}
+
+	/** A weekday as a word: "Tuesday". */
+	private static String weekday(String kind) {
+		return kind.charAt(0) + kind.substring(1).toLowerCase(Locale.ROOT);
+	}
+
+	/** judas-1.0.0's reference levels, as a sentence names them. */
+	private static final Map<String, String> LEVEL_NAMES = Map.of("PREVIOUS_DAY_HIGH", "the previous day's high",
+		"PREVIOUS_DAY_LOW", "the previous day's low", "ASIA_HIGH", "the Asia high", "ASIA_LOW", "the Asia low",
+		"LONDON_HIGH", "the London high", "LONDON_LOW", "the London low");
 
 	/** What each block rule calls its block. */
 	private static final Map<String, String> BLOCK_NAMES = Map.of("OB", "order block", "BREAKER", "breaker",

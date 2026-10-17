@@ -29,7 +29,7 @@ public final class ClockDtos {
 	}
 
 	@Schema(description = "The rule versions this layer was built under (DEC-026)")
-	public record Rules(String sessions, String opens, String levels, String liquidity) {
+	public record Rules(String sessions, String opens, String levels, String liquidity, String ipda) {
 	}
 
 	@Schema(description = "TRADING_DAY (separator and weekday) | KILLZONE | SILVER_BULLET | MACRO, over [from, to)")
@@ -44,7 +44,7 @@ public final class ClockDtos {
 	}
 
 	static final Rules RULES = new Rules(ClockLayerBuilder.SESSIONS, ClockLayerBuilder.OPENS,
-		ClockLayerBuilder.LEVELS, ClockLayerBuilder.LIQUIDITY);
+		ClockLayerBuilder.LEVELS, ClockLayerBuilder.LIQUIDITY, ClockLayerBuilder.IPDA);
 
 	/**
 	 * @param time        how an instant is sent: as is, or behind a practice session's hidden date

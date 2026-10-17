@@ -24,6 +24,7 @@ import com.tradeez.clock.ClockLayer.WindowKind;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Killzone;
 import com.tradeez.marketdata.SessionCalendar;
+import com.tradeez.marketdata.TradingDayRange;
 
 /**
  * Builds the New York clock layer from one-minute bars. Three versioned rules (DEC-026), each
@@ -37,6 +38,10 @@ import com.tradeez.marketdata.SessionCalendar;
  * <li><b>{@value #LEVELS}</b> (ICT-11) — the previous day's and week's high and low, and each
  * killzone's high and low once it has closed. The day is the CME trading day, 18:00 to 17:00 New
  * York ({@code dayBoundary = CME}).</li>
+ * <li><b>{@value #IPDA}</b> (ICT-57, T19, DEC-063) — the highs and lows of the last 20, 40 and 60 trading
+ * days, drawn over each day from the days before it. Only when all of them traded in the day's own
+ * contract: real NQ rolls about every 60 trading days, so the 60-day range is rarely drawn (on 7% of days
+ * measured), the 40-day on 39%, the 20-day on 70%.</li>
  * </ul>
  *
  * <h2>No lookahead (DEC-009)</h2>
@@ -57,6 +62,13 @@ public final class ClockLayerBuilder {
 	public static final String LEVELS = "levels-1.0.0";
 	/** Reference highs and lows taken when price trades a tick beyond them (ICT-10, T12, DEC-053). */
 	public static final String LIQUIDITY = "liquidity-1.0.0";
+	public static final String IPDA = "ipda-1.0.0";
+
+	/** {@value #IPDA}'s look-backs, in trading days. */
+	static final int[] IPDA_DAYS = { 20, 40, 60 };
+
+	/** Far enough back for sixty trading days and the holidays among them. */
+	public static final Duration IPDA_REACH = Duration.ofDays(100);
 
 	/** How far before a range its sources can lie: the whole previous week, from any day of this one. */
 	public static final Duration LOOKBACK = Duration.ofDays(14);
@@ -146,6 +158,15 @@ public final class ClockLayerBuilder {
 	 * @return the windows and lines that touch {@code [from, to)}
 	 */
 	public static ClockLayer build(List<Bar> bars, List<Instant> rolls, Instant from, Instant to) {
+		return build(bars, rolls, List.of(), from, to);
+	}
+
+	/**
+	 * @param tradingDays each trading day's high and low, oldest first, reaching {@link #IPDA_REACH} before
+	 *                    {@code from} — for {@value #IPDA}; none for a simulated market
+	 */
+	public static ClockLayer build(List<Bar> bars, List<Instant> rolls, List<TradingDayRange> tradingDays,
+			Instant from, Instant to) {
 		TreeMap<LocalDate, Day> days = new TreeMap<>();
 		TreeMap<LocalDate, Week> weeks = new TreeMap<>();
 		Day day = null;
@@ -190,6 +211,7 @@ public final class ClockLayerBuilder {
 					out.add(LineKind.PREVIOUS_DAY, "PDH", previous.start, d.start, d.end, previous.high);
 					out.add(LineKind.PREVIOUS_DAY, "PDL", previous.start, d.start, d.end, previous.low);
 				}
+				ipda(out, tradingDays, d);
 				for (int k = 0; k < KILLZONES.length; k++) {
 					// Only once the killzone is over: until then its high and low are still forming.
 					if (d.killzoneSeen(k) && !d.killzoneSpan[k][1].isAfter(to)) {
@@ -224,6 +246,46 @@ public final class ClockLayerBuilder {
 
 		List<Line> withState = lines.stream().map(line -> taken(line, bars)).toList();
 		return new ClockLayer(windows, withState, nextChange(withState, to));
+	}
+
+	/**
+	 * {@value #IPDA} over trading day {@code d}: the high and low of each look-back's days before it, when the
+	 * data holds that many trading days, with no hole in them and all on {@code d}'s contract.
+	 */
+	private static void ipda(Lines out, List<TradingDayRange> tradingDays, Day d) {
+		int at = -1;
+		for (int i = 0; i < tradingDays.size(); i++) {
+			if (tradingDays.get(i).tradingDate().equals(d.date)) {
+				at = i;
+				break;
+			}
+		}
+		if (at < 0 || !tradingDays.get(at).oneContract()) {
+			return;
+		}
+		long contract = tradingDays.get(at).contractId();
+		for (int n : IPDA_DAYS) {
+			if (at < n) {
+				return;
+			}
+			long high = Long.MIN_VALUE;
+			long low = Long.MAX_VALUE;
+			boolean whole = true;
+			for (int k = at - n; k < at && whole; k++) {
+				TradingDayRange day = tradingDays.get(k);
+				LocalDate next = tradingDays.get(k + 1).tradingDate();
+				whole = day.oneContract() && day.contractId() == contract
+					&& ChronoUnit.DAYS.between(day.tradingDate(), next) <= MAX_DAYS_TO_PREVIOUS;
+				high = Math.max(high, day.highTicks());
+				low = Math.min(low, day.lowTicks());
+			}
+			if (!whole) {
+				return; // a longer look-back reaches across the same break
+			}
+			Instant source = span(tradingDays.get(at - n).tradingDate(), DAY_START, DAY_END)[0];
+			out.add(LineKind.IPDA, n + "D H", source, d.start, d.end, high);
+			out.add(LineKind.IPDA, n + "D L", source, d.start, d.end, low);
+		}
 	}
 
 	/**

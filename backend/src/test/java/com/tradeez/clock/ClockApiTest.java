@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import com.tradeez.marketdata.MarketBarStore;
 import com.tradeez.marketdata.MarketBarStore.StoredBar;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.SessionCalendar;
+import com.tradeez.marketdata.TradingDayRange;
 
 import jakarta.servlet.http.Cookie;
 
@@ -149,6 +151,7 @@ class ClockApiTest extends AbstractIntegrationTest {
 		assertThat(layer.at("/rules/sessions").asString()).isEqualTo("sessions-1.0.0");
 		assertThat(layer.at("/rules/opens").asString()).isEqualTo("opens-1.0.0");
 		assertThat(layer.at("/rules/levels").asString()).isEqualTo("levels-1.0.0");
+		assertThat(layer.at("/rules/ipda").asString()).isEqualTo("ipda-1.0.0");
 		assertThat(layer.has("nextChange")).isFalse();
 
 		// Tuesday's PDH is Monday's 10:00 high, drawn over Tuesday's whole session.
@@ -179,6 +182,22 @@ class ClockApiTest extends AbstractIntegrationTest {
 		assertThat(lines(layer, "Weekly open").getFirst().get("to").asLong())
 			.isEqualTo(ROLL.getEpochSecond());
 		assertThat(lines(layer, "PWH").getFirst().get("to").asLong()).isEqualTo(ROLL.getEpochSecond());
+	}
+
+	@Test
+	@DisplayName("T19: ipda-1.0.0's trading days run 18:00 to the halt on both sides of the clock change, each with its contract")
+	void tradingDays() {
+		// One minute of Tuesday 11 March on the June contract: a day a roll would fall in mixes two.
+		jdbc.update("UPDATE market_bar SET contract_id = 202506 WHERE open_time = ?", Timestamp.from(ny("2025-03-11T12:00")));
+		List<TradingDayRange> days = marketData.tradingDays(marketData.requireInstrument("NQ"), DATA_FROM, DATA_TO);
+		// Sunday evenings belong to Monday — on 9 March already in summer time.
+		assertThat(days).extracting(TradingDayRange::tradingDate).containsExactly(LocalDate.of(2025, 3, 3),
+			LocalDate.of(2025, 3, 4), LocalDate.of(2025, 3, 5), LocalDate.of(2025, 3, 6), LocalDate.of(2025, 3, 7),
+			LocalDate.of(2025, 3, 10), LocalDate.of(2025, 3, 11), LocalDate.of(2025, 3, 12), LocalDate.of(2025, 3, 13),
+			LocalDate.of(2025, 3, 14));
+		assertThat(days.getFirst()).isEqualTo(new TradingDayRange(LocalDate.of(2025, 3, 3), 80_040, 79_960, 202503, true));
+		assertThat(days.get(6).oneContract()).isFalse();
+		assertThat(days.getLast()).isEqualTo(new TradingDayRange(LocalDate.of(2025, 3, 14), 81_040, 80_960, 202506, true));
 	}
 
 	@Test

@@ -26,15 +26,17 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   ICT tools (DEC-048): a Fibonacci with ICT's levels — the 62–79% optimal trade entry shaded and the
   −0.27 to −2 targets — a zone with its 50% (consequent encroachment), and text labels. They are
   saved per account, with undo and redo.
-- **Detected setups** over every chart (DEC-049, DEC-050, DEC-052, DEC-053, DEC-061, DEC-062):
-  twenty-seven versioned rules — ICT's gaps (fair value gaps and their lifecycle, inversion gaps, balanced price
+- **Detected setups** over every chart (DEC-049, DEC-050, DEC-052, DEC-053, DEC-061, DEC-062, DEC-063):
+  thirty-one versioned rules — ICT's gaps (fair value gaps and their lifecycle, inversion gaps, balanced price
   ranges, volume imbalances, gaps and voids, NDOG/NWOG, the opening range gap), market structure (swings
   and their ranks, HH/HL labels, BOS/CHoCH, displacement, the market structure shift), liquidity (resting
   and taken BSL/SSL, equal highs/lows, sweep or run, turtle soup) and blocks (order blocks, breakers,
   mitigation and rejection blocks, unicorns — each followed from forming to tapped, its mean threshold
   lost, and invalidated) and ranges (the dealing range of the last leg that broke structure, its premium
-  and discount halves, the optimal trade entry, standard deviation projections) — each named by the
-  rule that found it, its parameters measured on real NQ. The clock's reference levels end where they were taken. Off by default; in a replay, only what was known by the cursor. Every detector is
+  and discount halves, the optimal trade entry, standard deviation projections) and time (power of three,
+  daily and weekly profiles, the Judas swing — each read once its day, week or window is over) — each
+  named by the rule that found it, its parameters measured on real NQ. The clock's reference levels end
+  where they were taken, and it can draw ICT's 20-, 40- and 60-day ranges (IPDA) within one contract. Off by default; in a replay, only what was known by the cursor. Every detector is
   checked to be causal, and the list of concepts comes straight from `docs/ICT_CONCEPTS.md`.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date

@@ -1741,6 +1741,27 @@ than the move itself; with ICT's "intermediate-term" swing it lasts ten or eleve
 into the optimal trade entry about two times in three before leaving it. As with every rule, these
 numbers describe the past; they are not a promise that the levels work.
 
+**Time.** ICT gives names to whole days and weeks. "Power of three": a day opens, first moves the wrong
+way, then runs the other way and closes near its extreme. Daily "profiles": London makes the day's low
+and New York its high, or the reverse, or New York turns the day around by itself. Weekly profiles: the
+low of an up week formed on Tuesday, say. The "Judas swing": a false move at a session's open that runs
+through a nearby high or low and then reverses. And "IPDA ranges": the highs and lows of the last 20, 40
+and 60 trading days, which ICT treats as the levels price will reach for. Every draft was measured on the
+two years of real NQ first, and two changed. Read from the 18:00 open, Asia makes one of the day's
+extremes on almost half of all days, so the London-against-New-York profiles barely appeared; read from
+midnight, as ICT's 2022 course does, three named shapes describe 95% of days. The Judas swing as drafted
+— running through *any* recent high or low — happened in nine opening windows out of ten, which says
+nothing; counting only the levels nobody had traded through yet when the window opened, it happens on
+60% of mornings at midnight and on 12% at 09:30. Power of three fits about half of all days; the low of
+an up week (or high of a down one) formed on Monday almost half the time, on Tuesday a fifth. The IPDA
+levels are drawn only when all their days traded in the same contract, the same rule the clock already
+keeps: NQ changes contract every three months or so, about every 60 trading days, so the 20-day range is
+drawn on 70% of days but the 60-day one on only 7%. Reading 60 days of minutes for every chart would be
+slow, so the database sums each trading day up as one high and one low. On the chart a day's or week's
+range is drawn as a frame rather than shaded: looking at it in the browser showed three shaded days and
+weeks stacked over the candles, hiding them. These are descriptions of what happened, and they are known
+only once the day or week is over.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1757,8 +1778,8 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges): backend 223 → 499,
-frontend 148 → 302, V9 to V17, DEC-044 to DEC-062.*
+prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time): backend 223 → 517,
+frontend 148 → 305, V9 to V17, DEC-044 to DEC-063.*
 
 ---
 

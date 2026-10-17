@@ -30,6 +30,10 @@ const LABELS: Record<string, string> = {
   DEALING_RANGE: 'Dealing range',
   PD: 'Premium/discount',
   STDEV: 'Std dev',
+  PO3: 'Po3',
+  DAILY_PROFILE: 'Daily profile',
+  WEEKLY_PROFILE: 'Weekly profile',
+  JUDAS: 'Judas',
 }
 
 /** Every rule starts off: a learner should find a gap before being shown one. */

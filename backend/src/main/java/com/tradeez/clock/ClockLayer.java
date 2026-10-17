@@ -30,7 +30,9 @@ public record ClockLayer(List<Window> windows, List<Line> lines, Instant nextCha
 		/** PWH and PWL. */
 		PREVIOUS_WEEK,
 		/** The high and low of each killzone, once it has closed (ICT-11, ICT-51). */
-		SESSION
+		SESSION,
+		/** The highs and lows of the last 20, 40 and 60 trading days (ICT-57, ipda-1.0.0, T19). */
+		IPDA
 	}
 
 	/** A span of the clock, {@code [from, to)}. */

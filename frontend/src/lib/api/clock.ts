@@ -9,7 +9,7 @@ import { apiFetch } from './client'
  */
 
 type WindowKind = 'TRADING_DAY' | 'KILLZONE' | 'SILVER_BULLET' | 'MACRO'
-type LineKind = 'OPEN' | 'PREVIOUS_DAY' | 'PREVIOUS_WEEK' | 'SESSION'
+type LineKind = 'OPEN' | 'PREVIOUS_DAY' | 'PREVIOUS_WEEK' | 'SESSION' | 'IPDA'
 
 export interface ClockWindow {
   kind: WindowKind
@@ -30,7 +30,7 @@ export interface ClockLine {
 }
 
 export interface ClockLayer {
-  rules: { sessions: string; opens: string; levels: string; liquidity: string }
+  rules: { sessions: string; opens: string; levels: string; liquidity: string; ipda: string }
   windows: ClockWindow[]
   lines: ClockLine[]
   /** Practice only: ask again once the cursor reaches this. */
