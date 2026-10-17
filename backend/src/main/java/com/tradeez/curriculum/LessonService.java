@@ -72,7 +72,7 @@ public class LessonService {
 
 	/** Rules drawn by the New York clock layer rather than detected as setups (DEC-047). */
 	private static final Set<String> CLOCK_RULES = Set.of(ClockLayerBuilder.SESSIONS, ClockLayerBuilder.OPENS,
-		ClockLayerBuilder.LEVELS);
+		ClockLayerBuilder.LEVELS, ClockLayerBuilder.IPDA);
 
 	private final SecureRandom random = new SecureRandom();
 

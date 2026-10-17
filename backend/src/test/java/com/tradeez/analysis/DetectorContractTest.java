@@ -32,9 +32,12 @@ import com.tradeez.marketdata.Timeframe;
  */
 class DetectorContractTest extends AbstractIntegrationTest {
 
-	/** Long enough for the longest lookback on each timeframe (ORG: a day of candles) several times over. */
+	/**
+	 * Long enough for the longest lookback on each timeframe several times over: on one-minute candles, a
+	 * whole week (weekly-profile-1.0.0, T19) twice, with weeks complete inside it.
+	 */
 	private static final Map<Timeframe, Instant[]> SERIES = Map.of(
-		Timeframe.M1, new Instant[] { Instant.parse("2025-05-01T12:00:00Z"), Instant.parse("2025-05-07T00:00:00Z") },
+		Timeframe.M1, new Instant[] { Instant.parse("2025-04-25T12:00:00Z"), Instant.parse("2025-05-13T00:00:00Z") },
 		Timeframe.M5, new Instant[] { Instant.parse("2025-04-24T12:00:00Z"), Instant.parse("2025-05-16T00:00:00Z") },
 		Timeframe.M15, new Instant[] { Instant.parse("2025-03-03T12:00:00Z"), Instant.parse("2025-04-04T00:00:00Z") });
 
@@ -61,7 +64,7 @@ class DetectorContractTest extends AbstractIntegrationTest {
 			.containsExactlyInAnyOrder("BPR", "FVG", "FVG_STATE", "IFVG", "OPENING_GAP", "ORG", "VI", "VOID",
 				"SWING", "SWING_TIER", "STRUCTURE", "BOS_CHOCH", "DISPLACEMENT", "MSS",
 				"LIQUIDITY", "EQHL", "SWEEP", "TURTLE_SOUP", "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN",
-				"DEALING_RANGE", "PD", "OTE", "STDEV");
+				"DEALING_RANGE", "PD", "OTE", "STDEV", "PO3", "DAILY_PROFILE", "WEEKLY_PROFILE", "JUDAS");
 		// Every switch on at once must still be one request the server accepts (found in T12: 18 > 16).
 		assertThat(SetupService.MAX_DETECTORS).isGreaterThanOrEqualTo(detectors.all().size());
 		for (Timeframe timeframe : SERIES.keySet()) {

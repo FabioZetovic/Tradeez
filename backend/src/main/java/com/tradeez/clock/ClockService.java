@@ -54,6 +54,8 @@ public class ClockService {
 	public ClockLayer layer(Instrument instrument, Instant from, Instant to, long seed) {
 		Instant readFrom = from.minus(ClockLayerBuilder.LOOKBACK);
 		List<Bar> bars = marketData.internalBars(instrument, Timeframe.M1, readFrom, to, seed).bars();
-		return ClockLayerBuilder.build(bars, marketData.rolls(instrument, readFrom, to), from, to);
+		// ipda-1.0.0's months of days, as one high and low each: not their minutes (T19).
+		return ClockLayerBuilder.build(bars, marketData.rolls(instrument, readFrom, to),
+			marketData.tradingDays(instrument, from.minus(ClockLayerBuilder.IPDA_REACH), to), from, to);
 	}
 }

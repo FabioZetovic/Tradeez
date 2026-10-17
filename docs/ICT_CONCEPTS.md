@@ -159,13 +159,13 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-54 | Macros | 6 | D | ✅ | `sessions-1.0.0` | sessions |
 | ICT-55 | CBDR, Asian range, Flout | 6 | D | 📐 | `sessions-1.0.0` | 1m |
 | ICT-56 | News times | 6 | D | 📝 | — | news calendar |
-| ICT-57 | IPDA data ranges, quarterly shifts | 6 | D / J | 📐 | `ipda-1.0.0` | daily, 60+ days |
+| ICT-57 | IPDA data ranges, quarterly shifts | 6 | D / J | ✅ `ipda-1.0.0` (DEC-063) | `ipda-1.0.0` | daily, 60+ days |
 | ICT-60 | Higher-timeframe narrative | 7 | J | 📝 | — | multi-timeframe |
 | ICT-61 | Daily bias | 7 | J | 📝 | `daily-bias-1.0.0` (suggestion only) | daily |
-| ICT-62 | Power of three (AMD) | 7 | D after / J before | 📐 | `po3-1.0.0` | 1m |
-| ICT-63 | Judas swing | 7 | R | 📐 | `judas-1.0.0` | 1m, sessions |
-| ICT-64 | Daily profiles | 7 | D after | 📐 | `daily-profile-1.0.0` | 1m, sessions |
-| ICT-65 | Weekly profiles | 7 | D after | 📐 | `weekly-profile-1.0.0` | 1m |
+| ICT-62 | Power of three (AMD) | 7 | D after / J before | ✅ `po3-1.0.0` (DEC-063) | `po3-1.0.0` | 1m |
+| ICT-63 | Judas swing | 7 | R | ✅ `judas-1.0.0` (DEC-063) | `judas-1.0.0` | 1m, sessions |
+| ICT-64 | Daily profiles | 7 | D after | ✅ `daily-profile-1.0.0` (DEC-063) | `daily-profile-1.0.0` | 1m, sessions |
+| ICT-65 | Weekly profiles | 7 | D after | ✅ `weekly-profile-1.0.0` (DEC-063) | `weekly-profile-1.0.0` | 1m |
 | ICT-66 | SMT divergence (NQ vs ES) | 7 | R | 📐 | `smt-1.0.0` | 1m NQ **and ES** |
 | ICT-67 | Intermarket (DXY, yields) | 7 | J | ⛔ for now | — | other markets |
 | ICT-70 | The 2022 model | 8 | R | 📐 | `model-2022-1.0.0` | composition |
@@ -1070,8 +1070,17 @@ the fixed release times can be shaded as "possible news".
 last **20, 40 and 60 trading days** define the liquidity price is likely to reach, and the market's
 character shifts every three to four months ("quarterly shifts").
 
-**Tradeez rule — `ipda-1.0.0` (draft).** The 20/40/60-day highs and lows at each day's close, drawn as
-levels. Their *use* is J.
+**Tradeez rule — `ipda-1.0.0` (DEC-063).** A clock rule, beside `levels-1.0.0`: over each CME
+trading day (18:00 to 17:00), the highest high and lowest low of the **20, 40 and 60 trading days
+before it**, drawn as levels (`20D H`, `20D L`, …) and taken a tick beyond, as
+`liquidity-1.0.0` takes a level. The day's own price never moves them. Each trading day is read as one
+high and low from the stored minutes, so sixty days cost sixty rows. **Only within one contract:** a
+look-back is drawn when all its days and the day itself traded in the same contract, with no hole of
+more than four days — the clock's roll rule (DEC-047), since a range measured on March's contract says
+nothing about June's prices. Real NQ rolls about every 60 trading days, so on two years of it the
+20-day range is drawn on **70%** of days, the 40-day on **39%**, the 60-day on **7%**. A back-adjusted
+series would draw all three every day; not done (BUGS known limitations). "Quarterly shifts" are a
+judgement and stay J, as does the levels' *use*.
 
 **Teach.** A, G (how often the 20-day high or low was reached within the next 20 days).
 
@@ -1107,10 +1116,14 @@ open, **manipulation** — a move away from the open *against* the real directio
 liquidity — and **distribution** (expansion) in the real direction, closing near the extreme. A
 bullish daily candle in this picture: open → low below the open → high → close near the high.
 
-**Tradeez rule — `po3-1.0.0` (draft).** After the fact, from one-minute bars: a day is
-**Po3-consistent bullish** when it closed above its open, its low formed before its high, and the low
-lay below the open by at least `manipulationShare = 15%` of the day's range. Bearish mirrors. The open
-is a parameter (midnight, 18:00 or 09:30).
+**Tradeez rule — `po3-1.0.0` (DEC-063).** After the fact: the day runs from the **midnight open to
+the 17:00 halt**, New York — the 2022 mentorship's day (DEC-043). It is **Po3 bullish** when it closed
+above its open, its low formed before its high, and the low lay below the open by at least
+`manipulationPercentOfRange = 15` percent of the day's range. Bearish mirrors. Drawn as the day's range,
+anchored at the manipulation's extreme, with its line at the open; known at 17:00. On charts of an hour
+or less, whose candles start at midnight. Measured on two years of real NQ: **52%** of days fit (29%
+bullish, 23% bearish); from the 18:00 open it would be 55%, from 09:30 47% — so the open is fixed at
+midnight, not a parameter. It describes the past: most trending days fit.
 
 **Teach.** B (classify past days), C (at 09:00, with the day hidden after it: "has the manipulation
 leg already happened?"), G (share of Po3-consistent days on real NQ).
@@ -1122,9 +1135,15 @@ taking a nearby liquidity level (Asia's high, the previous day's low), that reve
 day's real move. Typically between midnight and the London open, or in the first half-hour after
 09:30 for index futures.
 
-**Tradeez rule — `judas-1.0.0` (draft).** Within a window (00:00–05:00 or 09:30–10:00), price moves
-away from that window's opening price, sweeps (ICT-13) a reference level on that side, and then
-closes back through the opening price within the window. **Confirmation:** that close.
+**Tradeez rule — `judas-1.0.0` (DEC-063).** Within a window — `LONDON` 00:00–05:00 or `NEW_YORK`
+09:30–10:00 — price trades a tick beyond a **reference level still resting at the window's open** on
+one side of the opening price, then a candle closes back through the opening price, still within the
+window. The levels: the previous trading day's high and low, the Asia killzone's, and for the New York
+window the London killzone's — each counted only if nothing traded beyond it between its period's end
+and the window's open. **Confirmation:** that close. Drawn as the zone from the open to the swing's
+extreme. On charts of 30 minutes or less. The draft's "sweeps a reference level" against any one-candle
+swing fired in 90–95% of windows on real NQ — noise; against resting levels the London window has one on
+**60%** of days, the New York window on **12%** (by 09:30 most levels near the open are already taken).
 
 **Teach.** A, C, G.
 
@@ -1134,9 +1153,13 @@ closes back through the opening price within the window. **Confirmation:** that 
 York continues higher**; **London makes the high, New York reverses**; **New York reversal** of an
 earlier move; **consolidation** with no expansion.
 
-**Tradeez rule — `daily-profile-1.0.0` (draft).** After the fact, classify each day by the session in
-which its high and its low formed (ICT-51) and the direction of the close. Deterministic once
-`sessions-1.0.0` is fixed.
+**Tradeez rule — `daily-profile-1.0.0` (DEC-063).** After the fact, the day from midnight to the
+17:00 halt, split at 08:30 into **London** (00:00–08:30) and **New York** (08:30–17:00). Three profiles
+are named: `LONDON_LOW` — London made the low, New York the high, the day closed up; `LONDON_HIGH` —
+the mirror; `NY_REVERSAL` — New York made both, pointing from the first to the second. Anything else is
+not named. Known at 17:00; on charts of 30 minutes or less. Measured on two years of real NQ: London low
+**33%**, London high **25%**, New York reversal **39%** — 95% of days. ICT's consolidation day needs a
+judgement of "no expansion" and is not named.
 
 **Teach.** B (classify past days), G (the distribution of profiles over the imported history — on
 real NQ, not as told).
@@ -1148,8 +1171,14 @@ real NQ, not as told).
 reversal** (the week ranges, then Thursday runs a weekly extreme and reverses); **seek and destroy
 Friday** (a choppy week that runs both sides, a low-probability profile). Bearish versions mirror.
 
-**Tradeez rule — `weekly-profile-1.0.0` (draft).** After the fact: the weekday of the weekly high and
-of the weekly low, and their order, map to a named profile or `unclassified`.
+**Tradeez rule — `weekly-profile-1.0.0` (DEC-063).** After the fact, the CME week from Sunday 18:00 to
+Friday 17:00: the trading day (`MONDAY` … `FRIDAY`) on which the extreme *against* the week's close
+formed — the low of an up week, the high of a down week — when it came before the other extreme. A week
+the other way round is not named. Known at Friday's close (on 4h and daily candles, an hour late, never
+early — DEC-060); on every chart. Measured on 96 whole weeks of real NQ on one contract: Monday **48%**,
+Tuesday **20%**, Wednesday **14%**, Thursday **6%**; **15%** the other way round. The names are the
+plain weekday ("Tuesday low of the week"); ICT's conditions on the days before (the consolidation
+Thursday's range) and the "seek and destroy Friday" are judgements, not named.
 
 **Teach.** B, G (how often each profile occurred).
 
@@ -1393,7 +1422,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 ✅ (`predict-1.0.0`: ERL/IRL labels, obstacle counts, two C drills — DEC-058; B waits for T18's dealing range) |
 | ICT-30 – ICT-37 | `ob`, `breaker`, `mitigation`, `rejection`, `unicorn` | zones | A, B, C | G: reaction rates | T17 ✅ (detectors with their lives, overlay; drills and evidence later) |
 | ICT-40 – ICT-44 | `dealing-range`, `pd`, `ote`, `stdev` | range, equilibrium, OTE zone | A, B, C | premium/discount fact in review | T18 ✅ (detectors, overlay; drills and the plan's premium/discount fact later) |
-| ICT-53, ICT-54, ICT-57, ICT-62 – ICT-65 | `po3`, `judas`, `daily-profile`, `weekly-profile`, `ipda` | windows, labels | B, C | G: profile distributions | T19 |
+| ICT-53, ICT-54, ICT-57, ICT-62 – ICT-65 | `po3`, `judas`, `daily-profile`, `weekly-profile`, `ipda` | windows, labels | B, C | G: profile distributions | T19 ✅ (detectors, the IPDA clock rule, overlay; drills and the profile distributions later — DEC-063) |
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |
 | (all) | — | — | — | S-6 Evidence views | T21 |
 | ICT-60, ICT-61, ICT-70 – ICT-78 | model compositions | model checklist | D | checklist at decision time | T22 |

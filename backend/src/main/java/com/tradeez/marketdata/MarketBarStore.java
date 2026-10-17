@@ -99,6 +99,23 @@ public class MarketBarStore {
 			instrumentId, resolution, Timestamp.from(from), Timestamp.from(to));
 	}
 
+	/**
+	 * Each CME trading day's high and low in {@code [from, to)}, oldest first: a minute from 18:00 New York
+	 * on belongs to the next date's session — daylight saving included, which {@code AT TIME ZONE} handles.
+	 */
+	public List<TradingDayRange> tradingDays(UUID instrumentId, String resolution, Instant from, Instant to) {
+		return jdbc.query("""
+				SELECT ((open_time AT TIME ZONE 'America/New_York') + interval '6 hours')::date AS day,
+				       max(high_ticks), min(low_ticks), min(contract_id), count(DISTINCT contract_id)
+				FROM market_bar
+				WHERE instrument_id = ? AND resolution = ? AND open_time >= ? AND open_time < ?
+				GROUP BY day
+				ORDER BY day""",
+			(rs, i) -> new TradingDayRange(rs.getObject(1, java.time.LocalDate.class), rs.getLong(2), rs.getLong(3),
+				rs.getLong(4), rs.getLong(5) == 1),
+			instrumentId, resolution, Timestamp.from(from), Timestamp.from(to));
+	}
+
 	/** The first and last stored bar times, or null when nothing is stored. */
 	public Instant[] extent(UUID instrumentId, String resolution) {
 		return jdbc.query("""

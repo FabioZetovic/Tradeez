@@ -46,10 +46,10 @@ import jakarta.servlet.http.Cookie;
 class SetupApiTest extends AbstractIntegrationTest {
 
 	private static final Instant ROLL = ThreeWeeksOfNq.ROLL;
-	/** Every detector the app has after T18 (DEC-050, DEC-052, DEC-053, DEC-061, DEC-062). */
+	/** Every detector the app has after T19 (DEC-050, DEC-052, DEC-053, DEC-061, DEC-062, DEC-063). */
 	private static final String ALL = "FVG,FVG_STATE,IFVG,BPR,VI,VOID,OPENING_GAP,ORG,"
 		+ "SWING,SWING_TIER,STRUCTURE,BOS_CHOCH,DISPLACEMENT,MSS,LIQUIDITY,EQHL,SWEEP,TURTLE_SOUP,"
-		+ "OB,BREAKER,MITIGATION,REJECTION,UNICORN,DEALING_RANGE,PD,OTE,STDEV";
+		+ "OB,BREAKER,MITIGATION,REJECTION,UNICORN,DEALING_RANGE,PD,OTE,STDEV,PO3,DAILY_PROFILE,WEEKLY_PROFILE,JUDAS";
 	private static final long YEAR_2000 = Instant.parse("2000-01-01T00:00:00Z").getEpochSecond();
 	private static final long YEAR_2001 = Instant.parse("2001-01-01T00:00:00Z").getEpochSecond();
 
@@ -301,9 +301,10 @@ class SetupApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("over a fixed fortnight the chart has something from every rule, so the comparisons cover them all")
+	@DisplayName("over the three weeks the chart has something from every rule, so the comparisons cover them all")
 	void everyRule() throws Exception {
-		JsonNode setups = chartSetups(Instant.parse("2025-04-28T00:00:00Z"), Instant.parse("2025-05-08T00:00:00Z"), ALL);
+		// All three: the first week's low came after its high, the second has the roll in it — only the third has a profile.
+		JsonNode setups = chartSetups(Instant.parse("2025-04-28T00:00:00Z"), ThreeWeeksOfNq.TO, ALL);
 		assertThat(described(setups, 0)).extracting(d -> d.substring(0, d.indexOf('/')))
 			.containsAll(List.of(ALL.split(",")));
 	}

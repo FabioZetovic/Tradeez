@@ -3,7 +3,9 @@ package com.tradeez.clock;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ import com.tradeez.clock.ClockLayer.Window;
 import com.tradeez.clock.ClockLayer.WindowKind;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.SessionCalendar;
+import com.tradeez.marketdata.TradingDayRange;
 
 /**
  * The clock layer's three rules, on hand-made minutes: flat at 100 ticks, with a spike placed exactly
@@ -349,6 +352,98 @@ class ClockLayerBuilderTest {
 			assertThat(ClockLayerBuilder.nextChange(ny("2025-03-11T08:30"))).isEqualTo(ny("2025-03-11T08:31"));
 			assertThat(ClockLayerBuilder.nextChange(ny("2025-03-11T16:00"))).isEqualTo(ny("2025-03-11T18:01"));
 			assertThat(ClockLayerBuilder.nextChange(ny("2025-03-11T23:30"))).isEqualTo(ny("2025-03-12T00:00"));
+		}
+	}
+
+	@Nested
+	@DisplayName("ipda-1.0.0")
+	class Ipda {
+
+		/** Wednesday 12 March 2025's trading day: 18:00 the evening before to 17:00. */
+		private static final LocalDate DAY = LocalDate.of(2025, 3, 12);
+		private final Instant dayStart = ny("2025-03-11T18:00");
+		private final Instant dayEnd = ny("2025-03-12T17:00");
+
+		/**
+		 * Sixty trading days before DAY and DAY itself, oldest first, each 100 to 110 on contract 1. The 20-day
+		 * look-back holds a high of 150, the 40-day one of 170, the 60-day one of 190; lows mirror them.
+		 */
+		private List<TradingDayRange> days() {
+			List<LocalDate> dates = new ArrayList<>();
+			for (LocalDate d = DAY; dates.size() < 61; d = d.minusDays(1)) {
+				if (d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY) {
+					dates.add(0, d);
+				}
+			}
+			List<TradingDayRange> days = new ArrayList<>();
+			for (int i = 0; i < dates.size(); i++) {
+				long high = i == 55 ? 150 : i == 30 ? 170 : i == 5 ? 190 : 110;
+				long low = i == 55 ? 60 : i == 30 ? 40 : i == 5 ? 20 : 100;
+				days.add(new TradingDayRange(dates.get(i), high, low, 1, true));
+			}
+			return days;
+		}
+
+		private ClockLayer layer(List<TradingDayRange> days, List<Bar> bars) {
+			return ClockLayerBuilder.build(bars, List.of(), days, dayStart, dayEnd);
+		}
+
+		@Test
+		@DisplayName("the 20-, 40- and 60-day highs and lows over the day, from the days before it")
+		void levels() {
+			ClockLayer layer = layer(days(), minutes(dayStart, dayEnd));
+			assertThat(line(layer, "20D H", dayStart)).get().extracting(Line::priceTicks).isEqualTo(150L);
+			assertThat(line(layer, "20D L", dayStart)).get().extracting(Line::priceTicks).isEqualTo(60L);
+			assertThat(line(layer, "40D H", dayStart)).get().extracting(Line::priceTicks).isEqualTo(170L);
+			assertThat(line(layer, "60D L", dayStart)).get().satisfies(l -> {
+				assertThat(l.priceTicks()).isEqualTo(20L);
+				assertThat(l.kind()).isEqualTo(LineKind.IPDA);
+				assertThat(l.to()).isEqualTo(dayEnd);
+			});
+		}
+
+		@Test
+		@DisplayName("the day's own price never moves its levels — and taking one marks it taken")
+		void causalAndTaken() {
+			List<Bar> bars = minutes(dayStart, dayEnd);
+			spike(bars, ny("2025-03-12T10:00"), 160, 100);
+			// The store's row for the day holds its whole high, spike included: never read for the day itself.
+			List<TradingDayRange> days = new ArrayList<>(days());
+			days.set(60, new TradingDayRange(DAY, 160, 100, 1, true));
+			ClockLayer layer = layer(days, bars);
+			assertThat(line(layer, "20D H", dayStart)).get().satisfies(l -> {
+				assertThat(l.priceTicks()).isEqualTo(150L);
+				assertThat(l.takenAt()).isEqualTo(ny("2025-03-12T10:00"));
+			});
+			assertThat(line(layer, "40D H", dayStart)).get().extracting(Line::takenAt).isNull();
+		}
+
+		@Test
+		@DisplayName("a look-back that reaches another contract is not drawn, nor any longer one")
+		void contracts() {
+			List<TradingDayRange> days = new ArrayList<>(days());
+			TradingDayRange old = days.get(25);
+			days.set(25, new TradingDayRange(old.tradingDate(), old.highTicks(), old.lowTicks(), 2, true));
+			ClockLayer layer = layer(days, minutes(dayStart, dayEnd));
+			assertThat(line(layer, "20D H", dayStart)).isPresent();
+			assertThat(line(layer, "40D H", dayStart)).isEmpty();
+			assertThat(line(layer, "60D H", dayStart)).isEmpty();
+			// A roll inside the 20 days themselves: nothing at all.
+			TradingDayRange recent = days.get(50);
+			days.set(50, new TradingDayRange(recent.tradingDate(), recent.highTicks(), recent.lowTicks(), 1, false));
+			assertThat(layer(days, minutes(dayStart, dayEnd)).lines()).noneMatch(l -> l.kind() == LineKind.IPDA);
+		}
+
+		@Test
+		@DisplayName("nothing over a day a roll fell in, or when the data has a hole of more than four days")
+		void rollDayAndHole() {
+			List<TradingDayRange> rolled = new ArrayList<>(days());
+			rolled.set(60, new TradingDayRange(DAY, 110, 100, 1, false));
+			assertThat(layer(rolled, minutes(dayStart, dayEnd)).lines()).noneMatch(l -> l.kind() == LineKind.IPDA);
+			// A week and a half missing among the 20 days before.
+			List<TradingDayRange> holed = new ArrayList<>(days());
+			holed.subList(50, 57).clear();
+			assertThat(layer(holed, minutes(dayStart, dayEnd)).lines()).noneMatch(l -> l.kind() == LineKind.IPDA);
 		}
 	}
 }
