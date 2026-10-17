@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T17, T34, T35, DEC-056–061 and the bug hunt merged; T18 (ranges and Fibonacci) next
+last_session: 017   # in progress — T1–T17, T34, T35, DEC-056–061 and the bug hunt merged; T18 (ranges, DEC-062) built on feat/ranges, waiting for "merge"
 last_author: CLAUDE
 last_updated: 2026-10-16
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: feat/ranges                               # T18 (DEC-062), not merged; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 492/492 (Testcontainers), frontend 300/300 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 499/499 (Testcontainers), frontend 302/302 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -88,7 +88,7 @@ files_in_repo:
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), chart endpoint (017, T7, T12)
-    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17)
+    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17, T18)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
     learning/    # learning-1.0.0 (DEC-059): progress computed from graded drills (drills/DrillAttempts) and cards read — solid, SM-2 reviews, the ladder's unlocks; GET /api/learning, POST /api/learning/concepts/{id}/read  (017, T16)
     drills/      # drill engine (DEC-054): DrillKind catalogue (twelve drills, modes A, B and C), windows on real NQ, answer key = stored hits, excused candles; Prediction + PredictionText = predict-1.0.0 (mode C: two targets, the future withheld until the answer, DEC-058); FVG fixture on simulated data  (016, 017 T13, T15)
@@ -122,7 +122,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T18 (ranges and Fibonacci) next.
+blocked_on: nothing — T18 waits for Fabio's "merge"; then T19 (time models and profiles).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -150,7 +150,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T17 blocks (DEC-061), on branch feat/blocks (2026-10-16)
+claimed_files:      # session 017 (CLAUDE) — T18 ranges (DEC-062), on branch feat/ranges (2026-10-17)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -167,7 +167,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, on branch).
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -218,7 +218,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
 | T17 | ~~**Blocks**~~ | T11, T12 | I-30–37 | ✅ Session 017 (DEC-061), **merged 2026-10-17 as `35b0de5`**: measured first (≈ 1 order block per 30 candles, breakers 0.4, mitigation blocks 0.5, three breakers in four unicorns; the draft's rejection block a third of all swings, so a long wick is now measured against the average candle too: 0.5 per 30); `ob-1.0.0`, `breaker-1.0.0`, `mitigation-1.0.0`, `rejection-1.0.0`, `unicorn-1.0.0`, each followed for its life (FORMED → TAPPED → MEAN_THRESHOLD → INVALIDATED, or EXPIRED after 500); five switches; the overlay draws a block on while it stands, its mean threshold dashed (`midHalfTicks` on the wire), zones named where they come into view. Propulsion, vacuum and the PD matrix are not rules; drills for blocks later. |
-| T18 | **Ranges and Fibonacci** | T11 | I-40–44 | Dealing range, premium/discount, OTE, standard deviations. |
+| T18 | ~~**Ranges and Fibonacci**~~ | T11 | I-40–44 | ✅ Session 017 (DEC-062), on `feat/ranges`: one leg read four ways — a displacement that breaks structure, from where it began to the first intermediate-term turn (measured: 0.7 per 30 candles; a one-candle turn left within 7 candles, the intermediate-term one within 10–11, kept); `dealing-range-1.0.0` (equilibrium line, broken high or low), `pd-1.0.0` (premium and discount halves), `ote-1.0.0` (62–79%, 70.5% line, tapped; 64% of legs retrace into it), `stdev-1.0.0` (−1, −2, −2.5, −4); four switches. ICT-43's Fibonacci tool was T8. |
 | T19 | **Time models and profiles** | T7, T11 | I-53–57, I-62–65 | Silver Bullet and macro windows, IPDA ranges, power of three, Judas swing, daily and weekly profiles. |
 | T20 | **SMT divergence** | T2, T11 | I-66 | NQ vs ES. First an ES instrument row (migration) and `ES` in `MassiveImporter.ROOTS`, then import ES like NQ. |
 | T21 | **Evidence views** | T10–T19 | I S-6 | How often each concept's claim held on real NQ, with sample size — never framed as an edge. |
@@ -277,6 +277,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-062 | **Ranges — one leg, read four ways** (`Ranges`): a displacement that breaks the latest swing, from where it began to the first intermediate-term turn, known when that rank is, only while price is inside, one range per turn; `dealing-range-1.0.0`, `pd-1.0.0` (halves at equilibrium, in half-ticks), `ote-1.0.0` (62–79% rounded outward, 70.5% line), `stdev-1.0.0` (−1, −2, −2.5, −4, rounded away); each range followed until broken high or low, or 500 candles. |
 | DEC-061 | **Blocks, measured first:** `ob-1.0.0` (the last opposite-close candle(s) before a displacement leg that itself breaks the latest swing; run ≤ 5, ≤ 5 back, unbroken), `breaker-1.0.0` / `mitigation-1.0.0` (one flip shape: the candles at the broken swing, swept or not), `rejection-1.0.0` (wick ≥ half its candle **and** ≥ the 14-candle average range), `unicorn-1.0.0` (a breaker overlapped by its own displacement's gap); each block followed for its life — FORMED, TAPPED, MEAN_THRESHOLD, INVALIDATED, EXPIRED (500). |
 | DEC-060 | **4h and daily candles count from the trading day's 18:00 New York open** (`Timeframe.bucketStart`, one place): 4h at 18, 22, 02, 06, 10, 14 (the last 3h), daily 18:00 → 17:00 named by the next day (no Sunday candle); up to 1h from the epoch; never through the UTC day cache; practice's coarse views reach back 30 / 120 days on real data; daily labels name the trading day (weekday only on a hidden date); no New York clock on daily charts. |
 | DEC-059 | **The learning state, `learning-1.0.0`:** computed on every request from graded drills (real data only) and cards read, never stored; rated where a marking or naming drill grades (solid = ≥ 10 attempts and ≥ 80% over the last 20; attempts scored as the drill's result scores them); predictions are practice; unrated concepts done by reading; SM-2 reviews, one a day; the ladder's rules settled — it suggests, never locks. |
@@ -2211,3 +2212,36 @@ Fabio to say merge.
 
 **2026-10-17 — T17 merged.** Fabio: "merge it and do T18". `feat/blocks` merged `--no-ff` as `35b0de5`.
 Next: T18, ranges and Fibonacci.
+
+**2026-10-17 — T18: ranges (DEC-062).** On `feat/ranges`, not merged.
+- **One leg, read four ways.** The drafts each named a leg differently; `Ranges` reads it once: a
+  displacement in which a candle is the first close beyond the latest swing (the break `ob-1.0.0`
+  reads), from the extreme the move began from to the first intermediate-term turn at or after the
+  break, known when that rank is, only while price is inside, one range per turn.
+- **Measured first** (scratchpad script, two years of real NQ, 1m–1h alike): ~0.7 legs per 30 candles,
+  5–6 average candles tall. A one-candle turn gave ranges left within a median of 7 candles; the
+  draft's intermediate-term turn 10–11 — kept. Left beyond the end ~60%, beyond the start ~40%; 8%
+  already left when ranked (not reported). Equilibrium reached in ~72%, the OTE in ~64% (59% before a
+  new extreme); −1 / −2 / −2.5 / −4 reached 33 / 21 / 17 / 11%. An earlier measurement stopped
+  following a range at its break and so showed the projections almost never reached — caught before
+  any rule was written on it.
+- **Four rules:** `dealing-range-1.0.0` (equilibrium line; BROKEN_HIGH / BROKEN_LOW / EXPIRED),
+  `pd-1.0.0` (premium and discount halves; on an odd range equilibrium belongs to neither), `ote-1.0.0`
+  (62–79% rounded outward, 70.5% line, TAPPED), `stdev-1.0.0` (levels rounded away from the leg).
+  `swing-tier-1.0.0`'s ranking is shared (`SwingTierDetector.intermediate`). The API's `midHalfTicks`
+  now carries a range's own line too.
+- **Found while building it:** an outside candle ranked both high and low ended a bullish and a bearish
+  range at once, so two premium halves shared a place — the contract test caught it; one range per turn
+  now, the one known first.
+- **Checked live** (real NQ 5m, two weeks): 59 ranges (34 broken high, 25 low), 32 OTE taps; all 27 rules
+  cold 4.0 s, warm 0.56 s. The switches were put back to their defaults afterwards.
+- Tests: RangeDetectorsTest (7: the range and its turn, the halves, the OTE's rounding and life — a tap
+  on its edge, a close on the range's low that does not break it — the deviations, broken high and low,
+  expiry, a range already left, a broken swing beyond the 300-candle reach), the contract test for all
+  27, SetupApiTest's list +4 and its midline test extended to the OTE, ConceptRegistryTest; frontend
+  shapes +2.
+- Mutations, one at a time after a passing baseline: 17 backend — 16 caught at once, the 17th (the
+  API ignoring a range's own line) after the midline test was extended to the OTE; 5 frontend, all
+  caught. The edge cases (a tap on the OTE's edge, a close on the range's low, a swing beyond the
+  reach) were written before the run, from T17's survivors.
+- Backend 492 → 499, frontend 300 → 302.
