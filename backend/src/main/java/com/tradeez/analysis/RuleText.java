@@ -128,8 +128,44 @@ public final class RuleText {
 				+ p.get("maxAgeCandles") + " candles), is traded through by a candle that closes back at or "
 				+ "inside it within " + p.get("closeBackWithin") + " candle — itself. It points away from the "
 				+ "pool.";
+			case "OB" -> "Bullish: the last down-close candle before a " + p.get("displacementRule") + " move up "
+				+ "that breaks structure — a candle of the move is the first to close above the latest swing high "
+				+ "(strength " + p.get("strength") + "). Down-close candles in a row are one block, up to "
+				+ p.get("maxRunCandles") + "; its last candle is at most " + p.get("maxCandlesBeforeLeg")
+				+ " candles before the move, with no market closure between. The zone is the candles' full range, "
+				+ "the mean threshold the middle of their bodies. Known when the move is; everything read lies within "
+				+ p.get("maxSpanCandles") + " candles. Bearish mirrors it. "
+				+ life(p);
+			case "BREAKER", "MITIGATION" -> "Bullish: a swing low, then a swing high (strength " + p.get("strength")
+				+ "); then price falls "
+				+ (Boolean.TRUE.equals(p.get("requiresSweep"))
+					? "to a lower low — below the first, taking the sell-side liquidity there"
+					: "only to a higher low, or the same one — failing to take the sell-side liquidity below the first")
+				+ " — and a " + p.get("displacementRule") + " move up starting from that low brings the first "
+				+ "close above the high. The up-close candles at the high, a bearish block that failed, are the "
+				+ "zone: the last at most " + p.get("maxCandlesBeforeHigh") + " candles before the high, with the "
+				+ "up-close candles before it, up to " + p.get("maxRunCandles") + ". Known at the later of that "
+				+ "close and the displacement; everything read lies within " + p.get("maxSpanCandles")
+				+ " candles. Bearish mirrors it. " + life(p);
+			case "REJECTION" -> "Bearish: a swing high (strength " + p.get("strength") + ") whose upper wick is "
+				+ "at least " + p.get("wickPercentOfRange") + "% of its candle's range, and at least "
+				+ p.get("wickPercentOfAverageRange") + "% of the average range of the " + p.get("rangeLookback")
+				+ " candles before it. The zone runs from the highest body — open or close — of the swing candle "
+				+ "and its neighbours up to the high; its mean threshold is the middle of the wick. Known when the "
+				+ "swing is. Bullish mirrors it at a swing low. " + life(p);
+			case "UNICORN" -> "A breaker (" + p.get("breakerRule") + ") overlapped in price by the "
+				+ p.get("gapRule") + " gap its own displacement left: the zone is the overlap, the mean "
+				+ "threshold its middle. Known with the breaker. " + life(p);
 			default -> throw new IllegalArgumentException("No words for rule " + detector.id());
 		};
+	}
+
+	/** What happens to a block after it forms, the same for every block rule (T17). */
+	private static String life(Map<String, Object> p) {
+		return "From then on it is followed: tapped when a candle trades back into it, its mean threshold lost "
+			+ "when a candle closes beyond that — which ICT reads as weakening the block — and invalidated when a "
+			+ "candle closes beyond its far edge. One still standing " + p.get("maxAgeCandles") + " candles after "
+			+ "it formed has expired. Each state is known at the close of the candle that reached it.";
 	}
 
 	/** A short name for one hit, as a heading: "Bullish gap", "Higher high (HH)". */
@@ -158,6 +194,12 @@ public final class RuleText {
 			case "SWEEP" -> ("SWEEP".equals(kind) ? "Sweep of " : "Run through ")
 				+ ("BSL".equals(s.getEvidence().get("side")) ? "buy-side liquidity" : "sell-side liquidity");
 			case "TURTLE_SOUP" -> "Turtle soup at equal " + ("BEARISH".equals(s.getDirection()) ? "highs" : "lows");
+			case "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN" -> way + " " + BLOCK_NAMES.get(s.getDetector())
+				+ switch (kind) {
+					case "FORMED" -> "";
+					case "MEAN_THRESHOLD" -> ", mean threshold lost";
+					default -> ", " + kind.toLowerCase(Locale.ROOT);
+				};
 			default -> s.getDetector();
 		};
 	}
@@ -202,6 +244,7 @@ public final class RuleText {
 						+ (high ? "buy" : "sell") + "-side liquidity the pattern advertises.");
 			}
 			case "SWEEP" -> sweep(s, e, price);
+			case "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN" -> block(s, e, price, bullish);
 			case "TURTLE_SOUP" -> {
 				boolean highs = "BEARISH".equals(s.getDirection());
 				yield List.of("This candle traded " + (highs ? "above" : "below") + " the equal " + (highs ? "highs" : "lows")
@@ -421,6 +464,92 @@ public final class RuleText {
 			+ ", and closed beyond it, at " + close + ". The next " + s.getParams().get("holdCandles")
 			+ " candles closed beyond it too: a run — the level was a waypoint, not the target.");
 	}
+
+	/** A block's forming in its rule's own numbers; a later state, by the candle that moved it there. */
+	private static List<String> block(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {
+		String name = BLOCK_NAMES.get(s.getDetector());
+		String zone = "The " + (bullish ? "bullish " : "bearish ") + name + " from " + price.of(s.getZoneLowTicks())
+			+ " to " + price.of(s.getZoneHighTicks());
+		String mean = price.ofHalf(n(e, "meanHalfTicks"));
+		String toward = bullish ? "down to " + price.of(n(e, "candleLowTicks")) : "up to " + price.of(n(e, "candleHighTicks"));
+		String close = price.of(n(e, "candleCloseTicks"));
+		return switch (s.getKind()) {
+			case "FORMED" -> formed(s, e, price, bullish, mean);
+			case "TAPPED" -> List.of(zone + ": a later candle traded " + toward + ", back into it — tapped.");
+			case "MEAN_THRESHOLD" -> List.of(zone + ": a later candle closed at " + close + ", " + (bullish ? "below" : "above")
+				+ " its mean threshold at " + mean + ". ICT reads that as weakening the block.");
+			case "INVALIDATED" -> List.of(zone + ": a later candle closed at " + close + ", beyond its far edge at "
+				+ price.of(bullish ? s.getZoneLowTicks() : s.getZoneHighTicks()) + " — invalidated.");
+			case "EXPIRED" -> List.of(zone + " was still standing " + s.getParams().get("maxAgeCandles") + " candles after "
+				+ "it formed: the rule stops following it.");
+			default -> List.of(zone + ".");
+		};
+	}
+
+	private static List<String> formed(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish, String mean) {
+		String low = price.of(s.getZoneLowTicks());
+		String high = price.of(s.getZoneHighTicks());
+		String up = bullish ? "up" : "down";
+		return switch (s.getDetector()) {
+			case "OB" -> {
+				long candles = n(e, "runCandles");
+				yield List.of(
+					(candles == 1 ? "The last " + (bullish ? "down" : "up") + "-close candle"
+						: "The last " + candles + " candles closing " + (bullish ? "down" : "up") + " in a row")
+						+ " before the move, from " + low + " to " + high + ": the block. Its mean threshold, the middle "
+						+ "of its bodies, is at " + mean + ".",
+					"Then a displacement " + up + ", and in it a candle closed at " + price.of(n(e, "breakCloseTicks")) + ", "
+						+ (bullish ? "above" : "below") + " the swing " + (bullish ? "high" : "low") + " at "
+						+ price.of(n(e, "brokenPrice")) + " — the first close beyond it: structure broke. ICT's claim is that "
+						+ "the block is where the move's orders were placed.");
+			}
+			case "BREAKER", "MITIGATION" -> {
+				boolean breaker = "BREAKER".equals(s.getDetector());
+				String first = bullish ? "low" : "high";
+				String second = bullish ? "high" : "low";
+				yield List.of(
+					"A swing " + first + " at " + price.of(n(e, "originPrice")) + ", then a swing " + second + " at "
+						+ price.of(n(e, "levelPrice")) + "; then price went to " + price.of(n(e, "dropPrice")) + " — "
+						+ (breaker ? (bullish ? "below" : "above") + " the first " + first + ", taking the "
+							+ (bullish ? "sell" : "buy") + "-side liquidity there."
+							: "not beyond the first " + first + ": its liquidity was not taken."),
+					"A displacement " + up + " followed, and a candle closed at " + price.of(n(e, "breakCloseTicks")) + ", "
+						+ (bullish ? "above" : "below") + " the " + second + " — the first close beyond it.",
+					"The " + (bullish ? "up" : "down") + "-close candles at the " + second + ", from " + low + " to " + high
+						+ ", failed as a " + (bullish ? "bearish" : "bullish") + " block: ICT reads them as a "
+						+ (bullish ? "bullish " : "bearish ") + (breaker ? "breaker" : "mitigation block, weaker than a breaker")
+						+ " now. Mean threshold at " + mean + ".");
+			}
+			case "UNICORN" -> List.of(
+				"A " + (bullish ? "bullish" : "bearish") + " breaker from " + price.of(n(e, "breakerLowTicks")) + " to "
+					+ price.of(n(e, "breakerHighTicks")) + ": the " + (bullish ? "high" : "low") + " at "
+					+ price.of(n(e, "levelPrice")) + " failed after price took the liquidity at "
+					+ price.of(n(e, "originPrice")) + ".",
+				"The displacement that broke it left a " + (bullish ? "bullish" : "bearish") + " gap from "
+					+ price.of(n(e, "gapLowTicks")) + " to " + price.of(n(e, "gapHighTicks")) + ". They overlap from " + low
+					+ " to " + high + ": a unicorn, in ICT's word. Mean threshold at " + mean + ".");
+			case "REJECTION" -> {
+				long wick = n(e, "wickTicks");
+				long range = n(e, "rangeTicks");
+				long lookback = ((Number) s.getParams().get("rangeLookback")).longValue();
+				String average = String.format(Locale.ROOT, "%.1f", (double) n(e, "rangeSumTicks") / lookback);
+				yield List.of(
+					"This swing " + (bullish ? "low" : "high") + " at " + price.of(n(e, "swingPrice")) + " left "
+						+ (bullish ? "a lower" : "an upper") + " wick of " + ticks(wick) + ": " + (100 * wick / range)
+						+ "% of the candle's " + range + "-tick range, and longer than the " + average + "-tick average "
+						+ "candle of the " + lookback + " before it.",
+					"The zone runs from the " + (bullish ? "lowest" : "highest") + " body nearby, " + price.of(n(e, "bodyTicks"))
+						+ ", to the " + (bullish ? "low" : "high") + ": a " + (bullish ? "bullish" : "bearish")
+						+ " rejection block. ICT's claim is that price returning here reacts at the body. The wick's "
+						+ "middle is at " + mean + ".");
+			}
+			default -> List.of();
+		};
+	}
+
+	/** What each block rule calls its block. */
+	private static final Map<String, String> BLOCK_NAMES = Map.of("OB", "order block", "BREAKER", "breaker",
+		"MITIGATION", "mitigation block", "REJECTION", "rejection block", "UNICORN", "unicorn");
 
 	private static String moved(long ticks) {
 		return ticks == 0 ? "no gap — it opened where it closed"

@@ -33,6 +33,7 @@ const GAP: Setup = {
   confirmedAt: 900,
   lowTicks: 101,
   highTicks: 120,
+  midHalfTicks: 221,
 }
 
 function render(setups: Setup[], shown: string[] = ['FVG']) {
@@ -64,6 +65,18 @@ describe('painting detected setups', () => {
     expect(ce).toHaveLength(1)
     expect(ce[0].args).toEqual([25, 90.5])
     expect(calls.find((c) => c.op === 'setLineDash')?.args[0]).toEqual([3, 3])
+  })
+
+  it("T17: dashes a block's mean threshold where its rule put it, not through the zone's middle", () => {
+    const calls = render([{ ...GAP, detector: 'OB', kind: 'FORMED', midHalfTicks: 210 }], ['OB'])
+    // 105 ticks: y = 95, on the pixel grid at 95.5 — not 90.5, the middle of 101–120.
+    expect(calls.filter((c) => c.op === 'lineTo').map((c) => c.args[1])).toEqual([95.5])
+  })
+
+  it('T17: names a zone where it comes into view, not off the left edge where it began', () => {
+    // The gap's box starts at x = -5; its name sits just inside the pane.
+    const calls = render([GAP])
+    expect(calls.find((c) => c.op === 'fillText')?.args).toEqual(['FVG', 3, 82])
   })
 
   it('colours a bearish gap red, and names the rule where it fits', () => {

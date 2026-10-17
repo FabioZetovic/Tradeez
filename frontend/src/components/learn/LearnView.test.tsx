@@ -93,6 +93,7 @@ const example = (i: number) => ({
     confirmedAt: T0 + 32 * 300,
     lowTicks: 80_004,
     highTicks: 80_014,
+    midHalfTicks: 160_018,
   },
   rule: FVG_RULE,
 })

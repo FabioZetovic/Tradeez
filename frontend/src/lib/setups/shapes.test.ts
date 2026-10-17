@@ -16,6 +16,7 @@ function setup(fields: Partial<Setup>): Setup {
     lowTicks: 100,
     highTicks: 110,
     ...fields,
+    midHalfTicks: fields.midHalfTicks ?? (fields.lowTicks ?? 100) + (fields.highTicks ?? 110),
   }
 }
 
@@ -51,6 +52,24 @@ describe('what each hit looks like on the chart', () => {
     )
     expect(shapes).toHaveLength(1)
     expect(shapes[0].label).toBe('FVG inverted')
+  })
+
+  it("T17: draws a block at its latest state — on while it stands — apart from another rule's block on the same candle", () => {
+    const formed = setup({ detector: 'OB', kind: 'FORMED', end: 600, confirmedAt: 900 })
+    const lost = setup({ detector: 'OB', kind: 'MEAN_THRESHOLD', end: 1500, confirmedAt: 1800 })
+    const breaker = setup({ detector: 'BREAKER', kind: 'FORMED', end: 600, confirmedAt: 900 })
+    const [ob, flip] = toShapes(layer([formed, lost, breaker]), STEP)
+    expect(ob).toMatchObject({ setup: lost, from: 0, to: 'edge', label: 'OB MT lost', faded: false })
+    expect(flip).toMatchObject({ setup: breaker, from: 0, to: 'edge', label: 'Breaker', faded: false })
+  })
+
+  it('T17: stops a block at the candle that invalidated it, faded — the furthest of the states that candle reached', () => {
+    const at = { detector: 'UNICORN', end: 1500, confirmedAt: 1800 }
+    const shapes = toShapes(
+      layer([setup({ ...at, kind: 'TAPPED' }), setup({ ...at, kind: 'INVALIDATED' }), setup({ ...at, kind: 'MEAN_THRESHOLD' })]),
+      STEP,
+    )
+    expect(shapes).toEqual([expect.objectContaining({ to: 1800, label: 'Unicorn invalidated', faded: true })])
   })
 
   it('stops anything still in force at the next contract roll', () => {

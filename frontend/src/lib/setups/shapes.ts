@@ -4,10 +4,12 @@ import type { Setup, SetupLayer } from '../api/setups'
  * What each detector's hits look like on a chart (T9, T10): the step between the rows the server
  * sends and the boxes the renderer paints. Pure, so the choices are testable without a canvas.
  *
- * Most hits are drawn over their own candles. Three are drawn on into the future, because the hit
+ * Most hits are drawn over their own candles. Some are drawn on into the future, because the hit
  * is a reference that stays in force until something ends it:
  * - a gap's lifecycle (FVG_STATE): the latest state confirmed so far, extended while the gap is open,
  *   tapped or at its CE, and ending at the candle that filled, inverted or expired it;
+ * - a block's (OB, BREAKER, MITIGATION, REJECTION, UNICORN, T17) the same way: on while it stands —
+ *   formed, tapped, its mean threshold lost — and ending at the candle that invalidated or expired it;
  * - opening gaps (OPENING_GAP): an NDOG until the next closure, an NWOG to the right edge;
  * - opening range gaps (ORG): until the next one, with its quarters.
  * Nothing live is drawn past a contract roll: no detector sees across one.
@@ -47,16 +49,40 @@ const LABELS: Record<string, string> = {
   RUN: 'Run',
 }
 
-/** The order a gap's states are reached in, for hits confirmed at the same moment. */
-const LIFECYCLE = ['OPEN', 'TAPPED', 'CE', 'FILLED', 'INVERTED', 'EXPIRED']
-const LIVE = new Set(['OPEN', 'TAPPED', 'CE'])
-const STATE_LABEL: Record<string, string> = {
-  OPEN: 'FVG',
-  TAPPED: 'FVG tapped',
-  CE: 'FVG CE',
-  FILLED: 'FVG filled',
-  INVERTED: 'FVG inverted',
-  EXPIRED: 'FVG expired',
+/**
+ * Rules whose hits are one zone's states, in the order they are reached (for hits confirmed at the
+ * same moment), which of them leave the zone in force, and the zone's name on the chart.
+ */
+interface Lifecycle {
+  order: readonly string[]
+  live: ReadonlySet<string>
+  name: string
+}
+const GAP: Omit<Lifecycle, 'name'> = {
+  order: ['OPEN', 'TAPPED', 'CE', 'FILLED', 'INVERTED', 'EXPIRED'],
+  live: new Set(['OPEN', 'TAPPED', 'CE']),
+}
+const BLOCK: Omit<Lifecycle, 'name'> = {
+  order: ['FORMED', 'TAPPED', 'MEAN_THRESHOLD', 'INVALIDATED', 'EXPIRED'],
+  live: new Set(['FORMED', 'TAPPED', 'MEAN_THRESHOLD']),
+}
+const LIFECYCLES: Record<string, Lifecycle> = {
+  FVG_STATE: { ...GAP, name: 'FVG' },
+  OB: { ...BLOCK, name: 'OB' },
+  BREAKER: { ...BLOCK, name: 'Breaker' },
+  MITIGATION: { ...BLOCK, name: 'Mitigation' },
+  REJECTION: { ...BLOCK, name: 'Rejection' },
+  UNICORN: { ...BLOCK, name: 'Unicorn' },
+}
+/** What a state adds to the zone's name: nothing for the one it starts in. */
+const STATE_WORDS: Record<string, string> = {
+  CE: 'CE',
+  TAPPED: 'tapped',
+  FILLED: 'filled',
+  INVERTED: 'inverted',
+  MEAN_THRESHOLD: 'MT lost',
+  INVALIDATED: 'invalidated',
+  EXPIRED: 'expired',
 }
 
 export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
@@ -69,13 +95,13 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
 
   for (const setup of layer.setups) {
     const base = { setup, faded: false, quadrants: false, above: HIGHS.has(setup.kind ?? '') }
+    if (setup.detector in LIFECYCLES) {
+      const key = `${setup.detector}|${setup.anchor}|${setup.direction}`
+      const seen = lifecycles.get(key)
+      if (!seen || later(setup, seen)) lifecycles.set(key, setup)
+      continue
+    }
     switch (setup.detector) {
-      case 'FVG_STATE': {
-        const key = `${setup.anchor}|${setup.direction}`
-        const seen = lifecycles.get(key)
-        if (!seen || later(setup, seen)) lifecycles.set(key, setup)
-        break
-      }
       case 'LIQUIDITY': {
         const key = `${setup.anchor}|${setup.direction}`
         const seen = liquidity.get(key)
@@ -134,13 +160,14 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
   }
 
   for (const state of lifecycles.values()) {
-    const live = LIVE.has(state.kind ?? '')
+    const { live, name } = LIFECYCLES[state.detector]
+    const stillLive = live.has(state.kind ?? '')
     shapes.push({
       setup: state,
       from: state.start,
-      to: live ? until(state.start) : state.end + step,
-      label: STATE_LABEL[state.kind ?? ''] ?? 'FVG',
-      faded: !live,
+      to: stillLive ? until(state.start) : state.end + step,
+      label: [name, STATE_WORDS[state.kind ?? '']].filter(Boolean).join(' '),
+      faded: !stillLive,
       quadrants: false,
       above: false,
     })
@@ -150,7 +177,8 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
 
 function later(a: Setup, b: Setup): boolean {
   if (a.confirmedAt !== b.confirmedAt) return a.confirmedAt > b.confirmedAt
-  return LIFECYCLE.indexOf(a.kind ?? '') > LIFECYCLE.indexOf(b.kind ?? '')
+  const { order } = LIFECYCLES[a.detector]
+  return order.indexOf(a.kind ?? '') > order.indexOf(b.kind ?? '')
 }
 
 /** The earlier of a time and a time-or-edge. */

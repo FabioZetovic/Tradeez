@@ -5,8 +5,9 @@ import type { Projection } from '../drawing/types'
 import { toShapes, type SetupShape } from './shapes'
 
 /**
- * Paints detected setups onto their overlay canvas (T9, S-3): a zone as a box with its consequent
- * encroachment dashed through the middle, a level as a line, a point as a mark. Where each one starts
+ * Paints detected setups onto their overlay canvas (T9, S-3): a zone as a box with its midline dashed
+ * through it — a gap's consequent encroachment, a block's mean threshold — a level as a line, a point
+ * as a mark. Where each one starts
  * and ends is decided in {@link toShapes}; this only paints.
  *
  * A plain function of (context, layer, bars, projection) like the clock and drawing renderers.
@@ -86,8 +87,9 @@ function drawZone(
   const { lowTicks, highTicks } = shape.setup
   const top = projection.priceToY(highTicks)
   const bottom = projection.priceToY(lowTicks)
-  // Half-ticks: the midpoint of an odd number of ticks lies between two (INVARIANT 3, ICT-21).
-  const ce = projection.priceToY((lowTicks + highTicks) / 2)
+  // Half-ticks: the midpoint of an odd number of ticks lies between two (INVARIANT 3, ICT-21). Not
+  // always the zone's middle: a block's mean threshold is the middle of its bodies (T17).
+  const ce = projection.priceToY(shape.setup.midHalfTicks / 2)
   if (top === null || bottom === null || ce === null) return
   const width = x1 - x0
   const height = Math.max(bottom - top, 1)
@@ -114,7 +116,9 @@ function drawZone(
     }
   }
   ctx.setLineDash([])
-  label(ctx, shape.label, x0 + 3, top + 2, width, height, rgb, alpha)
+  // Named where it comes into view: a block or gap still in force often began off the left edge (T17).
+  const left = Math.max(x0, 0)
+  label(ctx, shape.label, left + 3, top + 2, x1 - left, height, rgb, alpha)
 }
 
 function drawLevel(

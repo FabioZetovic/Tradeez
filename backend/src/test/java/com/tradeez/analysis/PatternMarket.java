@@ -11,8 +11,8 @@ import com.tradeez.marketdata.Timeframe;
 
 /**
  * A test market dense in every pattern the detectors look for: a seeded walk on CME's hours, whose
- * candles sometimes open away from the last close, sometimes jump, and now and then run several
- * candles one way and turn back. Not realistic, and not meant to be — it exists so that every rule
+ * candles sometimes open away from the last close, sometimes jump, now and then run several candles
+ * one way and turn back, and now and then leave a long wick (T17: a rejection block needs one). Not realistic, and not meant to be — it exists so that every rule
  * has many hits, of every kind, near session breaks and away from them.
  */
 final class PatternMarket {
@@ -54,6 +54,14 @@ final class PatternMarket {
 			close = open + body;
 			long high = Math.max(open, close) + random.nextInt(run > 0 ? 2 : 5);
 			long low = Math.min(open, close) - random.nextInt(run > 0 ? 2 : 5);
+			if (run == 0 && random.nextInt(25) == 0) {
+				long wick = 15 + random.nextInt(30);
+				if (random.nextBoolean()) {
+					high += wick;
+				} else {
+					low -= wick;
+				}
+			}
 			bars.add(new Bar(t, open, high, low, close, 10));
 			previous = t;
 		}

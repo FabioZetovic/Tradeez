@@ -887,6 +887,65 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-061 — Blocks: five rules, each followed for its life** `IMPLEMENTED` · Claude, Session 017
+(2026-10-16), T17 — ICT-30 to ICT-33, ICT-36
+
+Measured first on the two years of real NQ, the drafts re-implemented in a scratch script, on 1m, 5m,
+15m and 1h — every number below held on all four:
+
+- **Order blocks**: in three displacement legs of four, a candle of the leg itself is the first close
+  beyond the latest swing; waiting three candles more would add one in twenty. The block's candle is
+  right before the leg 70–78% of the time and within 5 candles 99%; 97% of runs of same-way candles are
+  5 or fewer. About **one order block per 30 candles**. 92% are traded back into (half within 9
+  candles), 83% invalidated within 500.
+- **Breakers and mitigation blocks**: about **0.4 and 0.5 per 30 candles** — the flip without a sweep
+  is slightly the more common.
+- **Unicorns**: the breaker's own displacement leaves its gap across the breaker's candles in **three
+  breakers of four**. Common, then, not the rare set-up the name suggests.
+- **Rejection blocks**: the draft's wick share alone (50% of the candle) qualifies a **third of all
+  swings**, 4.5 per 30 candles, traded back into on the very next candle more often than not. That is
+  every wicky swing, not a long wick.
+
+The rules:
+
+- **`ob-1.0.0` (ICT-30)** — the last down-close candle(s) before a `displacement-1.0.0` leg up in which
+  a candle is the first to close above the latest confirmed swing high; a run merged up to 5 candles,
+  its last at most 5 before the leg, no market closure between. Zone: the full range; mean threshold:
+  the middle of the bodies. Known with the leg. When two legs claim one candle, the earlier's.
+- **`breaker-1.0.0` (ICT-31) and `mitigation-1.0.0` (ICT-32)**, one shape (`Flips`): the first close
+  above the latest swing high *H*; *L2* the lowest low between, *L1* the swing low before *H*; a
+  displacement leg starting between *L2* and the close. The zone: the up-close candles at *H* — the
+  bearish block that failed. *L2* below *L1* (sell-side taken) makes a breaker, otherwise a mitigation
+  block. Known at the later of the close and the displacement; anchored on *H*, so one per swing.
+- **`rejection-1.0.0` (ICT-33)** — the draft, plus what "long" means: the wick at least half its candle
+  **and at least the average range of the 14 candles before**. That leaves about 0.5 per 30 candles.
+  The zone runs from the highest body nearby to the high; the mean threshold is the wick's middle.
+- **`unicorn-1.0.0` (ICT-36)** — a breaker overlapped by its own displacement's gap; the zone is the
+  overlap. Since a displacement is tied to its gap, the gap is always of the breaker's direction and
+  formed in its displacement.
+
+**Every block is followed for its life**, as a gap is (DEC-050): `FORMED`, then `TAPPED` (traded back
+into), `MEAN_THRESHOLD` (closed beyond it — ICT reads that as weakening the block), `INVALIDATED`
+(closed beyond the far edge), or `EXPIRED` after 500 candles still standing. Each state is a hit,
+known at the close of the candle that reached it. That is what lets the chart draw a block on to the
+right while it stands, in a replay too, without knowing its future. Everything a block's forming reads
+lies within 200 candles, so each rule's lookback is 200 + 500 — plus 10 for order blocks, since a
+second leg claiming the same candle can be known up to 5 candles after the first.
+
+**Found while building it:** the scanner gave detectors less history than their lookback on coarse
+charts (BUG-064, fixed in T35); the synthetic market the contract test runs on had no candle with a
+long wick, so a rejection block could never be found there — it now leaves one now and then.
+
+**On the chart:** five more switches (OB, Breaker, Mitigation, Rejection, Unicorn), off by default. A
+block's box runs on while it stands and stops faint once invalidated or expired; its dashed line is the
+mean threshold, which for a block is the middle of its bodies, not of its range — so the setups API now
+sends each zone's midline (`midHalfTicks`). A price, never a time: the hidden date is untouched.
+
+Not in this decision: the propulsion block (ICT-34, after ICT-30 is measured as a reaction), the
+vacuum block (ICT-35, needs an economic calendar), the PD array matrix (ICT-37, judgement), drills
+for the blocks, and reaction rates per block (T21). And no claim that blocks work: these rules say only
+where ICT's descriptions are met (INVARIANT 8).
+
 **DEC-053 — Liquidity: resting and taken, equal highs and lows, sweep or run** `IMPLEMENTED` ·
 Claude, Session 017 (2026-10-15), T12 — ICT-10 to ICT-14
 
