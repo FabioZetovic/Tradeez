@@ -2298,3 +2298,7 @@ Next: T19, time models and profiles.
   The edge cases (the order, a close against London's extreme, the 08:30 candle, a touch, a level taken
   before the window, a return after it, a hole, a roll day, the day's own row) were written before the run.
 - Backend 499 → 517, frontend 302 → 305.
+
+**2026-10-17 — Fresh-clone check of `cad9c70`** (`feat/time-models`), no `.env`: backend 517 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 305/305, build clean. Waiting for
+Fabio to say merge.
