@@ -250,4 +250,58 @@ class RuleTextTest {
 			+ "19997.50 — the lower of the pair — and closed back at 19998.75, at or above them: the pool was swept. "
 			+ "Turtle soup.");
 	}
+
+	@Test
+	@DisplayName("T19: a day's power of three and profile, a week's extreme and a Judas swing, in the chart's prices")
+	void time() {
+		DetectedSetup po3 = setup(new Po3Detector(), null, "BULLISH", 80_000, 80_120, evidence("openTicks", 80_040,
+			"closeTicks", 80_110, "manipulationTicks", 40, "rangeTicks", 120));
+		assertThat(RuleText.label(po3)).isEqualTo("Bullish power of three");
+		assertThat(RuleText.explain(po3, NQ_TICK)).containsExactly(
+			"The day opened at 20010.00 at midnight and closed at 20027.50 at 17:00 — up.",
+			"Its low, 20000.00, came before its high, 20030.00, and lay 40 ticks below the open: 33% of the day's "
+				+ "120-tick range. Accumulation, manipulation down, distribution up: power of three, in ICT's words.");
+
+		DailyProfileDetector daily = new DailyProfileDetector();
+		Map<String, Object> day = evidence("openTicks", 80_080, "closeTicks", 80_010);
+		assertThat(RuleText.label(setup(daily, "LONDON_LOW", "BULLISH", 80_000, 80_120, day)))
+			.isEqualTo("London low, New York higher");
+		assertThat(RuleText.label(setup(daily, "LONDON_HIGH", "BEARISH", 80_000, 80_120, day)))
+			.isEqualTo("London high, New York lower");
+		assertThat(RuleText.explain(setup(daily, "LONDON_HIGH", "BEARISH", 80_000, 80_120, day), NQ_TICK)).containsExactly(
+			"London made the day's high at 20030.00; New York made its low at 20000.00, and the day closed at 20002.50, "
+				+ "below the midnight open at 20020.00.");
+		assertThat(RuleText.label(setup(daily, "NY_REVERSAL", "BEARISH", 80_000, 80_120, day)))
+			.isEqualTo("New York reversal down");
+		assertThat(RuleText.explain(setup(daily, "NY_REVERSAL", "BEARISH", 80_000, 80_120, day), NQ_TICK)).containsExactly(
+			"New York made both the day's high, at 20030.00, and then its low, at 20000.00: a New York reversal.");
+
+		WeeklyProfileDetector weekly = new WeeklyProfileDetector();
+		Map<String, Object> week = evidence("openTicks", 80_040, "closeTicks", 80_100);
+		assertThat(RuleText.label(setup(weekly, "TUESDAY", "BULLISH", 80_000, 80_120, week)))
+			.isEqualTo("Tuesday low of the week");
+		assertThat(RuleText.explain(setup(weekly, "TUESDAY", "BULLISH", 80_000, 80_120, week), NQ_TICK)).containsExactly(
+			"The week opened at 20010.00 and closed at 20025.00 — up. Its low, 20000.00, formed on Tuesday, before its "
+				+ "high, 20030.00: a Tuesday low of the week — ICT's classic profile.");
+		assertThat(RuleText.explain(setup(weekly, "THURSDAY", "BEARISH", 80_000, 80_120, week), NQ_TICK).getFirst())
+			.endsWith("Its high, 20030.00, formed on Thursday, before its low, 20000.00: a Thursday high of the week.");
+
+		JudasDetector judas = new JudasDetector();
+		DetectedSetup london = setup(judas, "LONDON", "BULLISH", 79_980, 80_000, evidence("openTicks", 80_000,
+			"level", "PREVIOUS_DAY_LOW", "levelPrice", 79_990, "extremeTicks", 79_980, "closeTicks", 80_004));
+		assertThat(RuleText.label(london)).isEqualTo("Bullish Judas swing, London");
+		assertThat(RuleText.explain(london, NQ_TICK)).containsExactly(
+			"The midnight window opened at 20000.00. Price went down to 19995.00, beyond the previous day's low at "
+				+ "19997.50, which was still resting.",
+			"Then a candle closed at 20001.00, back above the opening price, within the window: the move down was a "
+				+ "Judas swing, in ICT's word, and the real move points up.");
+		DetectedSetup newYork = setup(judas, "NEW_YORK", "BEARISH", 80_000, 80_020, evidence("openTicks", 80_000,
+			"level", "LONDON_HIGH", "levelPrice", 80_012, "extremeTicks", 80_020, "closeTicks", 79_996));
+		assertThat(RuleText.label(newYork)).isEqualTo("Bearish Judas swing, New York");
+		assertThat(RuleText.explain(newYork, NQ_TICK)).containsExactly(
+			"The 09:30 window opened at 20000.00. Price went up to 20005.00, beyond the London high at 20003.00, "
+				+ "which was still resting.",
+			"Then a candle closed at 19999.00, back below the opening price, within the window: the move up was a "
+				+ "Judas swing, in ICT's word, and the real move points down.");
+	}
 }

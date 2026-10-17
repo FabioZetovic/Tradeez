@@ -161,7 +161,7 @@ class AuthFlowTest extends AbstractIntegrationTest {
 		}
 
 		@Test
-		@DisplayName("short passwords are rejected by validation — without the password in the log or the reply (BUG-054)")
+		@DisplayName("short passwords are rejected by password-1.0.0 — without the password in the log or the reply (BUG-054)")
 		void shortPasswordIsRejected(CapturedOutput output) throws Exception {
 			// Eleven characters: one short of the minimum, and quite possibly a password used elsewhere.
 			String typed = "Kx7-qq-Wz9p";
@@ -170,7 +170,7 @@ class AuthFlowTest extends AbstractIntegrationTest {
 					.content("{\"email\":\"short@example.com\",\"password\":\"" + typed + "\","
 						+ "\"displayName\":\"X\"}"))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.message").value("password: size must be between 12 and 200"))
+				.andExpect(jsonPath("$.message").value("Choose a different password. It is too short: at least 12 characters."))
 				.andReturn().getResponse().getContentAsString();
 			assertThat(reply).doesNotContain(typed);
 			assertThat(output.getAll()).doesNotContain(typed);

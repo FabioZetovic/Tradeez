@@ -54,6 +54,16 @@ tradeez:
     # BUG-002. In-memory and therefore per-instance: a speed bump, not a guarantee. A shared store
     # is the upgrade path if this is ever scaled beyond one replica.
     auth-attempts-per-window: ${AUTH_ATTEMPTS_PER_WINDOW:20}
+    # BUG-070. How many proxies in front of the app append to X-Forwarded-For. 0: the header is ignored,
+    # since a client can write anything in it. Behind one proxy that appends the caller's address, 1.
+    trusted-proxies: ${TRUSTED_PROXIES:0}
+
+  password:
+    breach-check:
+      # DEC-064. Have I Been Pwned's k-anonymous range API: only five hex characters of the password's SHA-1
+      # leave the server. Fails open when the service does not answer in time.
+      enabled: ${PASSWORD_BREACH_CHECK:true}
+      url: https://api.pwnedpasswords.com/range/
 
   cookies:
     # false locally: a Secure cookie is silently dropped over plain HTTP, so local development

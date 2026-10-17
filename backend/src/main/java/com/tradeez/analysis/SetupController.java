@@ -1,6 +1,5 @@
 package com.tradeez.analysis;
 
-import java.time.Instant;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.tradeez.analysis.SetupDtos.SetupLayerResponse;
+import com.tradeez.common.Epochs;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,7 +37,7 @@ public class SetupController {
 			@RequestParam long from,
 			@RequestParam long to,
 			@RequestParam List<String> detectors) {
-		return setups.forChart(symbol, timeframe, Instant.ofEpochSecond(from), Instant.ofEpochSecond(to),
+		return setups.forChart(symbol, timeframe, Epochs.of(from, "from"), Epochs.of(to, "to"),
 			detectors);
 	}
 }

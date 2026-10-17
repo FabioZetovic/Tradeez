@@ -44,6 +44,21 @@ public class AuthExceptionHandler {
 		return body(HttpStatus.UNAUTHORIZED, "Your session has expired. Please sign in again.");
 	}
 
+	@ExceptionHandler(PasswordPolicy.WeakPasswordException.class)
+	public ResponseEntity<Map<String, Object>> weakPassword(PasswordPolicy.WeakPasswordException e) {
+		return ResponseEntity.badRequest().body(Map.of(
+			"status", HttpStatus.BAD_REQUEST.value(),
+			"message", e.getMessage(),
+			"problems", e.problems(),
+			"timestamp", Instant.now().toString()));
+	}
+
+	@ExceptionHandler(AuthService.WrongCurrentPasswordException.class)
+	public ResponseEntity<Map<String, Object>> wrongCurrentPassword() {
+		// 403, not 401: the session is fine, and a 401 would send the client off to refresh it and retry.
+		return body(HttpStatus.FORBIDDEN, "Your current password is not right.");
+	}
+
 	@ExceptionHandler(AuthService.TooManyAttemptsException.class)
 	public ResponseEntity<Map<String, Object>> throttled() {
 		return body(HttpStatus.TOO_MANY_REQUESTS,

@@ -71,6 +71,13 @@ public class ChartDrawingController {
 
 	static final int MAX_TEXT = 80;
 
+	/**
+	 * A style is a colour, a width and a fill. Unbounded, it was any JSON of any size, stored per drawing up to
+	 * {@link #MAX_DRAWINGS_PER_CHART} per chart — room for one account to fill the database (BUG-072).
+	 */
+	static final int MAX_STYLE_ENTRIES = 8;
+	static final int MAX_STYLE_CHARS = 512;
+
 	private final ChartDrawingRepository drawings;
 	private final MarketDataService marketData;
 
@@ -148,6 +155,10 @@ public class ChartDrawingController {
 			.map(a -> Map.<String, Object>of("time", a.time(), "priceTicks", a.priceTicks()))
 			.toList();
 		Map<String, Object> style = body.style() == null ? Map.of() : body.style();
+		if (style.size() > MAX_STYLE_ENTRIES || style.toString().length() > MAX_STYLE_CHARS) {
+			throw new IllegalArgumentException("A drawing's style is a few colours and widths: at most "
+				+ MAX_STYLE_ENTRIES + " entries and " + MAX_STYLE_CHARS + " characters.");
+		}
 
 		var existing = drawings.findByIdAndUserId(id, principal.id());
 

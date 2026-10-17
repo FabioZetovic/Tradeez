@@ -177,7 +177,11 @@ class BugFixTest extends AbstractIntegrationTest {
 			// Registering is counted on its own; another address is its own; and the rest of the API is
 			// never limited by this filter.
 			register("still-welcome@example.com");
-			mockMvc.perform(post("/api/auth/login").header("X-Forwarded-For", "203.0.113.7")
+			// Another connection: X-Forwarded-For would not do, since a client can write anything in it (BUG-070).
+			mockMvc.perform(post("/api/auth/login").with(r -> {
+					r.setRemoteAddr("203.0.113.7");
+					return r;
+				})
 					.contentType(MediaType.APPLICATION_JSON)
 					.content("{\"email\":\"still-welcome@example.com\",\"password\":\"" + PASSWORD + "\"}"))
 				.andExpect(status().isOk());

@@ -102,4 +102,9 @@ public class AppUser {
 	public Map<String, Object> getSettings() {
 		return settings;
 	}
+
+	/** A new password's hash (DEC-064); the caller has checked the old one. */
+	public void changePasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
 }

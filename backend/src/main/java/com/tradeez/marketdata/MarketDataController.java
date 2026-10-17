@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tradeez.common.Epochs;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarSeriesResponse;
 import com.tradeez.marketdata.dto.MarketDataDtos.InstrumentResponse;
@@ -79,8 +80,8 @@ public class MarketDataController {
 		BarSeries series = service.bars(
 			symbol,
 			Timeframe.fromCode(timeframe),
-			Instant.ofEpochSecond(from),
-			Instant.ofEpochSecond(to),
+			Epochs.of(from, "from"),
+			Epochs.of(to, "to"),
 			MarketDataService.PUBLIC_CHART_SEED);
 
 		return new BarSeriesResponse(
