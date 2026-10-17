@@ -46,10 +46,10 @@ import jakarta.servlet.http.Cookie;
 class SetupApiTest extends AbstractIntegrationTest {
 
 	private static final Instant ROLL = ThreeWeeksOfNq.ROLL;
-	/** Every detector the app has after T17 (DEC-050, DEC-052, DEC-053, DEC-061). */
+	/** Every detector the app has after T18 (DEC-050, DEC-052, DEC-053, DEC-061, DEC-062). */
 	private static final String ALL = "FVG,FVG_STATE,IFVG,BPR,VI,VOID,OPENING_GAP,ORG,"
 		+ "SWING,SWING_TIER,STRUCTURE,BOS_CHOCH,DISPLACEMENT,MSS,LIQUIDITY,EQHL,SWEEP,TURTLE_SOUP,"
-		+ "OB,BREAKER,MITIGATION,REJECTION,UNICORN";
+		+ "OB,BREAKER,MITIGATION,REJECTION,UNICORN,DEALING_RANGE,PD,OTE,STDEV";
 	private static final long YEAR_2000 = Instant.parse("2000-01-01T00:00:00Z").getEpochSecond();
 	private static final long YEAR_2001 = Instant.parse("2001-01-01T00:00:00Z").getEpochSecond();
 
@@ -279,10 +279,10 @@ class SetupApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("T17: each zone carries the line drawn through it — a gap's middle, a block's mean threshold")
+	@DisplayName("T17, T18: each zone carries the line drawn through it — a gap's middle, a block's mean threshold, an OTE's 70.5%")
 	void midlines() throws Exception {
-		JsonNode setups = chartSetups(Instant.parse("2025-04-28T00:00:00Z"), Instant.parse("2025-05-08T00:00:00Z"), "FVG,OB");
-		boolean offCentre = false;
+		JsonNode setups = chartSetups(Instant.parse("2025-04-28T00:00:00Z"), Instant.parse("2025-05-08T00:00:00Z"), "FVG,OB,OTE");
+		java.util.Set<String> offCentre = new java.util.HashSet<>();
 		for (JsonNode s : setups) {
 			long low = s.get("lowTicks").asLong();
 			long high = s.get("highTicks").asLong();
@@ -291,11 +291,13 @@ class SetupApiTest extends AbstractIntegrationTest {
 				assertThat(mid).isEqualTo(low + high);
 			} else {
 				assertThat(mid).isBetween(2 * low, 2 * high);
-				offCentre |= mid != low + high;
+				if (mid != low + high) {
+					offCentre.add(s.get("detector").asString());
+				}
 			}
 		}
-		// The middle of the bodies is rarely the middle of the whole range.
-		assertThat(offCentre).as("an order block's mean threshold off its range's middle").isTrue();
+		// The middle of the bodies is rarely the middle of the whole range; 70.5% is never the middle of 62–79%.
+		assertThat(offCentre).as("lines off their zone's middle").containsExactlyInAnyOrder("OB", "OTE");
 	}
 
 	@Test

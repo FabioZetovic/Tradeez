@@ -147,11 +147,11 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-35 | Vacuum block | 4 | R | 📝 | — | 1m, news calendar |
 | ICT-36 | Unicorn (breaker + FVG) | 4 | D | ✅ `unicorn-1.0.0` (DEC-061) | `unicorn-1.0.0` | 1m |
 | ICT-37 | The PD array matrix | 4 | J | 📝 | — | — |
-| ICT-40 | Dealing range | 5 | R / J | 📐 | `dealing-range-1.0.0` | 1m |
-| ICT-41 | Premium, discount, equilibrium | 5 | D | 📐 | `pd-1.0.0` | 1m |
-| ICT-42 | Optimal trade entry (OTE) | 5 | D | 📐 | `ote-1.0.0` | 1m |
+| ICT-40 | Dealing range | 5 | R / J | ✅ `dealing-range-1.0.0` (DEC-062) | `dealing-range-1.0.0` | 1m |
+| ICT-41 | Premium, discount, equilibrium | 5 | D | ✅ `pd-1.0.0` (DEC-062) | `pd-1.0.0` | 1m |
+| ICT-42 | Optimal trade entry (OTE) | 5 | D | ✅ `ote-1.0.0` (DEC-062) | `ote-1.0.0` | 1m |
 | ICT-43 | ICT's Fibonacci levels and targets | 5 | D | ✅ | drawing preset (DEC-048) | — |
-| ICT-44 | Standard deviation projections | 5 | R | 📐 | `stdev-1.0.0` | 1m |
+| ICT-44 | Standard deviation projections | 5 | R | ✅ `stdev-1.0.0` (DEC-062) | `stdev-1.0.0` | 1m |
 | ICT-50 | Day boundaries and opening prices | 6 | D | ✅ | `opens-1.0.0` | 1m, sessions |
 | ICT-51 | Sessions and session ranges | 6 | D | ✅ | `sessions-1.0.0` | 1m, sessions |
 | ICT-52 | Killzones | 6 | D | ✅ | `sessions-1.0.0` | sessions |
@@ -892,9 +892,20 @@ expect a reaction from?" — graded by what price did) and by G (reaction rates 
 high. Picking *which* swings is the judgement — usually the most recent significant ones, often the
 leg that produced the last displacement or MSS.
 
-**Tradeez rule — `dealing-range-1.0.0` (draft).** The most recent confirmed swing high and swing low
-that bracket the current price, where the more recent of the two ended a `displacement-1.0.0` leg.
-Swing tier is a parameter (`tier = intermediate` by default).
+**Tradeez rule — `dealing-range-1.0.0` (DEC-062), bullish case.** The range of a *leg*: a
+`displacement-1.0.0` move up in which a candle is the first to close above the latest swing high (as
+`ob-1.0.0` reads a break). It starts at the lowest low between that swing and the move — where the move
+began — and ends at the first intermediate-term swing high (`swing-tier-1.0.0`) at or after the breaking
+candle: where price turned. Known when that turn is ranked, and only while price is still inside. When
+two moves reach one turn, the earlier is read; a candle that turned both ways ends only the range known
+first. Everything within 300 candles. Then followed until a candle closes above its high or below its
+low, or for 500 candles. Bearish mirrors it.
+
+*Measured on two years of real NQ (T18), 1m to 1h alike:* about 0.7 legs per 30 candles, 5–6 average
+candles tall. With a one-candle swing as the turn the range is the displacement and little more, left
+within a median of 7 candles; with the draft's intermediate-term turn, 10–11 — kept. Ranges are left
+beyond their end about six times in ten, beyond their start four; 8% are already left when their turn
+is ranked and are not reported.
 
 **Teach.** The learner draws a dealing range and sees the rule's beside it. Not graded as right or
 wrong; A drills grade only against the rule, named on screen.
@@ -905,8 +916,11 @@ wrong; A drills grade only against the rule, named on screen.
 where ICT looks to sell), below it is **discount** (cheap — where ICT looks to buy). The rule of thumb:
 buy in discount in bullish order flow; sell in premium in bearish.
 
-**Tradeez rule — `pd-1.0.0` (draft).** Equilibrium = (range high + range low) / 2, in half-ticks.
-Deterministic given a dealing range.
+**Tradeez rule — `pd-1.0.0` (DEC-062).** Equilibrium = (range high + range low) / 2 of
+`dealing-range-1.0.0`, in half-ticks. Premium is the zone from equilibrium to the high, discount from the
+low to equilibrium; on an odd range equilibrium lies between two ticks and belongs to neither. Each half
+lives as long as its range. *Measured (T18):* price retraces to equilibrium in about 72% of ranges before
+leaving them.
 
 **Teach.** B ("premium or discount?"), and in practice plans: the app notes whether a long was taken
 in discount — as a fact, not a verdict (DEC-027).
@@ -917,9 +931,12 @@ in discount — as a fact, not a verdict (DEC-027).
 79%** of that leg, with **70.5%** as the "sweet spot". For a bullish OTE the Fibonacci is drawn from
 the leg's low to its high.
 
-**Tradeez rule — `ote-1.0.0` (draft).** Given a leg (by default the leg that produced the last
-`mss-1.0.0`), the OTE zone is the 62%–79% retracement, rounded outward to the tick grid, with the
-70.5% line. Deterministic given the leg.
+**Tradeez rule — `ote-1.0.0` (DEC-062).** Given the leg of `dealing-range-1.0.0` — every displacement
+that broke structure, of which the leg of an `mss-1.0.0` is one kind — the OTE zone is the 62%–79%
+retracement, rounded outward to the tick grid, with the 70.5% line in half-ticks. Tapped when a candle
+trades into it; over with its range. *Measured (T18):* price retraces into it before leaving the range
+in about 64% of legs, before a new extreme beyond the leg in 59% — the C drill's question, answered for
+the past.
 
 **Teach.** A (draw the OTE zone), C ("does price reach the OTE before a new high?"), G.
 
@@ -944,9 +961,11 @@ turning points. The multiples usually cited from ICT's 2022 material are −1, �
 applies this to the manipulation leg of a session (ICT-62), the MSS leg, or a range such as the CBDR
 (ICT-55).
 
-**Tradeez rule — `stdev-1.0.0` (draft).** Inputs: a leg (start, end) and a list of multiples; levels at
-*k* leg-lengths beyond the leg's end, in the chosen direction. Which leg to measure is the R part and
-is a parameter.
+**Tradeez rule — `stdev-1.0.0` (DEC-062).** The leg of `dealing-range-1.0.0` and the multiples −1, −2,
+−2.5 and −4: levels *k* leg-lengths beyond the leg's end, in its direction, a half tick rounded away from
+the leg. Known with the leg. Measuring the session's manipulation leg (ICT-62) or the CBDR (ICT-55)
+instead is a later reading. *Measured (T18):* within 500 candles and before price closes back beyond the
+leg's start, −1 is reached about a third of the time, −2 a fifth, −2.5 one in six, −4 one in ten.
 
 **Teach.** A, G (how often the −2 projection of the first leg was reached in the session).
 
@@ -1373,7 +1392,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | (all D/R) | — | — | S-4 engine, S-5 state | — | T13 ✅ (S-4, DEC-054), T16 |
 | ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 ✅ (`predict-1.0.0`: ERL/IRL labels, obstacle counts, two C drills — DEC-058; B waits for T18's dealing range) |
 | ICT-30 – ICT-37 | `ob`, `breaker`, `mitigation`, `rejection`, `unicorn` | zones | A, B, C | G: reaction rates | T17 ✅ (detectors with their lives, overlay; drills and evidence later) |
-| ICT-40 – ICT-44 | `dealing-range`, `pd`, `ote`, `stdev` | range, equilibrium, OTE zone | A, B, C | premium/discount fact in review | T18 |
+| ICT-40 – ICT-44 | `dealing-range`, `pd`, `ote`, `stdev` | range, equilibrium, OTE zone | A, B, C | premium/discount fact in review | T18 ✅ (detectors, overlay; drills and the plan's premium/discount fact later) |
 | ICT-53, ICT-54, ICT-57, ICT-62 – ICT-65 | `po3`, `judas`, `daily-profile`, `weekly-profile`, `ipda` | windows, labels | B, C | G: profile distributions | T19 |
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |
 | (all) | — | — | — | S-6 Evidence views | T21 |
