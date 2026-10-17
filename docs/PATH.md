@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T18, T34, T35, DEC-056–062 and the bug hunt merged; T19 (time models and profiles, DEC-063) built on feat/time-models, waiting for "merge"
+last_session: 017   # in progress — T1–T18, T34, T35, DEC-056–062 and the bug hunt merged; T19 (DEC-063) on feat/time-models and, on top of it, the second bug hunt and security pass (DEC-064, BUG-066–073) on fix/bugs-and-security, both waiting for "merge"
 last_author: CLAUDE
 last_updated: 2026-10-17
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,9 +63,9 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: feat/time-models                          # T19 (DEC-063), not merged; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: fix/bugs-and-security                     # bug hunt + security pass (DEC-064), from feat/time-models, not merged; feat/time-models (T19, DEC-063) not merged; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 517/517 (Testcontainers), frontend 305/305 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 553/553 (Testcontainers), frontend 316/316 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -78,9 +78,9 @@ files_in_repo:
   # Module map, not a file list. BUG-026: a hand-maintained file list sat six sessions out of
   # date because nothing fails when it is wrong. For individual files run `git ls-files`.
   backend/src/main/java/com/tradeez/:
-    common/      # health endpoint; validation errors for every controller, never echoing or logging the rejected value (BUG-054)
+    common/      # health endpoint; validation errors for every controller, never echoing or logging the rejected value (BUG-054); Epochs — a request's epoch second, bounded (BUG-068)
     config/      # SecurityConfig (CSRF, CORS, filter chain), OpenApiConfig
-    identity/    # users, JWT cookies, refresh rotation, rate limiting          (sessions 008, 011)
+    identity/    # users, JWT cookies, refresh rotation, rate limiting (trusted proxies, BUG-070); PasswordPolicy = password-1.0.0, PwnedPasswords = the k-anonymous breach check, change password (sessions 008, 011, 017 — DEC-064)
     marketdata/  # instrument registry, DEMO-NQ generator, aggregation, day cache, bars API (009, 015); Timeframe.bucketStart = where a candle starts: 4h/1d from the 18:00 New York open (017, T35, DEC-060); TradingDayRange = one trading day's high and low, grouped in SQL (T19)
       importing/ # shared: ImportLedger, ImportCommand (CLI), ImportReport, ImportChunks     (017)
       databento/ # Databento client + cost-capped importer (DEC-040)                          (017)
@@ -150,7 +150,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T19 time models and profiles (DEC-063), on branch feat/time-models (2026-10-17)
+claimed_files:      # session 017 (CLAUDE) — bug hunt and security hardening (Fabio, 2026-10-17), on branch fix/bugs-and-security (from feat/time-models)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -168,6 +168,30 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
 practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, on feat/time-models).
+
+### Fabio's request, 2026-10-17 — every bug, missing tests, security hardening
+
+On `fix/bugs-and-security`, branched from `feat/time-models` (T19 is not merged yet, so merging this
+brings T19 with it). Fabio: "Priority is fixing all the bugs we have until now"; he allowed the work to be
+split across sessions. **Order:**
+
+1. ✅ **Bug hunt, all areas** — BUG-066 to BUG-073 logged; all but BUG-073 (a hosting decision) fixed,
+   each with a test. A sweep (`RobustnessTest`) sends every endpoint bad input and expects a 4xx.
+2. ✅ **Tests for the missing pieces** the coverage run showed (backend 96.0% of lines before): T19's
+   words, logout-all, the 500-drawing cap, the health check with the database down, an expired refresh
+   token, a candle with no stored minutes, the 400-day range.
+3. ✅ **Security (Fabio's list):** (DEC-064)
+   - Session token in localStorage? — *checked: no*; HttpOnly cookies since DEC-032. Add a
+     Content-Security-Policy to the built page (defence in depth against XSS).
+   - Admin check on the client? — *checked: there is no admin role*; every user-data endpoint checks
+     ownership on the server. Add a test that every non-public endpoint refuses an anonymous call.
+   - Rate limiting on login and the password endpoint — login and register are limited (BUG-002,
+     session 011); `X-Forwarded-For` is trusted and forgeable, so the per-IP limit can be walked
+     around — fix. There is no password endpoint yet: add change-password, limited.
+   - Password leak check and real minimum requirements — HIBP range API (k-anonymity), a common-password
+     list, not the email or name, BCrypt's 72-byte ceiling enforced.
+4. Docs, mutation checks, full suites, fresh clone, report; wait for "merge". **Open for Fabio:** BUG-073 —
+   deploy page and API on one site (a Vercel rewrite of `/api`), or the cookies break.
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -277,6 +301,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-064 | **Passwords and sign-in** (extends DEC-032): `password-1.0.0` — 12 characters to 72 bytes, 5 different characters and no straight run, not the email name, display name or app name, not a common password, not in a known breach (Have I Been Pwned range API, k-anonymous, padded, fails open after 3 s); `POST /api/auth/password` (current password, 403 when wrong; signs every other session out; 5 per account per 15 min and the per-IP limit); per-IP limits believe only `TRUSTED_PROXIES` entries of X-Forwarded-For (default 0); a Content-Security-Policy on the built page. No admin role exists; ownership is checked on the server. |
 | DEC-063 | **Time, measured first** (`Periods`): `po3-1.0.0` (midnight open to the 17:00 halt; extreme against the close first and ≥ 15% of the range beyond the open; ≤ 1h charts), `daily-profile-1.0.0` (London 00:00–08:30, New York 08:30–17:00; LONDON_LOW, LONDON_HIGH, NY_REVERSAL; ≤ 30m), `weekly-profile-1.0.0` (Sunday 18:00–Friday 17:00; the trading day of the extreme against the close, when first; every chart), `judas-1.0.0` (00:00–05:00 and 09:30–10:00; previous day, Asia and London levels resting at the window's open, taken a tick beyond, then a close back through the open in the window; ≤ 30m); `ipda-1.0.0` clock rule (20/40/60 trading days before each day, one contract, no hole > 4 days). All read after the fact. |
 | DEC-062 | **Ranges — one leg, read four ways** (`Ranges`): a displacement that breaks the latest swing, from where it began to the first intermediate-term turn, known when that rank is, only while price is inside, one range per turn; `dealing-range-1.0.0`, `pd-1.0.0` (halves at equilibrium, in half-ticks), `ote-1.0.0` (62–79% rounded outward, 70.5% line), `stdev-1.0.0` (−1, −2, −2.5, −4, rounded away); each range followed until broken high or low, or 500 candles. |
 | DEC-061 | **Blocks, measured first:** `ob-1.0.0` (the last opposite-close candle(s) before a displacement leg that itself breaks the latest swing; run ≤ 5, ≤ 5 back, unbroken), `breaker-1.0.0` / `mitigation-1.0.0` (one flip shape: the candles at the broken swing, swept or not), `rejection-1.0.0` (wick ≥ half its candle **and** ≥ the 14-candle average range), `unicorn-1.0.0` (a breaker overlapped by its own displacement's gap); each block followed for its life — FORMED, TAPPED, MEAN_THRESHOLD, INVALIDATED, EXPIRED (500). |
@@ -2302,3 +2327,37 @@ Next: T19, time models and profiles.
 **2026-10-17 — Fresh-clone check of `cad9c70`** (`feat/time-models`), no `.env`: backend 517 test cases, 0 failures,
 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 305/305, build clean. Waiting for
 Fabio to say merge.
+
+**2026-10-17 — Bug hunt and security pass (DEC-064, BUG-066–073).** Fabio: "check for all bugs, and write
+tests to missing pieces", four security questions, "priority is fixing all the bugs". On
+`fix/bugs-and-security`, branched from `feat/time-models` (T19 is not merged, so this brings it along).
+- **The four questions.** Session token in localStorage — no (HttpOnly cookies, DEC-032; AuthFlowTest
+  already pins it); a CSP on the built page added. Admin check on the client — there is no admin role;
+  ownership is checked on the server, and `RobustnessTest.anonymous` calls every published endpoint
+  without a session (compared with the OpenAPI paths, so none is forgotten). Rate limiting — login and
+  sign-up were limited, but the per-IP key was the client-written X-Forwarded-For (BUG-070); now
+  `TRUSTED_PROXIES`. A password endpoint did not exist; `POST /api/auth/password` does, limited.
+  Leak check and requirements — `password-1.0.0` with Have I Been Pwned's k-anonymous range API.
+- **Found by reading, coverage and a bad-input sweep:** BUG-066 (72-byte BCrypt ceiling: sign-up refused
+  with the library's message, sign-in a 400-vs-401 enumeration oracle, a truncated match), BUG-067
+  (impossible practice filters searched 10,000 times then answered 500), BUG-068 (an epoch past
+  Instant's range answered 500), BUG-069 (a sign-up race answered 500), BUG-070, BUG-071 (a bracket
+  check that overflowed), BUG-072 (a drawing's style unbounded), BUG-073 (open: two-site deployment
+  breaks the CSRF header and third-party cookies — a hosting decision for Fabio).
+- **Found while building it:** the password rules inside the field's label became its accessible name;
+  moved out and linked with aria-describedby. The status text for screen readers lost its space.
+- **Coverage-guided tests:** backend lines 96.0% before; untested were T19's words for a New York Judas
+  swing and a bearish New York reversal, logout-all, the drawing cap, the health check with the database
+  down, an expired refresh token, a candle with no stored minutes, the 400-day range.
+- Tests: RobustnessTest (6), AuthHardeningTest (13), PasswordPolicyTest (6), PwnedPasswordsTest (4, a local
+  stand-in server), RegisterRaceTest, HealthControllerTest, RuleTextTest +1, ChartDrawingApiTest +2,
+  PredictionTest +1 case, ConceptRegistryTest; AuthFlowTest and BugFixTest updated. Frontend:
+  password.test, AccountMenu.test (4), App.test +2, PracticeView.test +1.
+- Mutations, one at a time after a passing baseline: 30 backend, all caught (each fix undone in turn, and the
+  policy's every rule); 12 frontend, all caught. Three edge cases were written first, from what would have
+  survived: the password endpoint in the per-IP limit, exactly four different characters, a three-letter name.
+- Checked live at 1920 px: the account menu; a wrong current password is a 403 with no refresh-and-retry; a
+  sign-up with a breached password refused by the real range API (2,298 breaches), no account made; the built
+  page under its CSP signs in, draws the chart, Learn, Practice and Drills, and an injected inline script is
+  blocked. A launch configuration serves the built page (tradeez-frontend-built, port 4173).
+- Backend 517 → 553, frontend 305 → 316.

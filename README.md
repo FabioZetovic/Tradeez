@@ -14,6 +14,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 ### What works today
 
 - **Accounts:** register and sign in. Sessions use HttpOnly cookies with rotating refresh tokens.
+  Passwords follow `password-1.0.0` (DEC-064): 12 characters to 72 bytes, not a common password, not
+  your own name or email, and not found in a known breach (Have I Been Pwned, k-anonymous — the password
+  never leaves the server). The account menu changes the password or signs out of every device; sign-in,
+  sign-up and the password change are throttled per address and per account.
 - **Chart:** two years of **real NQ** one-minute history (Oct 2024 →), from Massive's free plan
   (DEC-042), aggregated to 3-minute … 1-hour, 4-hour and daily candles — the last two counted from the
   trading day's 18:00 New York open (DEC-060). Jump to any date or 1W–2Y back; times in New York time,
@@ -125,7 +129,7 @@ work.
 | Database | PostgreSQL 17 | DEC-001 |
 | Migrations | Flyway | DEC-030 |
 | API contract | springdoc-openapi → `openapi-typescript` | DEC-007 |
-| Auth | JWT in HttpOnly cookies, CSRF, strict CORS | DEC-032 |
+| Auth | JWT in HttpOnly cookies, CSRF, strict CORS; password-1.0.0, breach check, CSP on the built page | DEC-032, DEC-064 |
 | Market data | Real NQ via Massive (free plan); Databento importer for deeper history; simulated `DEMO-NQ` only behind labelled fixtures (Practice on request, the FVG drill) | DEC-040, DEC-042, DEC-054 |
 
 ---
