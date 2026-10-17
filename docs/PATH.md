@@ -2204,3 +2204,7 @@ clean. Waiting for Fabio to say merge.
   margin (a second leg claiming one candle is known up to 5 candles later), but no test market meets
   that case, and a longer lookback is never wrong. 7 frontend, all caught.
 - Backend 474 → 492, frontend 296 → 300.
+
+**2026-10-17 — Fresh-clone check of `a9c42a8`** (`feat/blocks`), no `.env`: backend 492 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 300/300, build clean. Waiting for
+Fabio to say merge.
