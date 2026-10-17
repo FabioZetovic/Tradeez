@@ -46,9 +46,10 @@ import jakarta.servlet.http.Cookie;
 class SetupApiTest extends AbstractIntegrationTest {
 
 	private static final Instant ROLL = ThreeWeeksOfNq.ROLL;
-	/** Every detector the app has after T12 (DEC-050, DEC-052, DEC-053). */
+	/** Every detector the app has after T17 (DEC-050, DEC-052, DEC-053, DEC-061). */
 	private static final String ALL = "FVG,FVG_STATE,IFVG,BPR,VI,VOID,OPENING_GAP,ORG,"
-		+ "SWING,SWING_TIER,STRUCTURE,BOS_CHOCH,DISPLACEMENT,MSS,LIQUIDITY,EQHL,SWEEP,TURTLE_SOUP";
+		+ "SWING,SWING_TIER,STRUCTURE,BOS_CHOCH,DISPLACEMENT,MSS,LIQUIDITY,EQHL,SWEEP,TURTLE_SOUP,"
+		+ "OB,BREAKER,MITIGATION,REJECTION,UNICORN";
 	private static final long YEAR_2000 = Instant.parse("2000-01-01T00:00:00Z").getEpochSecond();
 	private static final long YEAR_2001 = Instant.parse("2001-01-01T00:00:00Z").getEpochSecond();
 
@@ -275,6 +276,26 @@ class SetupApiTest extends AbstractIntegrationTest {
 		// to come through the endpoint over a fixed stretch in everyRule().
 		assertThat(described(practice, 0).stream().map(d -> d.substring(0, d.indexOf('/'))).distinct().count())
 			.isGreaterThanOrEqualTo(12);
+	}
+
+	@Test
+	@DisplayName("T17: each zone carries the line drawn through it — a gap's middle, a block's mean threshold")
+	void midlines() throws Exception {
+		JsonNode setups = chartSetups(Instant.parse("2025-04-28T00:00:00Z"), Instant.parse("2025-05-08T00:00:00Z"), "FVG,OB");
+		boolean offCentre = false;
+		for (JsonNode s : setups) {
+			long low = s.get("lowTicks").asLong();
+			long high = s.get("highTicks").asLong();
+			long mid = s.get("midHalfTicks").asLong();
+			if (s.get("detector").asString().equals("FVG")) {
+				assertThat(mid).isEqualTo(low + high);
+			} else {
+				assertThat(mid).isBetween(2 * low, 2 * high);
+				offCentre |= mid != low + high;
+			}
+		}
+		// The middle of the bodies is rarely the middle of the whole range.
+		assertThat(offCentre).as("an order block's mean threshold off its range's middle").isTrue();
 	}
 
 	@Test

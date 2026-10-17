@@ -40,18 +40,26 @@ public final class SetupDtos {
 	@Schema(description = """
 		One hit. ZONE spans lowTicks..highTicks; LEVEL and POINT are one price (lowTicks = highTicks). \
 		Prices in INTEGER TICKS. kind tells a detector's kinds of hit apart — FVG_STATE: OPEN, TAPPED, CE, \
-		FILLED, INVERTED, EXPIRED; OPENING_GAP: NDOG, NWOG; VOID: GAP, VOID — and is null when it has \
-		one. start, anchor and end are candle open times; confirmedAt is when the hit could first be \
-		known.""")
+		FILLED, INVERTED, EXPIRED; OPENING_GAP: NDOG, NWOG; VOID: GAP, VOID; the blocks (OB, BREAKER, \
+		MITIGATION, REJECTION, UNICORN): FORMED, TAPPED, MEAN_THRESHOLD, INVALIDATED, EXPIRED — and is null \
+		when it has one. start, anchor and end are candle open times; confirmedAt is when the hit could \
+		first be known.""")
 	public record SetupView(String detector, Detection.Shape shape, Detection.Direction direction, String kind,
-			long start, long anchor, long end, long confirmedAt, long lowTicks, long highTicks) {
+			long start, long anchor, long end, long confirmedAt, long lowTicks, long highTicks,
+			@Schema(description = """
+				The line drawn through a zone, in HALF-TICKS so an odd range's middle stays exact: a gap's \
+				consequent encroachment, a block's mean threshold — the middle of its candles' bodies, not \
+				of its range (T17). For a level or a point, twice its price.""")
+			long midHalfTicks) {
 
 		/** A stored hit, its times passed through {@code time}: a replay's clock, or plain epoch seconds. */
 		public static SetupView of(DetectedSetup s, ToLongFunction<Instant> time) {
 			return new SetupView(s.getDetector(), Detection.Shape.valueOf(s.getShape()),
 				Detection.Direction.valueOf(s.getDirection()), s.getKind(), time.applyAsLong(s.getStartTime()),
 				time.applyAsLong(s.getAnchorTime()), time.applyAsLong(s.getEndTime()),
-				time.applyAsLong(s.getConfirmedAt()), s.getZoneLowTicks(), s.getZoneHighTicks());
+				time.applyAsLong(s.getConfirmedAt()), s.getZoneLowTicks(), s.getZoneHighTicks(),
+				s.getEvidence().get("meanHalfTicks") instanceof Number mean ? mean.longValue()
+					: s.getZoneLowTicks() + s.getZoneHighTicks());
 		}
 	}
 

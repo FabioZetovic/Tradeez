@@ -139,13 +139,13 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-27 | New week / new day opening gaps (NWOG, NDOG) | 3 | D | ✅ `opening-gap-1.0.0` (DEC-050) | `opening-gap-1.0.0` | 1m, sessions |
 | ICT-28 | Opening range gap (RTH gap) | 3 | D | ✅ `org-1.0.0` (DEC-050) | `org-1.0.0` | 1m, sessions |
 | ICT-29 | Implied fair value gap | 3 | R | 📝 | — | 1m |
-| ICT-30 | Order block, mean threshold | 4 | R | 📐 | `ob-1.0.0` | 1m |
-| ICT-31 | Breaker block | 4 | R | 📐 | `breaker-1.0.0` | 1m |
-| ICT-32 | Mitigation block | 4 | R | 📐 | `mitigation-1.0.0` | 1m |
-| ICT-33 | Rejection block | 4 | R | 📐 | `rejection-1.0.0` | 1m |
+| ICT-30 | Order block, mean threshold | 4 | R | ✅ `ob-1.0.0` (DEC-061) | `ob-1.0.0` | 1m |
+| ICT-31 | Breaker block | 4 | R | ✅ `breaker-1.0.0` (DEC-061) | `breaker-1.0.0` | 1m |
+| ICT-32 | Mitigation block | 4 | R | ✅ `mitigation-1.0.0` (DEC-061) | `mitigation-1.0.0` | 1m |
+| ICT-33 | Rejection block | 4 | R | ✅ `rejection-1.0.0` (DEC-061) | `rejection-1.0.0` | 1m |
 | ICT-34 | Propulsion block | 4 | R / J | 📝 | — | 1m |
 | ICT-35 | Vacuum block | 4 | R | 📝 | — | 1m, news calendar |
-| ICT-36 | Unicorn (breaker + FVG) | 4 | D | 📐 | `unicorn-1.0.0` | 1m |
+| ICT-36 | Unicorn (breaker + FVG) | 4 | D | ✅ `unicorn-1.0.0` (DEC-061) | `unicorn-1.0.0` | 1m |
 | ICT-37 | The PD array matrix | 4 | J | 📝 | — | — |
 | ICT-40 | Dealing range | 5 | R / J | 📐 | `dealing-range-1.0.0` | 1m |
 | ICT-41 | Premium, discount, equilibrium | 5 | D | 📐 | `pd-1.0.0` | 1m |
@@ -761,15 +761,24 @@ up-close candle before a displacement down. ICT's claim: that candle is where la
 placed, and price returning to it finds support or resistance. The **mean threshold** is the
 midpoint of the block's body; ICT treats a close through it as weakening the block.
 
-**Tradeez rule — `ob-1.0.0` (draft), bullish case.**
-- The last down-close candle before a `displacement-1.0.0` leg up that closes above a confirmed swing
-  high (a break of structure or an MSS).
-- `mergeRun = true`: if several down-close candles come in a row, the block spans them.
+**Tradeez rule — `ob-1.0.0` (DEC-061), bullish case.**
+- The last down-close candle before a `displacement-1.0.0` leg up in which a candle is the first to
+  close above the latest confirmed swing high (strength 1): the move away breaks structure itself.
+- `mergeRun = true`: down-close candles in a row are one block, up to 5; the block's last candle lies
+  at most 5 candles before the leg, with no market closure in between.
 - `zone = full` (the candles' high to low; the alternative `body` uses open to low).
-- Mean threshold = midpoint of the body, in half-ticks.
-- The block is **invalidated** when a candle closes below its low.
-- **Confirmation:** close of the candle that breaks the swing high — a block is only an order block
-  once the move away from it has happened.
+- Mean threshold = middle of the bodies, in half-ticks.
+- **Confirmation:** when the leg is known, at its gap's third candle's close — a block is only an order
+  block once the move away from it has happened. When two legs claim one candle, the earlier's.
+- **Its life**, as every block's: **tapped** when a candle trades back into it, its **mean threshold**
+  lost when a candle closes below it, **invalidated** when a candle closes below its low, **expired**
+  when it still stands 500 candles after it formed. Each state is a hit, at the close that reached it.
+
+*Measured on two years of real NQ (T17), every timeframe 1m–1h alike:* about one order block per 30
+candles. In three displacement legs of four a candle of the leg breaks a swing; waiting three candles
+more would add one in twenty. The block's candle is right before the leg in 70–78% of cases and within
+5 in 99%; 97% of runs are 5 candles or fewer. 92% are traded back into, half within 9 candles; 83%
+are invalidated within 500.
 
 **Disagreements.** Full range versus body; one candle versus a run; whether the break must be an
 MSS; whether an FVG must follow. These are parameters, which is why this is class R.
@@ -784,11 +793,17 @@ C ("price returns to this block: does it hold the mean threshold?"), G.
 high**. The last up-close candle(s) at that swing high — which failed as a bearish block — become
 support. Bearish mirrors.
 
-**Tradeez rule — `breaker-1.0.0` (draft), bullish case.**
-1. Swing low *L1*, then swing high *H*, then a lower swing low *L2* that trades below *L1* (sweep).
-2. A candle closes above *H*, the leg containing a displacement.
-3. The zone is the last up-close candle (or run) before the drop from *H* to *L2*.
-- **Confirmation:** the close above *H*.
+**Tradeez rule — `breaker-1.0.0` (DEC-061), bullish case.**
+1. *H* is the latest swing high confirmed before candle *b*, the first candle to close above it; *L2* is
+   the lowest low between them, *L1* the latest swing low before *H*. *L2* trades below *L1* (the sweep).
+2. A `displacement-1.0.0` leg up starts between *L2* and *b*.
+3. The zone is the last up-close candle at or before *H* (at most 5 candles back), with the up-close
+   candles before it, up to 5 — the bearish block that failed.
+- **Confirmation:** the later of *b*'s close and the displacement's. Anchored on *H*: a swing has one
+  first close beyond it, so one breaker. Everything read lies within 200 candles. Then its life, as
+  every block's (ICT-30).
+
+*Measured (T17):* about 0.4 breakers per 30 candles on every timeframe 1m–1h.
 
 **Teach.** A, B ("breaker or mitigation block?" — the sweep is the difference).
 
@@ -798,7 +813,8 @@ support. Bearish mirrors.
 *L1*, rallies to *H*, falls to a **higher** low *L2* (it fails to take *L1*), then breaks above *H*.
 The up-close candle(s) at *H* become support. ICT treats it as weaker than a breaker.
 
-**Tradeez rule — `mitigation-1.0.0` (draft).** As `breaker-1.0.0`, with *L2* **above** *L1*.
+**Tradeez rule — `mitigation-1.0.0` (DEC-061).** As `breaker-1.0.0`, with *L2* at or **above** *L1*: the
+drop fails to take it. *Measured (T17):* about 0.5 per 30 candles, slightly more common than breakers.
 
 **Teach.** B, paired with ICT-31.
 
@@ -808,10 +824,16 @@ The up-close candle(s) at *H* become support. ICT treats it as weaker than a bre
 body up to the wick's extreme. ICT's claim: when price returns, it reacts at the body level, and a
 close above it invalidates the block.
 
-**Tradeez rule — `rejection-1.0.0` (draft), bearish case.** A confirmed swing high whose candle's upper
-wick is at least `wickShare = 50%` of its range; the zone runs from the highest body (open or close)
-among the swing candle and its neighbours to the swing high. Wick CE in half-ticks. **Confirmation:**
-the swing's confirmation.
+**Tradeez rule — `rejection-1.0.0` (DEC-061), bearish case.** A confirmed swing high whose candle's upper
+wick is at least `wickShare = 50%` of its range **and** at least the average range of the 14 candles
+before it; the zone runs from the highest body (open or close) among the swing candle and its
+neighbours to the swing high. Wick CE — the block's mean threshold — in half-ticks. **Confirmation:**
+the swing's confirmation. Then its life, as every block's (ICT-30): invalidated by a close above the
+high.
+
+*Measured (T17):* the share alone qualifies a third of all swings — 4.5 per 30 candles, traded back
+into on the very next candle more often than not: every wicky swing rather than a long wick. A long
+wick measured against the average candle too leaves about 0.5 per 30, on every timeframe.
 
 **Teach.** A, B.
 
@@ -835,9 +857,15 @@ price to come back and fill.
 **What.** A breaker block (ICT-31) that overlaps an FVG (ICT-20) in the same direction. The overlap is
 the zone; ICT presents it as a high-quality entry.
 
-**Tradeez rule — `unicorn-1.0.0` (draft).** A `breaker-1.0.0` zone and a same-direction `fvg-1.0.0`
-gap, the gap formed in the breaker's displacement leg, with overlapping price ranges.
-**Confirmation:** the later of the two.
+**Tradeez rule — `unicorn-1.0.0` (DEC-061).** A `breaker-1.0.0` zone and the `fvg-1.0.0` gap of the
+breaker's own displacement leg (a `displacement-1.0.0` leg is tied to its gap, so the gap is of the
+breaker's direction and formed in its displacement), with overlapping price ranges. The zone is the
+overlap. **Confirmation:** with the breaker, which is never before its gap. Then its life, as every
+block's.
+
+*Measured (T17):* three breakers in four are unicorns at this reading (0.3 per 30 candles), every
+timeframe alike — the displacement that breaks the high usually leaves its gap across the breaker's
+candles. Common, then, not rare.
 
 **Teach.** A, B. The trading model is ICT-73.
 
@@ -1344,7 +1372,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-10, ICT-12 – ICT-14 | `liquidity`, `eqhl`, `sweep` | liquidity lines, taken/resting | A, B, C | G: sweep outcomes | T12 ✅ (detectors, clock levels taken, overlay; drills ✅ T13: spot equal highs/lows and sweeps; name sweep or run) |
 | (all D/R) | — | — | S-4 engine, S-5 state | — | T13 ✅ (S-4, DEC-054), T16 |
 | ICT-15 – ICT-17 | ERL/IRL labelling, obstacle count | labels | B, C | G | T15 ✅ (`predict-1.0.0`: ERL/IRL labels, obstacle counts, two C drills — DEC-058; B waits for T18's dealing range) |
-| ICT-30 – ICT-37 | `ob`, `breaker`, `mitigation`, `rejection`, `unicorn` | zones | A, B, C | G: reaction rates | T17 |
+| ICT-30 – ICT-37 | `ob`, `breaker`, `mitigation`, `rejection`, `unicorn` | zones | A, B, C | G: reaction rates | T17 ✅ (detectors with their lives, overlay; drills and evidence later) |
 | ICT-40 – ICT-44 | `dealing-range`, `pd`, `ote`, `stdev` | range, equilibrium, OTE zone | A, B, C | premium/discount fact in review | T18 |
 | ICT-53, ICT-54, ICT-57, ICT-62 – ICT-65 | `po3`, `judas`, `daily-profile`, `weekly-profile`, `ipda` | windows, labels | B, C | G: profile distributions | T19 |
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |

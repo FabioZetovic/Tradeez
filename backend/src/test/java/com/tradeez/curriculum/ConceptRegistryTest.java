@@ -73,7 +73,9 @@ class ConceptRegistryTest {
 		assertThat(concept("ICT-67").status()).isEqualTo(Status.OUT_OF_SCOPE);
 		assertThat(concept("ICT-01").status()).isEqualTo(Status.IMPLEMENTED);
 		assertThat(concept("ICT-10").status()).isEqualTo(Status.IMPLEMENTED);
-		assertThat(concept("ICT-30").status()).isEqualTo(Status.DRAFTED);
+		assertThat(concept("ICT-30").status()).isEqualTo(Status.IMPLEMENTED);
+		assertThat(concept("ICT-30").rules()).containsExactly("ob-1.0.0");
+		assertThat(concept("ICT-40").status()).isEqualTo(Status.DRAFTED);
 		assertThat(concept("ICT-29").status()).isEqualTo(Status.DESCRIBED);
 		// Implemented as a question rather than a detector (DEC-058): listed with its rule, partly.
 		assertThat(concept("ICT-16").status()).isEqualTo(Status.IMPLEMENTED);

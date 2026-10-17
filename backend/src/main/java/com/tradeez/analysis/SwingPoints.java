@@ -69,6 +69,23 @@ final class SwingPoints {
 		return swings;
 	}
 
+	/** The latest swing of {@code side} — highs or lows, in candle order — confirmed before candle {@code index} opened. */
+	static Swing latestConfirmedBefore(List<Swing> side, int index, int n) {
+		int lo = 0;
+		int hi = side.size() - 1;
+		Swing latest = null;
+		while (lo <= hi) {
+			int mid = (lo + hi) >>> 1;
+			if (side.get(mid).confirmIndex(n) < index) {
+				latest = side.get(mid);
+				lo = mid + 1;
+			} else {
+				hi = mid - 1;
+			}
+		}
+		return latest;
+	}
+
 	/** Only the highs, or only the lows. */
 	static List<Swing> side(List<Swing> swings, boolean high) {
 		return swings.stream().filter(s -> s.high() == high).toList();

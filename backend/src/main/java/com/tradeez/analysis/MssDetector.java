@@ -83,7 +83,7 @@ public final class MssDetector extends RuleDetector {
 				if (pivot.high() == up) {
 					continue;
 				}
-				Swing level = latestConfirmedBefore(up ? highs : lows, pivot.index());
+				Swing level = SwingPoints.latestConfirmedBefore(up ? highs : lows, pivot.index(), N);
 				if (level == null || !BosChochDetector.firstClose(bars, level, b)) {
 					continue;
 				}
@@ -100,23 +100,6 @@ public final class MssDetector extends RuleDetector {
 				}
 			}
 			return null;
-		}
-
-		/** The latest swing of {@code side} confirmed before candle {@code index} opened. */
-		private static Swing latestConfirmedBefore(List<Swing> side, int index) {
-			int lo = 0;
-			int hi = side.size() - 1;
-			Swing latest = null;
-			while (lo <= hi) {
-				int mid = (lo + hi) >>> 1;
-				if (side.get(mid).confirmIndex(N) < index) {
-					latest = side.get(mid);
-					lo = mid + 1;
-				} else {
-					hi = mid - 1;
-				}
-			}
-			return latest;
 		}
 
 		/**
