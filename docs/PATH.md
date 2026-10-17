@@ -55,7 +55,7 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T18, T34, T35, DEC-056–062 and the bug hunt merged; T19 (DEC-063) on feat/time-models and, on top of it, the second bug hunt and security pass (DEC-064, BUG-066–073) on fix/bugs-and-security, both waiting for "merge"
+last_session: 017   # in progress — T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
 last_author: CLAUDE
 last_updated: 2026-10-17
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
@@ -63,7 +63,7 @@ code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: fix/bugs-and-security                     # bug hunt + security pass (DEC-064), from feat/time-models, not merged; feat/time-models (T19, DEC-063) not merged; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: master                                    # fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
 build_passing: true  # backend 553/553 (Testcontainers), frontend 316/316 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
@@ -122,7 +122,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T19 (time models and profiles) next.
+blocked_on: nothing — T21 (evidence views) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -150,7 +150,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — bug hunt and security hardening (Fabio, 2026-10-17), on branch fix/bugs-and-security (from feat/time-models)
+claimed_files:      # session 017 (CLAUDE) — T21 evidence views, on branch feat/evidence (2026-10-17)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -167,12 +167,12 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, on feat/time-models).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged).
 
 ### Fabio's request, 2026-10-17 — every bug, missing tests, security hardening
 
-On `fix/bugs-and-security`, branched from `feat/time-models` (T19 is not merged yet, so merging this
-brings T19 with it). Fabio: "Priority is fixing all the bugs we have until now"; he allowed the work to be
+On `fix/bugs-and-security`, branched from `feat/time-models`; **merged 2026-10-17 as `7c6ca81`**, after
+T19 as `2f476e0`. Fabio: "Priority is fixing all the bugs we have until now"; he allowed the work to be
 split across sessions. **Order:**
 
 1. ✅ **Bug hunt, all areas** — BUG-066 to BUG-073 logged; all but BUG-073 (a hosting decision) fixed,
@@ -190,8 +190,9 @@ split across sessions. **Order:**
      around — fix. There is no password endpoint yet: add change-password, limited.
    - Password leak check and real minimum requirements — HIBP range API (k-anonymity), a common-password
      list, not the email or name, BCrypt's 72-byte ceiling enforced.
-4. Docs, mutation checks, full suites, fresh clone, report; wait for "merge". **Open for Fabio:** BUG-073 —
-   deploy page and API on one site (a Vercel rewrite of `/api`), or the cookies break.
+4. ✅ Docs, mutation checks, full suites, fresh clone; merged. **Deferred by Fabio (2026-10-17):** BUG-073 and
+   all hosting — "lets make the app perfect first". When it comes: page and API on one site (a Vercel
+   rewrite of `/api`), or the cookies break.
 
 ### Unified roadmap — Session 017, 2026-10-04 (DEC-041)
 
@@ -243,7 +244,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 |---|---|---|---|---|
 | T17 | ~~**Blocks**~~ | T11, T12 | I-30–37 | ✅ Session 017 (DEC-061), **merged 2026-10-17 as `35b0de5`**: measured first (≈ 1 order block per 30 candles, breakers 0.4, mitigation blocks 0.5, three breakers in four unicorns; the draft's rejection block a third of all swings, so a long wick is now measured against the average candle too: 0.5 per 30); `ob-1.0.0`, `breaker-1.0.0`, `mitigation-1.0.0`, `rejection-1.0.0`, `unicorn-1.0.0`, each followed for its life (FORMED → TAPPED → MEAN_THRESHOLD → INVALIDATED, or EXPIRED after 500); five switches; the overlay draws a block on while it stands, its mean threshold dashed (`midHalfTicks` on the wire), zones named where they come into view. Propulsion, vacuum and the PD matrix are not rules; drills for blocks later. |
 | T18 | ~~**Ranges and Fibonacci**~~ | T11 | I-40–44 | ✅ Session 017 (DEC-062), **merged 2026-10-17 as `8cf18bc`**: one leg read four ways — a displacement that breaks structure, from where it began to the first intermediate-term turn (measured: 0.7 per 30 candles; a one-candle turn left within 7 candles, the intermediate-term one within 10–11, kept); `dealing-range-1.0.0` (equilibrium line, broken high or low), `pd-1.0.0` (premium and discount halves), `ote-1.0.0` (62–79%, 70.5% line, tapped; 64% of legs retrace into it), `stdev-1.0.0` (−1, −2, −2.5, −4); four switches. ICT-43's Fibonacci tool was T8. |
-| T19 | ~~**Time models and profiles**~~ | T7, T11 | I-53–57, I-62–65 | ✅ Session 017 (DEC-063), on `feat/time-models`: every draft measured on two years of real NQ first, two changed — `po3-1.0.0` (the midnight-to-17:00 day; 52% fit), `daily-profile-1.0.0` (London 00:00–08:30 against New York; London low 33%, London high 25%, New York reversal 39%), `weekly-profile-1.0.0` (the weekday of the extreme against the close, when first; Monday 48%, Tuesday 20%), `judas-1.0.0` (a level still resting at the window's open taken, then a close back through the open; London 60% of days, New York 12% — the draft's any-swing reading fired in 90–95%); `ipda-1.0.0` on the clock (20/40/60-day highs and lows from one SQL row per trading day, within one contract: drawn on 70 / 39 / 7% of days). Four setup switches and an IPDA clock switch. The Silver Bullet and macro windows were T7's (`sessions-1.0.0`). |
+| T19 | ~~**Time models and profiles**~~ | T7, T11 | I-53–57, I-62–65 | ✅ Session 017 (DEC-063), **merged 2026-10-17 as `2f476e0`**: every draft measured on two years of real NQ first, two changed — `po3-1.0.0` (the midnight-to-17:00 day; 52% fit), `daily-profile-1.0.0` (London 00:00–08:30 against New York; London low 33%, London high 25%, New York reversal 39%), `weekly-profile-1.0.0` (the weekday of the extreme against the close, when first; Monday 48%, Tuesday 20%), `judas-1.0.0` (a level still resting at the window's open taken, then a close back through the open; London 60% of days, New York 12% — the draft's any-swing reading fired in 90–95%); `ipda-1.0.0` on the clock (20/40/60-day highs and lows from one SQL row per trading day, within one contract: drawn on 70 / 39 / 7% of days). Four setup switches and an IPDA clock switch. The Silver Bullet and macro windows were T7's (`sessions-1.0.0`). |
 | T20 | **SMT divergence** | T2, T11 | I-66 | NQ vs ES. First an ES instrument row (migration) and `ES` in `MassiveImporter.ROOTS`, then import ES like NQ. |
 | T21 | **Evidence views** | T10–T19 | I S-6 | How often each concept's claim held on real NQ, with sample size — never framed as an edge. |
 
@@ -2366,3 +2367,9 @@ tests to missing pieces", four security questions, "priority is fixing all the b
 failures, 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 316/316, build clean. Waiting
 for Fabio to say merge — `feat/time-models` (T19) first, or this branch alone, which contains it. BUG-073 waits for
 the hosting decision.
+
+**2026-10-17 — T19 and the security pass merged.** Fabio: "lets push back on hosting and stuff like that lets
+make the app perfect first. merge whats not merged and then continue with tasks". `feat/time-models` merged
+`--no-ff` as `2f476e0`, then `fix/bugs-and-security` as `7c6ca81`. Hosting, deployment (T31) and BUG-073
+wait until the app is finished. Next: T21, evidence views. T20 (SMT) needs ES imported from Massive's free plan
+first — asked of Fabio, not done unasked.

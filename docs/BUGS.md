@@ -19,7 +19,8 @@
 
 ### BUG-073 🟠 Deployed on two sites, the page could not send the CSRF token, and Safari would drop the session
 
-**Status:** reasoned (session 017's security pass, 2026-10-17) — not deployed, so not reproduced
+**Status:** reasoned (session 017's security pass, 2026-10-17) — not deployed, so not reproduced. **Deferred by
+Fabio** with all hosting until the app is finished (2026-10-17)
 **Affects:** the planned deployment (DEC-002: the SPA on Vercel, the API on its own host); `client.ts`,
 `SecurityConfig`, `CookieService`
 
