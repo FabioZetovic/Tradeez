@@ -2361,3 +2361,8 @@ tests to missing pieces", four security questions, "priority is fixing all the b
   page under its CSP signs in, draws the chart, Learn, Practice and Drills, and an injected inline script is
   blocked. A launch configuration serves the built page (tradeez-frontend-built, port 4173).
 - Backend 517 → 553, frontend 305 → 316.
+
+**2026-10-17 — Fresh-clone check of `c5aa35c`** (`fix/bugs-and-security`), no `.env`: backend 553 test cases, 0
+failures, 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 316/316, build clean. Waiting
+for Fabio to say merge — `feat/time-models` (T19) first, or this branch alone, which contains it. BUG-073 waits for
+the hosting decision.
