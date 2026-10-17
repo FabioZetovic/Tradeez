@@ -1038,6 +1038,19 @@ describe('Practice — real NQ behind a hidden date (T4, DEC-025)', () => {
     })
   })
 
+  it('BUG-067: never offers Asia on a Friday, when the market is shut', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    const session = await screen.findByRole('combobox', { name: /^session/i })
+    const day = screen.getByRole('combobox', { name: /^day/i })
+    await user.selectOptions(session, 'ASIA')
+    expect(screen.getByRole('option', { name: 'Friday' })).toBeDisabled()
+    expect(screen.getByRole('option', { name: 'Thursday' })).toBeEnabled()
+    await user.selectOptions(session, 'LONDON')
+    await user.selectOptions(day, 'FRIDAY')
+    expect(screen.getByRole('option', { name: /^Asia/ })).toBeDisabled()
+  })
+
   it('shows New York wall-clock time and keeps the date hidden', async () => {
     const adapter = new FakeChartAdapter()
     const user = userEvent.setup()

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { login as apiLogin, logout as apiLogout, register as apiRegister, restoreSession, type User }
-  from '@/lib/api/auth'
+import {
+  changePassword as apiChangePassword,
+  login as apiLogin,
+  logout as apiLogout,
+  logoutEverywhere as apiLogoutEverywhere,
+  register as apiRegister,
+  restoreSession,
+  type User,
+} from '@/lib/api/auth'
 import { setSessionExpiredHandler } from '@/lib/api/client'
 
 type State =
@@ -70,5 +77,20 @@ export function useSession() {
     }
   }, [])
 
-  return { state, login, register, logout }
+  /** Every device, this one included (DEC-064's account menu). Signed out here even if the request failed. */
+  const logoutEverywhere = useCallback(async () => {
+    try {
+      await apiLogoutEverywhere()
+    } finally {
+      setState({ status: 'signedOut' })
+    }
+  }, [])
+
+  /** The server renews this session's cookies and signs out every other one. */
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const user = await apiChangePassword({ currentPassword, newPassword })
+    setState({ status: 'signedIn', user })
+  }, [])
+
+  return { state, login, register, logout, logoutEverywhere, changePassword }
 }

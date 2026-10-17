@@ -129,6 +129,29 @@ describe('App — signed out', () => {
     expect(await screen.findByLabelText(/display name/i)).toBeInTheDocument()
   })
 
+  it('DEC-064: registration ticks password-1.0.0 off as it is typed, and shows the server’s refusal', async () => {
+    mockApi({
+      ...signedOut,
+      '/api/auth/register': {
+        status: 400,
+        body: { message: 'Choose a different password. It has appeared in known data breaches 42 times.' },
+      },
+    })
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: /create an account instead/i }))
+    await userEvent.type(screen.getByLabelText(/display name/i), 'Marta')
+    await userEvent.type(screen.getByLabelText(/email/i), 'marta@example.com')
+    const password = screen.getByLabelText(/^password$/i)
+    await userEvent.type(password, 'marta')
+    expect(password).toHaveAccessibleDescription(/At least 12 characters, not yet/)
+    expect(screen.getByText(/Not your email/)).toHaveTextContent(', not yet')
+    await userEvent.clear(password)
+    await userEvent.type(password, 'blue lanterns over the harbour')
+    expect(screen.getByText(/Not your email/)).toHaveTextContent(', met')
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('appeared in known data breaches 42 times')
+  })
+
   it('surfaces the server message verbatim on a failed sign-in', async () => {
     // The backend returns the same wording for a wrong password and an unknown account so the API
     // cannot be used to discover which addresses exist. Rewording it here would undo that.
@@ -309,5 +332,32 @@ describe('App — signed in', () => {
     for (const [, init] of calls) {
       expect((init as RequestInit).credentials).toBe('include')
     }
+  })
+
+  it('DEC-064: the account menu changes the password, and signs out of every device', async () => {
+    mockApi({
+      ...signedIn,
+      '/api/auth/password': { body: { ...USER, displayName: 'Fabio' } },
+      '/api/auth/logout-all': { status: 204, body: {} },
+    })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Fabio' }))
+    await userEvent.type(screen.getByLabelText('Current password'), 'a-perfectly-fine-passphrase')
+    await userEvent.type(screen.getByLabelText('New password'), 'blue lanterns over the harbour')
+    await userEvent.click(screen.getByRole('button', { name: 'Change password' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Password changed')
+    const sent = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(([url]) =>
+      String(url).endsWith('/api/auth/password'),
+    )
+    const init = sent?.[1] as RequestInit | undefined
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({
+      currentPassword: 'a-perfectly-fine-passphrase',
+      newPassword: 'blue lanterns over the harbour',
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out of every device' }))
+    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(requests('/api/auth/logout-all')).toHaveLength(1)
   })
 })
