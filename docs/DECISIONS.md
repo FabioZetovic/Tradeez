@@ -887,6 +887,43 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-065 — Evidence: every rule counted over the whole history, as base rates, never as an edge**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-17), T21 — S-6
+
+Every lesson card shows examples a rule found at random; one example says nothing about how often the
+pattern behaves the way the curriculum says. **evidence-1.0.0** counts each rule over the whole imported
+history of real NQ and puts the counts on the concept's card, between the rule and the examples:
+
+- **Every rule** — its hits, and how many per 100 candles.
+- **Lives** — the rules that follow their zones (`fvg-state`, the five blocks, `dealing-range`, `pd`,
+  `ote`, `liquidity`) emit one row per state reached. A life counts once it is over: a final state, or
+  its 500 candles passed inside the data. One still running when the data ends, or begun before it, is
+  left out — not guessed at. A leg's range is read as left **past its end** (the move went on) or **past
+  its start** (it turned), from its direction; premium and discount halves by their range's high and low.
+- **Kinds** — how the hits divide: BOS against CHoCH, a sweep against a run, bullish against bearish.
+- **Periods** — the time rules (T19) against the days, weeks or opening windows in the data, so a
+  "Tuesday low of the week" is a share of weeks, not of hits.
+
+It is a pure function of a rule and the candles, split at contract rolls as the chart splits them
+(`EvidenceCalculator`): the same rule that draws the chart does the counting. A rule says which
+timeframes it reads (`Detector.runsOn`), so a daily profile is not reported as "none in 507 days" on
+the hour. Counted on 1m, 5m, 15m and 1h — 697,003 one-minute candles in 18 s, 5m in 5 s — in the
+background after start-up, and kept in `rule_evidence` (V18) until the data grows, a rule's version
+changes or the counting's does. Never for a simulated market (INVARIANT 8b). Every card ends on what the
+numbers are not: a description of these dates, not a forecast and not a reason to trade (INVARIANT 8).
+
+**What two years of real NQ say** (5m; 1m, 15m and 1h within a few points): fair value gaps about 11
+per 100 candles; of the ended gaps 97% were traded into, 95% reached their middle, 94% were filled, 91%
+inverted, 6% were unfilled after 500 candles. 95% of swing liquidity levels were taken. Order blocks: 92%
+traded into, 83% invalidated, 17% still standing after 500 candles. Dealing ranges were left past their end
+59% of the time, past their start 41%; the OTE was reached in 64% of them. Takes of a liquidity level: 74%
+sweeps, 26% runs. The time rules agree with T19's measurements (DEC-063). These match what the earlier
+decisions measured by hand, now computed by the app itself.
+
+**Not in this decision:** reach rates the detectors do not emit — equilibrium reached, standard deviation
+levels reached, the liquidity-first base rate of `predict-1.0.0` — which need their own counting; an
+overview of every rule on one screen; and evidence per weekday or killzone (the journal's job, T25).
+
 **DEC-064 — Passwords and sign-in: password-1.0.0, a breach check, a password change, a believable address**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-17), at Fabio's request — extends DEC-032
 

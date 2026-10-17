@@ -1784,6 +1784,18 @@ other device out. One problem is left for a decision: deployed with the page and
 different web addresses, as planned, the browser would block the cookies the sign-in relies on — the
 fix is to serve both from one address, which depends on the host Fabio chooses.
 
+**Evidence.** A lesson card shows real examples of a pattern, picked at random — but one example says
+nothing about how often the pattern does what the course claims. So the app now counts every rule over the
+whole two years of imported NQ, on four chart sizes, and shows the result on each card before the
+examples: how often the pattern appears, and what happened afterwards. A few results: a fair value gap
+appears about eleven times per hundred five-minute candles, and nineteen in twenty of them were later
+filled — most then crossed entirely; ninety-five in a hundred swing highs and lows had their stops taken;
+an "order block" was broken through more than four times in five; a measured price range was left in the
+direction of the move six times in ten. The numbers barely change between one-minute and one-hour candles.
+They agree with what earlier tasks measured by hand, and the counting is done by the same rules that draw
+the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
+sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app

@@ -42,6 +42,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   named by the rule that found it, its parameters measured on real NQ. The clock's reference levels end
   where they were taken, and it can draw ICT's 20-, 40- and 60-day ranges (IPDA) within one contract. Off by default; in a replay, only what was known by the cursor. Every detector is
   checked to be causal, and the list of concepts comes straight from `docs/ICT_CONCEPTS.md`.
+- **Evidence** (DEC-065): every rule counted over the whole imported history — how often it fires, how
+  its zones' lives ended (filled, invalidated, left past their end), how its kinds divide — on each
+  concept's lesson card, as base rates with their sample sizes, never as a forecast.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date
   hidden** until the session ends (only the weekday and New York time are shown, DEC-045). Step it
