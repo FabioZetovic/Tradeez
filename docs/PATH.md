@@ -2402,3 +2402,7 @@ first — asked of Fabio, not done unasked.
 - Checked live at 1920 px: the ICT-22 card reads its gaps' lives, ICT-64 its days; the timeframe switch offers
   only what the rule reads.
 - Backend 553 → 567, frontend 316 → 318.
+
+**2026-10-17 — Fresh-clone check of `9e7067b`** (`feat/evidence`), no `.env`: backend 567 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 318/318, build clean. Waiting for Fabio
+to say merge; T22 continues on `feat/plans`, branched from this.
