@@ -45,9 +45,14 @@ public final class OpeningGapDetector extends RuleDetector {
 	}
 
 	@Override
+	public boolean runsOn(Timeframe timeframe) {
+		return timeframe.duration().compareTo(Duration.ofHours(1)) <= 0;
+	}
+
+	@Override
 	public List<Detection> detect(List<Bar> segment, Timeframe timeframe) {
 		List<Detection> found = new ArrayList<>();
-		if (timeframe.duration().compareTo(Duration.ofHours(1)) > 0) {
+		if (!runsOn(timeframe)) {
 			return found;
 		}
 		for (int i = 1; i < segment.size(); i++) {

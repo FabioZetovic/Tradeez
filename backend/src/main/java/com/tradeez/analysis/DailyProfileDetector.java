@@ -46,9 +46,14 @@ public final class DailyProfileDetector extends RuleDetector {
 	}
 
 	@Override
+	public boolean runsOn(Timeframe timeframe) {
+		return TIMEFRAMES.contains(timeframe);
+	}
+
+	@Override
 	public List<Detection> detect(List<Bar> segment, Timeframe timeframe) {
 		List<Detection> found = new ArrayList<>();
-		if (!TIMEFRAMES.contains(timeframe)) {
+		if (!runsOn(timeframe)) {
 			return found;
 		}
 		for (Span day : Periods.midnightDays(segment, timeframe)) {

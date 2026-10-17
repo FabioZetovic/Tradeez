@@ -26,7 +26,21 @@ public final class LessonDtos {
 		String version,
 		Map<String, Object> parameters,
 		String definition,
-		String methodologySource) {
+		String methodologySource,
+		@Schema(description = "What the rule found over the whole imported history, per timeframe (T21); empty until "
+			+ "counted") List<EvidenceView> evidence) {
+	}
+
+	@Schema(description = "A rule counted over a market's history: base rates, never a forecast (T21, DEC-065)")
+	public record EvidenceView(
+		String timeframe,
+		@Schema(description = "evidence-1.0.0") String version,
+		long from,
+		long to,
+		long candles,
+		@Schema(description = "Lives for a rule that follows its zones, detections otherwise") long hits,
+		@Schema(description = "The counts in words, ending on what they are not") List<String> lines,
+		long computedAt) {
 	}
 
 	@Schema(description = "A drill that practises the concept")

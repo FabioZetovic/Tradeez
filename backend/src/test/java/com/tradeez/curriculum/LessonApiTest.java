@@ -28,6 +28,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.tradeez.AbstractIntegrationTest;
 import com.tradeez.ThreeWeeksOfNq;
+import com.tradeez.evidence.EvidenceService;
+import com.tradeez.evidence.EvidenceText;
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
 import com.tradeez.identity.RefreshTokenRepository;
@@ -62,6 +64,9 @@ class LessonApiTest extends AbstractIntegrationTest {
 
 	@Autowired
 	MarketDataService marketData;
+
+	@Autowired
+	EvidenceService evidence;
 
 	private Cookie alice;
 
@@ -199,6 +204,28 @@ class LessonApiTest extends AbstractIntegrationTest {
 			.andReturn().getResponse().getContentAsString());
 		List<Long> times = times(oneMinute.at("/examples/0"));
 		assertThat(times.get(1) - times.get(0)).isEqualTo(60);
+	}
+
+	@Test
+	@DisplayName("T21: each rule carries what it found over the whole history, per timeframe, once counted")
+	void evidence() throws Exception {
+		jdbc.update("DELETE FROM rule_evidence");
+		assertThat(lesson("ICT-22").at("/rules/0/evidence")).isEmpty();
+
+		evidence.refresh(marketData.requireInstrument("NQ"));
+		JsonNode counted = lesson("ICT-22").at("/rules/0/evidence");
+		assertThat(counted.findValuesAsString("timeframe")).containsExactly("1m", "5m", "15m", "1h");
+		JsonNode fiveMinutes = counted.get(1);
+		assertThat(fiveMinutes.get("version").asString()).isEqualTo("evidence-1.0.0");
+		assertThat(fiveMinutes.get("hits").asLong()).isPositive();
+		assertThat(fiveMinutes.get("to").asLong()).isGreaterThan(fiveMinutes.get("from").asLong());
+		JsonNode lines = fiveMinutes.get("lines");
+		assertThat(lines.get(0).asString()).startsWith("NQ, 5-minute candles, 27 Apr 2025 to");
+		assertThat(lines.get(1).asString()).contains("gaps — about");
+		assertThat(lines.get(2).asString()).startsWith("Of the ").contains("whose life ended within the data");
+		assertThat(lines.get(lines.size() - 1).asString()).isEqualTo(EvidenceText.NOT_A_FORECAST);
+		// A concept read by a clock rule, not a detector, has no rule card to count.
+		assertThat(lesson("ICT-50").get("rules")).isEmpty();
 	}
 
 	@Test

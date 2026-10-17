@@ -1404,7 +1404,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | S-3 | Overlay renderer | Zones (rectangle + CE line), levels (labelled lines), swing markers, session shading — drawn from detected setups, never past the replay cursor. ✅ T9 (DEC-049) for zones, levels and points; session shading is the clock layer (T7). |
 | S-4 | Drill engine | Modes A, B and C for any detector, real data only, explanations rendered from evidence. Generalises the FVG drill. ✅ T13 (DEC-054) for modes A and B: ten drills over eight rules, graded on real NQ, each hit explained from its evidence; a hit the window cuts is excused, not counted. Mode C ✅ T15 (DEC-058): two prediction drills, the future withheld until the answer and graded by what real price did. |
 | S-5 | Learning state | Attempts, per-concept rating, spaced repetition, unlocks (INVARIANT 8b). |
-| S-6 | Evidence engine | Batch statistics per rule over the imported history, with sample size and date range; worded as description, never as edge. |
+| S-6 | Evidence engine | Batch statistics per rule over the imported history, with sample size and date range; worded as description, never as edge. ✅ T21 (DEC-065): `evidence-1.0.0` counts every rule on 1m–1h of real NQ — hits per 100 candles, how lives ended, kinds, and the time rules against days, weeks and windows — on each concept's lesson card. |
 | S-7 | Practice for ICT | Replay paper-trading mode; plan fields for model, DOL, bias, killzone; checklist checked at the decision moment; review overlay. |
 | S-8 | New York clock | Session calendar in New York time with DST tests, including the US/EU mismatch weeks. |
 
@@ -1424,7 +1424,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-40 – ICT-44 | `dealing-range`, `pd`, `ote`, `stdev` | range, equilibrium, OTE zone | A, B, C | premium/discount fact in review | T18 ✅ (detectors, overlay; drills and the plan's premium/discount fact later) |
 | ICT-53, ICT-54, ICT-57, ICT-62 – ICT-65 | `po3`, `judas`, `daily-profile`, `weekly-profile`, `ipda` | windows, labels | B, C | G: profile distributions | T19 ✅ (detectors, the IPDA clock rule, overlay; drills and the profile distributions later — DEC-063) |
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |
-| (all) | — | — | — | S-6 Evidence views | T21 |
+| (all) | — | — | — | S-6 Evidence views | T21 ✅ (on every lesson card — DEC-065; reach rates the detectors do not emit, such as equilibrium reached, later) |
 | ICT-60, ICT-61, ICT-70 – ICT-78 | model compositions | model checklist | D | checklist at decision time | T22 |
 | ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 – T28 |
 
