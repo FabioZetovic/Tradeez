@@ -32,6 +32,11 @@ export interface Setup {
   /** Integer ticks (INVARIANT 3). */
   lowTicks: number
   highTicks: number
+  /**
+   * The line through a zone, in half-ticks: a gap's CE, a block's mean threshold — the middle of its
+   * bodies rather than of its range (T17).
+   */
+  midHalfTicks: number
 }
 
 export interface SetupLayer {

@@ -23,6 +23,10 @@ const LABELS: Record<string, string> = {
   EQHL: 'EQH/EQL',
   SWEEP: 'Sweep/run',
   TURTLE_SOUP: 'Turtle soup',
+  BREAKER: 'Breaker',
+  MITIGATION: 'Mitigation',
+  REJECTION: 'Rejection',
+  UNICORN: 'Unicorn',
 }
 
 /** Every rule starts off: a learner should find a gap before being shown one. */
