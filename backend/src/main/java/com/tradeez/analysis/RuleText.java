@@ -156,8 +156,33 @@ public final class RuleText {
 			case "UNICORN" -> "A breaker (" + p.get("breakerRule") + ") overlapped in price by the "
 				+ p.get("gapRule") + " gap its own displacement left: the zone is the overlap, the mean "
 				+ "threshold its middle. Known with the breaker. " + life(p);
+			case "DEALING_RANGE" -> "Bullish: a " + p.get("displacementRule") + " move up in which a candle is the "
+				+ "first to close above the latest swing high (strength " + p.get("strength") + "). The leg starts at "
+				+ "the lowest low between that swing and the move, and ends at the first intermediate-term swing high "
+				+ "(swing-tier-1.0.0) at or after the breaking candle, where price turned. Known when that turn is, "
+				+ "and only while price is still inside; when two moves reach one turn, the earlier is read. The range "
+				+ "runs from the leg's start to its end, its middle the equilibrium; everything read lies within "
+				+ p.get("maxSpanCandles") + " candles. Bearish mirrors it. " + rangeLife(p);
+			case "PD" -> "The range of " + p.get("rangeRule") + " split at its equilibrium, " + p.get("equilibriumPercent")
+				+ "% of the way from its low to its high, in half-ticks: above it premium, below it discount. On a "
+				+ "range an odd number of ticks tall equilibrium falls between two ticks and belongs to neither half. "
+				+ rangeLife(p);
+			case "OTE" -> "Of the leg of " + p.get("rangeRule") + ": the zone from " + p.get("nearPercent") + "% to "
+				+ p.get("farPercent") + "% of the way back from its end toward its start, rounded outward to whole "
+				+ "ticks, its line at " + p.get("linePercent") + "%. After a leg up, a zone below price. Tapped when a "
+				+ "candle trades into it. " + rangeLife(p);
+			case "STDEV" -> "Of the leg of " + p.get("rangeRule") + ": levels whole leg-lengths beyond its end, in its "
+				+ "direction — " + p.get("multiples") + " (the leg's length once, twice, two and a half and four times "
+				+ "past the end). A level between two ticks is rounded away from the leg. Known with the leg; "
+				+ "everything read lies within " + p.get("maxSpanCandles") + " candles.";
 			default -> throw new IllegalArgumentException("No words for rule " + detector.id());
 		};
+	}
+
+	/** What happens to a range after it forms, the same for every rule read from its leg (T18). */
+	private static String rangeLife(Map<String, Object> p) {
+		return "It lasts as long as its range: until a candle closes above the range's high or below its low; "
+			+ "one still whole " + p.get("maxAgeCandles") + " candles after it formed has expired.";
 	}
 
 	/** What happens to a block after it forms, the same for every block rule (T17). */
@@ -200,9 +225,26 @@ public final class RuleText {
 					case "MEAN_THRESHOLD" -> ", mean threshold lost";
 					default -> ", " + kind.toLowerCase(Locale.ROOT);
 				};
+			case "DEALING_RANGE", "OTE" -> way + ("OTE".equals(s.getDetector()) ? " OTE" : " dealing range") + rangeState(kind);
+			case "PD" -> ("BEARISH".equals(s.getDirection()) ? "Premium" : "Discount") + rangeState(kind);
+			case "STDEV" -> "Standard deviation " + DEVIATIONS.get(kind);
 			default -> s.getDetector();
 		};
 	}
+
+	/** A range's state as a label adds it: nothing when it forms. */
+	private static String rangeState(String kind) {
+		return switch (kind) {
+			case "FORMED" -> "";
+			case "BROKEN_HIGH" -> ", high broken";
+			case "BROKEN_LOW" -> ", low broken";
+			default -> ", " + kind.toLowerCase(Locale.ROOT);
+		};
+	}
+
+	/** stdev-1.0.0's kinds, which can hold no digits, as the multiples they are. */
+	private static final Map<String, String> DEVIATIONS = Map.of("ONE", "−1", "TWO", "−2", "TWO_AND_A_HALF", "−2.5",
+		"FOUR", "−4");
 
 	/** Why the hit qualified, in the rule's own numbers. */
 	public static List<String> explain(DetectedSetup s, BigDecimal tickSize) {
@@ -245,6 +287,14 @@ public final class RuleText {
 			}
 			case "SWEEP" -> sweep(s, e, price);
 			case "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN" -> block(s, e, price, bullish);
+			case "DEALING_RANGE", "PD", "OTE" -> range(s, e, price);
+			case "STDEV" -> {
+				boolean up = n(e, "endPrice") > n(e, "startPrice");
+				yield List.of(leg(e, price, up) + " " + DEVIATIONS.get(s.getKind()).substring(1) + " leg-lengths "
+					+ (up ? "above" : "below") + " its end is " + price.of(s.getZoneLowTicks()) + ": the "
+					+ DEVIATIONS.get(s.getKind()) + " standard deviation projection, "
+					+ ticks(Math.abs(s.getZoneLowTicks() - n(e, "endPrice"))) + " beyond the end.");
+			}
 			case "TURTLE_SOUP" -> {
 				boolean highs = "BEARISH".equals(s.getDirection());
 				yield List.of("This candle traded " + (highs ? "above" : "below") + " the equal " + (highs ? "highs" : "lows")
@@ -544,6 +594,51 @@ public final class RuleText {
 						+ "middle is at " + mean + ".");
 			}
 			default -> List.of();
+		};
+	}
+
+	/** The leg a range rule reads, in a sentence: where it began, what it broke, where it turned (T18). */
+	private static String leg(Map<String, Object> e, Prices price, boolean up) {
+		return "A displacement " + (up ? "up" : "down") + " closed " + (up ? "above" : "below") + " the swing "
+			+ (up ? "high" : "low") + " at " + price.of(n(e, "brokenPrice")) + "; the leg ran from " + price.of(n(e, "startPrice"))
+			+ " to " + price.of(n(e, "endPrice")) + ", where it turned — " + ticks(Math.abs(n(e, "endPrice") - n(e, "startPrice")))
+			+ ".";
+	}
+
+	/** A dealing range, a half of one, or an OTE: forming in its numbers, a later state by the candle that did it. */
+	private static List<String> range(DetectedSetup s, Map<String, Object> e, Prices price) {
+		boolean up = n(e, "endPrice") > n(e, "startPrice");
+		long low = Math.min(n(e, "startPrice"), n(e, "endPrice"));
+		long high = Math.max(n(e, "startPrice"), n(e, "endPrice"));
+		String eq = price.ofHalf(low + high);
+		String what = switch (s.getDetector()) {
+			case "PD" -> "BEARISH".equals(s.getDirection()) ? "Premium" : "Discount";
+			case "OTE" -> "The OTE";
+			default -> "The dealing range";
+		} + " from " + price.of(s.getZoneLowTicks()) + " to " + price.of(s.getZoneHighTicks());
+		String close = price.of(n(e, "candleCloseTicks"));
+		return switch (s.getKind()) {
+			case "FORMED" -> switch (s.getDetector()) {
+				case "PD" -> List.of(leg(e, price, up), "BEARISH".equals(s.getDirection())
+					? "Above its equilibrium at " + eq + ", from " + price.of(s.getZoneLowTicks()) + " to " + price.of(high)
+						+ ", is premium — where ICT looks to sell."
+					: "Below its equilibrium at " + eq + ", from " + price.of(low) + " to " + price.of(s.getZoneHighTicks())
+						+ ", is discount — where ICT looks to buy.");
+				case "OTE" -> List.of(leg(e, price, up), "62% to 79% of the way back, rounded outward, is "
+					+ price.of(s.getZoneLowTicks()) + " to " + price.of(s.getZoneHighTicks()) + ": the optimal trade entry, its "
+					+ "line at 70.5% — " + price.ofHalf(n(e, "midHalfTicks")) + ".");
+				default -> List.of(leg(e, price, up), "The dealing range runs from " + price.of(low) + " to " + price.of(high)
+					+ ", its equilibrium at " + eq + ".");
+			};
+			case "TAPPED" -> List.of(what + ": a later candle traded " + (up ? "down to " + price.of(n(e, "candleLowTicks"))
+				: "up to " + price.of(n(e, "candleHighTicks"))) + ", into it — tapped.");
+			case "BROKEN_HIGH" -> List.of(what + ": a later candle closed at " + close + ", above the range's high at "
+				+ price.of(high) + " — the range is left.");
+			case "BROKEN_LOW" -> List.of(what + ": a later candle closed at " + close + ", below the range's low at "
+				+ price.of(low) + " — the range is left.");
+			case "EXPIRED" -> List.of(what + ": the range was still whole " + s.getParams().get("maxAgeCandles")
+				+ " candles after it formed — the rule stops following it.");
+			default -> List.of(what + ".");
 		};
 	}
 

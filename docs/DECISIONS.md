@@ -887,6 +887,55 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-062 — Ranges: one leg, read four ways** `IMPLEMENTED` · Claude, Session 017 (2026-10-17), T18 —
+ICT-40, ICT-41, ICT-42, ICT-44
+
+The drafts each named a leg in their own words — the dealing range "the leg that produced the last
+displacement or MSS", the OTE "a move that shifted structure", the deviations "the MSS leg". They are
+one reading here, in one place (`Ranges`), so the four rules always speak of the same move:
+
+- **The leg**, bullish: a `displacement-1.0.0` move in which a candle is the first to close above the
+  latest swing high — the break `ob-1.0.0` reads (DEC-061). It **starts** at the lowest low between that
+  swing and the move, where the move began, and **ends** at the first intermediate-term swing high
+  (`swing-tier-1.0.0`) at or after the breaking candle: where price turned, as that rule ranks a turn.
+  Known when the rank is. A leg whose range price has already left by then is not reported; when two
+  moves reach one turn, the earlier is read; a candle that turned both ways ends only the range known
+  first. Everything within 300 candles (the rank's own span).
+
+Measured first on the two years of real NQ, 1m to 1h alike: about **0.7 legs per 30 candles**, 5–6
+average candles tall. The turn was the open question. A one-candle swing as the turn gives the
+displacement and little more — a range left within a median of 7 candles; the draft's
+intermediate-term turn gives 10–11, and is kept. Ranges are left beyond their end about **six times in
+ten**, beyond their start four; 8% are already left when their turn is ranked.
+
+The four rules:
+
+- **`dealing-range-1.0.0` (ICT-40)** — the leg's span, its line at equilibrium. Followed until a candle
+  closes above its high or below its low (`BROKEN_HIGH`, `BROKEN_LOW`), or `EXPIRED` after 500 candles.
+- **`pd-1.0.0` (ICT-41)** — the range split at equilibrium, in half-ticks: premium (a bearish zone) and
+  discount (a bullish one), each living as long as its range. On an odd range equilibrium lies between
+  two ticks and belongs to neither half. Price retraced to equilibrium in about 72% of ranges.
+- **`ote-1.0.0` (ICT-42)** — 62% to 79% back from the leg's end, rounded outward, its line at 70.5%;
+  `TAPPED` when traded into, over with the range. The draft read only the leg of an `mss-1.0.0`; a shift
+  is one kind of displacement that breaks structure, so it is included. Price retraced into it before
+  leaving the range in about 64% of legs, before a new extreme in 59%.
+- **`stdev-1.0.0` (ICT-44)** — −1, −2, −2.5 and −4 leg-lengths beyond the end, a half tick rounded away
+  from the leg; levels known with the leg. Within 500 candles and before price closed back beyond the
+  start, about a third reached −1, a fifth −2, one in six −2.5, one in ten −4. A description of the past.
+
+**Found while building it:** a candle that is both an intermediate-term high and low can end a bullish
+and a bearish range at once; premium halves of the two then shared a place — the contract test's
+one-per-place check caught it, hence one range per turn.
+
+**On the chart:** four switches. The range, its halves and its OTE run on until the range is left;
+deviation levels run until the next leg projects the same level the same way. The setups API sends a
+range's own line — equilibrium, the OTE's 70.5% — as `midHalfTicks`, as it does a block's mean
+threshold (DEC-061).
+
+Not in this decision: the session's manipulation leg or the CBDR as the leg to project (ICT-55, ICT-62,
+T19), drills on ranges (an ERL/IRL naming drill waited for this, DEC-058), and the plan's
+premium/discount fact (T22). And no claim that a level is a target that works (INVARIANT 8).
+
 **DEC-061 — Blocks: five rules, each followed for its life** `IMPLEMENTED` · Claude, Session 017
 (2026-10-16), T17 — ICT-30 to ICT-33, ICT-36
 

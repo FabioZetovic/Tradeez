@@ -39,7 +39,12 @@ public final class SwingTierDetector extends RuleDetector {
 	}
 
 	/** A swing ranked above its neighbours: the span it read, and the candle that confirmed it. */
-	private record Ranked(Swing swing, int earliest, int confirmIndex) {
+	record Ranked(Swing swing, int earliest, int confirmIndex) {
+	}
+
+	/** The intermediate-term swings of one side — highs or lows of swing-1.0.0, in candle order — as this rule ranks them. */
+	static List<Ranked> intermediate(List<Swing> side) {
+		return rankUp(side.stream().map(s -> new Ranked(s, s.index() - N, s.confirmIndex(N))).toList());
 	}
 
 	@Override
@@ -47,10 +52,7 @@ public final class SwingTierDetector extends RuleDetector {
 		List<Swing> swings = SwingPoints.find(segment, N);
 		List<Detection> found = new ArrayList<>();
 		for (boolean high : new boolean[] { true, false }) {
-			List<Ranked> shortTerm = SwingPoints.side(swings, high).stream()
-				.map(s -> new Ranked(s, s.index() - N, s.confirmIndex(N)))
-				.toList();
-			List<Ranked> intermediate = rankUp(shortTerm);
+			List<Ranked> intermediate = intermediate(SwingPoints.side(swings, high));
 			List<Ranked> longTerm = rankUp(intermediate);
 			intermediate.forEach(r -> found.add(detection(segment, r, high ? "ITH" : "ITL", timeframe)));
 			longTerm.forEach(r -> found.add(detection(segment, r, high ? "LTH" : "LTL", timeframe)));

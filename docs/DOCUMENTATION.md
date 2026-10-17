@@ -1730,6 +1730,17 @@ whether it was broken. That is what lets the chart draw a block on to the right 
 it stands — in a replay too, without knowing what happens next. As everywhere else, the rules say only
 where ICT's description is met; whether blocks work is left to the evidence views still to come.
 
+**Ranges.** The next level is about where price sits within its latest move. ICT reads a "dealing
+range" from the last strong move that broke structure; its middle is "equilibrium", the half above it
+"premium" (where ICT sells) and the half below "discount" (where he buys); the "optimal trade entry" is
+a pullback to 62–79% of the move; and "standard deviations" project the move's length beyond its end
+as targets. The drafts each described that move in their own words, so Tradeez reads it once — from
+where the move began to where price turned — and builds all four on it. Measuring decided where "price
+turned" is: with the smallest kind of swing, a range was gone again within seven candles, barely more
+than the move itself; with ICT's "intermediate-term" swing it lasts ten or eleven, and price pulled back
+into the optimal trade entry about two times in three before leaving it. As with every rule, these
+numbers describe the past; they are not a promise that the levels work.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1746,8 +1757,8 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks): backend 223 → 492,
-frontend 148 → 300, V9 to V17, DEC-044 to DEC-061.*
+prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges): backend 223 → 499,
+frontend 148 → 302, V9 to V17, DEC-044 to DEC-062.*
 
 ---
 

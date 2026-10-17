@@ -72,6 +72,30 @@ describe('what each hit looks like on the chart', () => {
     expect(shapes).toEqual([expect.objectContaining({ to: 1800, label: 'Unicorn invalidated', faded: true })])
   })
 
+  it('T18: names premium and discount by their side, each on while its range stands; a range left stops, faded', () => {
+    const premium = setup({ detector: 'PD', kind: 'FORMED', direction: 'BEARISH', lowTicks: 117, highTicks: 136 })
+    const discount = setup({ detector: 'PD', kind: 'FORMED', direction: 'BULLISH', lowTicks: 97, highTicks: 116 })
+    const range = setup({ detector: 'DEALING_RANGE', kind: 'FORMED' })
+    const left = setup({ detector: 'DEALING_RANGE', kind: 'BROKEN_LOW', end: 1500, confirmedAt: 1800 })
+    const [high, low, dr] = toShapes(layer([premium, discount, range, left]), STEP)
+    expect(high).toMatchObject({ setup: premium, to: 'edge', label: 'Premium', faded: false })
+    expect(low).toMatchObject({ setup: discount, to: 'edge', label: 'Discount', faded: false })
+    expect(dr).toMatchObject({ setup: left, to: 1800, label: 'Range low broken', faded: true })
+  })
+
+  it('T18: runs a standard deviation level from its turn until the next leg projects the same level the same way', () => {
+    const level = (anchor: number, kind: string, direction: Setup['direction'] = 'BULLISH') =>
+      setup({ detector: 'STDEV', shape: 'LEVEL', kind, direction, start: anchor, anchor, end: anchor + 600, lowTicks: 200, highTicks: 200 })
+    const first = level(300, 'TWO')
+    const other = level(900, 'FOUR')
+    const opposite = level(1200, 'TWO', 'BEARISH')
+    const next = level(1500, 'TWO')
+    const shapes = toShapes(layer([first, other, opposite, next]), STEP)
+    expect(shapes[0]).toMatchObject({ setup: first, from: 300, to: 1500, label: 'SD −2' })
+    expect(shapes[1]).toMatchObject({ setup: other, to: 'edge', label: 'SD −4' })
+    expect(shapes[3]).toMatchObject({ setup: next, from: 1500, to: 'edge' })
+  })
+
   it('stops anything still in force at the next contract roll', () => {
     const live = setup({ detector: 'FVG_STATE', kind: 'CE' })
     const nwog = setup({ detector: 'OPENING_GAP', kind: 'NWOG', start: 0, anchor: 3600, end: 3600 })

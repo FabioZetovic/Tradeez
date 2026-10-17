@@ -58,8 +58,17 @@ public final class SetupDtos {
 				Detection.Direction.valueOf(s.getDirection()), s.getKind(), time.applyAsLong(s.getStartTime()),
 				time.applyAsLong(s.getAnchorTime()), time.applyAsLong(s.getEndTime()),
 				time.applyAsLong(s.getConfirmedAt()), s.getZoneLowTicks(), s.getZoneHighTicks(),
-				s.getEvidence().get("meanHalfTicks") instanceof Number mean ? mean.longValue()
-					: s.getZoneLowTicks() + s.getZoneHighTicks());
+				midline(s));
+		}
+
+		/** A block's mean threshold (T17), a range's own line — equilibrium, the OTE's 70.5% (T18) — or the middle. */
+		private static long midline(DetectedSetup s) {
+			for (String key : new String[] { "midHalfTicks", "meanHalfTicks" }) {
+				if (s.getEvidence().get(key) instanceof Number mid) {
+					return mid.longValue();
+				}
+			}
+			return s.getZoneLowTicks() + s.getZoneHighTicks();
 		}
 	}
 

@@ -60,7 +60,8 @@ class DetectorContractTest extends AbstractIntegrationTest {
 		assertThat(detectors.all()).extracting(Detector::id)
 			.containsExactlyInAnyOrder("BPR", "FVG", "FVG_STATE", "IFVG", "OPENING_GAP", "ORG", "VI", "VOID",
 				"SWING", "SWING_TIER", "STRUCTURE", "BOS_CHOCH", "DISPLACEMENT", "MSS",
-				"LIQUIDITY", "EQHL", "SWEEP", "TURTLE_SOUP", "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN");
+				"LIQUIDITY", "EQHL", "SWEEP", "TURTLE_SOUP", "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN",
+				"DEALING_RANGE", "PD", "OTE", "STDEV");
 		// Every switch on at once must still be one request the server accepts (found in T12: 18 > 16).
 		assertThat(SetupService.MAX_DETECTORS).isGreaterThanOrEqualTo(detectors.all().size());
 		for (Timeframe timeframe : SERIES.keySet()) {
