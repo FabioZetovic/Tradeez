@@ -53,6 +53,8 @@ interface PracticeSessionProps {
   initial?: SessionResponse
   onBack: () => void
   adapterFactory?: () => ChartAdapter
+  /** The learner's risk limit (T23), shown against each draft; absent when none is set. */
+  riskLimitCents?: number
 }
 
 /** How much of the history the chart opens on. Roughly a session's worth on 5m. */
@@ -75,7 +77,7 @@ const SPEED_LABELS = SPEEDS.map((s) => `${s}×`)
  * {@link PLAN_DRAWING_ID} — whose entry is pinned to the market price and which freezes when locked;
  * and each finished trade, drawn from entry to exit, which is the record and never editable.
  */
-export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: PracticeSessionProps) {
+export function PracticeSession({ sessionId, initial, onBack, adapterFactory, riskLimitCents }: PracticeSessionProps) {
   const {
     state,
     bars,
@@ -450,6 +452,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
             referenceTicks={referenceTicks}
             tickSize={state.tickSize}
             tickValueCents={state.tickValueCents}
+            riskLimitCents={riskLimitCents}
             busy={busy}
             onPlace={place}
             onFlip={flip}
@@ -501,11 +504,10 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
             </Button>
           </Panel>
         )}
-
-        {shownTrade?.result && (
-          <ResultCard state={state} trade={shownTrade} result={shownTrade.result} />
-        )}
       </div>
+
+      {/* Its own row: the scorecard's two sides need the width (T23). */}
+      {shownTrade?.result && <ResultCard state={state} trade={shownTrade} result={shownTrade.result} />}
 
       {(trades.length > 0 || status === 'COMPLETE') && (
         <TradeLog

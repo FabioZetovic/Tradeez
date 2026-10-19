@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ResultCard } from './ResultCard'
-import type { PracticeState, ResultView, TradeView } from '@/lib/api/practice'
+import type { PracticeState, ResultView, ScorecardView, TradeView } from '@/lib/api/practice'
 
 /**
  * The card a learner reads after every trade: how it ended, for how much, and why. NQ — a tick is
@@ -58,6 +58,21 @@ const TARGET: ResultView = {
   fillModelVersion: 'slip-1t/comm-250c',
 }
 
+/** What the server says about the target hit below (scorecard-1.0.0): one rule kept, one broken. */
+const SCORECARD: ScorecardView = {
+  version: 'scorecard-1.0.0',
+  outcome: [
+    { id: 'adverse', label: 'Worst point', text: '0.20R against you (2 ticks).' },
+    { id: 'favourable', label: 'Best point', text: '0.80R in your favour (8 ticks).' },
+  ],
+  process: [
+    { id: 'risk', label: 'Risk limit', text: 'Risked $50.00, $10.00 over your $40.00 limit.', verdict: 'BROKEN' },
+    { id: 'plan', label: 'Plan', text: '2 of 4 stated: a bias and a confidence.' },
+    { id: 'bias', label: 'Your bias', text: 'Long, with your bullish bias.', verdict: 'KEPT' },
+    { id: 'reward', label: 'Reward : risk', text: 'Planned 0.80 : 1.' },
+  ],
+}
+
 function card(result: ResultView, trade: TradeView = LONG) {
   render(<ResultCard state={STATE} trade={trade} result={result} />)
   return screen.getByRole('region', { name: 'Result' })
@@ -75,9 +90,6 @@ describe('the result of a trade', () => {
     expect(shown).toHaveTextContent('Exit20002.00')
     expect(shown).toHaveTextContent('Per contract8 ticks')
     expect(shown).toHaveTextContent('Commission$2.50')
-    // Worst and best point, also in R against the ten ticks risked.
-    expect(shown).toHaveTextContent('Worst point2 ticks (0.20R)')
-    expect(shown).toHaveTextContent('Best point8 ticks (0.80R)')
     expect(within(shown).queryByRole('note')).not.toBeInTheDocument()
     expect(screen.queryByTestId('gap-note')).not.toBeInTheDocument()
     // It named no model: no checklist to show (T22).
@@ -143,6 +155,41 @@ describe('the result of a trade', () => {
     expect(shown).toHaveTextContent('Short3 contracts')
     expect(screen.getByTestId('result-net')).toHaveTextContent('$142.50')
     expect(shown).toHaveTextContent('Commission$7.50')
+  })
+
+  it('T23: the scorecard — outcome and process side by side, a tick or a cross only on the learner\'s own rules', () => {
+    card(TARGET, { ...LONG, scorecard: SCORECARD })
+    const outcome = screen.getByRole('region', { name: 'Outcome' })
+    const process = screen.getByRole('region', { name: 'Process' })
+    // The money and R on the outcome side; the worst and best point in R against the ten ticks risked.
+    expect(within(outcome).getByTestId('result-r')).toHaveTextContent('+0.80R')
+    expect(within(outcome).getByTestId('score-adverse')).toHaveTextContent('Worst point0.20R against you (2 ticks).')
+    expect(within(outcome).getByTestId('score-favourable')).toHaveTextContent('Best point0.80R in your favour (8 ticks).')
+    // As prominent on the process side: the learner's own rules, counted.
+    expect(within(process).getByTestId('result-rules')).toHaveTextContent('Your rules: 1 of 2 broken')
+    expect(within(process).getByTestId('result-rules')).toHaveClass('text-down')
+    const risk = within(process).getByTestId('score-risk')
+    expect(risk).toHaveTextContent('✗ Risked $50.00, $10.00 over your $40.00 limit. Broken.')
+    expect(risk.lastElementChild).toHaveClass('text-down')
+    expect(within(process).getByTestId('score-bias')).toHaveTextContent('✓ Long, with your bullish bias. Kept.')
+    // A statement judges nothing: no mark, no colour.
+    const reward = within(process).getByTestId('score-reward')
+    expect(reward).toHaveTextContent('Reward : riskPlanned 0.80 : 1.')
+    expect(reward).not.toHaveTextContent(/[✓✗]/)
+    expect(reward.lastElementChild).not.toHaveClass('text-up')
+    expect(screen.getByText(/nothing here is added up into one score/)).toHaveTextContent('scorecard-1.0.0.')
+  })
+
+  it('T23: every rule kept reads as kept; no rules to check reads as none', () => {
+    const kept = { ...SCORECARD, process: SCORECARD.process.filter((l) => l.verdict !== 'BROKEN') }
+    const { unmount } = render(<ResultCard state={STATE} trade={{ ...LONG, scorecard: kept }} result={TARGET} />)
+    expect(screen.getByTestId('result-rules')).toHaveTextContent('Your rules: 1 of 1 kept')
+    expect(screen.getByTestId('result-rules')).toHaveClass('text-up')
+    unmount()
+    const none = { ...SCORECARD, process: SCORECARD.process.filter((l) => !l.verdict) }
+    render(<ResultCard state={STATE} trade={{ ...LONG, scorecard: none }} result={TARGET} />)
+    expect(screen.getByTestId('result-rules')).toHaveTextContent('Your rules: none to check')
+    expect(screen.getByTestId('result-rules')).toHaveClass('text-subtle')
   })
 
   it('T22: shows how the trade followed the model it named, as adherence apart from the result', () => {
