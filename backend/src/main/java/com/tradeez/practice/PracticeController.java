@@ -19,7 +19,9 @@ import com.tradeez.clock.ClockDtos.ClockLayerResponse;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 import com.tradeez.practice.PracticeDtos.AdvanceRequest;
 import com.tradeez.practice.PracticeDtos.AdvanceResponse;
+import com.tradeez.practice.PracticeDtos.ContextRequest;
 import com.tradeez.practice.PracticeDtos.CreateSessionRequest;
+import com.tradeez.practice.PracticeDtos.PlanContextView;
 import com.tradeez.practice.PracticeDtos.PlanRequest;
 import com.tradeez.practice.PracticeDtos.PracticeState;
 import com.tradeez.practice.PracticeDtos.SessionResponse;
@@ -109,6 +111,18 @@ public class PracticeController {
 			@PathVariable UUID id,
 			@Valid @RequestBody PlanRequest body) {
 		return practice.submitPlan(principal.id(), id, body);
+	}
+
+	@PostMapping("/{id}/context")
+	@Operation(summary = "What the app sees for a bracket being drafted",
+		description = "The killzone, the daily-bias-1.0.0 suggestion with its reasoning, and the named model's "
+			+ "checklist against the rules confirmed by the cursor (T22, DEC-066). Reads only; placing the plan checks "
+			+ "again and keeps it.")
+	public PlanContextView context(
+			@AuthenticationPrincipal AuthenticatedUser principal,
+			@PathVariable UUID id,
+			@Valid @RequestBody ContextRequest body) {
+		return practice.context(principal.id(), id, body);
 	}
 
 	@PostMapping("/{id}/advance")
