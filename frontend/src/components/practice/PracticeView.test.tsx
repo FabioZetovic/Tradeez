@@ -111,6 +111,14 @@ const NO_CALIBRATION = {
   summary: ['No finished trade says how sure you were yet.'],
 }
 
+/** A learner with no finished trade (journal-stats-1.0.0). */
+const NO_STATISTICS = {
+  version: 'journal-stats-1.0.0',
+  overall: { label: 'All trades', trades: 0, wins: 0, losses: 0, totalR: 0, netPnlCents: 0, reading: 'No trades.' },
+  dimensions: [],
+  notes: ["No finished trade yet: the figures appear as the replay shows each trade's exit."],
+}
+
 /** Above 2^53 on purpose: as a JSON number this would be rounded (BUG-028). */
 const SEED = '1713776017923440752'
 
@@ -162,6 +170,7 @@ function happyServer(overrides: Partial<Record<'plan', { status: number; body: u
     if (is(call, 'GET', '/api/practice/sessions')) return { body: [] }
     if (is(call, 'GET', '/api/practice/calibration')) return { body: NO_CALIBRATION }
     if (is(call, 'GET', '/api/practice/settings')) return { body: {} }
+    if (is(call, 'GET', '/api/practice/statistics')) return { body: NO_STATISTICS }
     if (is(call, 'POST', '/api/practice/sessions')) {
       return { status: 201, body: { state: ANALYSING, bars: BARS } satisfies SessionResponse }
     }
@@ -727,6 +736,17 @@ describe('Practice — the scorecard (T23)', () => {
       ['80%', '4', '1', '25%'],
     ])
     expect(panel).toHaveTextContent('calibration-1.0.0.')
+  })
+
+  it('T25: the journal shows the statistics between the sessions and the calibration', async () => {
+    mockApi(happyServer())
+    renderPractice()
+    const stats = await screen.findByRole('region', { name: 'Statistics' })
+    expect(stats).toHaveTextContent('No finished trade yet: the figures appear as the replay shows each trade')
+    const panels = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'))
+    expect(panels.indexOf('Journal')).toBeLessThan(panels.indexOf('Statistics'))
+    expect(panels.indexOf('Statistics')).toBeLessThan(panels.indexOf('Calibration'))
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('with nothing to compare yet, says how to start and shows no table', async () => {
