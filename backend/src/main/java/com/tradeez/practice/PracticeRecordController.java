@@ -11,14 +11,15 @@ import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 import com.tradeez.practice.PracticeDtos.CalibrationView;
 import com.tradeez.practice.PracticeDtos.SettingsRequest;
 import com.tradeez.practice.PracticeDtos.SettingsView;
+import com.tradeez.practice.PracticeDtos.StatisticsView;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * What belongs to the learner rather than to one session (T23, DEC-067): how their confidence compares with
- * their results, and the rules they practise under. Always the authenticated principal's own (DEC-022).
+ * What belongs to the learner rather than to one session: how their confidence compares with their results
+ * (T23, DEC-067), their trades added up (T25, DEC-069), and the rules they practise under. Always the authenticated principal's own (DEC-022).
  */
 @RestController
 @RequestMapping("/api/practice")
@@ -37,6 +38,15 @@ public class PracticeRecordController {
 			+ "the session's close, or with both levels inside one candle are counted apart (calibration-1.0.0).")
 	public CalibrationView calibration(@AuthenticationPrincipal AuthenticatedUser principal) {
 		return practice.calibration(principal.id());
+	}
+
+	@GetMapping("/statistics")
+	@Operation(summary = "Finished trades added up",
+		description = "Overall and by model, killzone, weekday, side, model checks and own rules: trades, win rate, average "
+			+ "win and loss, expectancy with its 95% range, profit factor, total R — the count behind every figure "
+			+ "(journal-stats-1.0.0). Only trades whose exit the replay has shown.")
+	public StatisticsView statistics(@AuthenticationPrincipal AuthenticatedUser principal) {
+		return practice.statistics(principal.id());
 	}
 
 	@GetMapping("/settings")

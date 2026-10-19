@@ -42,7 +42,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * T23 (DEC-067) through the API, on real-style stored minutes: the risk limit set before a session and copied
  * onto each plan, the confidence kept with it, the scorecard of a finished trade, and calibration — none of it
- * before the replay has shown the exit.
+ * before the replay has shown the exit. And T25 (DEC-069): the journal's statistics, by the same rule.
  */
 class ScorecardApiTest extends AbstractIntegrationTest {
 
@@ -134,8 +134,13 @@ class ScorecardApiTest extends AbstractIntegrationTest {
 	}
 
 	private JsonNode session() throws Exception {
+		return session("");
+	}
+
+	/** @param extra more of the request, e.g. a killzone */
+	private JsonNode session(String extra) throws Exception {
 		return read(mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())
-			.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"NQ\",\"timeframe\":\"5m\"}"))
+			.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"NQ\",\"timeframe\":\"5m\"" + extra + "}"))
 			.andExpect(status().isCreated()));
 	}
 
@@ -203,6 +208,35 @@ class ScorecardApiTest extends AbstractIntegrationTest {
 		assertThat(calibration.get("buckets").size()).isEqualTo(decided ? 1 : 0);
 		// Someone else's trades are not theirs to read.
 		assertThat(calibration(bob).get("trades").asInt()).isZero();
+	}
+
+	@Test
+	@DisplayName("T25: statistics count a trade once its exit is shown — its model, side and own rules — and only the learner's")
+	void statistics() throws Exception {
+		saveLimit(alice, "{\"riskLimitCents\":10000}").andExpect(status().isOk());
+		// Placed at the hidden moment, inside the New York AM killzone it was asked for.
+		JsonNode session = session(",\"killzone\":\"NEW_YORK_AM\"");
+		String id = session.at("/state/id").asString();
+		JsonNode placed = read(lock(id, reference(session), ",\"model\":\"OTE\"").andExpect(status().isOk()));
+		assertThat(placed.at("/trades/0/plan/killzone").asString()).isEqualTo("NEW_YORK_AM");
+		JsonNode running = read(mockMvc.perform(get("/api/practice/statistics").cookie(alice)).andExpect(status().isOk()));
+		assertThat(running.get("version").asString()).isEqualTo("journal-stats-1.0.0");
+		assertThat(running.at("/overall/trades").asInt()).isZero();
+
+		JsonNode trade = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/skip").cookie(alice).with(csrf()))
+			.andExpect(status().isOk())).at("/state/trades/0");
+		JsonNode stats = read(mockMvc.perform(get("/api/practice/statistics").cookie(alice)).andExpect(status().isOk()));
+		assertThat(stats.at("/overall/trades").asInt()).isEqualTo(1);
+		assertThat(stats.at("/overall/totalR").asDouble()).isEqualTo(trade.at("/result/rMultiple").asDouble());
+		JsonNode dimensions = stats.get("dimensions");
+		assertThat(dimensions.findValuesAsString("id")).containsExactly("model", "killzone", "weekday", "side", "checks", "rules");
+		assertThat(dimensions.get(0).at("/groups/0/label").asString()).isEqualTo("OTE model");
+		assertThat(dimensions.get(1).at("/groups/0/label").asString()).isEqualTo("New York AM");
+		assertThat(trade.get("scorecard").get("process").findValuesAsString("text")).contains("Placed in the New York AM killzone.");
+		assertThat(dimensions.get(3).at("/groups/0/label").asString()).isEqualTo("Long");
+		// $200 risked against a $100 limit: a rule broken, as the scorecard says.
+		assertThat(dimensions.get(5).at("/groups/0/label").asString()).isEqualTo("Some broken");
+		assertThat(read(mockMvc.perform(get("/api/practice/statistics").cookie(bob))).at("/overall/trades").asInt()).isZero();
 	}
 
 	@Test

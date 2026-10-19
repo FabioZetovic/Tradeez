@@ -225,6 +225,38 @@ public final class PracticeDtos {
 		@Schema(description = "The hits told, to draw on the chart") SetupLayerResponse layer) {
 	}
 
+	@Schema(description = "Finished trades added up, with the count behind every figure (T25)")
+	public record StatisticsGroupView(
+		String label,
+		int trades,
+		@Schema(description = "Trades that made ticks before commission") int wins,
+		int losses,
+		@Schema(description = "Percent; absent with no trades") Double winRate,
+		@Schema(description = "The mean winning trade in R; absent with no wins") Double avgWinR,
+		@Schema(description = "The mean losing trade in R, negative; absent with no losses") Double avgLossR,
+		@Schema(description = "Expectancy: the mean result in R") Double expectancyR,
+		@Schema(description = "The expectancy's 95% range (normal approximation); absent below two trades") Double low,
+		Double high,
+		@Schema(description = "Won R over lost R; absent with no losses") Double profitFactor,
+		double totalR,
+		long netPnlCents,
+		@Schema(description = "The range in words") String reading) {
+	}
+
+	@Schema(description = "One way of grouping the trades: by model, killzone, weekday, side, model checks, own rules")
+	public record StatisticsDimensionView(String id, String title, List<StatisticsGroupView> groups) {
+	}
+
+	@Schema(description = """
+		A learner's finished trades added up (T25, DEC-069): overall and by dimension, the count behind every figure. \
+		Counts only trades whose exit the replay has shown.""")
+	public record StatisticsView(
+		@Schema(description = "journal-stats-1.0.0") String version,
+		StatisticsGroupView overall,
+		List<StatisticsDimensionView> dimensions,
+		List<String> notes) {
+	}
+
 	@Schema(description = "The learner's practice rules")
 	public record SettingsView(
 		@Schema(description = "The most one trade may risk, cents; absent when not set") Long riskLimitCents) {

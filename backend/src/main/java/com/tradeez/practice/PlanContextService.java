@@ -53,12 +53,7 @@ public class PlanContextService {
 		Instant cursor = session.getCursorTime();
 		Timeframe timeframe = Timeframe.fromCode(session.getTimeframe());
 		long seed = session.getSeed() == null ? 0 : session.getSeed();
-		Killzone killzone = null;
-		for (Killzone zone : Killzone.values()) {
-			if (zone.contains(cursor)) {
-				killzone = zone;
-			}
-		}
+		Killzone killzone = Killzone.at(cursor);
 		Checklist checklist = model == null ? null : ModelChecklist.check(model, moment(session, instrument, timeframe, seed,
 			direction, reference, stop, target, model));
 		return new PlanContext(killzone, suggestion(instrument, cursor, seed), checklist);

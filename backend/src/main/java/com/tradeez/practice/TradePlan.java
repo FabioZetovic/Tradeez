@@ -15,6 +15,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import com.tradeez.marketdata.Killzone;
 import com.tradeez.practice.FillEngine.Direction;
 
 /**
@@ -174,8 +175,16 @@ public class TradePlan {
 		return dolTicks;
 	}
 
-	public String getKillzone() {
-		return killzone;
+	/**
+	 * The killzone the plan was placed in: kept since T22 (V19), and for the plans placed before, read from the
+	 * moment itself — a killzone is a matter of the clock (BUG-074). Null outside them.
+	 */
+	public String killzoneWhenPlaced() {
+		if (killzone != null) {
+			return killzone;
+		}
+		Killzone zone = Killzone.at(submittedCursor);
+		return zone == null ? null : zone.name();
 	}
 
 	public String getSuggestedBias() {
