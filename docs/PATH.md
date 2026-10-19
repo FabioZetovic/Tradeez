@@ -2465,3 +2465,7 @@ to say merge (it carries T21 too); T23 continues on `feat/scorecard`, branched f
   written first: risk exactly at the limit, three contracts, a draw reached to the tick, a draw behind the entry,
   an average confidence on each edge of the interval (70% with 1 of 4, 30% with 3 of 4), a confidence of 100.
 - Backend 583 → 599, frontend 324 → 332.
+
+**2026-10-19 — Fresh-clone check of `81911d6`** (`feat/scorecard`), no `.env`: backend 599 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 332/332, build clean. Waiting for Fabio
+to say merge (it carries T21 and T22 too); T24 continues on `feat/review`, branched from this.
