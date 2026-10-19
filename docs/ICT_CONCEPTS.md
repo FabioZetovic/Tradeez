@@ -180,8 +180,8 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-80 | Stop placement | 9 | R / J | 📝 | — | — |
 | ICT-81 | Targets and partials | 9 | R / J | 📝 | — | — |
 | ICT-82 | Trade management | 9 | J | 📝 | — | — |
-| ICT-83 | Risk rules and drawdown | 9 | D | 📝 | — | — |
-| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal) | — | — |
+| ICT-83 | Risk rules and drawdown | 9 | D | ✅ partly (a risk limit per trade, checked on the scorecard, DEC-067) | `scorecard-1.0.0` | — |
+| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067) | `scorecard-1.0.0`, `calibration-1.0.0` | — |
 
 ---
 
@@ -1350,6 +1350,10 @@ day. And the arithmetic every trader should feel: a 50% loss needs a 100% gain t
 **Tradeez.** F drills; daily limits in the replay mode (task T5) can be offered as a setting the
 learner turns on.
 
+*Implemented in T23 (DEC-067), the first rule:* a learner sets the most one trade may risk before a session;
+the plan panel reads each draft against it, the limit is kept with the trade, and the scorecard marks it kept
+or broken — whatever the trade made. Losing streaks, daily limits and drawdown are T26.
+
 ### ICT-84 · Journaling and review
 
 **What.** Every trade recorded with its model, killzone, draw on liquidity, result in R, and what was
@@ -1357,6 +1361,10 @@ learned. ICT stresses reviewing one's own trades.
 
 **Tradeez.** The practice journal exists; tagging by model and killzone, and statistics by tag with
 sample sizes, are tasks T22 and T25.
+
+*Implemented in T23 (DEC-067):* every finished trade is reviewed on a scorecard — what it did beside how it
+was made, each in its own lines and never added up — and the journal compares the learner's stated
+confidence with how often their targets came first, with the number of trades behind every figure.
 
 ---
 
@@ -1437,7 +1445,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |
 | (all) | — | — | — | S-6 Evidence views | T21 ✅ (on every lesson card — DEC-065; reach rates the detectors do not emit, such as equilibrium reached, later) |
 | ICT-60, ICT-61, ICT-70 – ICT-78 | model compositions | model checklist | D | checklist at decision time | T22 ✅ (the model, bias and draw on liquidity in the plan; eight models' checklists at the decision moment; the daily-bias suggestion — DEC-066; historical instances later) |
-| ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 – T28 |
+| ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 ✅ (the scorecard, a risk limit, calibration — DEC-067); T24 – T28 |
 
 Task numbers refer to the ordered list in [`PATH.md`](PATH.md) → NEXT UP.
 

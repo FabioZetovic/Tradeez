@@ -45,6 +45,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Evidence** (DEC-065): every rule counted over the whole imported history — how often it fires, how
   its zones' lives ended (filled, invalidated, left past their end), how its kinds divide — on each
   concept's lesson card, as base rates with their sample sizes, never as a forecast.
+- **A scorecard for every trade** (DEC-067): what the trade did and how it was made, side by side and never
+  added up — a tick or a cross only on the learner's own rules (a risk limit set before the session, the bias
+  they stated). The journal compares how sure the learner said they were with how often their targets came
+  first, with the number of trades behind every figure.
 - **ICT plans** (DEC-066): a practice trade can name the model it follows — the 2022 model, Silver Bullet,
   OTE and five more — the learner's bias and the liquidity they expect; the plan panel shows the killzone, a
   daily-bias suggestion with its reasons, and the model's checklist read off the chart at that moment. Kept

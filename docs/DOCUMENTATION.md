@@ -1796,6 +1796,17 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Grading the decision, not the luck.** One trade's profit is mostly chance: a careful trade can lose and a
+reckless one can win, and an app that only shows the money teaches gambling. So every finished trade now gets
+a scorecard with two halves of the same size. One says what the trade did — the money, how far it went
+against the learner and in their favour, whether price reached the level they expected. The other says how it
+was made — how much they risked against the limit they set themselves before the session, how much of a plan
+they wrote down, whether they traded with the direction they said they expected, whether they held the trade
+or closed it early. Only the learner's own rules get a tick or a cross; everything that depends on a trading
+style is stated and left to them. And when they place a trade they can say how sure they are that it reaches
+its target before its stop; the journal then compares those numbers with what happened — "you said 80% and
+were right a third of the time" — and is honest about how few trades that rests on.
+
 **Trading a plan, not just a bracket.** ICT teaches models — the "2022 model", the "Silver Bullet" and
 others — each a sequence of steps: be in a killzone, see liquidity swept, see structure shift, enter on the
 pull-back into the gap the move left, put the stop beyond the sweep, aim at the liquidity on the other side.
