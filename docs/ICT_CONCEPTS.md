@@ -181,7 +181,7 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-81 | Targets and partials | 9 | R / J | 📝 | — | — |
 | ICT-82 | Trade management | 9 | J | 📝 | — | — |
 | ICT-83 | Risk rules and drawdown | 9 | D | ✅ partly (a risk limit per trade, checked on the scorecard, DEC-067) | `scorecard-1.0.0` | — |
-| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067) | `scorecard-1.0.0`, `calibration-1.0.0` | — |
+| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067; the review — DEC-068) | `scorecard-1.0.0`, `calibration-1.0.0` | — |
 
 ---
 
@@ -1366,6 +1366,10 @@ sample sizes, are tasks T22 and T25.
 was made, each in its own lines and never added up — and the journal compares the learner's stated
 confidence with how often their targets came first, with the number of trades behind every figure.
 
+*Implemented in T24 (DEC-068):* each finished trade can be read as it happened — what the rules had seen before it
+was placed and while it ran, each hit explained in its rule's numbers, whether price reached the learner's draw,
+and, after a close by hand, what the bracket would have done.
+
 ---
 
 ## Part 11 — Not taught, and why
@@ -1424,7 +1428,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | S-4 | Drill engine | Modes A, B and C for any detector, real data only, explanations rendered from evidence. Generalises the FVG drill. ✅ T13 (DEC-054) for modes A and B: ten drills over eight rules, graded on real NQ, each hit explained from its evidence; a hit the window cuts is excused, not counted. Mode C ✅ T15 (DEC-058): two prediction drills, the future withheld until the answer and graded by what real price did. |
 | S-5 | Learning state | Attempts, per-concept rating, spaced repetition, unlocks (INVARIANT 8b). |
 | S-6 | Evidence engine | Batch statistics per rule over the imported history, with sample size and date range; worded as description, never as edge. ✅ T21 (DEC-065): `evidence-1.0.0` counts every rule on 1m–1h of real NQ — hits per 100 candles, how lives ended, kinds, and the time rules against days, weeks and windows — on each concept's lesson card. |
-| S-7 | Practice for ICT | Replay paper-trading mode; plan fields for model, DOL, bias, killzone; checklist checked at the decision moment; review overlay. |
+| S-7 | Practice for ICT | Replay paper-trading mode; plan fields for model, DOL, bias, killzone; checklist checked at the decision moment; review overlay. ✅ T5, T22 (DEC-066), T24 (DEC-068). |
 | S-8 | New York clock | Session calendar in New York time with DST tests, including the US/EU mismatch weeks. |
 
 ### Concept → work
@@ -1445,7 +1449,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |
 | (all) | — | — | — | S-6 Evidence views | T21 ✅ (on every lesson card — DEC-065; reach rates the detectors do not emit, such as equilibrium reached, later) |
 | ICT-60, ICT-61, ICT-70 – ICT-78 | model compositions | model checklist | D | checklist at decision time | T22 ✅ (the model, bias and draw on liquidity in the plan; eight models' checklists at the decision moment; the daily-bias suggestion — DEC-066; historical instances later) |
-| ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 ✅ (the scorecard, a risk limit, calibration — DEC-067); T24 – T28 |
+| ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 ✅ (the scorecard, a risk limit, calibration — DEC-067); T24 ✅ (the review — DEC-068); T25 – T28 |
 
 Task numbers refer to the ordered list in [`PATH.md`](PATH.md) → NEXT UP.
 

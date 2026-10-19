@@ -887,6 +887,34 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-068 — The review: a finished trade told as it happened, in the rules' own numbers**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-19), T24 — DEC-026, DEC-057, S-7, ICT-84
+
+DEC-026 promised that the stored hits would also power review annotations. Once the replay has passed a
+trade's exit, the learner can read it as it happened (`review-1.0.0`, `GET …/trades/{n}/review`, worked out
+each time, never stored):
+
+- **Before you placed it** — what the rules had confirmed in the thirty candles before the decision (the
+  checklist's reach), the latest three hits of each rule, each with its rule's explanation in the rule's own
+  numbers (DEC-026).
+- **While it ran** — the decision in the learner's words (the bracket, the model's checklist as placed, the bias,
+  the draw, the confidence), the fill, every hit confirmed until the exit (up to 24; the rest counted), and how it
+  ended.
+- **After it ended** — whether price reached the learner's draw, and when; and, for a trade closed by hand, what
+  the bracket would have done (DEC-057 kept it for this) — told only once the replay has passed that moment,
+  before which the review says it is still ahead.
+
+The rules read are the four every ICT model leans on — liquidity, its sweeps, the market structure shift and
+the fair value gap — and the named model's own. The hits told can be drawn on the chart on request, beside
+the learner's own layers, and taken off again.
+
+**Nothing past the cursor** (DEC-009): the hits are those confirmed by it — the replay's own scan — each listed
+at the moment its rule could first know it; the candles end at it. A draw counts as reached when price
+trades at or beyond it from the entry's side, so a market that opens beyond it has reached it.
+
+**Not in this decision:** a moment-by-moment replay of the review on the chart; the rules on another
+timeframe than the session's; reviews across trades (T25).
+
 **DEC-067 — The scorecard: what a trade did and how it was made, side by side; and calibration**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-19), T23 — DEC-027, ICT-83, ICT-84
 

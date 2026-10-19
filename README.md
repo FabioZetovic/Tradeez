@@ -45,6 +45,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Evidence** (DEC-065): every rule counted over the whole imported history — how often it fires, how
   its zones' lives ended (filled, invalidated, left past their end), how its kinds divide — on each
   concept's lesson card, as base rates with their sample sizes, never as a forecast.
+- **Every trade reviewed as it happened** (DEC-068): once a trade is over, the app tells it in order — what the
+  rules had seen before it was placed and while it ran, each in the rule's own numbers, whether price reached the
+  level the learner expected, and, after an early close, what the trade would have done — and can draw it all
+  on the chart.
 - **A scorecard for every trade** (DEC-067): what the trade did and how it was made, side by side and never
   added up — a tick or a cross only on the learner's own rules (a risk limit set before the session, the bias
   they stated). The journal compares how sure the learner said they were with how often their targets came
