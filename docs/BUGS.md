@@ -397,6 +397,20 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-074 🟡 Trades placed before T22 counted as "outside the killzones"
+
+**Status:** verified — on the test account's 236 trades (session 017, 2026-10-19)
+**Affects:** the T23 scorecard's time line and the T25 statistics' killzone grouping, for plans placed before
+V19 (T22)
+
+The killzone a plan was placed in has been kept with it since T22. Plans from before have none stored, and the
+scorecard read that as "Placed outside the killzones", and the first statistics put all 235 of those trades
+outside — while 126 of them were inside one. A missing record is not a fact about the market.
+
+**✅ FIXED — Session 017.** `TradePlan.killzoneWhenPlaced()`: the stored killzone when there is one, otherwise the
+one its moment falls in (`Killzone.at`, now also what the plan context uses) — a killzone is a matter of the clock.
+`TradePlanTest` (a pre-T22 plan in New York AM, one at noon, a stored one kept).
+
 ### BUG-072 🟡 A drawing's style was any JSON of any size
 
 **Status:** verified — a 100,000-character style saved (session 017's bug hunt, 2026-10-17)

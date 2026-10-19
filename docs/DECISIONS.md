@@ -887,6 +887,27 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-069 — Journal statistics: every figure with its count, and expectancy with its range**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-19), T25 — ANALYSIS_CLAUDE.md §1.4, ICT-84
+
+The journal adds a learner's finished trades up (`journal-stats-1.0.0`, `GET /api/practice/statistics`):
+trades, win rate, average win and average loss in R, **expectancy** (the mean result in R), profit factor
+and total R — overall, and grouped one way at a time: by **model** (or none), **killzone** (or outside),
+**New York weekday** (Sunday evening first, where the futures week opens), **side**, **how much of the
+model's checklist was met**, and **whether the learner's own rules were kept** — judged exactly as the
+scorecard judges them (DEC-067), so the two never disagree.
+
+**The count first, the range always.** Every row shows its number of trades before anything else, and the
+expectancy comes with its 95% range (the normal approximation: the mean ± 1.96 standard errors), read in
+words: positive so far, negative so far, or not yet told from zero. A handful of trades is a handful of
+trades; the page says so instead of letting a +0.4R over five trades look like an edge (INVARIANT 8).
+
+Only trades whose exit the replay has shown count, from every session the learner has. A trade's killzone is
+the one kept with it since T22, and for older trades the one its time falls in (BUG-074).
+
+**Not in this decision:** time windows and trends (a rolling view), MAE/MFE added up, tags of the learner's own,
+and drawdown (T26).
+
 **DEC-068 — The review: a finished trade told as it happened, in the rules' own numbers**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-19), T24 — DEC-026, DEC-057, S-7, ICT-84
 
