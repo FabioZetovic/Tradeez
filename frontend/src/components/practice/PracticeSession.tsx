@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
 import { ClockToggles } from '../ClockToggles'
@@ -9,6 +9,7 @@ import { SetupToggles } from '../SetupToggles'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
 import { PlanPanel } from './PlanPanel'
 import { ResultCard } from './ResultCard'
+import { TradeReview } from './TradeReview'
 import { TradeLog } from './TradeLog'
 import { SPEEDS, usePracticeSession, type Speed } from '@/hooks/usePracticeSession'
 import { useClockLayers } from '@/hooks/useClockLayers'
@@ -138,6 +139,11 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
     null,
   )
   const { rules: setupRules, shown: setupsShown, toggle: toggleSetup, on: setupsOn } = useSetupLayers()
+  const [reviewLayer, setReviewLayer] = useState<{ number: number; layer: SetupLayer } | null>(null)
+  const reviewRules = useMemo(
+    () => new Set(reviewLayer?.layer.rules.map((r) => r.detector) ?? []),
+    [reviewLayer],
+  )
   // The timeframe the replay is looked at in (T34); setups are asked for on it.
   const view = timeframe ?? '5m'
   const setupsKey = setupsOn.length === 0 ? '' : `${view}|${setupsOn.join(',')}`
@@ -274,6 +280,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
       ? closed.find((t) => t.number === picked.number)
       : undefined
   const shownTrade = pickedTrade ?? closed[closed.length - 1]
+  // The review's hits (T24) belong to the trade shown: showing another takes them off the chart.
+  if (reviewLayer && reviewLayer.number !== shownTrade?.number) setReviewLayer(null)
+  const drawnReview = reviewLayer?.layer ?? null
   const confirmingEnd = endAskedAt === trades.length
 
   return (
@@ -357,6 +366,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
                 timeframe={view}
                 shown={setupsShown}
               />
+              {drawnReview && (
+                <SetupOverlay adapter={adapter} layer={drawnReview} bars={bars} timeframe={view} shown={reviewRules} />
+              )}
               <DrawingOverlay
                 adapter={adapter}
                 state={shownState}
@@ -508,6 +520,15 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
 
       {/* Its own row: the scorecard's two sides need the width (T23). */}
       {shownTrade?.result && <ResultCard state={state} trade={shownTrade} result={shownTrade.result} />}
+      {shownTrade?.result && (
+        <TradeReview
+          key={shownTrade.number}
+          state={state}
+          number={shownTrade.number}
+          drawn={drawnReview !== null}
+          onDraw={(layer) => setReviewLayer(layer && { number: shownTrade.number, layer })}
+        />
+      )}
 
       {(trades.length > 0 || status === 'COMPLETE') && (
         <TradeLog
