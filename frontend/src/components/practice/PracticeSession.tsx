@@ -15,7 +15,8 @@ import { useClockLayers } from '@/hooks/useClockLayers'
 import { drawsClock } from '@/lib/clock/layers'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
 import { useSetupLayers } from '@/hooks/useSetupLayers'
-import type { Direction, PracticeState, SessionResponse } from '@/lib/api/practice'
+import { usePlanContext } from '@/hooks/usePlanContext'
+import type { Direction, PlanIntent, PracticeState, SessionResponse } from '@/lib/api/practice'
 import { getPracticeClock, type ClockLayer } from '@/lib/api/clock'
 import { getPracticeSetups, type SetupLayer } from '@/lib/api/setups'
 import { TIMEFRAMES } from '@/lib/api/marketData'
@@ -97,6 +98,8 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
   const [contracts, setContracts] = useState(1)
+  // T22: the model, bias and expected liquidity of the trade being drafted; cleared once it is placed.
+  const [intent, setIntent] = useState<PlanIntent>({})
   // Both remember when they were set, and lapse when the replay moves past that. A trade picked in
   // the log stays open only until another trade closes — play stops exactly so the new result can be
   // read (BUG-046). "End the session?" stays asked only until another trade is placed (BUG-045).
@@ -227,6 +230,8 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
   })
 
   const draftPlan = planDrawing && !locked ? planFromDrawing(planDrawing, contracts) : null
+  // T22: the killzone, the bias suggestion and the model's checklist for the bracket on the chart.
+  const planContext = usePlanContext(sessionId, state?.status === 'ANALYSING' ? draftPlan : null, intent.model, cursor)
 
   if (!state) {
     return (
@@ -451,12 +456,18 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory }: 
             onDiscard={discard}
             onChangeLevel={changeLevel}
             onChangeContracts={setContracts}
+            intent={intent}
+            onIntent={setIntent}
+            context={planContext}
             onLock={(plan) => {
               setPlaying(false)
-              void lockPlan(plan).then((ok) => {
+              void lockPlan({ ...plan, ...intent }).then((ok) => {
                 // The draft became the trade; the next one starts from a fresh bracket. Forgotten
                 // rather than removed, so no undo can bring it back (BUG-041).
-                if (ok) rawDispatch({ type: 'forget', id: PLAN_DRAWING_ID })
+                if (ok) {
+                  rawDispatch({ type: 'forget', id: PLAN_DRAWING_ID })
+                  setIntent({})
+                }
               })
             }}
           />

@@ -92,6 +92,26 @@ export function ResultCard({
         </p>
       )}
 
+      {/* T22: how the trade followed the model named — checked when it was placed, apart from how it ended. */}
+      {plan.checklist && (
+        <details className="mt-4 text-xs" data-testid="result-checklist">
+          <summary className="cursor-pointer text-subtle">
+            {plan.checklist.title}: {plan.checklist.met} of {plan.checklist.total} checks met when placed
+          </summary>
+          <ul className="mt-2 flex flex-col gap-0.5">
+            {plan.checklist.items.map((item) => (
+              <li key={item.id} className={item.met ? 'text-up' : 'text-subtle'}>
+                {item.met ? '✓' : '✗'} {item.text}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-subtle">
+            Following a model is not the same as being right, and breaking it is not the same as being wrong: this
+            is adherence, scored apart from the result. {plan.checklist.version}.
+          </p>
+        </details>
+      )}
+
       <details className="mt-4 text-xs">
         <summary className="cursor-pointer text-subtle">How this was decided</summary>
         <p className="mt-2">

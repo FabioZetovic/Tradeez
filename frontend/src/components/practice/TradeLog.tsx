@@ -71,6 +71,7 @@ export function TradeLog({
               <th>Outcome</th>
               <th>R</th>
               <th>Net</th>
+              <th>Model</th>
             </tr>
           </thead>
           <tbody>
@@ -123,6 +124,10 @@ export function TradeLog({
                   <td className={toneClass(result?.rMultiple)}>{result ? formatR(result.rMultiple) : ''}</td>
                   <td className={toneClass(result?.netPnlCents)}>
                     {result ? formatCents(result.netPnlCents) : ''}
+                  </td>
+                  {/* Adherence to the model named, as checked when the trade was placed — apart from its outcome (T22). */}
+                  <td title={plan.checklist?.title} data-testid="trade-model">
+                    {plan.checklist ? `${plan.checklist.met}/${plan.checklist.total}` : '—'}
                   </td>
                 </tr>
               )
