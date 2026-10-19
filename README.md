@@ -45,6 +45,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Evidence** (DEC-065): every rule counted over the whole imported history — how often it fires, how
   its zones' lives ended (filled, invalidated, left past their end), how its kinds divide — on each
   concept's lesson card, as base rates with their sample sizes, never as a forecast.
+- **ICT plans** (DEC-066): a practice trade can name the model it follows — the 2022 model, Silver Bullet,
+  OTE and five more — the learner's bias and the liquidity they expect; the plan panel shows the killzone, a
+  daily-bias suggestion with its reasons, and the model's checklist read off the chart at that moment. Kept
+  with the trade as adherence, scored apart from how it turned out.
 - **Practice** on real NQ — paper trading a replay: a session opens at a random hidden moment from
   the imported history — optionally in an ICT killzone and on a chosen weekday — with its **date
   hidden** until the session ends (only the weekday and New York time are shown, DEC-045). Step it

@@ -54,6 +54,21 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ## Environment
 
+### ENV-012 🟠 A mutation run cut off by the session's end left a mutated line in the source
+
+**Status:** verified (session 017, 2026-10-19)
+**Affects:** the mutation runners in the scratchpad (one mutation at a time, restored in `finally`)
+
+The session ended while T22's backend run was testing its sixteenth mutation. A `finally` block runs when
+the code fails, not when the process is killed, so `PlanContextService` was left with `if (false)` where
+the simulated-market check belongs — a working copy that compiled, and would have let a daily-bias
+reading be taught from invented data. Found before anything was committed: the next session ran each
+runner's anchor check first (`ONLY=nothing`), which names every mutation whose original line is missing.
+
+**Lesson, now the routine:** after any interrupted mutation run, run the anchor check before anything else,
+restore what it names, and rerun the affected tests. Here: one line restored, the four mutations not yet
+run were run (all caught), and T22's tests passed again on the restored code.
+
 ### ENV-011 🟡 A mutation run counted a build that never started as fourteen kills
 
 **Status:** verified and fixed (session 017, T35, 2026-10-16)
@@ -328,6 +343,8 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Chart | Some of ICT's profiles are not named | The consolidation day, the consolidation Thursday reversal and the seek-and-destroy Friday need a judgement ("no expansion", "a choppy week") that a rule would invent; a week whose extremes came the other way round (15% of weeks) is not named either (DEC-063) |
 | Learn | Evidence is recounted after the app starts, not the moment data is imported | `EvidenceRefresher` (DEC-065) brings the counts up to date in the background after each start — about half a minute for two years on four timeframes. After an import, a card shows the older counts until the next start, with the dates they cover |
 | Learn | Some claims are not counted yet | The evidence counts what the rules emit: hits, kinds, how lives ended. Reach rates no rule emits — equilibrium reached, a deviation level reached, the nearer liquidity taken first — need their own counting (DEC-065) |
+| Practice | A model's checklist reads the session's own timeframe | The steps are checked on the chart the session was started on (1m, 5m or 15m), whatever timeframe the learner is viewing (DEC-066). ICT often reads the shift on one timeframe and enters on a lower one; a multi-timeframe checklist is later work |
+| Practice | Models are checked, not found | A learner can name a model and have it checked; the app does not yet find every past instance of a model, or start a session just before one (ICT_CONCEPTS.md Part 9, points 1 and 2) |
 | Chart | No infinite scroll into older history | Each view loads a fixed window ending at the chosen date; the date picker and the 1W–2Y jumps move it |
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |
 | Fill engine | `AMBIGUOUS` is a legitimate outcome, not a failure | DEC-008 — candle data genuinely cannot always say which of TP/SL came first |

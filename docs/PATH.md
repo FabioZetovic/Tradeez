@@ -86,7 +86,7 @@ files_in_repo:
       databento/ # Databento client + cost-capped importer (DEC-040)                          (017)
       massive/   # Massive client, request pacer, quarterly contracts, volume roll, importer (017, DEC-042)
     charting/    # saved drawings                                              (session 012)
-    practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057)
+    practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057); TradingModel, ModelChecklist, DailyBias, PlanContextService — a plan's model, bias and checklist (T22, DEC-066)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), IPDA 20/40/60-day ranges within one contract (ipda-1.0.0), chart endpoint (017, T7, T12, T19)
     evidence/    # EvidenceService (counts every rule over the imported history, rule_evidence V18), EvidenceRefresher (after start-up), EvidenceText (the words) — T21, DEC-065
     analysis/    # Detector contract + registry (runsOn, T21), Segments, scanner, setups API (DEC-026, DEC-049); EvidenceCalculator (evidence-1.0.0); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); PO3, DAILY_PROFILE, WEEKLY_PROFILE, JUDAS on Periods — read once the day, week or window is over (DEC-063); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17–T19)
@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T21 built on feat/evidence; T22 (ICT plans and model checklists) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: nothing — T21 on feat/evidence and T22 on feat/plans (from it) built, waiting for "merge"; T23 (scorecard) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -151,7 +151,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T21 evidence views, on branch feat/evidence (2026-10-17)
+claimed_files:      # session 017 (CLAUDE) — T22 ICT plans and model checklists, on branch feat/plans (from feat/evidence, 2026-10-17)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -168,7 +168,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged) · T21 evidence views, DEC-065 (017, on feat/evidence).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged) · T21 evidence views, DEC-065 (017, on feat/evidence) · T22 ICT plans and model checklists, DEC-066 (017, on feat/plans).
 
 ### Fabio's request, 2026-10-17 — every bug, missing tests, security hardening
 
@@ -253,7 +253,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T22 | **ICT plans and model checklists** | T5, T17–T19 | I-60–61, I-70–78, D-027 | Plan fields (model, DOL, bias, killzone); the chosen model's checklist checked at the decision moment. |
+| T22 | ~~**ICT plans and model checklists**~~ | T5, T17–T19 | I-60–61, I-70–78, D-027 | ✅ Session 017 (DEC-066), on `feat/plans`: the plan carries a model (eight of Part 9's), the learner's bias and draw on liquidity, all optional, written once; with it the killzone, the `daily-bias-1.0.0` suggestion (real days only) and the model's checklist (`model-*-1.0.0`) checked against the rules confirmed by the cursor — read live while drafting (`POST …/context`), kept when placed. Adherence apart from the outcome: "4/5" in the trade log, the steps on the result card. Model and bias lessons point to Practice. Historical model instances later. |
 | T23 | **Scorecard** | T5 | C §5.5, X §5, D-027 | R, MAE/MFE, process and outcome separately, calibration (confidence vs hit rate). |
 | T24 | **Review overlay** | T22 | D-026 | After the trade: what the rules saw at each moment, explained in their own numbers. |
 | T25 | **Journal statistics** | T23 | C §1.4, X §5 | By model, killzone, weekday; sample sizes on every figure. |
@@ -303,6 +303,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-066 | **ICT plans** (T22): plan fields model (MODEL_2022, SILVER_BULLET, OTE, UNICORN, TURTLE_SOUP, BREAKER, SESSION_REVERSAL, OPENING_RANGE_GAP), bias, dol_ticks — optional, immutable (V19); killzone, `daily-bias-1.0.0` suggestion (close beyond the day before's high/low → continuation; ran it and closed back → the other way; inside or both → nothing; real data only), and the model's checklist (`ModelChecklist`, `model-*-1.0.0`: each step read from hits confirmed by the cursor — shift within 30 candles, gap in its leg, stop beyond the sweep, target reaching resting liquidity; Silver Bullet ≥ 10 points; soup within 3 candles) — kept with the plan, scored apart from the outcome. |
 | DEC-065 | **Evidence** (`evidence-1.0.0`, S-6): every rule counted over a real market's whole history on 1m–1h, split at rolls — hits per 100 candles; lives counted once over (final state or 500 candles inside the data), a leg's range read by end/start; kinds; time rules against days, weeks and windows. Cached in `rule_evidence` (V18), refreshed after start-up when data, rule or counting version changes; never simulated data; on each lesson card, ending on "not a forecast". |
 | DEC-064 | **Passwords and sign-in** (extends DEC-032): `password-1.0.0` — 12 characters to 72 bytes, 5 different characters and no straight run, not the email name, display name or app name, not a common password, not in a known breach (Have I Been Pwned range API, k-anonymous, padded, fails open after 3 s); `POST /api/auth/password` (current password, 403 when wrong; signs every other session out; 5 per account per 15 min and the per-IP limit); per-IP limits believe only `TRUSTED_PROXIES` entries of X-Forwarded-For (default 0); a Content-Security-Policy on the built page. No admin role exists; ownership is checked on the server. |
 | DEC-063 | **Time, measured first** (`Periods`): `po3-1.0.0` (midnight open to the 17:00 halt; extreme against the close first and ≥ 15% of the range beyond the open; ≤ 1h charts), `daily-profile-1.0.0` (London 00:00–08:30, New York 08:30–17:00; LONDON_LOW, LONDON_HIGH, NY_REVERSAL; ≤ 30m), `weekly-profile-1.0.0` (Sunday 18:00–Friday 17:00; the trading day of the extreme against the close, when first; every chart), `judas-1.0.0` (00:00–05:00 and 09:30–10:00; previous day, Asia and London levels resting at the window's open, taken a tick beyond, then a close back through the open in the window; ≤ 30m); `ipda-1.0.0` clock rule (20/40/60 trading days before each day, one contract, no hole > 4 days). All read after the fact. |
@@ -2406,3 +2407,31 @@ first — asked of Fabio, not done unasked.
 **2026-10-17 — Fresh-clone check of `9e7067b`** (`feat/evidence`), no `.env`: backend 567 test cases, 0 failures,
 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 318/318, build clean. Waiting for Fabio
 to say merge; T22 continues on `feat/plans`, branched from this.
+
+**2026-10-17 — T22: ICT plans and model checklists (DEC-066).** On `feat/plans`, branched from `feat/evidence`, not merged.
+- **The plan** carries, optional and written once (V19): the model (MODEL_2022, SILVER_BULLET, OTE, UNICORN,
+  TURTLE_SOUP, BREAKER, SESSION_REVERSAL, OPENING_RANGE_GAP — the market maker models are judgement, left out),
+  the learner's bias and the draw on liquidity (within 20,000 ticks, like the bracket).
+- **What the app sees**, kept with it: the killzone; `daily-bias-1.0.0` (the last two whole trading days:
+  continuation, the other way, or nothing — with its reasons, never graded, real days only); the model's
+  checklist (`ModelChecklist`, `model-*-1.0.0`), each step in words from the hits of the model's rules confirmed
+  by the cursor — the replay's own scan (`SetupService.visibleForReplay`), never a later candle.
+- **Live while drafting:** `POST /api/practice/sessions/{id}/context`, a quarter of a second after the last drag;
+  checked again and stored at lock. On real NQ: 0.1 s, the first model check 0.7 s (the scan).
+- **On screen:** "Your reading" in the plan panel (model, bias, draw; the killzone and bias line; the checklist
+  ✓/✗); "2/3" in the trade log's Model column; the steps on the result card — adherence apart from the
+  outcome (DEC-027). Model and bias lesson cards point to Practice.
+- **Found while building it:** the opening range gap's middle printed as "255.000" — `RuleText.halfPrice`; the bias
+  reading on a simulated market would have taught from invented data and generated days of seconds per plan —
+  refused for simulated markets.
+- Tests: DailyBiasTest (3), ModelChecklistTest (9: every model met and missed, the 2022 model's edges),
+  PlanContextApiTest (4), RobustnessTest (the new endpoint in the anonymous sweep and two bad bodies),
+  LessonApiTest, ConceptRegistryTest; frontend PlanPanel +4, PracticeView +1, ResultCard +1.
+- Mutations, one at a time after a passing baseline: 19 backend, all caught; 8 frontend, all caught. Edge cases
+  written first: a gap from before the sweep, price on the gap's edge, a stop on the sweep's low, a target on
+  the liquidity, no reading on a simulated market. The run was cut off by the session's end at the sixteenth,
+  which it left in the source (ENV-012); restored, the last four run and caught, the tests green again.
+- Checked live on real NQ (through the API: the browser pane was hidden): a New York AM session — the
+  daily-bias reading "Yesterday closed at 20362.75, above the day before's high at 20248.50…", the 2022
+  model's checklist 2 of 5 in words, Silver Bullet, OTE and turtle soup checklists.
+- Backend 567 → 583, frontend 318 → 324.
