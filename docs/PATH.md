@@ -2492,3 +2492,7 @@ to say merge (it carries T21 and T22 too); T24 continues on `feat/review`, branc
   first run and has its own test now; 7 frontend, all caught by tests — the trade number in the review's address was
   first caught only by the type checker, which does not count, and the panel's test now asks for trade 2.
 - Backend 599 → 608, frontend 332 → 336.
+
+**2026-10-19 — Fresh-clone check of `ebbf55d`** (`feat/review`), no `.env`: backend 608 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 336/336, build clean. Waiting for Fabio
+to say merge (it carries T21–T23 too); T25 continues on `feat/stats`, branched from this.
