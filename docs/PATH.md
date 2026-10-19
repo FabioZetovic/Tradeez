@@ -2435,3 +2435,7 @@ to say merge; T22 continues on `feat/plans`, branched from this.
   daily-bias reading "Yesterday closed at 20362.75, above the day before's high at 20248.50…", the 2022
   model's checklist 2 of 5 in words, Silver Bullet, OTE and turtle soup checklists.
 - Backend 567 → 583, frontend 318 → 324.
+
+**2026-10-19 — Fresh-clone check of `47155b9`** (`feat/plans`), no `.env`: backend 583 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 324/324, build clean. Waiting for Fabio
+to say merge (it carries T21 too); T23 continues on `feat/scorecard`, branched from this.
