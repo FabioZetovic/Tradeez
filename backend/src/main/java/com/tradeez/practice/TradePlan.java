@@ -84,6 +84,13 @@ public class TradePlan {
 	@Column(name = "checklist", updatable = false)
 	private Map<String, Object> checklist;
 
+	// T23 (DEC-067): how sure the learner was, and the risk limit they had set then. Optional.
+	@Column(name = "confidence", updatable = false)
+	private Integer confidence;
+
+	@Column(name = "risk_limit_cents", updatable = false)
+	private Long riskLimitCents;
+
 	protected TradePlan() {
 		// for JPA
 	}
@@ -101,10 +108,13 @@ public class TradePlan {
 		this.submittedAt = Instant.now();
 	}
 
-	/** A plan with what the learner meant and what the app saw when it was placed (T22). */
+	/**
+	 * A plan with what the learner meant and what the app saw when it was placed (T22), how sure they were and
+	 * the risk limit they had set (T23).
+	 */
 	public TradePlan(UUID sessionId, int seq, Direction direction, long stopTicks, long targetTicks, int contracts,
 			long referenceTicks, Instant submittedCursor, TradingModel model, String bias, Long dolTicks, String killzone,
-			String suggestedBias, Map<String, Object> checklist) {
+			String suggestedBias, Map<String, Object> checklist, Integer confidence, Long riskLimitCents) {
 		this(sessionId, seq, direction, stopTicks, targetTicks, contracts, referenceTicks, submittedCursor);
 		this.model = model;
 		this.bias = bias;
@@ -112,6 +122,8 @@ public class TradePlan {
 		this.killzone = killzone;
 		this.suggestedBias = suggestedBias;
 		this.checklist = checklist;
+		this.confidence = confidence;
+		this.riskLimitCents = riskLimitCents;
 	}
 
 	public UUID getId() {
@@ -172,6 +184,14 @@ public class TradePlan {
 
 	public Map<String, Object> getChecklist() {
 		return checklist;
+	}
+
+	public Integer getConfidence() {
+		return confidence;
+	}
+
+	public Long getRiskLimitCents() {
+		return riskLimitCents;
 	}
 
 }
