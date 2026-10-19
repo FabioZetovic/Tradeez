@@ -2518,3 +2518,7 @@ to say merge (it carries T21–T23 too); T25 continues on `feat/stats`, branched
   first run, because sessions start at random moments; the statistics test now starts in New York AM and checks the
   plan, the scorecard line and the group; 7 frontend, all caught.
 - Backend 608 → 615, frontend 336 → 339.
+
+**2026-10-19 — Fresh-clone check of `462eb6d`** (`feat/stats`), no `.env`: backend 615 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 339/339, build clean. Waiting for Fabio
+to say merge (it carries T21–T24 too); T26 continues on `feat/risk`, branched from this.
