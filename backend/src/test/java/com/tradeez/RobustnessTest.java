@@ -168,6 +168,9 @@ class RobustnessTest extends AbstractIntegrationTest {
 			c("advance, zero bars", body(as(post(base + "/advance")), "{\"bars\":0}"), 400),
 			c("advance, unknown timeframe", body(as(post(base + "/advance")), "{\"bars\":1,\"timeframe\":\"zz\"}"), 400),
 			c("skip, not in a trade", as(post(base + "/skip")), 409),
+			c("review, a trade number that is not a number", as(get(base + "/trades/first/review")), 400),
+			c("review, no such trade", as(get(base + "/trades/1/review")), 404),
+			c("review, nobody's session", as(get(missing + "/trades/1/review")), 404),
 			c("close, not in a trade", as(post(base + "/close")), 409),
 			c("end, nobody's session", as(post(missing + "/end")), 404))))
 			.isEmpty();
@@ -285,6 +288,7 @@ class RobustnessTest extends AbstractIntegrationTest {
 				post("/api/practice/sessions/" + uuid + "/skip"),
 				post("/api/practice/sessions/" + uuid + "/close"),
 				post("/api/practice/sessions/" + uuid + "/end"),
+				get("/api/practice/sessions/" + uuid + "/trades/1/review"),
 				get("/api/practice/calibration"),
 				get("/api/practice/settings"),
 				put("/api/practice/settings"),
@@ -312,7 +316,7 @@ class RobustnessTest extends AbstractIntegrationTest {
 			"/api/drills/{id}/answer", "/api/learning", "/api/learning/concepts/{id}/read", "/api/practice/sessions",
 			"/api/practice/sessions/{id}", "/api/practice/sessions/{id}/clock", "/api/practice/sessions/{id}/setups",
 			"/api/practice/sessions/{id}/plan", "/api/practice/sessions/{id}/context", "/api/practice/sessions/{id}/advance", "/api/practice/sessions/{id}/skip",
-			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/practice/calibration",
+			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/practice/sessions/{id}/trades/{number}/review", "/api/practice/calibration",
 			"/api/practice/settings", "/api/auth/register", "/api/auth/login",
 			"/api/auth/refresh", "/api/auth/logout", "/api/auth/logout-all", "/api/auth/password", "/api/health");
 	}

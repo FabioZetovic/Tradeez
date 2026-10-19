@@ -24,6 +24,7 @@ import com.tradeez.practice.PracticeDtos.CreateSessionRequest;
 import com.tradeez.practice.PracticeDtos.PlanContextView;
 import com.tradeez.practice.PracticeDtos.PlanRequest;
 import com.tradeez.practice.PracticeDtos.PracticeState;
+import com.tradeez.practice.PracticeDtos.ReviewView;
 import com.tradeez.practice.PracticeDtos.SessionResponse;
 import com.tradeez.practice.PracticeDtos.SessionSummary;
 
@@ -123,6 +124,19 @@ public class PracticeController {
 			@PathVariable UUID id,
 			@Valid @RequestBody ContextRequest body) {
 		return practice.context(principal.id(), id, body);
+	}
+
+	@GetMapping("/{id}/trades/{number}/review")
+	@Operation(summary = "A finished trade told as it happened",
+		description = "What the rules saw before the trade was placed and while it ran, each hit explained in its "
+			+ "rule's numbers; how it ended; whether price reached the draw; and, after a close, what the bracket "
+			+ "would have done (review-1.0.0, DEC-068). Only once the replay has passed the exit, and nothing past the "
+			+ "cursor.")
+	public ReviewView review(
+			@AuthenticationPrincipal AuthenticatedUser principal,
+			@PathVariable UUID id,
+			@PathVariable int number) {
+		return practice.review(principal.id(), id, number);
 	}
 
 	@PostMapping("/{id}/advance")

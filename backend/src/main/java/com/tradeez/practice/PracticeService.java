@@ -59,6 +59,7 @@ import com.tradeez.practice.PracticeDtos.PlanRequest;
 import com.tradeez.practice.PracticeDtos.PlanView;
 import com.tradeez.practice.PracticeDtos.PracticeState;
 import com.tradeez.practice.PracticeDtos.ResultView;
+import com.tradeez.practice.PracticeDtos.ReviewView;
 import com.tradeez.practice.PracticeDtos.ScoreView;
 import com.tradeez.practice.PracticeDtos.SessionResponse;
 import com.tradeez.practice.PracticeDtos.SessionSummary;
@@ -170,6 +171,7 @@ public class PracticeService {
 	private final SetupService setupService;
 	private final PlanContextService contexts;
 	private final PracticeSettingsStore settings;
+	private final TradeReviewService reviews;
 
 	/**
 	 * BUG-033 — transactions are opened by hand, around the database work only.
@@ -190,7 +192,7 @@ public class PracticeService {
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, PracticeCloseRepository closes, InstrumentRepository instruments,
 			MarketDataService marketData, ClockService clocks, SetupService setupService, PlanContextService contexts,
-			PracticeSettingsStore settings, PlatformTransactionManager transactionManager) {
+			PracticeSettingsStore settings, TradeReviewService reviews, PlatformTransactionManager transactionManager) {
 		this.sessions = sessions;
 		this.plans = plans;
 		this.results = results;
@@ -201,6 +203,7 @@ public class PracticeService {
 		this.setupService = setupService;
 		this.contexts = contexts;
 		this.settings = settings;
+		this.reviews = reviews;
 		this.writeTx = new TransactionTemplate(transactionManager);
 		this.readTx = new TransactionTemplate(transactionManager);
 		this.readTx.setReadOnly(true);
@@ -686,6 +689,25 @@ public class PracticeService {
 		return Calibration.of(samples);
 	}
 
+	/**
+	 * A finished trade told as it happened (T24, DEC-068) — once the replay has passed its exit, and never with
+	 * anything past the cursor.
+	 */
+	public ReviewView review(UUID userId, UUID sessionId, int number) {
+		Snapshot seen = snapshot(userId, sessionId);
+		Trade trade = seen.trades().stream().filter(t -> t.plan().getSeq() == number).findFirst()
+			.orElseThrow(TradeNotFoundException::new);
+		if (!trade.closedBy(seen.session().getCursorTime())) {
+			throw new ReviewNotReadyException();
+		}
+		TradePlan plan = trade.plan();
+		ChecklistView checklist = plan.getChecklist() == null ? null : checklistView(plan.getChecklist());
+		long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
+		return reviews.review(seen.session(), seen.instrument(), plan, trade.result(), trade.close(), round2(trade.r()),
+			round2((double) trade.result().getPnlTicks() / risk), checklist == null ? null
+				: checklist.title() + ": " + checklist.met() + " of " + checklist.total() + " checks met when placed.");
+	}
+
 	public SettingsView settings(UUID userId) {
 		return new SettingsView(settings.riskLimitCents(userId));
 	}
@@ -1132,6 +1154,19 @@ public class PracticeService {
 	public static class SessionNotFoundException extends RuntimeException {
 		public SessionNotFoundException() {
 			super("No such practice session.");
+		}
+	}
+
+	/** No trade with that number in this session. */
+	public static class TradeNotFoundException extends RuntimeException {
+		public TradeNotFoundException() {
+			super("No such trade in this session.");
+		}
+	}
+
+	public static class ReviewNotReadyException extends RuntimeException {
+		public ReviewNotReadyException() {
+			super("A trade's review opens once the replay has passed its exit.");
 		}
 	}
 
