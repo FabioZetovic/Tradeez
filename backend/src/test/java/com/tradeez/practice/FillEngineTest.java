@@ -162,7 +162,7 @@ class FillEngineTest {
 			// INVARIANT 6: resolving silently in the learner's favour would inflate every score built
 			// on top. The recorded number is the worst case, and the outcome says it is an assumption.
 			Fill f = FillEngine.resolve(longTrade(960, 1080), List.of(
-				s(0, 1000, 1080, 960, 1000)), FillModel.DEFAULT);
+				s(0, 1000, 1080, 960, 1000)), FillModel.BASIC);
 
 			assertThat(f.outcome()).isEqualTo(Outcome.AMBIGUOUS);
 			assertThat(f.exitTicks()).isEqualTo(959); // stop, less a tick of slippage
@@ -181,7 +181,7 @@ class FillEngineTest {
 		void gapThroughStop() {
 			Fill f = FillEngine.resolve(longTrade(960, 1080), List.of(
 				s(0, 1000, 1001, 999, 1000),
-				s(1, 940, 945, 938, 944)), FillModel.DEFAULT);
+				s(1, 940, 945, 938, 944)), FillModel.BASIC);
 
 			assertThat(f.outcome()).isEqualTo(Outcome.STOP);
 			assertThat(f.exitTicks()).isEqualTo(939); // 940 open, less a tick
@@ -295,7 +295,7 @@ class FillEngineTest {
 		void opensAtTheStop() {
 			Fill f = FillEngine.resolve(longTrade(990, 1020), List.of(
 				s(0, 1000, 1002, 995, 997),
-				s(1, 990, 992, 985, 988)), FillModel.DEFAULT);
+				s(1, 990, 992, 985, 988)), FillModel.BASIC);
 			assertThat(f.outcome()).isEqualTo(Outcome.STOP);
 			assertThat(f.exitTicks()).isEqualTo(989);
 			assertThat(f.gapExit()).as("it opened at the stop, not beyond it").isFalse();
@@ -306,7 +306,7 @@ class FillEngineTest {
 		void opensAtTheTarget() {
 			Fill f = FillEngine.resolve(shortTrade(1010, 980), List.of(
 				s(0, 1000, 1002, 995, 996),
-				s(1, 980, 983, 975, 978)), FillModel.DEFAULT);
+				s(1, 980, 983, 975, 978)), FillModel.BASIC);
 			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
 			assertThat(f.exitTicks()).isEqualTo(980);
 			assertThat(f.pnlTicks()).isEqualTo(20);
@@ -318,7 +318,7 @@ class FillEngineTest {
 		void entryBeyondTheStop() {
 			// Planned at 1000 with the stop at 998; the next price is 995.
 			Fill f = FillEngine.resolve(longTrade(998, 1010), List.of(
-				s(0, 995, 999, 994, 996)), FillModel.DEFAULT);
+				s(0, 995, 999, 994, 996)), FillModel.BASIC);
 			assertThat(f.outcome()).isEqualTo(Outcome.STOP);
 			assertThat(f.entryTicks()).isEqualTo(995);
 			assertThat(f.exitTicks()).isEqualTo(994);
@@ -331,18 +331,18 @@ class FillEngineTest {
 		void entryBeyondTheTarget() {
 			// A bracket's limit below the market fills at the market: in and out at one price.
 			Fill f = FillEngine.resolve(longTrade(990, 1004), List.of(
-				s(0, 1006, 1008, 1004, 1007)), FillModel.DEFAULT);
+				s(0, 1006, 1008, 1004, 1007)), FillModel.BASIC);
 			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
 			assertThat(f.exitTicks()).isEqualTo(1006);
 			assertThat(f.pnlTicks()).isZero();
-			assertThat(f.netPnlCents(500, 1, FillModel.DEFAULT)).isEqualTo(-250);
+			assertThat(f.netPnlCents(500, 1, FillModel.BASIC)).isEqualTo(-250);
 		}
 
 		@Test
 		@DisplayName("a short's ambiguous second assumes its stop above, slipped up")
 		void shortAmbiguous() {
 			Fill f = FillEngine.resolve(shortTrade(1010, 990), List.of(
-				s(0, 1000, 1011, 989, 1000)), FillModel.DEFAULT);
+				s(0, 1000, 1011, 989, 1000)), FillModel.BASIC);
 			assertThat(f.outcome()).isEqualTo(Outcome.AMBIGUOUS);
 			assertThat(f.exitTicks()).isEqualTo(1011);
 			assertThat(f.pnlTicks()).isEqualTo(-11);
@@ -355,7 +355,7 @@ class FillEngineTest {
 		void shortTimeExit() {
 			Fill f = FillEngine.resolve(shortTrade(1050, 950), List.of(
 				s(0, 1000, 1004, 996, 998),
-				s(1, 998, 999, 990, 993)), FillModel.DEFAULT);
+				s(1, 998, 999, 990, 993)), FillModel.BASIC);
 			assertThat(f.outcome()).isEqualTo(Outcome.TIME_EXIT);
 			assertThat(f.exitTicks()).isEqualTo(993);
 			assertThat(f.pnlTicks()).isEqualTo(7);
@@ -367,8 +367,8 @@ class FillEngineTest {
 		@DisplayName("money scales with contracts, commission too")
 		void contracts() {
 			Fill f = FillEngine.resolve(new FillEngine.Plan(Direction.LONG, 990, 1010, 4), List.of(
-				s(0, 1000, 1010, 999, 1008)), FillModel.DEFAULT);
-			assertThat(f.netPnlCents(500, 4, FillModel.DEFAULT)).isEqualTo(10 * 500 * 4 - 250 * 4);
+				s(0, 1000, 1010, 999, 1008)), FillModel.BASIC);
+			assertThat(f.netPnlCents(500, 4, FillModel.BASIC)).isEqualTo(10 * 500 * 4 - 250 * 4);
 		}
 	}
 
@@ -394,9 +394,9 @@ class FillEngineTest {
 			// 80 ticks x $5 x 2 contracts = $800, less $2.50 x 2 = $795. No floating point anywhere.
 			Plan twoLots = new Plan(Direction.LONG, 960, 1080, 2);
 			Fill f = FillEngine.resolve(twoLots,
-				List.of(s(0, 1000, 1080, 1000, 1080)), FillModel.DEFAULT);
+				List.of(s(0, 1000, 1080, 1000, 1080)), FillModel.BASIC);
 
-			assertThat(f.netPnlCents(500, 2, FillModel.DEFAULT)).isEqualTo(79_500);
+			assertThat(f.netPnlCents(500, 2, FillModel.BASIC)).isEqualTo(79_500);
 		}
 	}
 
@@ -422,8 +422,8 @@ class FillEngineTest {
 		@DisplayName("the same inputs always give the same result (DEC-012)")
 		void deterministic() {
 			List<Bar> bars = List.of(s(0, 1000, 1010, 990, 1005), s(1, 1005, 1080, 1000, 1078));
-			assertThat(FillEngine.resolve(longTrade(960, 1080), bars, FillModel.DEFAULT))
-				.isEqualTo(FillEngine.resolve(longTrade(960, 1080), bars, FillModel.DEFAULT));
+			assertThat(FillEngine.resolve(longTrade(960, 1080), bars, FillModel.BASIC))
+				.isEqualTo(FillEngine.resolve(longTrade(960, 1080), bars, FillModel.BASIC));
 		}
 	}
 
@@ -552,7 +552,7 @@ class FillEngineTest {
 		@Test
 		@DisplayName("exits at the open of the first bar at or after the moment, counting the bars survived before it")
 		void exitsAtTheNextOpen() {
-			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), drift, T0.plusSeconds(2), Resolution.S1);
+			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), drift, T0.plusSeconds(2), FillModel.BASIC, Resolution.S1);
 			assertThat(close.outcome()).isEqualTo(Outcome.CLOSED);
 			assertThat(close.entryTicks()).isEqualTo(100);
 			assertThat(close.exitTime()).isEqualTo(T0.plusSeconds(2));
@@ -568,7 +568,7 @@ class FillEngineTest {
 		@DisplayName("a moment between bars fills at the next one; a short gains as price falls")
 		void betweenBarsAndShorts() {
 			List<Bar> sparse = List.of(s(0, 100, 101, 99, 100), s(60, 96, 97, 95, 96));
-			Fill close = FillEngine.closeAtMarket(shortTrade(110, 80), sparse, T0.plusSeconds(1), Resolution.M1);
+			Fill close = FillEngine.closeAtMarket(shortTrade(110, 80), sparse, T0.plusSeconds(1), FillModel.BASIC, Resolution.M1);
 			assertThat(close.exitTime()).isEqualTo(T0.plusSeconds(60));
 			assertThat(close.pnlTicks()).isEqualTo(4);
 			// The fill itself is the best price the short saw.
@@ -580,7 +580,7 @@ class FillEngineTest {
 		@DisplayName("a fill that gaps against the trade is its worst excursion")
 		void gapAgainst() {
 			List<Bar> gap = List.of(s(0, 100, 101, 99, 100), s(1, 95, 96, 94, 95));
-			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), gap, T0.plusSeconds(1), Resolution.S1);
+			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), gap, T0.plusSeconds(1), FillModel.BASIC, Resolution.S1);
 			assertThat(close.exitTicks()).isEqualTo(95);
 			assertThat(close.maeTicks()).isEqualTo(5);
 			assertThat(close.mfeTicks()).isEqualTo(1);
@@ -589,22 +589,116 @@ class FillEngineTest {
 		@Test
 		@DisplayName("closed the moment it was placed: in and out at the same price")
 		void atOnce() {
-			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), drift, T0, Resolution.S1);
+			Fill close = FillEngine.closeAtMarket(longTrade(90, 120), drift, T0, FillModel.BASIC, Resolution.S1);
 			assertThat(close.exitTime()).isEqualTo(close.entryTime());
 			assertThat(close.pnlTicks()).isZero();
-			assertThat(close.netPnlCents(500, 1, FillModel.DEFAULT)).isEqualTo(-250);
+			assertThat(close.netPnlCents(500, 1, FillModel.BASIC)).isEqualTo(-250);
 		}
 
 		@Test
 		@DisplayName("no close when the plan's own exit comes first: a level touched before, or at the very open")
 		void planExitsFirst() {
 			// Stop at 98 is touched by the first bar, before the moment.
-			assertThat(FillEngine.closeAtMarket(longTrade(98, 120), drift, T0.plusSeconds(2), Resolution.S1)).isNull();
+			assertThat(FillEngine.closeAtMarket(longTrade(98, 120), drift, T0.plusSeconds(2), FillModel.BASIC, Resolution.S1)).isNull();
 			// Target 105 is the open the close would fill at: the resting order fills first.
 			List<Bar> gap = List.of(s(0, 100, 104, 99, 103), s(1, 110, 111, 109, 110));
-			assertThat(FillEngine.closeAtMarket(longTrade(90, 105), gap, T0.plusSeconds(1), Resolution.S1)).isNull();
+			assertThat(FillEngine.closeAtMarket(longTrade(90, 105), gap, T0.plusSeconds(1), FillModel.BASIC, Resolution.S1)).isNull();
 			// No bar after the moment: the session closed, and the plan's time exit stands.
-			assertThat(FillEngine.closeAtMarket(longTrade(90, 120), drift, T0.plusSeconds(10), Resolution.S1)).isNull();
+			assertThat(FillEngine.closeAtMarket(longTrade(90, 120), drift, T0.plusSeconds(10), FillModel.BASIC, Resolution.S1)).isNull();
+		}
+	}
+
+	@Nested
+	@DisplayName("fill-1.3.0's costs (T27, DEC-072)")
+	class Fill130 {
+
+		/** Two ticks on a market fill, none on a stop, a target filled once traded a tick through, no fees. */
+		private static final FillModel STRICT = new FillModel(2, 0, 1, 0);
+
+		@Test
+		@DisplayName("a market entry slips against the trader: a long in two ticks dear, a short two ticks cheap")
+		void entry() {
+			Fill up = FillEngine.resolve(longTrade(960, 1080), List.of(s(0, 1000, 1010, 995, 1005), s(1, 1005, 1090, 1004, 1085)),
+				STRICT);
+			assertThat(up.entryTicks()).isEqualTo(1002);
+			assertThat(up.pnlTicks()).isEqualTo(78);
+			// Excursion is measured from the price paid.
+			assertThat(up.maeTicks()).isEqualTo(7);
+			Fill down = FillEngine.resolve(shortTrade(1040, 920), List.of(s(0, 1000, 1005, 990, 995), s(1, 995, 996, 910, 915)),
+				STRICT);
+			assertThat(down.entryTicks()).isEqualTo(998);
+			assertThat(down.pnlTicks()).isEqualTo(78);
+		}
+
+		@Test
+		@DisplayName("a target touched is not filled until traded through; then at its own price")
+		void through() {
+			Fill f = FillEngine.resolve(longTrade(960, 1080), List.of(
+				s(0, 1000, 1080, 995, 1070), // touches 1080
+				s(1, 1070, 1081, 1060, 1075)), STRICT); // a tick through
+			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(f.exitTicks()).isEqualTo(1080);
+			assertThat(f.exitTime()).isEqualTo(T0.plusSeconds(1));
+			// On the touch, at 0.
+			Fill touch = FillEngine.resolve(longTrade(960, 1080), List.of(s(0, 1000, 1080, 995, 1070)), NO_COSTS);
+			assertThat(touch.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(touch.exitTime()).isEqualTo(T0);
+			// A short's target, mirrored: touched at 920, through at 919.
+			Fill shortSide = FillEngine.resolve(shortTrade(1040, 920), List.of(s(0, 1000, 1005, 920, 925), s(1, 925, 930, 919, 921)),
+				STRICT);
+			assertThat(shortSide.exitTime()).isEqualTo(T0.plusSeconds(1));
+		}
+
+		@Test
+		@DisplayName("an open at the target is no fill when it must be traded through; an open beyond fills there")
+		void openAtTarget() {
+			Fill at = FillEngine.resolve(longTrade(960, 1080), List.of(s(0, 1000, 1010, 995, 1005), s(1, 1080, 1080, 1070, 1072)),
+				STRICT);
+			assertThat(at.outcome()).isEqualTo(Outcome.TIME_EXIT);
+			Fill beyond = FillEngine.resolve(longTrade(960, 1080), List.of(s(0, 1000, 1010, 995, 1005), s(1, 1083, 1085, 1080, 1084)),
+				STRICT);
+			assertThat(beyond.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(beyond.exitTicks()).isEqualTo(1083);
+			assertThat(beyond.gapExit()).isTrue();
+		}
+
+		@Test
+		@DisplayName("the flat at the session's close is a market order too: two ticks cheap")
+		void timeExit() {
+			Fill f = FillEngine.resolve(longTrade(960, 1080), List.of(s(0, 1000, 1010, 995, 1005), s(1, 1005, 1012, 1000, 1010)),
+				STRICT);
+			assertThat(f.outcome()).isEqualTo(Outcome.TIME_EXIT);
+			assertThat(f.exitTicks()).isEqualTo(1008);
+		}
+
+		@Test
+		@DisplayName("closed at market: in two ticks dear, out two cheap; an open at the target, not traded through, does not pre-empt it")
+		void close() {
+			List<Bar> bars = List.of(s(0, 100, 101, 99, 100), s(1, 103, 104, 102, 103), s(2, 120, 121, 118, 119));
+			Fill c = FillEngine.closeAtMarket(longTrade(90, 120), bars, T0.plusSeconds(1), STRICT, Resolution.S1);
+			assertThat(c.entryTicks()).isEqualTo(102);
+			assertThat(c.exitTicks()).isEqualTo(101);
+			assertThat(c.pnlTicks()).isEqualTo(-1);
+			// At the third second's open, exactly the target: not filled through, so the close stands.
+			Fill atTarget = FillEngine.closeAtMarket(longTrade(90, 120), bars, T0.plusSeconds(2), STRICT, Resolution.S1);
+			assertThat(atTarget.outcome()).isEqualTo(Outcome.CLOSED);
+			assertThat(atTarget.exitTicks()).isEqualTo(118);
+			// On the touch, the resting target fills first.
+			assertThat(FillEngine.closeAtMarket(longTrade(90, 120), bars, T0.plusSeconds(2), NO_COSTS, Resolution.S1)).isNull();
+		}
+
+		@Test
+		@DisplayName("a model names itself, and is read back from its name: fill-1.2.0's as it always read")
+		void names() {
+			assertThat(FillModel.BASIC.version()).isEqualTo("slip-1t/comm-250c");
+			assertThat(FillModel.STANDARD.version()).isEqualTo("mkt-1t/slip-1t/thru-1t/comm-450c");
+			assertThat(FillModel.parse("slip-1t/comm-250c")).isEqualTo(FillModel.BASIC);
+			assertThat(FillModel.parse(FillModel.STANDARD.version())).isEqualTo(FillModel.STANDARD);
+			assertThat(FillModel.parse("mkt-2t/slip-3t/comm-300c")).isEqualTo(new FillModel(2, 3, 0, 300));
+			assertThat(FillModel.parse("slip-0t/thru-2t/comm-0c")).isEqualTo(new FillModel(0, 0, 2, 0));
+			assertThatThrownBy(() -> FillModel.parse("slip-1t")).isInstanceOf(IllegalArgumentException.class);
+			assertThatThrownBy(() -> new FillModel(-1, 0, 0, 0)).isInstanceOf(IllegalArgumentException.class);
+			assertThatThrownBy(() -> new FillModel(0, 0, -1, 0)).isInstanceOf(IllegalArgumentException.class);
 		}
 	}
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -73,6 +74,11 @@ class PracticeApiTest extends AbstractIntegrationTest {
 	private Cookie alice;
 	private Cookie bob;
 
+
+	/** The costs the worked examples are worked in: FillModel.BASIC's, set as the learner's own (T27). */
+	static final String BASIC_COSTS =
+		"{\"feesCents\":250,\"marketSlippageTicks\":0,\"stopSlippageTicks\":1,\"limitThroughTicks\":0}";
+
 	@BeforeEach
 	void signInTwoUsers() throws Exception {
 		// Sessions, plans and results cascade from the user.
@@ -80,6 +86,9 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		users.deleteAllInBatch();
 		alice = register("alice@example.com");
 		bob = register("bob@example.com");
+		// The worked examples below are in fill-1.2.0's numbers; the standard costs have tests of their own.
+		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content(BASIC_COSTS)).andExpect(status().isOk());
 	}
 
 	// --- helpers ---------------------------------------------------------------------------------
@@ -512,7 +521,7 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			assertThat(ended.get("seed").asString()).isEqualTo(Long.toString(seedOf(id)));
 			assertThat(result.get("engineVersion").asString()).isEqualTo(FillEngine.VERSION);
 			assertThat(result.get("fillModelVersion").asString())
-				.isEqualTo(FillEngine.FillModel.DEFAULT.version());
+				.isEqualTo(FillEngine.FillModel.BASIC.version());
 
 			// The bar the trade ended in is among those just revealed.
 			long exit = result.get("exitTime").asLong();
@@ -544,7 +553,7 @@ class PracticeApiTest extends AbstractIntegrationTest {
 					FillEngine.Direction.LONG,
 					state.at("/trades/0/plan/stopTicks").asLong(),
 					state.at("/trades/0/plan/targetTicks").asLong(), 1),
-				seconds, FillEngine.FillModel.DEFAULT);
+				seconds, FillEngine.FillModel.BASIC);
 
 			assertThat(again.outcome().name()).isEqualTo(result.get("outcome").asString());
 			assertThat(again.exitTime().getEpochSecond()).isEqualTo(result.get("exitTime").asLong());

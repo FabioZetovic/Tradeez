@@ -8,6 +8,7 @@ import java.util.Map;
 
 import com.tradeez.analysis.RuleText;
 import com.tradeez.practice.FillEngine.Direction;
+import com.tradeez.practice.FillEngine.FillModel;
 import com.tradeez.practice.PracticeDtos.PlanView;
 import com.tradeez.practice.PracticeDtos.ResultView;
 import com.tradeez.practice.PracticeDtos.ScoreLineView;
@@ -37,16 +38,18 @@ public final class Scorecard {
 
 	public static ScorecardView score(PlanView plan, ResultView result, BigDecimal tickSize, long tickValueCents) {
 		long risk = Math.abs(plan.referenceTicks() - plan.stopTicks());
-		return new ScorecardView(VERSION, outcome(plan, result, risk, tickSize),
+		return new ScorecardView(VERSION, outcome(plan, result, risk, tickSize, tickValueCents),
 			process(plan, result, risk, tickValueCents));
 	}
 
-	private static List<ScoreLineView> outcome(PlanView plan, ResultView result, long risk, BigDecimal tickSize) {
+	private static List<ScoreLineView> outcome(PlanView plan, ResultView result, long risk, BigDecimal tickSize,
+			long tickValueCents) {
 		List<ScoreLineView> lines = new ArrayList<>();
 		lines.add(fact("adverse", "Worst point", result.maeTicks() == 0 ? "It never went against you."
 			: ratio(result.maeTicks(), risk) + " against you (" + ticks(result.maeTicks()) + ")."));
 		lines.add(fact("favourable", "Best point", result.mfeTicks() == 0 ? "It never went your way."
 			: ratio(result.mfeTicks(), risk) + " in your favour (" + ticks(result.mfeTicks()) + ")."));
+		lines.add(fact("costs", "Costs", costs(plan, result, risk, tickValueCents)));
 		if (plan.dolTicks() != null) {
 			// How far the draw lay from the fill, on the trade's side; behind the entry it is reached by going against.
 			long toward = sign(plan.direction()) * (plan.dolTicks() - result.entryTicks());
@@ -120,6 +123,34 @@ public final class Scorecard {
 			}));
 		}
 		return lines;
+	}
+
+	/**
+	 * What fees and slippage took (T27): the commission charged, and the ticks the fills slipped by the model the
+	 * result was resolved with — the entry at market, and the exit by how it was made.
+	 */
+	private static String costs(PlanView plan, ResultView result, long risk, long tickValueCents) {
+		FillModel model;
+		try {
+			model = FillModel.parse(result.fillModelVersion());
+		} catch (IllegalArgumentException e) {
+			// A name this version cannot read: the fees are stored, the slippage is not known.
+			return "Fees " + money(result.commissionCents()) + "; the slippage cannot be read from its fill model ("
+				+ result.fillModelVersion() + ").";
+		}
+		long slip = model.marketSlippageTicks() + switch (result.outcome()) {
+			case "STOP", "AMBIGUOUS" -> model.stopSlippageTicks();
+			case "TARGET" -> 0;
+			default -> model.marketSlippageTicks(); // a close at market, or the flat at the session's close
+		};
+		long slipCents = slip * tickValueCents * plan.contracts();
+		long total = result.commissionCents() + slipCents;
+		if (total == 0) {
+			return "No fees or slippage.";
+		}
+		return "Fees " + money(result.commissionCents()) + (slip == 0 ? "" : " and " + ticks(slip) + " of slippage ("
+			+ money(slipCents) + ")") + ": " + money(total) + ", " + String.format(Locale.ROOT, "%.2fR",
+				(double) total / (risk * tickValueCents * plan.contracts())) + " of what was risked.";
 	}
 
 	private static ScoreLineView fact(String id, String label, String text) {

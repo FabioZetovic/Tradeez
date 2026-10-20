@@ -257,14 +257,23 @@ public final class PracticeDtos {
 		List<String> notes) {
 	}
 
-	@Schema(description = "The learner's practice rules")
+	@Schema(description = "The learner's practice rules: a risk limit, and what trading costs (T27, DEC-072)")
 	public record SettingsView(
-		@Schema(description = "The most one trade may risk, cents; absent when not set") Long riskLimitCents) {
+		@Schema(description = "The most one trade may risk, cents; absent when not set") Long riskLimitCents,
+		@Schema(description = "Commission and fees per contract, round trip, cents") long feesCents,
+		@Schema(description = "Ticks a market fill — the entry, a close — slips") long marketSlippageTicks,
+		@Schema(description = "Ticks a stop fill slips") long stopSlippageTicks,
+		@Schema(description = "Ticks price must trade beyond a target before it fills: 0, the touch") long limitThroughTicks,
+		@Schema(description = "The fill model these make, as results store it") String fillModel) {
 	}
 
-	@Schema(description = "Set the learner's practice rules; a missing limit clears it")
+	@Schema(description = "Set the learner's practice rules, all at once; a missing one is unset (the costs then standard)")
 	public record SettingsRequest(
-		@Schema(description = "$1 to $1,000,000, in cents") @Min(100) @Max(100_000_000) Long riskLimitCents) {
+		@Schema(description = "$1 to $1,000,000, in cents") @Min(100) @Max(100_000_000) Long riskLimitCents,
+		@Schema(description = "$0 to $50, in cents") @Min(0) @Max(5_000) Long feesCents,
+		@Schema(description = "0 to 8") @Min(0) @Max(8) Integer marketSlippageTicks,
+		@Schema(description = "0 to 8") @Min(0) @Max(8) Integer stopSlippageTicks,
+		@Schema(description = "0 to 4") @Min(0) @Max(4) Integer limitThroughTicks) {
 	}
 
 	@Schema(description = """

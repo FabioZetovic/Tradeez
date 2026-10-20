@@ -164,6 +164,27 @@ class ScorecardApiTest extends AbstractIntegrationTest {
 		saveLimit(alice, "{\"riskLimitCents\":100}").andExpect(status().isOk());
 		saveLimit(alice, "{}").andExpect(status().isOk());
 		assertThat(read(mockMvc.perform(get("/api/practice/settings").cookie(alice))).has("riskLimitCents")).isFalse();
+		// T27: unset costs are the standard ones, named as results name them.
+		JsonNode standard = read(mockMvc.perform(get("/api/practice/settings").cookie(alice)));
+		assertThat(standard.get("feesCents").asLong()).isEqualTo(450);
+		assertThat(standard.get("marketSlippageTicks").asLong()).isEqualTo(1);
+		assertThat(standard.get("stopSlippageTicks").asLong()).isEqualTo(1);
+		assertThat(standard.get("limitThroughTicks").asLong()).isEqualTo(1);
+		assertThat(standard.get("fillModel").asString()).isEqualTo("mkt-1t/slip-1t/thru-1t/comm-450c");
+		JsonNode own = read(saveLimit(alice, "{\"riskLimitCents\":20000,\"feesCents\":0,\"marketSlippageTicks\":0,"
+			+ "\"stopSlippageTicks\":2,\"limitThroughTicks\":0}").andExpect(status().isOk()));
+		assertThat(own.get("fillModel").asString()).isEqualTo("slip-2t/comm-0c");
+		assertThat(read(mockMvc.perform(get("/api/practice/settings").cookie(alice))).get("stopSlippageTicks").asLong())
+			.isEqualTo(2);
+		saveLimit(alice, "{\"feesCents\":5001}").andExpect(status().isBadRequest());
+		saveLimit(alice, "{\"marketSlippageTicks\":9}").andExpect(status().isBadRequest());
+		saveLimit(alice, "{\"stopSlippageTicks\":-1}").andExpect(status().isBadRequest());
+		saveLimit(alice, "{\"limitThroughTicks\":5}").andExpect(status().isBadRequest());
+		// Saved all at once: what is left out goes back to the standard.
+		saveLimit(alice, "{}").andExpect(status().isOk());
+		assertThat(read(mockMvc.perform(get("/api/practice/settings").cookie(alice))).get("stopSlippageTicks").asLong())
+			.isEqualTo(1);
+
 		// The database holds the same bounds.
 		UUID aliceId = jdbc.queryForObject("SELECT id FROM app_user WHERE email = 'alice@example.com'", UUID.class);
 		assertThatThrownBy(() -> jdbc.update("UPDATE practice_settings SET risk_limit_cents = 99 WHERE user_id = ?", aliceId))
@@ -195,7 +216,7 @@ class ScorecardApiTest extends AbstractIntegrationTest {
 		assertThat(risk.get("id").asString()).isEqualTo("risk");
 		assertThat(risk.get("verdict").asString()).isEqualTo("BROKEN");
 		assertThat(risk.get("text").asString()).isEqualTo("Risked $200.00, $100.00 over your $100.00 limit.");
-		assertThat(card.get("outcome").findValuesAsString("id")).containsExactly("adverse", "favourable");
+		assertThat(card.get("outcome").findValuesAsString("id")).containsExactly("adverse", "favourable", "costs");
 		assertThat(card.get("process").findValuesAsString("id")).contains("plan", "execution", "confidence");
 
 		String outcome = trade.at("/result/outcome").asString();

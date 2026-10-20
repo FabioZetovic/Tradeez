@@ -3,6 +3,7 @@ package com.tradeez.practice;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.sql.Timestamp;
@@ -43,7 +44,7 @@ import jakarta.servlet.http.Cookie;
 
 /**
  * Stop loss and take profit through the whole app — the API, the service, the fill engine, the
- * database — on imported one-minute NQ, as a learner's trade really runs (fill-1.2.0).
+ * database — on imported one-minute NQ, as a learner's trade really runs (fill-1.3.0).
  *
  * <p>Two kinds of test. <b>Worked examples</b>: the replay is put at a chosen minute and the minutes
  * after it are written by hand, so each case reads like the lesson it is — a long reaching its target,
@@ -53,7 +54,8 @@ import jakarta.servlet.http.Cookie;
  * minutes by a second, separate implementation of the rules, field by field.
  *
  * <p>NQ: a tick is 0.25 points and $5.00 a contract; stops slip one tick; commission is $2.50 a
- * contract a round trip (FillModel.DEFAULT).
+ * contract a round trip; market fills do not slip and a target fills on the touch — FillModel.BASIC, fill-1.2.0's
+ * numbers, set as the learner's costs before each test (T27). The standard costs are PracticeApiTest's.
  */
 class BracketOutcomeApiTest extends AbstractIntegrationTest {
 
@@ -125,6 +127,8 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 				.content("{\"email\":\"alice@example.com\",\"password\":\"a-perfectly-fine-passphrase\",\"displayName\":\"A\"}"))
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getCookie(CookieService.ACCESS_TOKEN_COOKIE);
+		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content(PracticeApiTest.BASIC_COSTS)).andExpect(status().isOk());
 		nqId = marketData.requireInstrument("NQ").getId();
 	}
 
@@ -413,6 +417,58 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		assertThat(result.get("exitTicks").asLong()).as("the 15:59 minute's close").isEqualTo(80_030);
 		assertThat(stored(id, 1).exitTime()).isEqualTo(Instant.parse("2025-06-10T20:59:00Z"));
 		assertThat(result.get("pnlTicks").asLong()).isEqualTo(30);
+	}
+
+	@Test
+	@DisplayName("T27, the standard costs: in a tick dear, a target touched but not traded through left alone, $4.50 a round trip")
+	void standardCosts() throws Exception {
+		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{}")).andExpect(status().isOk());
+		String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
+			m(80_000, 80_008, 79_999, 80_007), // touches the target, no more
+			m(80_007, 80_009, 80_005, 80_008)); // trades a tick through it
+		plan(id, "LONG", 79_990, 80_008, 1).andExpect(status().isOk());
+		JsonNode result = result(skip(id));
+
+		assertThat(result.get("fillModelVersion").asString()).isEqualTo("mkt-1t/slip-1t/thru-1t/comm-450c");
+		assertThat(result.get("engineVersion").asString()).isEqualTo("fill-1.3.0");
+		assertThat(result.get("outcome").asString()).isEqualTo("TARGET");
+		assertThat(result.get("entryTicks").asLong()).as("a market order a tick dear").isEqualTo(80_001);
+		assertThat(result.get("exitTicks").asLong()).as("the limit's own price, once traded through").isEqualTo(80_008);
+		assertThat(stored(id, 1).exitTime()).as("the second minute, not the touch").isEqualTo(TUESDAY_10AM.plusSeconds(60));
+		assertThat(result.get("pnlTicks").asLong()).isEqualTo(7);
+		assertThat(result.get("commissionCents").asLong()).isEqualTo(450);
+		assertThat(result.get("netPnlCents").asLong()).isEqualTo(7 * TICK_CENTS - 450);
+		assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.7);
+		assertThat(result.get("maeTicks").asLong()).isEqualTo(2);
+		assertThat(result.get("mfeTicks").asLong()).isEqualTo(7);
+	}
+
+	@Test
+	@DisplayName("T27: a close is filled with the plan's own costs, though the learner changed theirs since")
+	void costsKeptWithThePlan() throws Exception {
+		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"feesCents\":300,\"marketSlippageTicks\":2,\"stopSlippageTicks\":3,\"limitThroughTicks\":0}"))
+			.andExpect(status().isOk());
+		String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
+			m(80_000, 80_003, 79_998, 80_002),
+			m(80_002, 80_004, 80_000, 80_001));
+		plan(id, "LONG", 79_950, 80_050, 1).andExpect(status().isOk());
+		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{}")).andExpect(status().isOk());
+		mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())
+			.contentType(MediaType.APPLICATION_JSON).content("{\"bars\":1,\"timeframe\":\"1m\"}")).andExpect(status().isOk());
+		JsonNode result = result(read(mockMvc.perform(post("/api/practice/sessions/" + id + "/close?timeframe=1m")
+			.cookie(alice).with(csrf())).andExpect(status().isOk())).get("state"));
+
+		assertThat(result.get("outcome").asString()).isEqualTo("CLOSED");
+		assertThat(result.get("fillModelVersion").asString()).isEqualTo("mkt-2t/slip-3t/comm-300c");
+		assertThat(result.get("entryTicks").asLong()).as("in two ticks dear").isEqualTo(80_002);
+		assertThat(result.get("exitTicks").asLong()).as("out two ticks cheap, at the next open").isEqualTo(80_000);
+		assertThat(result.get("pnlTicks").asLong()).isEqualTo(-2);
+		assertThat(result.get("commissionCents").asLong()).isEqualTo(300);
+		assertThat(result.get("netPnlCents").asLong()).isEqualTo(-2 * TICK_CENTS - 300);
+		assertThat(result.get("rMultiple").asDouble()).isEqualTo(-0.04);
 	}
 
 	@Test

@@ -63,6 +63,7 @@ import com.tradeez.practice.PracticeDtos.ReviewView;
 import com.tradeez.practice.PracticeDtos.ScoreView;
 import com.tradeez.practice.PracticeDtos.SessionResponse;
 import com.tradeez.practice.PracticeDtos.SessionSummary;
+import com.tradeez.practice.PracticeDtos.SettingsRequest;
 import com.tradeez.practice.PracticeDtos.SettingsView;
 import com.tradeez.practice.PracticeDtos.ScorecardView;
 import com.tradeez.practice.PracticeDtos.StatisticsView;
@@ -388,7 +389,8 @@ public class PracticeService {
 		PlanContext context = contexts.at(session, instrument, request.direction(), reference, request.stopTicks(),
 			request.targetTicks(), request.model());
 
-		FillModel model = FillModel.DEFAULT;
+		// T27: the learner's costs, as set now; the result keeps the model it was resolved with.
+		FillModel model = settings.fillModel(userId);
 		Fill fill = FillEngine.resolve(new FillEngine.Plan(request.direction(), request.stopTicks(),
 			request.targetTicks(), request.contracts()), bars, model, resolution);
 
@@ -529,8 +531,10 @@ public class PracticeService {
 		Instant locked = plan.getSubmittedCursor();
 		// The same bars the trade was resolved on at the lock: the data does not change.
 		List<Bar> walked = fine(session, seen.instrument(), resolution, locked, sessionEnd(locked));
+		// Filled as the plan was resolved: its own model, whatever the costs are set to now (T27).
+		FillModel model = FillModel.parse(open.getFillModelVersion());
 		Fill fill = FillEngine.closeAtMarket(new FillEngine.Plan(plan.getDirection(), plan.getStopTicks(),
-			plan.getTargetTicks(), plan.getContracts()), walked, session.getCursorTime(), resolution);
+			plan.getTargetTicks(), plan.getContracts()), walked, session.getCursorTime(), model, resolution);
 		if (fill == null) {
 			return skipToResult(userId, sessionId, timeframeCode);
 		}
@@ -540,8 +544,7 @@ public class PracticeService {
 			startOfBarContaining(session.getCursorTime(), timeframe), cursor);
 		return writeTx.execute(tx -> {
 			PracticeSession current = requireUnchanged(userId, session);
-			PracticeClose saved = closes.save(new PracticeClose(plan, fill, seen.instrument().getTickValueCents(),
-				FillModel.DEFAULT));
+			PracticeClose saved = closes.save(new PracticeClose(plan, fill, seen.instrument().getTickValueCents(), model));
 			current.moveCursorTo(cursor);
 			current.setStatus(Status.ANALYSING);
 			settle(current, null);
@@ -749,12 +752,21 @@ public class PracticeService {
 	}
 
 	public SettingsView settings(UUID userId) {
-		return new SettingsView(settings.riskLimitCents(userId));
+		return settingsView(settings.settings(userId));
 	}
 
-	public SettingsView saveSettings(UUID userId, Long riskLimitCents) {
-		settings.setRiskLimitCents(userId, riskLimitCents);
-		return new SettingsView(riskLimitCents);
+	public SettingsView saveSettings(UUID userId, SettingsRequest request) {
+		PracticeSettingsStore.Settings saved = new PracticeSettingsStore.Settings(request.riskLimitCents(),
+			request.feesCents(), request.marketSlippageTicks(), request.stopSlippageTicks(), request.limitThroughTicks());
+		settings.save(userId, saved);
+		return settingsView(saved);
+	}
+
+	/** The limit as set, and the costs as they apply: the standard ones where nothing is set. */
+	private static SettingsView settingsView(PracticeSettingsStore.Settings s) {
+		FillModel model = s.fillModel();
+		return new SettingsView(s.riskLimitCents(), model.commissionCentsPerContractRound(), model.marketSlippageTicks(),
+			model.stopSlippageTicks(), model.limitThroughTicks(), model.version());
 	}
 
 	// ---------------------------------------------------------------------------------------------

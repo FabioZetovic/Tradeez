@@ -57,10 +57,11 @@ public class PracticeRecordController {
 
 	@PutMapping("/settings")
 	@Operation(summary = "Set the learner's practice rules",
-		description = "The risk limit is copied onto each plan as it is placed, so a later change never rewrites "
-			+ "whether an earlier trade kept it. A missing limit clears it.")
+		description = "The risk limit is copied onto each plan as it is placed, and the costs resolve it and are kept "
+			+ "with its result, so a later change never rewrites an earlier trade. All are set at once; a missing one is "
+			+ "unset, and unset costs are the standard ones (T27).")
 	public SettingsView saveSettings(@AuthenticationPrincipal AuthenticatedUser principal,
 			@Valid @RequestBody SettingsRequest body) {
-		return practice.saveSettings(principal.id(), body.riskLimitCents());
+		return practice.saveSettings(principal.id(), body);
 	}
 }

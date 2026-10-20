@@ -2,6 +2,8 @@ package com.tradeez.practice;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.tradeez.marketdata.Bar;
 
@@ -29,8 +31,12 @@ import com.tradeez.marketdata.Bar;
  *
  * <h2>Rules, versioned together (DEC-012)</h2>
  * <ul>
- *   <li>Entry is <b>at market</b>: the open of the first bar after the plan is locked.</li>
- *   <li>Touch fills. A long stop is hit when the low reaches it; a long target when the high does.</li>
+ *   <li>Entry is <b>at market</b>: the open of the first bar after the plan is locked, slipped against the trader
+ *       by {@link FillModel#marketSlippageTicks()} (fill-1.3.0, DEC-072) — as is every market fill: a close at
+ *       market, and the flat at the session's close.</li>
+ *   <li>A long stop is hit when the low reaches it. A long target — a resting limit — when the high reaches it by
+ *       {@link FillModel#limitThroughTicks()}: on the touch at 0, and only once price trades through it at 1, the
+ *       queue ahead of it being unknown (fill-1.3.0).</li>
  *   <li>Gaps fill at the open, not at the order price. A stop jumped over is filled where the market
  *       actually reopened, which is worse — that is what happens to real stops.</li>
  *   <li>Stops slip against the trader by {@link FillModel#stopSlippageTicks()}. Targets do not:
@@ -54,7 +60,7 @@ import com.tradeez.marketdata.Bar;
 public final class FillEngine {
 
 	/** Bump on ANY change to fill behaviour. Stored on every result. */
-	public static final String VERSION = "fill-1.2.0";
+	public static final String VERSION = "fill-1.3.0";
 
 	private FillEngine() {
 	}
@@ -98,26 +104,55 @@ public final class FillEngine {
 	/**
 	 * Execution assumptions, kept separate from the plan so they can be varied and versioned.
 	 *
+	 * @param marketSlippageTicks             ticks a market fill — the entry, a close — loses beyond the open
 	 * @param stopSlippageTicks               ticks a stop fill loses beyond its price
-	 * @param commissionCentsPerContractRound commission per contract, entry plus exit
+	 * @param limitThroughTicks               ticks price must trade beyond a target before it fills: 0, the touch
+	 * @param commissionCentsPerContractRound commission and fees per contract, entry plus exit
 	 */
-	public record FillModel(long stopSlippageTicks, long commissionCentsPerContractRound) {
+	public record FillModel(long marketSlippageTicks, long stopSlippageTicks, long limitThroughTicks,
+			long commissionCentsPerContractRound) {
 
-		/** DEC-008's defaults: one tick of stop slippage, $2.50 a round trip. */
-		public static final FillModel DEFAULT = new FillModel(1, 250);
+		/** DEC-008's: one tick of stop slippage, $2.50 a round trip; every result before T27 was made with it. */
+		public static final FillModel BASIC = new FillModel(0, 1, 0, 250);
+
+		/**
+		 * T27's, for a learner who has set nothing (DEC-072): a tick on every market and stop fill, a target filled
+		 * once traded through, $4.50 a round trip — roughly a retail account's commission and exchange fees together.
+		 */
+		public static final FillModel STANDARD = new FillModel(1, 1, 1, 450);
+
+		private static final Pattern FORMAT = Pattern.compile("(?:mkt-(\\d+)t/)?slip-(\\d+)t(?:/thru-(\\d+)t)?/comm-(\\d+)c");
+
+		/** Stop slippage and commission alone, as fill-1.2.0 knew them. */
+		public FillModel(long stopSlippageTicks, long commissionCentsPerContractRound) {
+			this(0, stopSlippageTicks, 0, commissionCentsPerContractRound);
+		}
 
 		public FillModel {
-			if (stopSlippageTicks < 0 || commissionCentsPerContractRound < 0) {
+			if (marketSlippageTicks < 0 || stopSlippageTicks < 0 || limitThroughTicks < 0 || commissionCentsPerContractRound < 0) {
 				throw new IllegalArgumentException("Slippage and commission cannot be negative.");
 			}
 		}
 
 		/**
-		 * The assumptions spelled out, stored on every result beside {@link FillEngine#VERSION}.
-		 * The engine version says which rules ran; this says which numbers they ran with.
+		 * The assumptions spelled out, stored on every result beside {@link FillEngine#VERSION}. The engine
+		 * version says which rules ran; this says which numbers they ran with. What fill-1.2.0 did not have is
+		 * written only when it is not zero, so a model it could run reads as it always did.
 		 */
 		public String version() {
-			return "slip-" + stopSlippageTicks + "t/comm-" + commissionCentsPerContractRound + "c";
+			return (marketSlippageTicks > 0 ? "mkt-" + marketSlippageTicks + "t/" : "") + "slip-" + stopSlippageTicks + "t"
+				+ (limitThroughTicks > 0 ? "/thru-" + limitThroughTicks + "t" : "") + "/comm-" + commissionCentsPerContractRound
+				+ "c";
+		}
+
+		/** The model a stored {@link #version()} names: a later close is filled as its plan was. */
+		public static FillModel parse(String version) {
+			Matcher m = FORMAT.matcher(version);
+			if (!m.matches()) {
+				throw new IllegalArgumentException("Not a fill model: " + version);
+			}
+			return new FillModel(m.group(1) == null ? 0 : Long.parseLong(m.group(1)), Long.parseLong(m.group(2)),
+				m.group(3) == null ? 0 : Long.parseLong(m.group(3)), Long.parseLong(m.group(4)));
 		}
 	}
 
@@ -183,10 +218,11 @@ public final class FillEngine {
 		final long stop = plan.stopTicks();
 		final long target = plan.targetTicks();
 		final long slip = model.stopSlippageTicks();
+		final long through = model.limitThroughTicks();
 
 		final Bar first = bars.getFirst();
 		final Instant entryTime = first.openTime();
-		final long entry = first.openTicks();
+		final long entry = first.openTicks() + sign * model.marketSlippageTicks();
 
 		long mae = 0;
 		long mfe = 0;
@@ -202,13 +238,13 @@ public final class FillEngine {
 				return fill(Outcome.STOP, entryTime, entry, bar.openTime(), exit, sign,
 					Math.max(mae, adverse(sign, entry, exit)), mfe, open != stop, resolution);
 			}
-			if (targetTouched(dir, open, open, target)) {
+			if (targetTouched(dir, open, open, target, through)) {
 				return fill(Outcome.TARGET, entryTime, entry, bar.openTime(), open, sign,
 					mae, Math.max(mfe, favourable(sign, entry, open)), open != target, resolution);
 			}
 
 			boolean stopHit = stopTouched(dir, bar.lowTicks(), bar.highTicks(), stop);
-			boolean targetHit = targetTouched(dir, bar.lowTicks(), bar.highTicks(), target);
+			boolean targetHit = targetTouched(dir, bar.lowTicks(), bar.highTicks(), target, through);
 
 			if (stopHit && targetHit) {
 				// Both inside one bar. The order cannot be known from this data, and pretending
@@ -241,7 +277,7 @@ public final class FillEngine {
 		// Ran out of data without a decision. The caller supplied a window that ended mid-session;
 		// flatten at the last close.
 		Bar last = bars.getLast();
-		return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks(),
+		return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks() - sign * model.marketSlippageTicks(),
 			sign, mae, mfe, false, resolution);
 	}
 
@@ -249,7 +285,7 @@ public final class FillEngine {
 	 * Closes a running trade at market at {@code at} (DEC-057).
 	 *
 	 * <p>A market order fills at the next price there is: the open of the first bar at or after
-	 * {@code at} — the same rule as the entry, and like the entry without slippage. Every bar before it
+	 * {@code at} — the same rule as the entry, slipped like the entry (fill-1.3.0). Every bar before it
 	 * was survived (the trade is still running), so their extremes count as excursions; the exit price
 	 * is the last one that does.
 	 *
@@ -258,7 +294,7 @@ public final class FillEngine {
 	 *         before {@code at}, or the very open the close would fill at already reaches one of them,
 	 *         where the resting order fills first
 	 */
-	public static Fill closeAtMarket(Plan plan, List<Bar> bars, Instant at, Resolution resolution) {
+	public static Fill closeAtMarket(Plan plan, List<Bar> bars, Instant at, FillModel model, Resolution resolution) {
 		if (bars.isEmpty()) {
 			throw new IllegalArgumentException("No market data to close the trade in.");
 		}
@@ -266,21 +302,23 @@ public final class FillEngine {
 		final int sign = dir.sign();
 		final Bar first = bars.getFirst();
 		final Instant entryTime = first.openTime();
-		final long entry = first.openTicks();
+		final long entry = first.openTicks() + sign * model.marketSlippageTicks();
+		final long through = model.limitThroughTicks();
 		long mae = 0;
 		long mfe = 0;
 		for (Bar bar : bars) {
 			long open = bar.openTicks();
 			if (!bar.openTime().isBefore(at)) {
-				if (stopTouched(dir, open, open, plan.stopTicks()) || targetTouched(dir, open, open, plan.targetTicks())) {
+				if (stopTouched(dir, open, open, plan.stopTicks()) || targetTouched(dir, open, open, plan.targetTicks(), through)) {
 					return null;
 				}
-				return fill(Outcome.CLOSED, entryTime, entry, bar.openTime(), open, sign,
-					Math.max(mae, adverse(sign, entry, open)), Math.max(mfe, favourable(sign, entry, open)), false,
+				long exit = open - sign * model.marketSlippageTicks();
+				return fill(Outcome.CLOSED, entryTime, entry, bar.openTime(), exit, sign,
+					Math.max(mae, adverse(sign, entry, exit)), Math.max(mfe, favourable(sign, entry, open)), false,
 					resolution);
 			}
 			if (stopTouched(dir, bar.lowTicks(), bar.highTicks(), plan.stopTicks())
-					|| targetTouched(dir, bar.lowTicks(), bar.highTicks(), plan.targetTicks())) {
+					|| targetTouched(dir, bar.lowTicks(), bar.highTicks(), plan.targetTicks(), through)) {
 				return null;
 			}
 			long worst = dir == Direction.LONG ? bar.lowTicks() : bar.highTicks();
@@ -296,8 +334,9 @@ public final class FillEngine {
 		return dir == Direction.LONG ? low <= stop : high >= stop;
 	}
 
-	private static boolean targetTouched(Direction dir, long low, long high, long target) {
-		return dir == Direction.LONG ? high >= target : low <= target;
+	/** A target's limit fills when price reaches {@code through} ticks beyond it: the touch at 0. */
+	private static boolean targetTouched(Direction dir, long low, long high, long target, long through) {
+		return dir == Direction.LONG ? high - target >= through : target - low >= through;
 	}
 
 	/** How far {@code price} is against the position, in ticks; zero if it is not against it. */
