@@ -45,6 +45,8 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Evidence** (DEC-065): every rule counted over the whole imported history — how often it fires, how
   its zones' lives ended (filled, invalidated, left past their end), how its kinds divide — on each
   concept's lesson card, as base rates with their sample sizes, never as a forecast.
+- **Honest costs** (DEC-072): every market order slips a tick, a target fills only once price trades through it, and
+  fees are charged — the learner's own numbers or a realistic standard — so a practice edge is not a fill-model gift.
 - **Managing a trade** (DEC-071): a real NQ trade is open and in profit — hold it, move the stop to breakeven, or
   take half off? Each choice is played out on the real candles that followed, and the result says which paid most
   here and that only many such drills say which pays.
