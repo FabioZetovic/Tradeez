@@ -17,6 +17,7 @@ import type { ChartAdapter } from '@/lib/chart/types'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { toggleMark } from '@/lib/drills/marks'
 import { Button, Chip, Notice, Panel, Segmented } from '../ui'
+import { RiskDrills } from './RiskDrills'
 import { errorClass, fieldClass, panelTitle } from '@/lib/styles'
 
 interface DrillViewProps {
@@ -29,6 +30,7 @@ const MODE_GROUPS = [
   { mode: 'IDENTIFY', label: 'Spot — mark every one' },
   { mode: 'CLASSIFY', label: 'Name — say what the marked one is' },
   { mode: 'PREDICT', label: 'Predict — say what price reaches first' },
+  { mode: 'MANAGE', label: 'Manage — an open trade, three choices' },
 ] as const
 
 /**
@@ -56,7 +58,7 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
   // A prediction's chart grows by the candles after the moment once it is answered.
   const chartBars = useMemo(() => (drill ? [...drill.bars, ...(drill.revealed ?? [])] : []), [drill])
   const moment = useMemo(() => {
-    if (drill?.mode !== 'PREDICT' || drill.bars.length < 2) return undefined
+    if ((drill?.mode !== 'PREDICT' && drill?.mode !== 'MANAGE') || drill.bars.length < 2) return undefined
     const last = drill.bars[drill.bars.length - 1].time
     return last + (last - drill.bars[drill.bars.length - 2].time)
   }, [drill])
@@ -104,6 +106,9 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
 
   const identify = drill?.mode === 'IDENTIFY'
   const predict = drill?.mode === 'PREDICT'
+  const manage = drill?.mode === 'MANAGE'
+  // Both are answered by what price did after the chart stopped, and show it afterwards.
+  const future = predict || manage
 
   return (
     <section className="flex flex-col gap-4">
@@ -169,7 +174,7 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
               {drill.title} · {drill.instrument} · {drill.timeframe}
               {drill.graded && (
                 <Chip data-testid="graded">
-                  {predict ? `Graded by what price did · ${drill.question?.version}` : `Graded against ${drill.rule.version}`}
+                  {future ? `Graded by what price did · ${drill.question?.version}` : `Graded against ${drill.rule.version}`}
                 </Chip>
               )}
             </h3>
@@ -191,7 +196,7 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
             <PriceChart
               // A prediction's answer is the whole story — the chart and what came after — so it is
               // framed afresh rather than scrolled along like a replay.
-              key={predict && answered ? `${drill.id}-answered` : drill.id}
+              key={future && answered ? `${drill.id}-answered` : drill.id}
               bars={chartBars}
               tickSize={drill.tickSize}
               exchangeTimezone={drill.exchangeTimezone}
@@ -246,7 +251,20 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
             </Panel>
           )}
 
-          {!answered && !identify && !predict && (
+          {!answered && manage && (
+            <Panel aria-label="Answer">
+              <p className="mb-3 text-sm text-subtle">The trade is open and in profit. What do you do with it?</p>
+              <div className="flex flex-wrap items-center gap-3">
+                {drill.options?.map((option) => (
+                  <Button key={option.value} disabled={busy} onClick={() => void choose(option.value)}>
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {!answered && !identify && !future && (
             <Panel aria-label="Answer">
               <p className="mb-3 text-sm text-subtle">The marked {drill.subject?.side === 'HIGH' ? 'high' : 'low'} is…</p>
               <div className="flex flex-wrap items-center gap-3">
@@ -265,6 +283,8 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
                 <SpotResult drill={drill} result={drill.result} />
               ) : predict ? (
                 <PredictResult drill={drill} result={drill.result} />
+              ) : manage ? (
+                <ManageResult drill={drill} result={drill.result} />
               ) : (
                 <NameResult drill={drill} result={drill.result} />
               )}
@@ -272,6 +292,8 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
           )}
         </>
       )}
+
+      <RiskDrills />
     </section>
   )
 }
@@ -370,6 +392,27 @@ function PredictResult({ drill, result }: { drill: DrillResponse; result: Result
       <p className="mb-3 text-xs text-subtle" data-testid="drill-grade">
         Decided at {when}, {result.candlesAfter === 1 ? 'the next candle' : `${result.candlesAfter} candles after the chart`}.
         Graded by what real price did — the candles after the line are the ones that were hidden.
+      </p>
+      <Explanation lines={result.explanation ?? []} />
+    </>
+  )
+}
+
+/** What each choice made (T26): the ones that paid most, a tie counting for each, and the story in R. */
+function ManageResult({ drill, result }: { drill: DrillResponse; result: ResultView }) {
+  // "Hold — leave the stop and the target" is "Hold" in a sentence.
+  const name = (value?: string) => drill.options?.find((o) => o.value === value)?.label.split(' — ')[0] ?? value
+  const best = (result.answer ?? '').split(',')
+  const paid = best.map(name).join(' and ')
+  return (
+    <>
+      <h3 className={panelTitle} data-testid="drill-summary">
+        {result.correct
+          ? `Yes — ${paid} paid most here`
+          : `${paid} paid most here; you chose ${name(drill.choice)}`}
+      </h3>
+      <p className="mb-3 text-xs text-subtle" data-testid="drill-grade">
+        Graded by what real price did with each choice — the candles after the line are the ones that were hidden.
       </p>
       <Explanation lines={result.explanation ?? []} />
     </>

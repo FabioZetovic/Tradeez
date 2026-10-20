@@ -12,7 +12,7 @@ import type { DomainBar } from '../chart/types'
  * IDENTIFY: mark every instance (mode A). CLASSIFY: name the marked structure (mode B). PREDICT: say
  * which of two targets price reaches first after the chart stops (mode C, DEC-058).
  */
-type DrillMode = 'IDENTIFY' | 'CLASSIFY' | 'PREDICT'
+type DrillMode = 'IDENTIFY' | 'CLASSIFY' | 'PREDICT' | 'MANAGE'
 
 export interface DrillKindView {
   kind: string
@@ -70,7 +70,8 @@ export interface TargetView {
 
 /** Drawn for context, not to be chosen: a gap inside the range, or the level just taken. */
 export interface ContextView {
-  what: 'IRL_BULLISH_GAP' | 'IRL_BEARISH_GAP' | 'TAKEN_BSL' | 'TAKEN_SSL'
+  /** TRADE_*: a management drill's open trade (T26). */
+  what: 'IRL_BULLISH_GAP' | 'IRL_BEARISH_GAP' | 'TAKEN_BSL' | 'TAKEN_SSL' | 'TRADE_ENTRY' | 'TRADE_STOP' | 'TRADE_TARGET'
   shape: 'LEVEL' | 'ZONE'
   fromTime: number
   lowTicks: number
@@ -158,6 +159,47 @@ export interface DrillResponse {
   /** Prediction, once answered: the candles after the chart, to a few past the deciding one. */
   revealed?: DomainBar[]
 }
+
+/** Risk drills, mode F (risk-1.0.0, T26): position size, a losing streak, recovery. */
+export const RISK_KINDS = [
+  { value: 'CONTRACTS', label: 'Position size' },
+  { value: 'STREAK', label: 'Losing streak' },
+  { value: 'RECOVERY', label: 'Recovery' },
+] as const
+
+export type RiskKind = (typeof RISK_KINDS)[number]['value']
+
+export interface RiskDrill {
+  id: string
+  kind: RiskKind
+  version: string
+  text: string
+  /** contracts or % */
+  unit: string
+  /** A clock to answer against; an answer after it still counts. */
+  limitSeconds: number
+  /** Absent until answered: the answer and its working come only with it. */
+  result?: {
+    given: number
+    answer: number
+    correct: boolean
+    seconds: number
+    inTime: boolean
+    working: string[]
+    /** This kind's questions answered so far, this one included, and how many right. */
+    answered: number
+    right: number
+  }
+}
+
+export const startRiskDrill = (kind: RiskKind) =>
+  apiFetch<RiskDrill>('/api/drills/risk', { method: 'POST', body: JSON.stringify({ kind }) })
+
+export const answerRiskDrill = (id: string, value: number) =>
+  apiFetch<RiskDrill>(`/api/drills/risk/${encodeURIComponent(id)}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({ value }),
+  })
 
 export const DRILL_TIMEFRAMES = ['1m', '5m', '15m'] as const
 
