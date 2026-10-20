@@ -1796,6 +1796,20 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**What to do with a winning trade.** A trade that is already in profit asks a question beginners get wrong in both
+directions: hold on for the full target, protect it by moving the stop to the entry, or bank half now? The Drills tab
+now stops a real stretch of NQ at that moment — a trade drawn on the chart, a whole risk unit up — and asks. The answer
+comes from what the market really did next: each of the three choices is played out on the candles that followed and
+shown in units of risk. The page is careful about what one example proves: it shows which choice paid in this case,
+and only many of them show which habit pays.
+
+**The sums that keep a trader in the game.** Before every trade a trader has to know how many contracts their
+stop allows for the money they are willing to lose, and after a bad run they need to feel how deep the hole is —
+and how much harder climbing out is than falling in (lose half, and you need to double what is left). The Drills
+tab now asks these questions against a clock, one at a time: an account size, a share of it to risk, a stop, a
+product — how many contracts? Ten losses in a row at 2% each — how far down? Down 30% — what gain gets it back?
+Each answer comes back worked out step by step, with how long it took and the learner's record so far.
+
 **Numbers that admit how little they know.** The journal now adds the practice trades up: how often they won,
 how much they won and lost on average, and what a trade was worth on average in units of risk — its
 "expectancy". It shows these for all the trades together and split by the model followed, the time of day, the

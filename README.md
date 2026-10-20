@@ -45,6 +45,11 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Evidence** (DEC-065): every rule counted over the whole imported history — how often it fires, how
   its zones' lives ended (filled, invalidated, left past their end), how its kinds divide — on each
   concept's lesson card, as base rates with their sample sizes, never as a forecast.
+- **Managing a trade** (DEC-071): a real NQ trade is open and in profit — hold it, move the stop to breakeven, or
+  take half off? Each choice is played out on the real candles that followed, and the result says which paid most
+  here and that only many such drills say which pays.
+- **Risk drills against the clock** (DEC-070): how many contracts a stop allows, how deep a losing streak goes,
+  what gain a drawdown needs — answered in the head, timed, and shown worked out step by step.
 - **Statistics that show their sample size** (DEC-069): the journal adds the trades up — win rate, expectancy,
   profit factor — overall and by model, killzone, weekday and whether the learner kept their own rules, with the
   number of trades first on every row and a range that says when a result cannot yet be told from luck.

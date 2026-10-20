@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T21 (feat/evidence), T22 (feat/plans), T23 (feat/scorecard), T24 (feat/review) and T25 (feat/stats), each branched from the one before, built and waiting for "merge"; T26 (management and risk drills) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: nothing — T21 (feat/evidence), T22 (feat/plans), T23 (feat/scorecard), T24 (feat/review), T25 (feat/stats) and T26 (feat/risk), each branched from the one before, built and waiting for "merge"; T27 (fees, commission, slippage) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -151,7 +151,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T25 journal statistics, on branch feat/stats (from feat/review, 2026-10-19)
+claimed_files:      # session 017 (CLAUDE) — T26 management and risk drills, on branch feat/risk (from feat/stats, 2026-10-20)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -257,7 +257,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T23 | ~~**Scorecard**~~ | T5 | C §5.5, X §5, D-027 | ✅ Session 017 (DEC-067), on `feat/scorecard`: every finished trade scored on two sides of equal weight — outcome (money, R, worst and best point in R, the draw reached or how close) and process (risk against the learner's own limit, plan stated "3 of 4", the model's checklist, with or against their bias, the daily-bias reading, killzone, reward to risk, held or closed by hand, confidence) — a tick or a cross only on the learner's own rules, nothing added up (`scorecard-1.0.0`). A risk limit set before a session, copied onto each plan (V20). Calibration in the journal: confidence (10–90%, target before stop) against how often, per confidence and overall with a 95% Wilson interval, undecided trades counted apart (`calibration-1.0.0`). |
 | T24 | ~~**Review overlay**~~ | T22 | D-026 | ✅ Session 017 (DEC-068), on `feat/review`: once the replay has passed a trade's exit, "Read the review" tells it as it happened (`review-1.0.0`) — the hits of liquidity, sweeps, MSS, FVG and the model's own rules confirmed in the 30 candles before the decision (three latest each) and while it ran (up to 24), each explained in its rule's numbers; the decision in the learner's words; the fill and the exit; whether price reached the draw; after a close by hand, what the bracket would have done, once the replay has passed it. Its hits drawn on the chart on request. Nothing past the cursor. |
 | T25 | ~~**Journal statistics**~~ | T23 | C §1.4, X §5 | ✅ Session 017 (DEC-069), on `feat/stats`: the journal's Statistics panel (`journal-stats-1.0.0`) — trades, win rate, average win and loss, expectancy with its 95% range read in words, profit factor, total R — overall and by model, killzone, weekday, side, model checks met and own rules kept (as the scorecard judges them); the count first on every row. |
-| T26 | **Management and risk drills** | T23 | D-023 | Modes E and F. |
+| T26 | ~~**Management and risk drills**~~ | T23 | D-023 | ✅ Session 017, on `feat/risk`: **mode F** (DEC-070) — risk drills against the clock (`risk-1.0.0`): position size on NQ/MNQ, a losing streak's compounded drawdown, the gain a drawdown needs; answered once, the working with the result, the record per kind. **Mode E** (DEC-071) — "Manage an open trade" (`manage-1.0.0`): a trade a whole R in profit on real NQ, hold / stop to breakeven / half off, each played out on the real candles after, the ones that paid most the answer, every choice told in R. |
 | T27 | **Fees, commission, slippage** | T5 | X §5 | New fill-model version (DEC-012). |
 | T28 | **Partial targets** | T5 | X §5, I-81 | More than one target per plan. |
 
@@ -303,6 +303,8 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-071 | **Management drills** (T26, mode E): `OPEN_TRADE_MANAGEMENT`, `manage-1.0.0` — a constructed trade (stop 1.5 × ATR(14), ≥ 8 ticks; target 3R), the moment its first close ≥ 1R after ≥ 3 candles; HOLD / BREAKEVEN / HALF (half at the next open) played to the first level or 100 candles, gaps fill at the open, ties in a candle read on minutes or never asked; outcome the choices that paid most (ties all count); real data only (V22); practice, never rated. |
+| DEC-070 | **Risk drills** (T26, mode F): `risk-1.0.0` — CONTRACTS (account × risk% ÷ (stop ticks × $5 NQ / $0.50 MNQ), rounded down, ≤ 30, exact, 30 s), STREAK (1 − (1 − r)^n, ± 0.5 pt, 45 s), RECOVERY (d ÷ (100 − d), ± 1 pt, 30 s); V21 `risk_drill` (answer, tolerance, given/answered_at/correct together), `POST /api/drills/risk`, `GET …/{id}`, `POST …/{id}/answer` once; the time from the database's clock; a clock on the page that never refuses a late answer. |
 | DEC-069 | **Journal statistics** (T25): `journal-stats-1.0.0`, `GET /api/practice/statistics` — overall and by model, killzone (from the decision's time for pre-T22 trades, BUG-074), NY weekday (Sunday first), side, checks (every / some / none / no model), own rules (all kept / some broken / none) as the scorecard judges them; trades, wins, losses, win rate, avg win/loss R, expectancy ± 1.96 SE (≥ 2 trades) with a reading, profit factor, total R; only revealed exits. |
 | DEC-068 | **Review** (T24): `review-1.0.0`, `GET …/trades/{n}/review` once the exit is revealed (409 before) — BEFORE (hits confirmed in the 30 candles to the decision, 3 latest per rule), TRADE (decision in the learner's words, fill, hits to the exit capped at 24, exit), AFTER (draw reached — at or beyond from the entry's side — and, after a close, the bracket's own exit once the cursor passes it); rules LIQUIDITY, SWEEP, MSS, FVG plus the model's; the told hits as a setup layer for the chart. |
 | DEC-067 | **Scorecard** (T23): `scorecard-1.0.0` — outcome (R, money, MAE/MFE in R, draw reached) beside process (risk limit, plan stated, checklist, own bias, daily-bias reading, killzone, R:R, execution, confidence) at equal weight; verdicts only on the learner's own rules (risk limit, own bias), the rest stated; headline an unweighted count of those rules, never a score. Risk limit $1–$1,000,000 set before a session (`practice_settings`), copied onto the plan (V20), never blocking. `calibration-1.0.0`: confidence 10–90% that the target fills first, against how often — per confidence with counts, overall with a 95% Wilson interval; closed by hand, session close and one-candle ambiguity counted apart; only revealed exits. |
@@ -2522,3 +2524,34 @@ to say merge (it carries T21–T23 too); T25 continues on `feat/stats`, branched
 **2026-10-19 — Fresh-clone check of `462eb6d`** (`feat/stats`), no `.env`: backend 615 test cases, 0 failures,
 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 339/339, build clean. Waiting for Fabio
 to say merge (it carries T21–T24 too); T26 continues on `feat/risk`, branched from this.
+
+**2026-10-20 — T26, part 1: risk drills, mode F (DEC-070).** On `feat/risk`, branched from `feat/stats`, not merged.
+- **`RiskQuestion`** (`risk-1.0.0`, pure): position size on NQ or MNQ, a losing streak's compounded drawdown, the gain
+  a drawdown needs — each with its answer, tolerance, time limit and working. **`RiskDrillService`** stores it (V21
+  `risk_drill`), withholds the answer, takes one answer and times it by the database's clock.
+- **On screen:** "Risk, against the clock" under the chart drills: a kind, a question, a box and a clock counting
+  down ("Time is up — answer anyway"), then Right / Not quite, the time, the working step by step and the record.
+- Live: "An account of $25,000, risking 2%… 55 ticks… on NQ": answered 1, right, in 9.7 s, with "$500 ÷ $275 = 1.82".
+- Tests: RiskQuestionTest (6: the arithmetic by hand, rounding down, none, 2,000 draws against their givens, the
+  tolerance edges), RiskDrillApiTest (2), RobustnessTest (three endpoints in the sweep, four bad requests); frontend
+  RiskDrills (4, the clock with fake timers).
+- Mutations, one at a time after a passing baseline: 14 backend, all caught — a record mixing the kinds survived the
+  first run, since no test answered two kinds for one learner; one does now; 8 frontend, all caught.
+- Backend 615 → 623, frontend 339 → 343.
+
+**2026-10-20 — T26, part 2: management drills, mode E (DEC-071).** On `feat/risk`.
+- **`Management`** (`manage-1.0.0`, pure): the trade opened at a candle's close (stop 1.5 × ATR(14), at least 8 ticks,
+  target 3R), the moment it first closes a whole R up after three candles, and each choice played out on the candles
+  after — the first level, a gap at the open, a candle reaching both read on its minutes, 100 candles at most.
+- **In the drill engine:** `OPEN_TRADE_MANAGEMENT` in a new mode, MANAGE (V22 lets it carry a question and an
+  outcome); the trade drawn as three lines through the existing overlay, the choices as options, the result as each
+  choice's story; the catalogue gives it its own rule card; the learning state counts it as practice, never a rating.
+- **Found while building it:** `/api/drills/kinds` answered 400 — it looked every kind's rule up among the detectors,
+  and this one's is the drill's own; and the learning state's switch over the modes no longer compiled — it now
+  scores a management drill by whether the choice was among those that paid most.
+- Live on real NQ: a long from 19951.25, stop 19905.75, target 20087.75, at +2.53R; "Yes — Hold and Stop to
+  breakeven paid most here": the target the next candle, +3.00R, half off +2.76R in all.
+- Tests: ManagementTest (9, every number worked by hand), ManagementDrillApiTest (2: nothing after the moment, holding
+  replayed independently on the candles); RealDrillApiTest (the catalogue); frontend DrillView +3, DrillOverlay +1.
+- Mutations, one at a time after a passing baseline: 16 backend, all caught; 8 frontend, all caught.
+- Backend 623 → 634, frontend 343 → 347.
