@@ -2555,3 +2555,7 @@ to say merge (it carries T21–T24 too); T26 continues on `feat/risk`, branched 
   replayed independently on the candles); RealDrillApiTest (the catalogue); frontend DrillView +3, DrillOverlay +1.
 - Mutations, one at a time after a passing baseline: 16 backend, all caught; 8 frontend, all caught.
 - Backend 623 → 634, frontend 343 → 347.
+
+**2026-10-20 — Fresh-clone check of `9ac95bb`** (`feat/risk`), no `.env`: backend 634 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 347/347, build clean. Waiting for Fabio
+to say merge (it carries T21–T25 too); T27 continues on `feat/costs`, branched from this.
