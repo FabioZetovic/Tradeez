@@ -97,6 +97,15 @@ const AFTER_ONE: ScoreView = {
   totalR: -1.04,
   netPnlCents: -24_250,
 }
+/** The standard costs (T27), as the server answers for a learner who has set none. */
+const STANDARD = {
+  feesCents: 450,
+  marketSlippageTicks: 1,
+  stopSlippageTicks: 1,
+  limitThroughTicks: 1,
+  fillModel: 'mkt-1t/slip-1t/thru-1t/comm-450c',
+}
+
 /** A learner with no finished trade that says how sure they were (calibration-1.0.0). */
 const NO_CALIBRATION = {
   version: 'calibration-1.0.0',
@@ -169,7 +178,7 @@ function happyServer(overrides: Partial<Record<'plan', { status: number; body: u
   return (call: Call) => {
     if (is(call, 'GET', '/api/practice/sessions')) return { body: [] }
     if (is(call, 'GET', '/api/practice/calibration')) return { body: NO_CALIBRATION }
-    if (is(call, 'GET', '/api/practice/settings')) return { body: {} }
+    if (is(call, 'GET', '/api/practice/settings')) return { body: STANDARD }
     if (is(call, 'GET', '/api/practice/statistics')) return { body: NO_STATISTICS }
     if (is(call, 'POST', '/api/practice/sessions')) {
       return { status: 201, body: { state: ANALYSING, bars: BARS } satisfies SessionResponse }
@@ -647,7 +656,7 @@ describe('Practice — the scorecard (T23)', () => {
     let saved: number | undefined = 15_000
     const server = happyServer()
     mockApi((call) => {
-      const limit = () => ({ body: saved === undefined ? {} : { riskLimitCents: saved } })
+      const limit = () => ({ body: saved === undefined ? STANDARD : { ...STANDARD, riskLimitCents: saved } })
       if (is(call, 'GET', '/api/practice/settings')) return limit()
       if (is(call, 'PUT', '/api/practice/settings')) {
         saved = (call.body as { riskLimitCents?: number }).riskLimitCents
@@ -676,13 +685,59 @@ describe('Practice — the scorecard (T23)', () => {
     await waitFor(() => expect(field).toHaveValue(''))
     await user.type(field, '150{Enter}')
     await waitFor(() => expect(field).toHaveValue('150'))
-    expect(puts()).toEqual([{ riskLimitCents: 125_000 }, {}, { riskLimitCents: 15_000 }])
+    // Saved all at once: the costs go with the limit, as they were.
+    const { fillModel: _, ...costs } = STANDARD
+    expect(puts()).toEqual([{ ...costs, riskLimitCents: 125_000 }, costs, { ...costs, riskLimitCents: 15_000 }])
 
     // Forty ticks at $5: $200, over the $150 limit — said, not prevented.
     await startSession(user)
     await user.click(screen.getByRole('button', { name: /plan long/i }))
     expect(screen.getByTestId('risk-limit')).toHaveTextContent('over your $150.00 limit')
     expect(screen.getByRole('button', { name: /place trade/i })).toBeEnabled()
+  })
+
+  it('T27: shows the costs in force, and saves a change to one with the rest as they were', async () => {
+    let saved: Record<string, unknown> = { ...STANDARD, riskLimitCents: 30_000 }
+    const server = happyServer()
+    mockApi((call) => {
+      if (is(call, 'GET', '/api/practice/settings')) return { body: saved }
+      if (is(call, 'PUT', '/api/practice/settings')) {
+        saved = { ...(call.body as object), fillModel: 'whatever the server names it' }
+        return { body: saved }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    const costs = await screen.findByRole('region', { name: 'Your costs' })
+    expect(within(costs).getByLabelText('Fees per round trip ($)')).toHaveValue('4.5')
+    expect(screen.getByTestId('costs-model')).toHaveTextContent('(mkt-1t/slip-1t/thru-1t/comm-450c)')
+    const stop = within(costs).getByRole('group', { name: 'Slippage at the stop, ticks' })
+    expect(within(stop).getByRole('button', { name: '1' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(within(stop).getByRole('button', { name: '2' }))
+    const puts = () => calls.filter((c) => is(c, 'PUT', '/api/practice/settings')).map((c) => c.body)
+    await waitFor(() => expect(puts()).toHaveLength(1))
+    expect(puts()[0]).toEqual({ riskLimitCents: 30_000, feesCents: 450, marketSlippageTicks: 1, stopSlippageTicks: 2, limitThroughTicks: 1 })
+
+    const fees = within(costs).getByLabelText('Fees per round trip ($)')
+    await user.clear(fees)
+    await user.type(fees, '3.25{Enter}')
+    await waitFor(() => expect(puts()).toHaveLength(2))
+    expect(puts()[1]).toMatchObject({ feesCents: 325, stopSlippageTicks: 2 })
+    // More than $50 a round trip is not a fee: nothing is sent.
+    await user.clear(fees)
+    await user.type(fees, '75{Enter}')
+    expect(puts()).toHaveLength(2)
+
+    await user.click(within(costs).getByRole('button', { name: 'On the touch' }))
+    await waitFor(() => expect(puts()).toHaveLength(3))
+    expect(puts()[2]).toMatchObject({ limitThroughTicks: 0, feesCents: 325 })
+
+    // And the draft reads its costs: $3.25 fees, a tick in, up to two out — at most $18.25.
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    expect(screen.getByTestId('plan-costs')).toHaveTextContent('$3.25 fees · slippage 1 tick in, up to 2 out — at most $18.25')
   })
 
   it('sends how sure the learner is with the plan, and starts the next draft unsaid', async () => {

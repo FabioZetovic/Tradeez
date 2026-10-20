@@ -14,6 +14,8 @@ interface PlanPanelProps {
   tickValueCents: number
   /** The learner's limit for one trade's risk (T23): shown, never enforced — the scorecard records it. */
   riskLimitCents?: number
+  /** What a trade costs the learner (T27): shown as the most fees and slippage can take. */
+  costs?: PlanCosts
   busy: boolean
   onPlace: (direction: Direction) => void
   onFlip: () => void
@@ -44,6 +46,7 @@ export function PlanPanel({
   tickSize,
   tickValueCents,
   riskLimitCents,
+  costs,
   busy,
   onPlace,
   onFlip,
@@ -144,6 +147,12 @@ export function PlanPanel({
         </dd>
         <dt>Reward : risk</dt>
         <dd>{numbers.ratio === null ? '—' : numbers.ratio.toFixed(2)}</dd>
+        {costs && (
+          <>
+            <dt>Costs</dt>
+            <dd data-testid="plan-costs">{costsText(costs, plan.contracts, tickValueCents)}</dd>
+          </>
+        )}
       </dl>
 
       {problem && (
@@ -166,6 +175,24 @@ export function PlanPanel({
       </div>
     </Panel>
   )
+}
+
+/** The learner's costs (T27), as much of them as a draft needs. */
+export interface PlanCosts {
+  feesCents: number
+  marketSlippageTicks: number
+  stopSlippageTicks: number
+}
+
+/**
+ * "$4.50 fees · slippage 1 tick in, up to 1 out — at most $14.50": the most a round trip can cost, the exit slipping
+ * as a stop or a close at market does, whichever is more.
+ */
+function costsText(costs: PlanCosts, contracts: number, tickValueCents: number): string {
+  const out = Math.max(costs.stopSlippageTicks, costs.marketSlippageTicks)
+  const most = (costs.feesCents + (costs.marketSlippageTicks + out) * tickValueCents) * contracts
+  const ticks = (n: number) => `${n} ${n === 1 ? 'tick' : 'ticks'}`
+  return `${formatCents(costs.feesCents * contracts)} fees · slippage ${ticks(costs.marketSlippageTicks)} in, up to ${out} out — at most ${formatCents(most)}`
 }
 
 /**

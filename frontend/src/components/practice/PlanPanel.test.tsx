@@ -155,6 +155,20 @@ describe('PlanPanel scorecard inputs (T23)', () => {
     )
   }
 
+  it('T27: reads the most a round trip can cost, for every contract, the exit slipping as the worse of stop and market', () => {
+    const costs = { feesCents: 450, marketSlippageTicks: 1, stopSlippageTicks: 1 }
+    const draft = (plan: PlanRequest, c = costs) => (
+      <PlanPanel plan={plan} referenceTicks={REF} tickSize={0.25} tickValueCents={500} costs={c} busy={false}
+        onPlace={vi.fn()} onFlip={vi.fn()} onDiscard={vi.fn()} onChangeLevel={vi.fn()} onChangeContracts={vi.fn()} onLock={vi.fn()} />
+    )
+    const { rerender } = render(draft(LONG))
+    expect(screen.getByTestId('plan-costs')).toHaveTextContent('$4.50 fees · slippage 1 tick in, up to 1 out — at most $14.50')
+    rerender(draft({ ...LONG, contracts: 2 }, { feesCents: 450, marketSlippageTicks: 1, stopSlippageTicks: 3 }))
+    expect(screen.getByTestId('plan-costs')).toHaveTextContent('$9.00 fees · slippage 1 tick in, up to 3 out — at most $49.00')
+    rerender(draft(LONG, { feesCents: 0, marketSlippageTicks: 2, stopSlippageTicks: 0 }))
+    expect(screen.getByTestId('plan-costs')).toHaveTextContent('$0.00 fees · slippage 2 ticks in, up to 2 out — at most $20.00')
+  })
+
   it("reads the draft's risk against the learner's limit — within at exactly the limit, over by a cent — and never blocks it", () => {
     // Forty ticks of risk at $5 on one contract: $200.
     const { rerender } = render(limited(20_000))

@@ -139,11 +139,10 @@ export function ResultCard({
       <details className="mt-3 text-xs">
         <summary className="cursor-pointer text-subtle">How this was decided</summary>
         <p className="mt-2">
-          Resolved on {resolution} bars ({result.resolution}) by {result.engineVersion} with{' '}
-          {result.fillModelVersion}: stops slip one tick, commission per contract per round trip, flat at the
-          session close.
+          Resolved on {resolution} bars ({result.resolution}) by {result.engineVersion} with the costs it was placed under,{' '}
+          {result.fillModelVersion} — the slippage and fees in the Costs line — and flat at the session close.
           {result.outcome === 'CLOSED' &&
-            ' You closed it at market: it filled at the open of the next bar, without slippage, as the entry did.'}
+            ' You closed it at market: it filled at the open of the next bar, slipping as the entry did.'}
         </p>
       </details>
     </Panel>
