@@ -88,6 +88,9 @@ public class DrillService {
 	/** Candles in a classification drill: room for the structure the name depends on. */
 	public static final int CLASSIFY_WINDOW_BARS = 40;
 
+	/** Mode E: candles searched for a trade and its moment; the chart ends at the moment (T26). */
+	static final int MANAGE_WINDOW_BARS = 60;
+
 	static final Set<Timeframe> REAL_TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M5, Timeframe.M15);
 	static final Set<Timeframe> SIMULATED_TIMEFRAMES = EnumSet.of(Timeframe.M5, Timeframe.M15);
 	static final String DEFAULT_INSTRUMENT = "NQ";
@@ -159,9 +162,10 @@ public class DrillService {
 	/** Every drill there is, with the rule each is graded by. */
 	public List<KindView> kinds() {
 		return Arrays.stream(DrillKind.values()).map(k -> {
-			Detector detector = detectors.require(k.detector());
-			return new KindView(k.name(), k.mode().name(), k.title(), k.conceptId(), detector.id(),
-				detector.ruleVersion(), k.instructions());
+			// Mode E's rule is the drill's own, not a detector's (T26).
+			RuleView rule = k.mode() == Mode.MANAGE ? Management.rule() : rule(detectors.require(k.detector()));
+			return new KindView(k.name(), k.mode().name(), k.title(), k.conceptId(), rule.detector(), rule.version(),
+				k.instructions());
 		}).toList();
 	}
 
@@ -189,6 +193,15 @@ public class DrillService {
 			throw new TooManyDrillsException();
 		}
 
+		if (kind.mode() == Mode.MANAGE) {
+			Managed managed = findManagement(instrument, timeframe);
+			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
+				timeframe.code(), instrument.getDataClass(), kind.detector(), Management.VERSION, managed.from(),
+				managed.asked().trade().moment(), Set.of(), json.convertValue(managed.asked(), JSON_OBJECT),
+				String.join(",", managed.asked().outcome().best().stream().map(Enum::name).toList()),
+				managed.asked().outcome().decidedAt(), managed.revealTo())));
+			return view(drill, instrument, managed.bars(), List.of());
+		}
 		Detector detector = detectors.require(kind.detector());
 		if (kind.mode() == Mode.PREDICT) {
 			Asked asked = findPrediction(kind, detector, instrument, timeframe);
@@ -246,7 +259,7 @@ public class DrillService {
 			if (choice == null || marks != null) {
 				throw new IllegalArgumentException("This drill is answered by choosing a name: send a choice.");
 			}
-			List<String> options = kind.mode() == Mode.PREDICT ? kind.predictions() : kind.optionsFor(key.getFirst());
+			List<String> options = kind.mode() == Mode.CLASSIFY ? kind.optionsFor(key.getFirst()) : kind.predictions();
 			if (!options.contains(choice)) {
 				throw new IllegalArgumentException("Choose one of " + options + ".");
 			}
@@ -271,6 +284,62 @@ public class DrillService {
 	 * @param excused A: candles a mark on which counts neither way
 	 */
 	private record Window(Instant from, Instant to, List<Bar> bars, List<DetectedSetup> key, List<Long> excused) {
+	}
+
+	/** A management drill: the chart up to the moment, the trade, and what each choice made (T26). */
+	private record Managed(Instant from, List<Bar> bars, Management.Asked asked, Instant revealTo) {
+	}
+
+	/**
+	 * A stretch of open market in which a trade, opened at a candle's close, stands a whole R in profit with its
+	 * stop untouched — and a future, on one contract, that tells what each choice made.
+	 */
+	private Managed findManagement(Instrument instrument, Timeframe timeframe) {
+		int length = Mode.MANAGE.windowBars();
+		long step = timeframe.seconds();
+		Instant[] coverage = marketData.coverage(instrument);
+		if (coverage == null) {
+			throw new IllegalArgumentException("No real " + instrument.getSymbol()
+				+ " history has been imported yet, so there is nothing to drill on.");
+		}
+		Instant earliest = coverage[0].plus(HISTORY_MARGIN);
+		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(length + Management.HORIZON_CANDLES))
+			.minus(FUTURE_REACH);
+		if (!earliest.isBefore(latest)) {
+			throw new IllegalArgumentException("Too little real " + instrument.getSymbol()
+				+ " history has been imported to drill on.");
+		}
+		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
+			Instant from = Instant.ofEpochSecond(second - Math.floorMod(second, step));
+			Instant to = from.plusSeconds(length * step);
+			if (!SessionCalendar.isOpenThroughout(from, to) || !marketData.rolls(instrument, from, to).isEmpty()) {
+				continue;
+			}
+			List<Bar> stretch = marketData.internalBars(instrument, timeframe, from, to, SEED).bars();
+			if (stretch.size() != length) {
+				continue;
+			}
+			boolean longSide = random.nextBoolean();
+			for (int entry = Management.ATR_CANDLES; entry < length - Management.MIN_HELD; entry++) {
+				Management.Trade trade = Management.open(stretch, entry, longSide, step);
+				if (trade == null) {
+					continue;
+				}
+				List<Bar> future = future(instrument, timeframe, trade.moment());
+				Management.Outcome outcome = Management.resolve(trade, future, bar -> minutes(instrument, timeframe, bar));
+				if (outcome == null) {
+					continue;
+				}
+				int shown = (int) stretch.stream().filter(b -> b.openTime().isBefore(trade.moment())).count();
+				int decided = (int) future.stream().filter(b -> !b.openTime().isAfter(outcome.decidedAt())).count();
+				Bar lastRevealed = future.get(Math.min(future.size(), decided + Prediction.REVEAL_AFTER) - 1);
+				return new Managed(from, List.copyOf(stretch.subList(0, shown)),
+					new Management.Asked(trade, outcome, future.getFirst().openTicks()),
+					lastRevealed.openTime().plus(timeframe.duration()));
+			}
+		}
+		throw new NoWindowFoundException();
 	}
 
 	/** A prediction: the chart up to the moment, the question it asks, and how the future answered. */
@@ -491,11 +560,13 @@ public class DrillService {
 		boolean fixture = drill.getDataClass() == DataClass.SIMULATED;
 		boolean classify = kind.mode() == Mode.CLASSIFY;
 		boolean predict = kind.mode() == Mode.PREDICT;
+		boolean manage = kind.mode() == Mode.MANAGE;
+		Management.Asked managed = manage ? json.convertValue(drill.getQuestion(), Management.Asked.class) : null;
 		DetectedSetup subject = classify ? key.getFirst() : null;
 		BigDecimal tickSize = instrument.getTickSize();
 		Question question = predict ? json.convertValue(drill.getQuestion(), Question.class) : null;
 		// The future, only once answered: before that, nothing after the moment leaves the server.
-		List<Bar> revealed = predict && drill.isAnswered()
+		List<Bar> revealed = (predict || manage) && drill.isAnswered()
 			? marketData.internalBars(instrument, Timeframe.fromCode(drill.getTimeframe()), drill.getWindowTo(),
 				drill.getRevealTo(), SEED).bars()
 			: null;
@@ -516,18 +587,22 @@ public class DrillService {
 			fixture ? FIXTURE_NOTICE : null,
 			kind.instructions(),
 			kind.markName(),
-			rule(detectors.require(drill.getDetector())),
+			manage ? Management.rule() : rule(detectors.require(drill.getDetector())),
 			bars(bars),
 			classify ? subject(kind, subject) : null,
 			classify ? kind.optionsFor(subject).stream().map(o -> new OptionView(o, RuleText.NAMES.get(o))).toList()
 				: predict ? kind.predictions().stream()
 					.map(v -> new OptionView(v, PredictionText.label(target(question, v), tickSize))).toList()
+				: manage ? kind.predictions().stream()
+					.map(v -> new OptionView(v, Management.label(Management.Choice.valueOf(v)))).toList()
 				: null,
-			predict ? questionView(kind, question, tickSize) : null,
+			predict ? questionView(kind, question, tickSize) : manage ? Management.questionView(managed.trade(), tickSize) : null,
 			drill.isAnswered() ? drill.getMarks() : null,
 			drill.isAnswered() ? drill.getChoice() : null,
 			!drill.isAnswered() ? null
-				: predict ? predictionResult(drill, question, revealed, tickSize) : result(drill, key, tickSize),
+				: predict ? predictionResult(drill, question, revealed, tickSize)
+				: manage ? managementResult(drill, managed, tickSize)
+				: result(drill, key, tickSize),
 			revealed == null ? null : bars(revealed));
 	}
 
@@ -564,6 +639,18 @@ public class DrillService {
 		return new ResultView(null, null, null, null, null, drill.getOutcome(), drill.getOutcome().equals(drill.getChoice()),
 			List.of(), drill.getOutcomeAt().getEpochSecond(), candles,
 			PredictionText.explain(question, drill.getOutcome(), candles, minutes, drill.getTimeframe(), tickSize));
+	}
+
+	/**
+	 * What each choice made: the ones that paid most are the answer, a tie counting for each of them; the story in
+	 * prices and R, ending with what one trade proves (T26).
+	 */
+	private static ResultView managementResult(Drill drill, Management.Asked asked, BigDecimal tickSize) {
+		int candles = asked.outcome().exits().stream().mapToInt(Management.Exit::candles).max().orElseThrow();
+		return new ResultView(null, null, null, null, null, drill.getOutcome(), Management.paidMost(drill.getOutcome(),
+			drill.getChoice()), List.of(),
+			drill.getOutcomeAt().getEpochSecond(), candles,
+			Management.explain(asked.trade(), asked.outcome(), asked.halfPrice(), t -> RuleText.price(t, tickSize)));
 	}
 
 	/** What the chart shows of a classification subject: where, and which side — not its name. */

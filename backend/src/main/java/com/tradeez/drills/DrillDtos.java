@@ -8,6 +8,7 @@ import java.util.UUID;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -23,6 +24,38 @@ import jakarta.validation.constraints.Size;
 public final class DrillDtos {
 
 	private DrillDtos() {
+	}
+
+	@Schema(description = "Start a risk drill (mode F, T26)")
+	public record CreateRiskDrillRequest(
+		@Schema(description = "CONTRACTS (position size), STREAK (a losing streak's drawdown) or RECOVERY (the gain a "
+			+ "drawdown needs). Defaults to CONTRACTS") String kind) {
+	}
+
+	@Schema(description = "A risk drill's answer")
+	public record RiskAnswerRequest(@NotNull @Schema(description = "In the question's unit") Double value) {
+	}
+
+	@Schema(description = "A risk drill (risk-1.0.0, DEC-070). The answer and its working come only with the result.")
+	public record RiskDrillView(
+		UUID id,
+		String kind,
+		@Schema(description = "risk-1.0.0") String version,
+		String text,
+		@Schema(description = "contracts or %") String unit,
+		@Schema(description = "The time to answer in, shown as a clock; an answer after it still counts") int limitSeconds,
+		@Schema(description = "Absent until answered") RiskResultView result) {
+	}
+
+	public record RiskResultView(
+		double given,
+		double answer,
+		boolean correct,
+		@Schema(description = "From the question to the answer, by the server's clock") double seconds,
+		boolean inTime,
+		@Schema(description = "The answer worked out, step by step") List<String> working,
+		@Schema(description = "This learner's questions of this kind answered, this one included") int answered,
+		int right) {
 	}
 
 	@Schema(description = "Start a drill")

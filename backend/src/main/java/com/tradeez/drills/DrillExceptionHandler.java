@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /** Scoped to {@link DrillController}, like the practice handler, for the same reason. */
-@RestControllerAdvice(assignableTypes = DrillController.class)
+@RestControllerAdvice(assignableTypes = { DrillController.class, RiskDrillController.class })
 public class DrillExceptionHandler {
 
 	@ExceptionHandler(DrillService.DrillNotFoundException.class)
