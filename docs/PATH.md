@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T21 (feat/evidence) to T27 (feat/costs), each branched from the one before, built and waiting for "merge"; T28 (partial targets) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: Fabio — T21 (feat/evidence) to T27 (feat/costs), each branched from the one before, built and waiting for "merge"; T28 (partial targets) changes the stored trade result and waits for his go-ahead; T29 needs Q-08 (the UI's language); T20 needs his go-ahead for an ES import. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -2584,3 +2584,8 @@ to say merge (it carries T21–T25 too); T27 continues on `feat/costs`, branched
   read it and the whole session failed to load. Real results always carry a readable name, but an unreadable one now
   costs only that line its slippage ("the slippage cannot be read from its fill model").
 - Backend 634 → 643, frontend 347 → 349.
+
+**2026-10-20 — Fresh-clone check of `8e4eb97`** (`feat/costs`), no `.env`: backend 643 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 349/349, build clean. Waiting for Fabio
+to say merge (it carries T21–T26 too). Paused here for his input: T28 reshapes the stored result (one trade, several
+exits), T29 needs Q-08, T20 an ES import.
