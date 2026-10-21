@@ -52,6 +52,7 @@ import com.tradeez.marketdata.InstrumentRepository;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.SessionCalendar;
 import com.tradeez.marketdata.Timeframe;
+import com.tradeez.marketdata.dto.MarketDataDtos.CompanionBars;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
 
 import tools.jackson.core.type.TypeReference;
@@ -476,6 +477,9 @@ public class DrillService {
 			if (bars.size() != length) {
 				continue;
 			}
+			if (!besideWhole(detector, instrument, timeframe, from, to, length)) {
+				continue;
+			}
 
 			Instant reach = to.plusSeconds(CONFIRM_REACH * step);
 			scanner.ensureScanned(detector, instrument, timeframe, SEED, from, reach);
@@ -544,6 +548,23 @@ public class DrillService {
 			.orElse(null);
 	}
 
+	/**
+	 * For a rule that reads a second market (DEC-075): that one too is one contract over the window, with every
+	 * candle there. True for a rule that reads one market.
+	 */
+	boolean besideWhole(Detector detector, Instrument instrument, Timeframe timeframe, Instant from, Instant to,
+			int length) {
+		Instrument companion = companion(detector, instrument);
+		return companion == null || (marketData.rolls(companion, from, to).isEmpty()
+			&& marketData.internalBars(companion, timeframe, from, to, SEED).bars().size() == length);
+	}
+
+	/** The market a rule reads beside this one (T20), or null. */
+	private Instrument companion(Detector detector, Instrument instrument) {
+		String symbol = detector.companionOf(instrument.getSymbol());
+		return symbol == null ? null : marketData.requireInstrument(symbol);
+	}
+
 	private List<Bar> windowBars(Drill drill, Instrument instrument) {
 		return marketData.internalBars(instrument, Timeframe.fromCode(drill.getTimeframe()),
 			drill.getWindowFrom(), drill.getWindowTo(), drill.getSeed() == null ? SEED : drill.getSeed()).bars();
@@ -564,6 +585,8 @@ public class DrillService {
 		Management.Asked managed = manage ? json.convertValue(drill.getQuestion(), Management.Asked.class) : null;
 		DetectedSetup subject = classify ? key.getFirst() : null;
 		BigDecimal tickSize = instrument.getTickSize();
+		Detector detector = manage ? null : detectors.require(drill.getDetector());
+		Instrument companion = detector == null ? null : companion(detector, instrument);
 		Question question = predict ? json.convertValue(drill.getQuestion(), Question.class) : null;
 		// The future, only once answered: before that, nothing after the moment leaves the server.
 		List<Bar> revealed = (predict || manage) && drill.isAnswered()
@@ -587,7 +610,7 @@ public class DrillService {
 			fixture ? FIXTURE_NOTICE : null,
 			kind.instructions(),
 			kind.markName(),
-			manage ? Management.rule() : rule(detectors.require(drill.getDetector())),
+			manage ? Management.rule() : rule(detector),
 			bars(bars),
 			classify ? subject(kind, subject) : null,
 			classify ? kind.optionsFor(subject).stream().map(o -> new OptionView(o, RuleText.NAMES.get(o))).toList()
@@ -603,7 +626,10 @@ public class DrillService {
 				: predict ? predictionResult(drill, question, revealed, tickSize)
 				: manage ? managementResult(drill, managed, tickSize)
 				: result(drill, key, tickSize),
-			revealed == null ? null : bars(revealed));
+			revealed == null ? null : bars(revealed),
+			companion == null ? null : new CompanionBars(companion.getSymbol(), companion.getTickSize(),
+				bars(marketData.internalBars(companion, Timeframe.fromCode(drill.getTimeframe()), drill.getWindowFrom(),
+					drill.getWindowTo(), SEED).bars())));
 	}
 
 	private static List<BarResponse> bars(List<Bar> bars) {

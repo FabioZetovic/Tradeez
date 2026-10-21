@@ -55,6 +55,13 @@ public enum DrillKind {
 			+ "and closes back inside, in the same candle.",
 		"a sweep of a level on this chart"),
 
+	/** DEC-075: two charts over the same minutes; the marks go on the upper one, where the rule's hits are. */
+	SMT_IDENTIFICATION(Mode.IDENTIFY, "SMT", "ICT-66", "SMT divergence", Set.of(), List.of(), 0, 1, 4,
+		"Two charts over the same minutes: the market drilled above, the one it is compared with below. Mark the "
+			+ "upper chart's candle of every SMT divergence — a swing high or low where one market went beyond its "
+			+ "previous one and the other did not.",
+		"the swing of a divergence on the upper chart"),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),

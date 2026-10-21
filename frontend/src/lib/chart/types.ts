@@ -96,4 +96,26 @@ export interface ChartAdapter {
    * @returns an unsubscribe function
    */
   onViewportChange(listener: () => void): () => void
+
+  /**
+   * The stretch of time on screen, UTC epoch seconds, or null before there are candles (DEC-075): a chart of
+   * another market keeps to it.
+   */
+  getVisibleTimeRange(): TimeRange | null
+
+  /** Shows this stretch of time; ignored before there are candles. */
+  setVisibleTimeRange(range: TimeRange): void
+}
+
+/** Another market's candles over the same minutes as the chart they are shown under (DEC-075). */
+export interface Companion {
+  instrument: string
+  tickSize: number
+  bars: DomainBar[]
+}
+
+/** From and to, UTC epoch seconds. */
+export interface TimeRange {
+  from: number
+  to: number
 }

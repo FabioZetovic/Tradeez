@@ -407,3 +407,44 @@ describe('App — the guide and the disclaimer (T29)', () => {
     expect(footer).toHaveTextContent('losses can exceed the money deposited')
   })
 })
+
+describe('App — another market beside the chart (DEC-075)', () => {
+  const ES = { ...NQ, symbol: 'ES', displayName: 'E-mini S&P 500 futures' }
+  const ES_SERIES = { ...SERIES, instrument: 'ES', bars: [{ ...SERIES.bars[0], open: 23_000, close: 23_002 }] }
+
+  beforeEach(() =>
+    mockApi({
+      '/api/market/instruments/ES/bars': { body: ES_SERIES },
+      ...signedIn,
+      '/api/market/instruments': { body: [ES, NQ] },
+    }),
+  )
+
+  it('draws ES under NQ over the same window, and none when the same market is chosen', async () => {
+    const adapters: FakeChartAdapter[] = []
+    render(
+      <App
+        adapterFactory={() => {
+          const adapter = new FakeChartAdapter()
+          adapters.push(adapter)
+          return adapter
+        }}
+      />,
+    )
+    const beside = await screen.findByLabelText('Beside')
+    await waitFor(() => expect(requests('/NQ/bars')).toHaveLength(1))
+    expect(screen.queryByRole('figure', { name: 'ES over the same minutes' })).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(beside, 'ES')
+    expect(await screen.findByRole('figure', { name: 'ES over the same minutes' })).toBeInTheDocument()
+    const [nq] = requests('/NQ/bars')
+    const [es] = requests('/ES/bars')
+    expect(es.searchParams.get('from')).toBe(nq.searchParams.get('from'))
+    expect(es.searchParams.get('to')).toBe(nq.searchParams.get('to'))
+    await waitFor(() => expect(adapters.some((a) => a.bars[0]?.open === 23_000)).toBe(true))
+
+    // Charting ES itself, ES is not offered beside it.
+    await userEvent.selectOptions(screen.getByLabelText('Instrument'), 'ES')
+    expect(screen.queryByRole('figure', { name: 'ES over the same minutes' })).not.toBeInTheDocument()
+  })
+})

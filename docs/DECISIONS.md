@@ -887,6 +887,29 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-075 — SMT on two charts: the other market under the one being read, and "find the SMT"**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-21) — ICT-66, DEC-073, DEC-054
+
+Fabio: "merge, then do the SMT second chart and drill." ICT-66's teaching mode A is "two charts, find the SMT": a
+divergence is seen by looking from one market to the other, and until now ES was only named in the words.
+
+- **A second chart wherever SMT is read.** Under the chart being read, the other market's candles over the same
+  minutes: in the Chart tab (a "Beside" choice — NQ with ES, or ES with NQ — showing that market's own SMT hits while
+  the SMT switch is on), under each of the ICT-66 lesson's examples, and in the drill. It keeps to the minutes the
+  chart above shows as that one is panned or zoomed. Both charts are kept by time, each turning it into positions
+  among its own candles, the empty space beside them included: the library's own visible time range covers only the
+  candles, and a chart showing space beside them was at first matched by one showing none — found on the drill at
+  1920px, and the reason for `lib/chart/logical.ts`.
+- **`SMT_IDENTIFICATION`** (mode A, DEC-054; V26): thirty candles of NQ with ES's under them; mark NQ's candle of
+  every divergence; graded against `smt-1.0.0` like every identification drill, one to four in a window. A window is
+  asked only where ES too is one contract with every candle there (`DrillService.besideWhole`), and a lesson example
+  only where ES does not roll. The answer explains each divergence in both markets' prices.
+- **On the wire:** `companion` — the instrument, its tick size and its candles (`CompanionBars`) — on a drill and on a
+  lesson example, for a rule that reads two markets.
+
+**Not in this decision:** the practice replay (ES would have to be revealed candle by candle with the cursor, like NQ);
+lines drawn between the two swings on each chart; YM.
+
 **DEC-074 — Partial targets: one level for some of the contracts, and the stop on the rest to the entry**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-21), T28 — ICT-81, ICT-82, DEC-008, DEC-012, DEC-013, DEC-072
 

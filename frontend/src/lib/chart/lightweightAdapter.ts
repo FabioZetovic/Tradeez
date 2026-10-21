@@ -7,8 +7,9 @@ import {
   type ISeriesApi,
   type Time,
 } from 'lightweight-charts'
-import type { ChartAdapter, ChartMountOptions, DomainBar } from './types'
+import type { ChartAdapter, ChartMountOptions, DomainBar, TimeRange } from './types'
 import type { Projection } from '../drawing/types'
+import { logicalAt, timeAtLogical } from './logical'
 import { decimalsFor, ticksToPrice } from './priceFormat'
 import { createTickMarkFormatter, createTimeFormatter, type TickKind } from './timeAxis'
 
@@ -153,6 +154,25 @@ export class LightweightChartAdapter implements ChartAdapter {
     const timeScale = chart.timeScale()
     timeScale.subscribeVisibleLogicalRangeChange(listener)
     return () => timeScale.unsubscribeVisibleLogicalRangeChange(listener)
+  }
+
+  // By logical position, not the library's time range: that one covers only the candles, and a chart showing empty
+  // space beside them would be matched by another showing none (DEC-075).
+  getVisibleTimeRange(): TimeRange | null {
+    const range = this.chart?.timeScale().getVisibleLogicalRange()
+    const times = this.times()
+    if (!range || times.length === 0) return null
+    return { from: timeAtLogical(times, range.from), to: timeAtLogical(times, range.to) }
+  }
+
+  setVisibleTimeRange(range: TimeRange): void {
+    const times = this.times()
+    if (!this.chart || times.length === 0) return
+    this.chart.timeScale().setVisibleLogicalRange({ from: logicalAt(times, range.from), to: logicalAt(times, range.to) })
+  }
+
+  private times(): number[] {
+    return (this.series?.data() ?? []).map((bar) => bar.time as number)
   }
 
   destroy(): void {

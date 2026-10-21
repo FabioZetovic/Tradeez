@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PriceChart } from '../PriceChart'
+import { AdapterOut, CompanionChart } from '../CompanionChart'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
 import { DrillOverlay } from './DrillOverlay'
 import { ApiError } from '@/lib/api/client'
@@ -57,6 +58,8 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
 
   // A prediction's chart grows by the candles after the moment once it is answered.
   const chartBars = useMemo(() => (drill ? [...drill.bars, ...(drill.revealed ?? [])] : []), [drill])
+  // DEC-075: the drill's chart, for the other market's chart under it to keep to.
+  const [leader, setLeader] = useState<ChartAdapter | null>(null)
   const moment = useMemo(() => {
     if ((drill?.mode !== 'PREDICT' && drill?.mode !== 'MANAGE') || drill.bars.length < 2) return undefined
     const last = drill.bars[drill.bars.length - 1].time
@@ -203,19 +206,31 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
               axisTimezone="exchange"
               adapterFactory={adapterFactory}
               overlay={(adapter) => (
-                <DrillOverlay
-                  adapter={adapter}
-                  bars={chartBars}
-                  marks={shownMarks}
-                  onToggle={identify ? toggle : undefined}
-                  subject={drill.subject}
-                  result={drill.result}
-                  question={drill.question}
-                  moment={moment}
-                />
+                <>
+                  {drill.companion && <AdapterOut adapter={adapter} onAdapter={setLeader} />}
+                  <DrillOverlay
+                    adapter={adapter}
+                    bars={chartBars}
+                    marks={shownMarks}
+                    onToggle={identify ? toggle : undefined}
+                    subject={drill.subject}
+                    result={drill.result}
+                    question={drill.question}
+                    moment={moment}
+                  />
+                </>
               )}
             />
           </div>
+          {drill.companion && (
+            <CompanionChart
+              companion={drill.companion}
+              leader={leader}
+              exchangeTimezone={drill.exchangeTimezone}
+              axisTimezone="exchange"
+              adapterFactory={adapterFactory}
+            />
+          )}
 
           {!answered && identify && (
             <Panel aria-label="Answer">

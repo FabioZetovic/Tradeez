@@ -23,6 +23,7 @@ vi.mock('lightweight-charts', async (importOriginal) => {
   const timeScale = {
     fitContent: vi.fn(),
     setVisibleLogicalRange: vi.fn(),
+    getVisibleLogicalRange: vi.fn(() => null as { from: number; to: number } | null),
     subscribeVisibleLogicalRangeChange: vi.fn(),
     unsubscribeVisibleLogicalRangeChange: vi.fn(),
     timeToCoordinate: vi.fn(),
@@ -80,5 +81,35 @@ describe('LightweightChartAdapter — BUG-029', () => {
     const options = mountedOptions('utc')
     expect(options.timeScale.tickMarkFormatter!(NINE_CDT, TickMarkType.Time)).toBe('14:00')
     expect(options.localization.timeFormatter(NINE_CDT)).toBe('14:00 UTC')
+  })
+})
+
+describe('the stretch of time on screen (DEC-075)', () => {
+  it('is read and set by logical position, empty space included, and only once the series has candles', async () => {
+    const { createChart } = await import('lightweight-charts')
+    const adapter = new LightweightChartAdapter()
+    expect(adapter.getVisibleTimeRange()).toBeNull()
+    adapter.mount(document.createElement('div'), {
+      tickSize: 0.25,
+      exchangeTimezone: 'America/Chicago',
+      axisTimezone: 'exchange',
+    })
+    const chart = vi.mocked(createChart).mock.results.at(-1)!.value
+    const timeScale = chart.timeScale()
+    const series = vi.mocked(chart.addSeries).mock.results[0].value
+
+    vi.mocked(timeScale.getVisibleLogicalRange).mockReturnValueOnce({ from: -2, to: 3 } as never)
+    expect(adapter.getVisibleTimeRange()).toBeNull()
+
+    adapter.setVisibleTimeRange({ from: 1, to: 2 })
+    expect(timeScale.setVisibleLogicalRange).not.toHaveBeenCalled()
+
+    const candles = [0, 300, 600, 900].map((time) => ({ time: time as never }))
+    vi.mocked(series.data).mockReturnValue(candles)
+    vi.mocked(timeScale.getVisibleLogicalRange).mockReturnValueOnce({ from: -2, to: 5 } as never)
+    expect(adapter.getVisibleTimeRange()).toEqual({ from: -600, to: 1500 })
+    adapter.setVisibleTimeRange({ from: -300, to: 1200 })
+    expect(timeScale.setVisibleLogicalRange).toHaveBeenLastCalledWith({ from: -1, to: 4 })
+    vi.mocked(series.data).mockReturnValue([])
   })
 })

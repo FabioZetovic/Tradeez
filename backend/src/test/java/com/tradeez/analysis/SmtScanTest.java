@@ -16,14 +16,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.tradeez.AbstractIntegrationTest;
+import com.tradeez.ThreeWeeksOfEs;
 import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.evidence.EvidenceService;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketBarStore;
-import com.tradeez.marketdata.MarketBarStore.StoredBar;
 import com.tradeez.marketdata.MarketDataService;
-import com.tradeez.marketdata.SessionCalendar;
 import com.tradeez.marketdata.Timeframe;
 
 /**
@@ -33,7 +32,7 @@ import com.tradeez.marketdata.Timeframe;
  */
 class SmtScanTest extends AbstractIntegrationTest {
 
-	private static final Instant ES_ROLL = ThreeWeeksOfNq.ROLL.minus(Duration.ofDays(1));
+	private static final Instant ES_ROLL = ThreeWeeksOfEs.ROLL;
 	private static final Instant FROM = ThreeWeeksOfNq.FROM.plus(Duration.ofDays(3));
 	private static final Instant TO = ThreeWeeksOfNq.TO.minus(Duration.ofDays(1));
 
@@ -74,26 +73,14 @@ class SmtScanTest extends AbstractIntegrationTest {
 		insertEs();
 	}
 
-	/** ES: another seed's minutes, rolling a day before NQ, some 500 points apart across the roll. */
 	private void insertEs() {
-		List<StoredBar> bars = new ArrayList<>();
-		for (Bar b : marketData.internalBars(marketData.requireInstrument("DEMO-NQ"), Timeframe.M1, ThreeWeeksOfNq.FROM,
-				ThreeWeeksOfNq.TO, 8).bars()) {
-			if (SessionCalendar.isOpen(b.openTime())) {
-				boolean june = !b.openTime().isBefore(ES_ROLL);
-				long shift = -60_000 + (june ? 2_000 : 0);
-				bars.add(new StoredBar(new Bar(b.openTime(), b.openTicks() + shift, b.highTicks() + shift,
-					b.lowTicks() + shift, b.closeTicks() + shift, b.volume()), june ? 202506 : 202503));
-			}
-		}
-		barStore.insert(es.getId(), "1m", bars);
+		ThreeWeeksOfEs.insert(marketData, barStore);
 	}
 
 	/** Other classes share the database and know nothing of ES. */
 	@AfterEach
 	void removeEs() {
-		jdbc.update("DELETE FROM detected_setup WHERE detector = 'SMT'");
-		jdbc.update("DELETE FROM market_bar WHERE instrument_id = ?", es.getId());
+		ThreeWeeksOfEs.remove(marketData, jdbc);
 	}
 
 	/** The rule over the whole of both histories, split at both markets' rolls, as a scan reads it. */

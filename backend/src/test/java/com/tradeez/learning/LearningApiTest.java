@@ -152,7 +152,9 @@ class LearningApiTest extends AbstractIntegrationTest {
 		assertThat(level(state, 1).get("open").asBoolean()).isFalse();
 		assertThat(level(state, 1).get("unlocksWhen").asString()).contains("Level 0 complete");
 		// Rated exactly where a marking or naming drill grades: not a prediction-only concept.
-		assertThat(state.at("/summary/rated").asInt()).isEqualTo(8);
+		// Nine since DEC-075: SMT divergence (ICT-66) has its marking drill.
+		assertThat(state.at("/summary/rated").asInt()).isEqualTo(9);
+		assertThat(concept(state, "ICT-66").get("rated").asBoolean()).isTrue();
 		assertThat(concept(state, "ICT-20").get("state").asString()).isEqualTo("NEW");
 		assertThat(concept(state, "ICT-16").get("rated").asBoolean()).isFalse();
 		assertThat(concept(state, "ICT-16").get("state").asString()).isEqualTo("UNREAD");

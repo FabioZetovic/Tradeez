@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { PriceChart } from './PriceChart'
+import { AdapterOut, CompanionChart } from './CompanionChart'
 import { SimulatedDataBanner } from './SimulatedDataBanner'
 import {
   getBars,
@@ -62,6 +63,9 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
   const [instrumentsError, setInstrumentsError] = useState<string | null>(null)
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
+  // DEC-075: another market under the chart, over the same minutes — NQ with ES beside it, for SMT.
+  const [beside, setBeside] = useState<string | null>(null)
+  const [leader, setLeader] = useState<ChartAdapter | null>(null)
 
   const { state: drawingState, dispatch, commit, retry, syncError, canUndo, canRedo } =
     useDrawings(symbol)
@@ -165,6 +169,46 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
     }
   }, [symbol, timeframe, windowEnd, setupsOn, setupsKey])
 
+  // The market beside, over the same window; while the SMT rule is on, its own divergences too.
+  const besideSymbol =
+    beside !== null && beside !== symbol && instruments.some((i) => i.symbol === beside) ? beside : null
+  const besideInstrument = instruments.find((i) => i.symbol === besideSymbol)
+  const besideKey = besideSymbol === null || requestKey === null ? null : `${besideSymbol}|${requestKey}`
+  const [besideBars, setBesideBars] = useState<{ key: string; series: BarSeries | null } | null>(null)
+  useEffect(() => {
+    if (besideSymbol === null || besideKey === null || windowEnd === null) return
+    let cancelled = false
+    const { from, to } = chartWindow(timeframe, windowEnd)
+    getBars({ symbol: besideSymbol, timeframe, from, to })
+      .then((result) => {
+        if (!cancelled) setBesideBars({ key: besideKey, series: result })
+      })
+      .catch(() => {
+        if (!cancelled) setBesideBars({ key: besideKey, series: null })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [besideSymbol, besideKey, timeframe, windowEnd])
+  const smtOn = setupsOn.includes('SMT')
+  const [besideSetups, setBesideSetups] = useState<{ key: string; layer: SetupLayer | null } | null>(null)
+  useEffect(() => {
+    if (besideSymbol === null || besideKey === null || windowEnd === null || !smtOn) return
+    let cancelled = false
+    const { from, to } = chartWindow(timeframe, windowEnd)
+    getChartSetups(besideSymbol, timeframe, from, to, ['SMT'])
+      .then((layer) => {
+        if (!cancelled) setBesideSetups({ key: besideKey, layer })
+      })
+      .catch(() => {
+        if (!cancelled) setBesideSetups({ key: besideKey, layer: null })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [besideSymbol, besideKey, timeframe, windowEnd, smtOn])
+  const besideSeries = besideBars?.key === besideKey ? besideBars.series : null
+
   const current = loaded !== null && loaded.key === requestKey ? loaded : null
   const loading = requestKey === null ? !noHistory : current === null
   const error = instrumentsError ?? current?.error ?? null
@@ -201,6 +245,26 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
             ))}
           </select>
         </label>
+
+        {instruments.length > 1 && (
+          <label className="flex items-center gap-2 text-xs font-medium text-subtle">
+            Beside
+            <select
+              className={fieldClass}
+              value={besideSymbol ?? ''}
+              onChange={(e) => setBeside(e.target.value === '' ? null : e.target.value)}
+            >
+              <option value="">none</option>
+              {instruments
+                .filter((i) => i.symbol !== symbol)
+                .map((i) => (
+                  <option key={i.symbol} value={i.symbol}>
+                    {i.symbol}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
 
         <Segmented options={TIMEFRAMES} value={timeframe} onChange={setTimeframe} label="Timeframe" />
 
@@ -312,49 +376,72 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
             onDelete={deleteSelected}
           />
 
-          <PriceChart
-            heightClass="h-[calc(100svh-15rem)] min-h-[26rem]"
-            bars={series.bars}
-            tickSize={instrument.tickSize}
-            exchangeTimezone={instrument.exchangeTimezone}
-            axisTimezone={axisTimezone}
-            daily={timeframe === '1d'}
-            adapterFactory={adapterFactory}
-            recentBars={RECENT_BARS}
-            overlay={(adapter) => (
-              <>
-                {drawsClock(series.timeframe) && (
-                  <ClockOverlay
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <PriceChart
+              heightClass={besideSymbol ? 'h-[calc(100svh-31rem)] min-h-[22rem]' : 'h-[calc(100svh-15rem)] min-h-[26rem]'}
+              bars={series.bars}
+              tickSize={instrument.tickSize}
+              exchangeTimezone={instrument.exchangeTimezone}
+              axisTimezone={axisTimezone}
+              daily={timeframe === '1d'}
+              adapterFactory={adapterFactory}
+              recentBars={RECENT_BARS}
+              overlay={(adapter) => (
+                <>
+                  {besideSymbol && <AdapterOut adapter={adapter} onAdapter={setLeader} />}
+                  {drawsClock(series.timeframe) && (
+                    <ClockOverlay
+                      adapter={adapter}
+                      layer={clock?.layer ?? null}
+                      bars={series.bars}
+                      timeframe={series.timeframe}
+                      tickSize={instrument.tickSize}
+                      shown={clockShown}
+                    />
+                  )}
+                  <SetupOverlay
                     adapter={adapter}
-                    layer={clock?.layer ?? null}
+                    layer={setups?.key === setupsKey ? setups.layer : null}
                     bars={series.bars}
                     timeframe={series.timeframe}
+                    shown={setupsShown}
+                  />
+                  <DrawingOverlay
+                    adapter={adapter}
+                    state={drawingState}
+                    dispatch={dispatch}
+                    activeTool={activeTool}
+                    onToolFinished={() => setActiveTool(null)}
+                    bars={series.bars}
+                    snapMode={snapMode}
+                    tickValueCents={instrument.tickValueCents}
                     tickSize={instrument.tickSize}
-                    shown={clockShown}
+                    onCommit={() => void commit()}
+                  />
+                </>
+              )}
+            />
+            {besideSymbol && besideInstrument && besideSeries && (
+              <CompanionChart
+                companion={{ instrument: besideSymbol, tickSize: besideInstrument.tickSize, bars: besideSeries.bars }}
+                leader={leader}
+                exchangeTimezone={besideInstrument.exchangeTimezone}
+                axisTimezone={axisTimezone}
+                daily={timeframe === '1d'}
+                adapterFactory={adapterFactory}
+                heightClass="h-64"
+                overlay={(adapter) => (
+                  <SetupOverlay
+                    adapter={adapter}
+                    layer={smtOn && besideSetups?.key === besideKey ? besideSetups.layer : null}
+                    bars={besideSeries.bars}
+                    timeframe={besideSeries.timeframe}
+                    shown={setupsShown}
                   />
                 )}
-                <SetupOverlay
-                  adapter={adapter}
-                  layer={setups?.key === setupsKey ? setups.layer : null}
-                  bars={series.bars}
-                  timeframe={series.timeframe}
-                  shown={setupsShown}
-                />
-                <DrawingOverlay
-                  adapter={adapter}
-                  state={drawingState}
-                  dispatch={dispatch}
-                  activeTool={activeTool}
-                  onToolFinished={() => setActiveTool(null)}
-                  bars={series.bars}
-                  snapMode={snapMode}
-                  tickValueCents={instrument.tickValueCents}
-                  tickSize={instrument.tickSize}
-                  onCommit={() => void commit()}
-                />
-              </>
+              />
             )}
-          />
+          </div>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DrillView } from './DrillView'
@@ -650,5 +650,50 @@ describe('Drills — fixtures and refusals', () => {
     render(<DrillView adapterFactory={() => new FakeChartAdapter()} />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the list of drills')
     expect(screen.getByRole('button', { name: /start a drill/i })).toBeDisabled()
+  })
+})
+
+describe('Drills — SMT, two charts (DEC-075)', () => {
+  const ES_BARS = BARS.map((b) => ({ ...b, open: 23_000, high: 23_004, low: 22_996, close: 23_002 }))
+  const SMT: DrillResponse = {
+    ...DRILL,
+    id: 'drill-smt',
+    kind: 'SMT_IDENTIFICATION',
+    title: 'SMT divergence',
+    conceptId: 'ICT-66',
+    rule: { ...DRILL.rule, detector: 'SMT', version: 'smt-1.0.0' },
+    companion: { instrument: 'ES', tickSize: 0.25, bars: ES_BARS },
+  }
+
+  it("draws ES under NQ over the same minutes, keeps it on the drill chart's stretch, and takes marks on NQ only", async () => {
+    mockApi(server({ drill: SMT }))
+    const user = userEvent.setup()
+    const adapters: FakeChartAdapter[] = []
+    render(
+      <DrillView
+        adapterFactory={() => {
+          const adapter = new FakeChartAdapter()
+          adapters.push(adapter)
+          return adapter
+        }}
+      />,
+    )
+    await screen.findByRole('option', { name: 'Fair value gaps' })
+    await user.click(screen.getByRole('button', { name: /start a drill/i }))
+    expect(await screen.findByRole('figure', { name: 'ES over the same minutes' })).toBeInTheDocument()
+    await waitFor(() => expect(adapters).toHaveLength(2))
+    await waitFor(() => expect(adapters[1].bars).toEqual(ES_BARS))
+    expect(screen.getAllByTestId('drill-overlay')).toHaveLength(1)
+
+    adapters[0].visibleRange = { from: T0, to: T0 + 29 * 300 }
+    await waitFor(() => expect(adapters[0].viewportListeners.length).toBeGreaterThan(0))
+    act(() => adapters[0].emitViewportChange())
+    expect(adapters[1].shownRange).toEqual({ from: T0, to: T0 + 29 * 300 })
+  })
+
+  it('shows one chart for a drill on one market', async () => {
+    mockApi(server())
+    await startDrill()
+    expect(screen.queryByRole('figure', { name: /over the same minutes/ })).not.toBeInTheDocument()
   })
 })
