@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: Fabio — the SMT second chart and drill (DEC-075) built on `feat/smt-chart` and waiting for "merge". Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: Fabio — the SMT second chart and drill (DEC-075) built on `feat/smt-chart` and waiting for "merge"; the bug hunt's BUG-075 to BUG-092 logged and waiting for his word to fix (BUG-075 🔴 first). Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -2726,3 +2726,26 @@ backend 675, frontend 364). Next: the SMT second chart and drill.
   day; the drill's guard — the same check — is caught both directly and where it is called (with ES missing its first five
   minutes of every hour, no drill is asked). 11 frontend, all caught.
 - Backend 675 → 679, frontend 364 → 377.
+
+**2026-10-21 — Fresh-clone check of `4b07dc6`** (`feat/smt-chart`), no `.env`: backend 679 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 377/377, build clean.
+
+**2026-10-21 — Bug hunt, logged only.** Fabio: "go through the app and mark every single bug you can find, both on
+frontend and backend, when you find them dont touch them yet just write them in the bugs md file … think both like a
+hacker for backend and trader for frontend". Read the security chain, identity, every controller's ownership and
+limits, the practice and drill logic and the frontend's plan, chart and input handling; probed the running backend
+(scripts in the scratchpad, the local test account, made-up addresses — no account created). Eighteen logged in
+BUGS.md, none fixed:
+- verified live: BUG-075 🔴 the per-address sign-in/sign-up limit skipped by `/api/auth/log%69n`; BUG-076 🟠 anyone can
+  lock an account out (10 wrong, then 429 for the right password); BUG-077 🟠 an access token keeps working after
+  "sign out everywhere"; BUG-078 🟠 every error forwarded to `/error` comes back as an empty 401 (CSRF, bad JSON, 405,
+  415, 500 — the client then refreshes and re-sends); BUG-079 NUL in text → database 500; BUG-080 🟠 wide scans
+  unthrottled (12 s cold, 2.5 s per shifted window, 5.3 MB); BUG-081 health details with the server's path to any
+  user; BUG-082 API docs public; BUG-083 Java types in error messages; BUG-084 drawings accept any time, price, style;
+- reasoned: BUG-085 drills' real times let the Chart tab show the future; BUG-086 practice's hidden date found from
+  prices; BUG-087 wins counted before fees; BUG-088 risk limit ignores costs; BUG-089 decimal comma ("1,5" read as 15);
+  BUG-090 flip leaves the partial behind; BUG-091 discard keeps the partial and intent; BUG-092 the chart beside drifts
+  when panned on its own.
+- Checked and found sound: ownership on every user-scoped endpoint (sessions, drills, risk drills, drawings, reviews),
+  SQL built only with parameters, JWT verification, CSRF on state changes, the keyboard shortcuts' input guard, no
+  HTML injection on the frontend, sign-up field limits.

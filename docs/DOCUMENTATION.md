@@ -1796,6 +1796,16 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Looking for trouble.** Fabio asked for a bug hunt, written down rather than fixed: the server read and tested like
+an attacker would, the screens used like a trader would. Eighteen problems were logged, each marked as shown on the
+running app or read from the code. The worst: the limit on sign-in attempts per address could be stepped around by
+writing one letter of the web address in its encoded form, so passwords could be guessed across many accounts at full
+speed. Others: anyone could lock a known account out for as long as they liked; signing out everywhere left an already
+stolen sign-in working for a quarter of an hour; a range of ordinary mistakes reached the user as "you are signed out";
+a few wide requests could keep the server busy for everyone. On the trading side, a decimal comma — the way Croatian
+traders write 1,5 — was read as fifteen, a trade that lost money after fees counted as a win, and the hidden date of a
+practice replay could be found by searching the chart for its prices.
+
 **Two charts, one moment.** An SMT divergence is seen by looking from one market to the other, so ES now sits under
 NQ wherever the idea is taught: on the chart (pick "Beside: ES"), under each real example in its lesson, and in a new
 drill — thirty candles of NQ with ES's under them, find every divergence. The lower chart moves with the upper one as it
