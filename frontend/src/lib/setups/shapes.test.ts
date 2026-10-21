@@ -158,6 +158,18 @@ describe('what each hit looks like on the chart', () => {
     expect(hl).toMatchObject({ above: false, label: 'HL' })
   })
 
+  it('T20: draws an SMT divergence at its swing, named by its rule: a bearish one above a high, a bullish one below', () => {
+    const [bearish, bullish] = toShapes(
+      layer([
+        setup({ detector: 'SMT', direction: 'BEARISH', shape: 'POINT', lowTicks: 120, highTicks: 120 }),
+        setup({ detector: 'SMT', direction: 'BULLISH', shape: 'POINT', lowTicks: 90, highTicks: 90 }),
+      ]),
+      STEP,
+    )
+    expect(bearish).toMatchObject({ above: true, label: 'SMT', from: 0, to: 600 + STEP })
+    expect(bullish).toMatchObject({ above: false, label: 'SMT' })
+  })
+
   it('T12: one line per liquidity level — running on while it rests, stopped and faint once taken', () => {
     const level = (kind: string, end: number, confirmedAt: number, direction: Setup['direction']) =>
       setup({ detector: 'LIQUIDITY', kind, shape: 'LEVEL', direction, start: 0, anchor: 0, end, confirmedAt, lowTicks: 120, highTicks: 120 })

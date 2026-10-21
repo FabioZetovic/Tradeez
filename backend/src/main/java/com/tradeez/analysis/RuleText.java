@@ -194,6 +194,13 @@ public final class RuleText {
 				+ "open: the previous trading day's high and low, the Asia killzone's, and for the 09:30 window the "
 				+ "London killzone's. Known at that close; the real move points the other way. On charts of 30 "
 				+ "minutes or less.";
+			case "SMT" -> "Two normally correlated markets read side by side — NQ and ES. A swing high on this chart "
+				+ "(swing-1.0.0, strength " + p.get("strength") + ") and the other market's earliest swing high at most "
+				+ p.get("alignCandles") + " candles from it are each compared with the swing high before it on its own "
+				+ "market, and those two must be as close. When one is above its previous and the other is not — equal "
+				+ "counts as not — the markets disagree: an SMT divergence, which ICT reads as a crack in the move, "
+				+ "bearish. Lows mirror it, bullish. Known once both swings are; everything read lies within "
+				+ p.get("maxSpanCandles") + " candles.";
 			default -> throw new IllegalArgumentException("No words for rule " + detector.id());
 		};
 	}
@@ -255,6 +262,7 @@ public final class RuleText {
 			};
 			case "WEEKLY_PROFILE" -> weekday(kind) + ("BULLISH".equals(s.getDirection()) ? " low" : " high") + " of the week";
 			case "JUDAS" -> way + " Judas swing, " + ("LONDON".equals(kind) ? "London" : "New York");
+			case "SMT" -> way + " SMT divergence";
 			default -> s.getDetector();
 		};
 	}
@@ -358,6 +366,7 @@ public final class RuleText {
 					+ DEVIATIONS.get(s.getKind()) + " standard deviation projection, "
 					+ ticks(Math.abs(s.getZoneLowTicks() - n(e, "endPrice"))) + " beyond the end.");
 			}
+			case "SMT" -> smt(e, price, bullish);
 			case "TURTLE_SOUP" -> {
 				boolean highs = "BEARISH".equals(s.getDirection());
 				yield List.of("This candle traded " + (highs ? "above" : "below") + " the equal " + (highs ? "highs" : "lows")
@@ -499,10 +508,30 @@ public final class RuleText {
 		String side = high ? "high" : "low";
 		long now = n(e, "price");
 		long before = n(e, "previousPrice");
-		String comparison = now == before ? "the same price"
-			: ticks(Math.abs(now - before)) + (now > before ? " higher" : " lower");
 		return List.of("This swing " + side + " at " + price.of(now) + " came after a swing " + side + " at "
-			+ price.of(before) + ": " + comparison + " — " + article(NAMES.get(kind)) + ".");
+			+ price.of(before) + ": " + compared(now, before) + " — " + article(NAMES.get(kind)) + ".");
+	}
+
+	/** Both markets' pairs of swings, and which of them went beyond its previous one (T20). */
+	private static List<String> smt(Map<String, Object> e, Prices price, boolean bullish) {
+		String side = bullish ? "low" : "high";
+		String other = String.valueOf(e.get("companion"));
+		long ours = n(e, "price");
+		long theirs = n(e, "companionPrice");
+		boolean weWent = bullish ? ours < n(e, "previousPrice") : ours > n(e, "previousPrice");
+		return List.of(
+			"On this chart, the swing " + side + " at " + price.of(ours) + " came after one at "
+				+ price.of(n(e, "previousPrice")) + ": " + compared(ours, n(e, "previousPrice")) + ".",
+			"On " + other + ", the swing " + side + " beside it, at " + price.of(theirs) + ", came after one at "
+				+ price.of(n(e, "companionPreviousPrice")) + ": " + compared(theirs, n(e, "companionPreviousPrice")) + ".",
+			(weWent ? "This market" : other) + " made a " + (bullish ? "lower low" : "higher high") + " and "
+				+ (weWent ? other : "this market") + " did not: the two disagree. ICT reads the failure as a crack in "
+				+ "the move " + (bullish ? "down" : "up") + " — a " + (bullish ? "bullish" : "bearish") + " SMT divergence.");
+	}
+
+	/** How a swing compares with the one before it: "3 ticks higher", "the same price". */
+	private static String compared(long now, long before) {
+		return now == before ? "the same price" : ticks(Math.abs(now - before)) + (now > before ? " higher" : " lower");
 	}
 
 	private static List<String> bosChoch(DetectedSetup s, Map<String, Object> e, Prices price, boolean bullish) {

@@ -59,13 +59,15 @@ class MarketDataApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("the app offers only real NQ; V8 withdrew the simulated markets (DEC-040)")
-	void onlyRealNqIsListed() throws Exception {
+	@DisplayName("the app offers only real markets — NQ, and ES beside it for SMT (T20); V8 withdrew the simulated ones (DEC-040)")
+	void onlyRealMarketsAreListed() throws Exception {
 		mockMvc.perform(get("/api/market/instruments").cookie(auth))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.length()").value(1))
-			.andExpect(jsonPath("$[0].symbol").value("NQ"))
-			.andExpect(jsonPath("$[0].dataClass").value("IMPORTED_PRIVATE"));
+			.andExpect(jsonPath("$.length()").value(2))
+			.andExpect(jsonPath("$[0].symbol").value("ES"))
+			.andExpect(jsonPath("$[0].dataClass").value("IMPORTED_PRIVATE"))
+			.andExpect(jsonPath("$[1].symbol").value("NQ"))
+			.andExpect(jsonPath("$[1].dataClass").value("IMPORTED_PRIVATE"));
 	}
 
 	@Test

@@ -24,7 +24,8 @@ import type { Setup, SetupLayer } from '../api/setups'
  * Swing liquidity (LIQUIDITY) is one line per level at its latest state: running on while it rests,
  * stopped and faded once taken or expired.
  *
- * Swings and their ranks are points: above a high, below a low. A break of structure or a market
+ * Swings and their ranks are points: above a high, below a low. So is an SMT divergence (T20), at this
+ * market's swing: a bearish one at a high, a bullish one at a low. A break of structure or a market
  * structure shift is a line at the level that broke, from the swing to the candle that broke it.
  */
 
@@ -138,7 +139,7 @@ export function toShapes(layer: SetupLayer, step: number): SetupShape[] {
       setup,
       faded: false,
       quadrants: false,
-      above: HIGHS.has(setup.kind ?? ''),
+      above: HIGHS.has(setup.kind ?? '') || (setup.detector === 'SMT' && setup.direction === 'BEARISH'),
       framed: PERIODS.has(setup.detector),
     }
     if (setup.detector in LIFECYCLES) {

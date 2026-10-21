@@ -166,7 +166,7 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-63 | Judas swing | 7 | R | ✅ `judas-1.0.0` (DEC-063) | `judas-1.0.0` | 1m, sessions |
 | ICT-64 | Daily profiles | 7 | D after | ✅ `daily-profile-1.0.0` (DEC-063) | `daily-profile-1.0.0` | 1m, sessions |
 | ICT-65 | Weekly profiles | 7 | D after | ✅ `weekly-profile-1.0.0` (DEC-063) | `weekly-profile-1.0.0` | 1m |
-| ICT-66 | SMT divergence (NQ vs ES) | 7 | R | 📐 | `smt-1.0.0` | 1m NQ **and ES** |
+| ICT-66 | SMT divergence (NQ vs ES) | 7 | R | ✅ `smt-1.0.0` (DEC-073) | `smt-1.0.0` | 1m NQ **and ES** |
 | ICT-67 | Intermarket (DXY, yields) | 7 | J | ⛔ for now | — | other markets |
 | ICT-70 | The 2022 model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-2022-1.0.0` | composition |
 | ICT-71 | Silver Bullet model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-sb-1.0.0` | composition |
@@ -1194,9 +1194,15 @@ Thursday's range) and the "seek and destroy Friday" are judgements, not named.
 NQ makes a higher high but ES fails to make one at the same time, ICT reads the failure as a crack in
 the move — a bearish SMT. Lows mirror. Typical pairs: NQ / ES / YM.
 
-**Tradeez rule — `smt-1.0.0` (draft).** Swing highs in NQ and ES confirmed within `alignCandles = 2`
-of each other: one exceeds its own previous swing high, the other does not. **Needs ES bars for the
-same period** — the free Massive plan covers CME, so ES can be imported alongside NQ (Part 14).
+**Tradeez rule — `smt-1.0.0` (DEC-073, T20).** A swing high on this market (swing-1.0.0) and the other
+market's earliest swing high at most `alignCandles = 2` candles from it, each compared with the swing high
+before it on its own market — those two also at most 2 candles apart. One beyond its previous and the
+other not (equal counts as not) is a divergence: bearish at highs, bullish at lows, drawn at this
+market's swing. Known when both swings are; everything read lies within `maxSpanCandles = 200`. Read on
+either chart — NQ beside ES, ES beside NQ — with the candles split at both markets' rolls. ES was
+imported from Massive's free plan like NQ (V24; 680,761 one-minute candles from 22 October 2024).
+Measured on two years: 4.4 per 100 five-minute candles on NQ, about one swing in ten; 51% bearish.
+*Not yet:* a second chart beside the first, and so no SMT drill.
 
 **Teach.** A (two charts, find the SMT), C, G.
 
@@ -1469,7 +1475,7 @@ Task numbers refer to the ordered list in [`PATH.md`](PATH.md) → NEXT UP.
 |---|---|---|---|
 | NQ one-minute bars | almost all | ✅ about 2 years back | Databento importer (built, DEC-040) for 5–10 years |
 | Continuous front contract | all | ⚠️ per-contract tickers only — Tradeez picks the front contract itself | Databento's `NQ.v.0` |
-| ES one-minute bars | ICT-66 SMT | ✅ same plan, separate import | — |
+| ES one-minute bars | ICT-66 SMT | ✅ imported 2026-10-21 (T20): 680,761 candles, $0 | — |
 | One-second bars | precise practice fills (DEC-008) | ❌ (from $29/month) — fills fall back to minute bars and report `AMBIGUOUS` more often | Massive Starter or Databento |
 | Daily history 60+ days | ICT-57, ICT-60 | ✅ aggregated from minutes | — |
 | Economic calendar | ICT-35, ICT-56 | ❌ no source chosen (Q-15) | — |

@@ -1796,6 +1796,17 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Two markets that should agree.** The Nasdaq (NQ) and the S&P 500 (ES) futures usually move together. ICT
+teaches watching for the moments they do not: one makes a new high and the other fails to — a "divergence", which
+ICT reads as a sign the move is cracking. To see it the app needed the second market, so two years of ES were
+imported the same free way as NQ, and the pattern rules were taught to read a second market beside the first. One
+detail mattered: the two futures usually switch to their next contract on the same evening, but twice ES switched a
+day earlier, and on that day NQ would have been compared with a different ES contract, some sixty points away. So both
+markets' switches split the history. On real data the rule finds a divergence about once every twenty-three
+five-minute candles — roughly one swing in ten — and the lesson card shows real examples in words: "this market
+made a higher high and ES did not". A chart of both markets side by side, and a drill to find the divergence on
+it, are the next step for this concept.
+
 **Paying for every trade.** Real trading costs money twice: the broker and the exchange charge a fee on every trade,
 and orders rarely fill at exactly the price on the screen — a market order buys a little higher than the last price,
 a stop sells a little lower than where it was set, and an order waiting at an old high may never fill if the market
@@ -1873,8 +1884,9 @@ real NQ candles, four new decisions (DEC-040 to DEC-043), one curriculum documen
 session (practice on real data, the replay, the New York clock, the bug audit, ICT drawing tools,
 the detector framework, imbalances and gaps, any timeframe in practice, market structure, liquidity,
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
-prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time, the security pass): backend
-223 → 553, frontend 148 → 316, V9 to V17, DEC-044 to DEC-064.*
+prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time, the security pass,
+evidence, ICT plans, the scorecard, the review, journal statistics, risk and management drills, trading costs, SMT
+divergence): backend 223 → 657, frontend 148 → 350, V9 to V24, DEC-044 to DEC-073.*
 
 ---
 

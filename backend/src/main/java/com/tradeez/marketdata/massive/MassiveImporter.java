@@ -69,7 +69,7 @@ public class MassiveImporter implements MarketDataImporter {
 	static final String DATASET = "CME";
 
 	/** Tradeez instrument → Massive product root. */
-	static final Map<String, String> ROOTS = Map.of("NQ", "NQ");
+	static final Map<String, String> ROOTS = Map.of("NQ", "NQ", "ES", "ES");
 
 	/** Sessions fetched before the range, so its first day has a previous session to roll by. */
 	static final int LOOKBACK_DAYS = 14;

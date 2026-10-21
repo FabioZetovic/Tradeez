@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -51,6 +52,25 @@ class DetectorContractTest extends AbstractIntegrationTest {
 		return PatternMarket.bars(timeframe.ordinal(), timeframe, span[0], span[1]);
 	}
 
+	private static final Map<Timeframe, List<Bar>> COMPANIONS = new ConcurrentHashMap<>();
+
+	/**
+	 * A detector run the way the scanner runs it (T20): a rule that reads a second market gets that market's
+	 * candles over the same minutes — here another seed's walk, which disagrees with this one at many swings.
+	 * Cut this market's candles, and the other's are cut with them.
+	 */
+	private static List<Detection> find(Detector detector, List<Bar> bars, Timeframe timeframe) {
+		String other = detector.companionOf("NQ");
+		if (other == null) {
+			return detector.detect(bars, Detector.Companion.NONE, timeframe);
+		}
+		List<Bar> theirs = COMPANIONS.computeIfAbsent(timeframe, t -> {
+			Instant[] span = SERIES.get(t);
+			return PatternMarket.bars(100 + t.ordinal(), t, span[0], span[1]);
+		});
+		return detector.detect(bars, Segments.beside(bars, other, theirs), timeframe);
+	}
+
 	/** About {@value #POINTS} indexes spread evenly over {@code size}. */
 	private static List<Integer> points(int size) {
 		int step = Math.max(1, size / POINTS);
@@ -64,7 +84,7 @@ class DetectorContractTest extends AbstractIntegrationTest {
 			.containsExactlyInAnyOrder("BPR", "FVG", "FVG_STATE", "IFVG", "OPENING_GAP", "ORG", "VI", "VOID",
 				"SWING", "SWING_TIER", "STRUCTURE", "BOS_CHOCH", "DISPLACEMENT", "MSS",
 				"LIQUIDITY", "EQHL", "SWEEP", "TURTLE_SOUP", "OB", "BREAKER", "MITIGATION", "REJECTION", "UNICORN",
-				"DEALING_RANGE", "PD", "OTE", "STDEV", "PO3", "DAILY_PROFILE", "WEEKLY_PROFILE", "JUDAS");
+				"DEALING_RANGE", "PD", "OTE", "STDEV", "PO3", "DAILY_PROFILE", "WEEKLY_PROFILE", "JUDAS", "SMT");
 		// Every switch on at once must still be one request the server accepts (found in T12: 18 > 16).
 		assertThat(SetupService.MAX_DETECTORS).isGreaterThanOrEqualTo(detectors.all().size());
 		for (Timeframe timeframe : SERIES.keySet()) {
@@ -72,7 +92,7 @@ class DetectorContractTest extends AbstractIntegrationTest {
 			for (Detector detector : detectors.all()) {
 				assertThat(detector.runsOn(timeframe)).as("%s runs on %s", detector.id(), timeframe.code()).isTrue();
 				assertThat(detector.lookbackBars(timeframe)).isPositive();
-				assertThat(detector.detect(bars, timeframe)).as("%s on %s", detector.id(), timeframe.code())
+				assertThat(find(detector, bars, timeframe)).as("%s on %s", detector.id(), timeframe.code())
 					.isNotEmpty();
 			}
 		}
@@ -94,7 +114,7 @@ class DetectorContractTest extends AbstractIntegrationTest {
 		for (Timeframe timeframe : SERIES.keySet()) {
 			List<Bar> bars = bars(timeframe);
 			for (Detector detector : detectors.all()) {
-				for (Detection detection : detector.detect(bars, timeframe)) {
+				for (Detection detection : find(detector, bars, timeframe)) {
 					DetectedSetup hit = stored(detector, detection);
 					assertThat(RuleText.label(hit)).as("%s %s", detector.id(), detection.kind()).isNotBlank()
 						.doesNotContain("null");
@@ -124,8 +144,8 @@ class DetectorContractTest extends AbstractIntegrationTest {
 		for (Timeframe timeframe : SERIES.keySet()) {
 			List<Bar> bars = bars(timeframe);
 			for (Detector detector : detectors.all()) {
-				List<Detection> found = detector.detect(bars, timeframe);
-				assertThat(detector.detect(List.copyOf(bars), timeframe)).isEqualTo(found);
+				List<Detection> found = find(detector, bars, timeframe);
+				assertThat(find(detector, List.copyOf(bars), timeframe)).isEqualTo(found);
 				assertThat(found).extracting(d -> d.anchor() + " " + d.direction() + " " + d.kind())
 					.as("%s on %s", detector.id(), timeframe.code())
 					.doesNotHaveDuplicates();
@@ -139,7 +159,7 @@ class DetectorContractTest extends AbstractIntegrationTest {
 		for (Timeframe timeframe : SERIES.keySet()) {
 			List<Bar> bars = bars(timeframe);
 			for (Detector detector : detectors.all()) {
-				List<Detection> all = detector.detect(bars, timeframe);
+				List<Detection> all = find(detector, bars, timeframe);
 				// Knowable at its confirmation: the candles closed by then are enough to find it.
 				int stride = Math.max(1, all.size() / POINTS);
 				for (int i = 0; i < all.size(); i += stride) {
@@ -147,13 +167,13 @@ class DetectorContractTest extends AbstractIntegrationTest {
 					List<Bar> closed = bars.stream()
 						.filter(b -> !b.openTime().plus(timeframe.duration()).isAfter(d.confirmedAt()))
 						.toList();
-					assertThat(detector.detect(closed, timeframe)).as("%s at %s", detector.id(), d.confirmedAt())
+					assertThat(find(detector, closed, timeframe)).as("%s at %s", detector.id(), d.confirmedAt())
 						.contains(d);
 				}
 				// And not before: cut anywhere, and only what was confirmed by the cut is found.
 				for (int k : points(bars.size())) {
 					Instant cut = bars.get(k).openTime();
-					assertThat(detector.detect(bars.subList(0, k), timeframe))
+					assertThat(find(detector, bars.subList(0, k), timeframe))
 						.as("%s on %s cut at %s", detector.id(), timeframe.code(), cut)
 						.isEqualTo(all.stream().filter(d -> !d.confirmedAt().isAfter(cut)).toList());
 				}
@@ -169,11 +189,11 @@ class DetectorContractTest extends AbstractIntegrationTest {
 			for (Detector detector : detectors.all()) {
 				int lookback = detector.lookbackBars(timeframe);
 				assertThat(bars.size()).as("series long enough to test %s", detector.id()).isGreaterThan(2 * lookback);
-				List<Detection> all = detector.detect(bars, timeframe);
+				List<Detection> all = find(detector, bars, timeframe);
 				for (int k : points(bars.size())) {
 					Instant from = bars.get(k).openTime();
 					List<Bar> cut = bars.subList(Math.max(0, k - lookback), bars.size());
-					assertThat(detector.detect(cut, timeframe).stream()
+					assertThat(find(detector, cut, timeframe).stream()
 							.filter(d -> !d.confirmedAt().isBefore(from)).toList())
 						.as("%s on %s from %s", detector.id(), timeframe.code(), from)
 						.isEqualTo(all.stream().filter(d -> !d.confirmedAt().isBefore(from)).toList());

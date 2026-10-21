@@ -304,4 +304,26 @@ class RuleTextTest {
 			"Then a candle closed at 19999.00, back below the opening price, within the window: the move up was a "
 				+ "Judas swing, in ICT's word, and the real move points down.");
 	}
+
+	@Test
+	@DisplayName("an SMT: both markets' pairs of swings, and which went beyond (T20)")
+	void smt() {
+		SmtDetector smt = new SmtDetector();
+		DetectedSetup bearish = setup(smt, null, "BEARISH", 80_040, 80_040, evidence("price", 80_040, "previousPrice",
+			80_028, "companion", "ES", "companionPrice", 23_000, "companionPreviousPrice", 23_004));
+		assertThat(RuleText.label(bearish)).isEqualTo("Bearish SMT divergence");
+		assertThat(RuleText.explain(bearish, NQ_TICK)).containsExactly(
+			"On this chart, the swing high at 20010.00 came after one at 20007.00: 12 ticks higher.",
+			"On ES, the swing high beside it, at 5750.00, came after one at 5751.00: 4 ticks lower.",
+			"This market made a higher high and ES did not: the two disagree. ICT reads the failure as a crack in the "
+				+ "move up — a bearish SMT divergence.");
+		DetectedSetup bullish = setup(smt, null, "BULLISH", 80_000, 80_000, evidence("price", 80_000, "previousPrice",
+			80_000, "companion", "ES", "companionPrice", 22_986, "companionPreviousPrice", 22_990));
+		assertThat(RuleText.label(bullish)).isEqualTo("Bullish SMT divergence");
+		assertThat(RuleText.explain(bullish, NQ_TICK)).containsExactly(
+			"On this chart, the swing low at 20000.00 came after one at 20000.00: the same price.",
+			"On ES, the swing low beside it, at 5746.50, came after one at 5747.50: 4 ticks lower.",
+			"ES made a lower low and this market did not: the two disagree. ICT reads the failure as a crack in the "
+				+ "move down — a bullish SMT divergence.");
+	}
 }

@@ -57,7 +57,7 @@
 ```yaml
 last_session: 017   # in progress — T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
 last_author: CLAUDE
-last_updated: 2026-10-17
+last_updated: 2026-10-21
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 553/553 (Testcontainers), frontend 316/316 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 657/657 (Testcontainers, 2026-10-21, feat/smt), frontend 350/350 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -89,11 +89,11 @@ files_in_repo:
     practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057); TradingModel, ModelChecklist, DailyBias, PlanContextService — a plan's model, bias and checklist (T22, DEC-066); Scorecard, Calibration, PracticeSettingsStore, PracticeRecordController — the scorecard, calibration and the risk limit (T23, DEC-067); TradeReview, TradeReviewService — a finished trade told as it happened (T24, DEC-068); JournalStatistics — the journal's statistics (T25, DEC-069)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), IPDA 20/40/60-day ranges within one contract (ipda-1.0.0), chart endpoint (017, T7, T12, T19)
     evidence/    # EvidenceService (counts every rule over the imported history, rule_evidence V18), EvidenceRefresher (after start-up), EvidenceText (the words) — T21, DEC-065
-    analysis/    # Detector contract + registry (runsOn, T21), Segments, scanner, setups API (DEC-026, DEC-049); EvidenceCalculator (evidence-1.0.0); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); PO3, DAILY_PROFILE, WEEKLY_PROFILE, JUDAS on Periods — read once the day, week or window is over (DEC-063); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17–T19)
+    analysis/    # Detector contract + registry (runsOn, T21), Segments, scanner, setups API (DEC-026, DEC-049); EvidenceCalculator (evidence-1.0.0); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); PO3, DAILY_PROFILE, WEEKLY_PROFILE, JUDAS on Periods — read once the day, week or window is over (DEC-063); SMT reads a second market — `Detector.companionOf`, `Segments.beside` and `merged` (T20, DEC-073); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17–T19)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
     learning/    # learning-1.0.0 (DEC-059): progress computed from graded drills (drills/DrillAttempts) and cards read — solid, SM-2 reviews, the ladder's unlocks; GET /api/learning, POST /api/learning/concepts/{id}/read  (017, T16)
     drills/      # drill engine (DEC-054): DrillKind catalogue (twelve drills, modes A, B and C), windows on real NQ, answer key = stored hits, excused candles; Prediction + PredictionText = predict-1.0.0 (mode C: two targets, the future withheld until the answer, DEC-058); FVG fixture on simulated data  (016, 017 T13, T15)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome) · V17 cards read (concept_read)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome) · V17 cards read (concept_read) · V18 rule evidence · V19 a plan's model, bias and checklist · V20 scorecard and risk limit · V21 risk drills · V22 management drills · V23 trading costs · V24 ES (T20)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts, drills, lessons
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T21–T27 merged 2026-10-21; Fabio's go-ahead for T28 (partial targets), T20 (an ES import from Massive's free plan) and Q-08 (English only for now) given the same day. Next: T20, T28, T29. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: Fabio — T20 (SMT, DEC-073) built on `feat/smt` and waiting for "merge". T21–T27 merged 2026-10-21; go-ahead for T28 (partial targets) given the same day, and Q-08 resolved (English only for now). Next: T28, then T29. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -246,7 +246,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T17 | ~~**Blocks**~~ | T11, T12 | I-30–37 | ✅ Session 017 (DEC-061), **merged 2026-10-17 as `35b0de5`**: measured first (≈ 1 order block per 30 candles, breakers 0.4, mitigation blocks 0.5, three breakers in four unicorns; the draft's rejection block a third of all swings, so a long wick is now measured against the average candle too: 0.5 per 30); `ob-1.0.0`, `breaker-1.0.0`, `mitigation-1.0.0`, `rejection-1.0.0`, `unicorn-1.0.0`, each followed for its life (FORMED → TAPPED → MEAN_THRESHOLD → INVALIDATED, or EXPIRED after 500); five switches; the overlay draws a block on while it stands, its mean threshold dashed (`midHalfTicks` on the wire), zones named where they come into view. Propulsion, vacuum and the PD matrix are not rules; drills for blocks later. |
 | T18 | ~~**Ranges and Fibonacci**~~ | T11 | I-40–44 | ✅ Session 017 (DEC-062), **merged 2026-10-17 as `8cf18bc`**: one leg read four ways — a displacement that breaks structure, from where it began to the first intermediate-term turn (measured: 0.7 per 30 candles; a one-candle turn left within 7 candles, the intermediate-term one within 10–11, kept); `dealing-range-1.0.0` (equilibrium line, broken high or low), `pd-1.0.0` (premium and discount halves), `ote-1.0.0` (62–79%, 70.5% line, tapped; 64% of legs retrace into it), `stdev-1.0.0` (−1, −2, −2.5, −4); four switches. ICT-43's Fibonacci tool was T8. |
 | T19 | ~~**Time models and profiles**~~ | T7, T11 | I-53–57, I-62–65 | ✅ Session 017 (DEC-063), **merged 2026-10-17 as `2f476e0`**: every draft measured on two years of real NQ first, two changed — `po3-1.0.0` (the midnight-to-17:00 day; 52% fit), `daily-profile-1.0.0` (London 00:00–08:30 against New York; London low 33%, London high 25%, New York reversal 39%), `weekly-profile-1.0.0` (the weekday of the extreme against the close, when first; Monday 48%, Tuesday 20%), `judas-1.0.0` (a level still resting at the window's open taken, then a close back through the open; London 60% of days, New York 12% — the draft's any-swing reading fired in 90–95%); `ipda-1.0.0` on the clock (20/40/60-day highs and lows from one SQL row per trading day, within one contract: drawn on 70 / 39 / 7% of days). Four setup switches and an IPDA clock switch. The Silver Bullet and macro windows were T7's (`sessions-1.0.0`). |
-| T20 | **SMT divergence** | T2, T11 | I-66 | NQ vs ES. First an ES instrument row (migration) and `ES` in `MassiveImporter.ROOTS`, then import ES like NQ. |
+| T20 | ~~**SMT divergence**~~ | T2, T11 | I-66 | ✅ Session 017 (DEC-073), on `feat/smt`: ES as an instrument (V24) and imported like NQ (680,761 candles from 22 Oct 2024, $0); a rule may read a second market (`Detector.companionOf`), handed its candles over the same minutes and split at both markets' rolls — ES rolled a day before NQ twice; `smt-1.0.0`: each market's own swing highs (lows), the pairs at most 2 candles apart, one beyond its previous and the other not; 4.4 per 100 five-minute candles on NQ, 51% bearish. A second chart and an SMT drill later. |
 | T21 | ~~**Evidence views**~~ | T10–T19 | I S-6 | ✅ Session 017 (DEC-065), **merged 2026-10-21 as `815f7e3`**: `evidence-1.0.0` counts every rule over the whole history of real NQ on 1m, 5m, 15m and 1h — hits per 100 candles, how lives ended (a life counts once over; a leg's range by its end or start), kinds, and the time rules against days, weeks and windows — in the background after start-up (697,003 one-minute candles in 18 s), kept in `rule_evidence` (V18), shown on each lesson card with its sample size and "not a forecast". `Detector.runsOn`. Agrees with the earlier hand measurements (gaps 94% filled, OB 83% invalidated, liquidity 95% taken, ranges 59% past their end, OTE 64%). |
 
 **M4 — Models and the exam**
@@ -2596,3 +2596,32 @@ import ES". Merged into `master` with `--no-ff`, in the order they were built, e
 `feat/risk` (9449a13), `feat/costs` (6d6b340). Master's tree after the last is exactly `feat/costs`'s, which passed its
 fresh-clone check (8e4eb97: backend 643, frontend 349). Q-08 resolved: English only for now. Go-ahead for T28 and for
 importing ES (T20).
+
+**2026-10-21 — T20: SMT divergence** (`feat/smt`, DEC-073).
+- ES imported from Massive's free plan (Fabio's go-ahead): V24 adds the instrument and `MassiveImporter.ROOTS` the root.
+  The CLI's dry run is its default; the real run needs `--tradeez.import.dry-run=false`. 680,761 one-minute candles,
+  25 chunks, nine contracts, $0. ES starts 22 October 2024 — the free plan's two years back from today — two weeks
+  after NQ, so there are no divergences in NQ's first two weeks.
+- **A second market for a rule.** `Detector.companionOf` and a three-argument `detect` with `Detector.Companion`
+  (a symbol and candles; `NONE` for one market). The scanner reads the other market from the rule's first candle,
+  splits at both markets' rolls and hands each segment the other's candles over its minutes; both markets' stored
+  minutes go into what a remembered scan is checked against, so an import of either rescans. The evidence service the
+  same. ES rolled a day before NQ in Dec 2024 and Sep 2025 — exactly what splitting at both rolls is for.
+- `smt-1.0.0` (`SmtDetector`, ICT-66 ✅): see DEC-073. RuleText's definition, label ("Bearish SMT divergence") and three
+  lines of explanation naming both markets' prices; `compared()` now shared with the structure labels. EvidenceText's noun.
+  The overlay draws it as a point labelled SMT, above a high when bearish.
+- Live on real data: the SMT switch on NQ, two weeks of 5m: 143 (82 bearish); on ES beside NQ: 138. The ICT-66 lesson
+  card shows three real examples, e.g. "This market made a higher high and ES did not". Evidence: NQ 5m 6,180 (4.4 per
+  100 candles), 15m 1,987, 1h 467; ES 5m 6,059. ES is listed in the Chart tab.
+- Tests: SmtDetectorTest (6), SmtScanTest (5: stored data with ES rolling a day early — nothing spans either roll, and
+  split at NQ's roll alone a hit would; ES beside NQ; a stretch scanned before ES was imported scanned again after;
+  evidence beside ES; the pair's tick sizes), SegmentsTest +2, RuleTextTest +1, DetectorContractTest (every rule beside
+  a second seeded market), shapes +1.
+- **Found by the full suite:** MarketDataApiTest and MassiveImporterTest asserted NQ was the only market listed; ES is
+  listed now (sorted first), and both say so.
+- Mutations, one at a time after a passing baseline: 22 backend, 19 caught. `Segments.beside` dropping the segment's
+  last minute survived — no test had the other market's candle exactly there; one does now, and it is caught. Sorting
+  SMT's hits by time survived: nothing needs it, so it was removed. `>=` for `>` in the "higher/lower" wording is
+  equivalent (equal prices are worded first). 2 frontend, both caught.
+- Fixed in passing: the `blocked_on` line still carried the old "T20 needs an ES import" after the merge write-up.
+- Backend 643 → 657, frontend 349 → 350.
