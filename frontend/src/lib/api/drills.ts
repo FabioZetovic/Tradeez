@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { DomainBar } from '../chart/types'
+import type { Companion, DomainBar } from '../chart/types'
 
 /**
  * Drill API calls.
@@ -158,6 +158,8 @@ export interface DrillResponse {
   result?: ResultView
   /** Prediction, once answered: the candles after the chart, to a few past the deciding one. */
   revealed?: DomainBar[]
+  /** DEC-075: a rule that reads two markets — the other one's candles over the same minutes. */
+  companion?: Companion
 }
 
 /** Risk drills, mode F (risk-1.0.0, T26): position size, a losing streak, recovery. */

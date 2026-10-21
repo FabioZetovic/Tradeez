@@ -199,8 +199,8 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = ".*_IDENTIFICATION")
-	@DisplayName("identification: graded, and the key is every hit of the rule the chart shows whole")
+	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = { ".*_IDENTIFICATION", "^(?!SMT_).*" })
+	@DisplayName("identification: graded, and the key is every hit of the rule the chart shows whole (SMT: SmtDrillApiTest)")
 	void identification(DrillKind kind) throws Exception {
 		JsonNode drill = start(kind, "5m");
 		assertThat(drill.get("graded").asBoolean()).isTrue();
@@ -211,6 +211,7 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		assertThat(drill.at("/rule/detector").asString()).isEqualTo(kind.detector());
 		assertThat(drill.at("/rule/definition").asString()).isNotBlank();
 		assertThat(drill.has("result") || drill.has("subject") || drill.has("options")).isFalse();
+		assertThat(drill.has("companion")).as("one market").isFalse();
 
 		String id = drill.get("id").asString();
 		List<Long> times = barTimes(drill);

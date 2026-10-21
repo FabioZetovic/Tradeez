@@ -1796,6 +1796,13 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Two charts, one moment.** An SMT divergence is seen by looking from one market to the other, so ES now sits under
+NQ wherever the idea is taught: on the chart (pick "Beside: ES"), under each real example in its lesson, and in a new
+drill — thirty candles of NQ with ES's under them, find every divergence. The lower chart moves with the upper one as it
+is scrolled or zoomed, so a peak on one is always over the same minute on the other. Getting that right needed one fix:
+the charting library reports only the stretch that holds candles, and a chart with empty space beside them was matched
+by one without — the two were half a screen apart until the charts were matched by position instead.
+
 **Saying what it is, and where to start.** The warning at the bottom of every screen now says all three things the
 US futures regulator warns about — that this is not advice and its results are simulated, that most retail day
 traders lose money, and that losses can exceed the money deposited — and that practice trades never reach a market. A
@@ -1905,7 +1912,8 @@ the detector framework, imbalances and gaps, any timeframe in practice, market s
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
 prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time, the security pass,
 evidence, ICT plans, the scorecard, the review, journal statistics, risk and management drills, trading costs, SMT
-divergence, partial targets): backend 223 → 675, frontend 148 → 361, V9 to V25, DEC-044 to DEC-074.*
+divergence, partial targets, the guide, two charts for SMT): backend 223 → 679, frontend 148 → 377, V9 to V26,
+DEC-044 to DEC-075.*
 
 ---
 

@@ -42,7 +42,8 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   lost, and invalidated) and ranges (the dealing range of the last leg that broke structure, its premium
   and discount halves, the optimal trade entry, standard deviation projections) and time (power of three,
   daily and weekly profiles, the Judas swing — each read once its day, week or window is over) and SMT
-  divergence (NQ against ES, each market's own swings) — each
+  divergence (NQ against ES, each market's own swings; ES drawn under NQ over the same minutes, and a
+  "find the SMT" drill, DEC-075) — each
   named by the rule that found it, its parameters measured on real NQ. The clock's reference levels end
   where they were taken, and it can draw ICT's 20-, 40- and 60-day ranges (IPDA) within one contract. Off by default; in a replay, only what was known by the cursor. Every detector is
   checked to be causal, and the list of concepts comes straight from `docs/ICT_CONCEPTS.md`.

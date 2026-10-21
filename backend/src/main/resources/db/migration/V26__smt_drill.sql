@@ -1,0 +1,10 @@
+-- DEC-075 — "find the SMT": an identification drill on smt-1.0.0 (ICT-66), the market drilled above and the one it
+-- is compared with below, over the same minutes. Graded like every identification drill (V14).
+
+ALTER TABLE drill DROP CONSTRAINT ck_drill_kind;
+ALTER TABLE drill ADD CONSTRAINT ck_drill_kind CHECK (kind IN (
+    'FVG_IDENTIFICATION', 'SWING_HIGH_IDENTIFICATION', 'SWING_LOW_IDENTIFICATION',
+    'VI_IDENTIFICATION', 'DISPLACEMENT_IDENTIFICATION', 'EQHL_IDENTIFICATION',
+    'SWEEP_IDENTIFICATION', 'STRUCTURE_CLASSIFICATION', 'BOS_CHOCH_CLASSIFICATION',
+    'SWEEP_RUN_CLASSIFICATION', 'LIQUIDITY_FIRST_PREDICTION', 'ERL_IRL_PREDICTION',
+    'OPEN_TRADE_MANAGEMENT', 'SMT_IDENTIFICATION'));

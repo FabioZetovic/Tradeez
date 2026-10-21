@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PriceChart } from '../PriceChart'
+import { AdapterOut, CompanionChart } from '../CompanionChart'
 import { SetupOverlay } from '../SetupOverlay'
 import type { Example } from '@/lib/api/lessons'
 import type { Setup } from '@/lib/api/setups'
@@ -25,6 +26,8 @@ export function ExampleChart({ example, tickSize, exchangeTimezone, adapterFacto
   const shown = useMemo(() => new Set([example.detector]), [example.detector])
   const { anchor, end } = example.setup
   const time = (t: number) => formatSessionTime(t, exchangeTimezone)
+  // DEC-075: this chart, for the other market's chart under it to keep to.
+  const [leader, setLeader] = useState<ChartAdapter | null>(null)
 
   return (
     <figure className="flex min-w-0 flex-col gap-2" data-testid="lesson-example">
@@ -37,6 +40,7 @@ export function ExampleChart({ example, tickSize, exchangeTimezone, adapterFacto
         heightClass="h-64"
         overlay={(adapter) => (
           <>
+            {example.companion && <AdapterOut adapter={adapter} onAdapter={setLeader} />}
             <HitBand adapter={adapter} bars={example.bars} setup={example.setup} timeframe={example.timeframe} />
             <SetupOverlay
               adapter={adapter}
@@ -48,6 +52,16 @@ export function ExampleChart({ example, tickSize, exchangeTimezone, adapterFacto
           </>
         )}
       />
+      {example.companion && (
+        <CompanionChart
+          companion={example.companion}
+          leader={leader}
+          exchangeTimezone={exchangeTimezone}
+          axisTimezone="exchange"
+          adapterFactory={adapterFactory}
+          heightClass="h-40"
+        />
+      )}
       <figcaption className="text-sm">
         <strong>{example.label}</strong>{' '}
         <span className="text-subtle">

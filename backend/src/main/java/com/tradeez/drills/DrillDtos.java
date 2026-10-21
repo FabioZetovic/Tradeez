@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
+import com.tradeez.marketdata.dto.MarketDataDtos.CompanionBars;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
@@ -212,6 +213,8 @@ public final class DrillDtos {
 		@Schema(description = "Classification and prediction, absent until answered") String choice,
 		@Schema(description = "Absent until answered") ResultView result,
 		@Schema(description = "Prediction, absent until answered: the candles after the chart, up to a few past "
-			+ "the one that decided it") List<BarResponse> revealed) {
+			+ "the one that decided it") List<BarResponse> revealed,
+		@Schema(description = "A rule that reads two markets (DEC-075): the other one's candles over the same minutes")
+		CompanionBars companion) {
 	}
 }

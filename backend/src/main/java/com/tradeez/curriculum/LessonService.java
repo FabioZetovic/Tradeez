@@ -40,6 +40,7 @@ import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.Timeframe;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
+import com.tradeez.marketdata.dto.MarketDataDtos.CompanionBars;
 import com.tradeez.practice.DailyBias;
 
 /**
@@ -212,15 +213,24 @@ public class LessonService {
 		bars.addAll(after.subList(0, Math.min(AFTER, after.size())));
 		Instant first = bars.getFirst().openTime();
 		Instant last = bars.getLast().openTime().plusSeconds(step);
+		// A rule that reads a second market (DEC-075) is shown with it, which must not roll either.
+		String other = rule.companionOf(nq.getSymbol());
+		Instrument companion = other == null ? null : marketData.requireInstrument(other);
 		if (!marketData.rolls(nq, first, last).isEmpty()
+				|| (companion != null && !marketData.rolls(companion, first, last).isEmpty())
 				|| shown.stream().anyMatch(w -> first.isBefore(w[1]) && w[0].isBefore(last))) {
 			return null;
 		}
 		shown.add(new Instant[] { first, last });
 		return new Example(rule.id(), RuleText.label(hit), RuleText.explain(hit, nq.getTickSize()), timeframe.code(),
-			bars.stream().map(b -> new BarResponse(b.openTime().getEpochSecond(), b.openTicks(), b.highTicks(),
-				b.lowTicks(), b.closeTicks(), b.volume())).toList(),
-			SetupView.of(hit, Instant::getEpochSecond), RuleView.of(rule));
+			responses(bars), SetupView.of(hit, Instant::getEpochSecond), RuleView.of(rule),
+			companion == null ? null : new CompanionBars(companion.getSymbol(), companion.getTickSize(),
+				responses(marketData.internalBars(companion, timeframe, first, last, SEED).bars())));
+	}
+
+	private static List<BarResponse> responses(List<Bar> bars) {
+		return bars.stream().map(b -> new BarResponse(b.openTime().getEpochSecond(), b.openTicks(), b.highTicks(),
+			b.lowTicks(), b.closeTicks(), b.volume())).toList();
 	}
 
 	/** Unknown concept id. */

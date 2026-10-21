@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { ChartAdapter, ChartMountOptions, DomainBar } from '@/lib/chart/types'
+import type { ChartAdapter, ChartMountOptions, DomainBar, TimeRange } from '@/lib/chart/types'
 import type { Projection } from '@/lib/drawing/types'
 
 /**
@@ -65,6 +65,16 @@ export class FakeChartAdapter implements ChartAdapter {
     return () => {
       this.viewportListeners = this.viewportListeners.filter((l) => l !== listener)
     }
+  })
+
+  /** What a test says is on screen; what the chart was last told to show. */
+  visibleRange: TimeRange | null = null
+  shownRange: TimeRange | null = null
+
+  getVisibleTimeRange = vi.fn(() => this.visibleRange)
+
+  setVisibleTimeRange = vi.fn((range: TimeRange) => {
+    this.shownRange = range
   })
 
   /** Simulates a pan or zoom, so redraw-on-viewport-change can be tested. */

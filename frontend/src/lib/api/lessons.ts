@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { DomainBar } from '../chart/types'
+import type { Companion, DomainBar } from '../chart/types'
 import type { Rule, Setup } from './setups'
 
 /**
@@ -54,6 +54,8 @@ export interface Example {
   bars: DomainBar[]
   setup: Setup
   rule: Rule
+  /** DEC-075: a rule that reads two markets — the other one's candles over the same minutes. */
+  companion?: Companion
 }
 
 export interface Lesson {

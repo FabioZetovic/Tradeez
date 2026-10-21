@@ -1202,7 +1202,8 @@ market's swing. Known when both swings are; everything read lies within `maxSpan
 either chart — NQ beside ES, ES beside NQ — with the candles split at both markets' rolls. ES was
 imported from Massive's free plan like NQ (V24; 680,761 one-minute candles from 22 October 2024).
 Measured on two years: 4.4 per 100 five-minute candles on NQ, about one swing in ten; 51% bearish.
-*Not yet:* a second chart beside the first, and so no SMT drill.
+ES is drawn under NQ over the same minutes in the Chart tab ("Beside"), the lesson's examples and the drill
+`SMT_IDENTIFICATION` — teaching mode A, two charts, find the SMT (DEC-075). *Not yet:* the practice replay.
 
 **Teach.** A (two charts, find the SMT), C, G.
 

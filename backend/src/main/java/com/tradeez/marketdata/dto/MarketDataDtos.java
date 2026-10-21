@@ -51,6 +51,12 @@ public final class MarketDataDtos {
 	}
 
 	@Schema(description = """
+		T20: the market a rule compares with, over the same minutes as the chart it is shown under — SMT reads NQ \
+		beside ES""")
+	public record CompanionBars(String instrument, BigDecimal tickSize, List<BarResponse> bars) {
+	}
+
+	@Schema(description = """
 		A price series with its provenance. dataClass and seed travel with the data so a client \
 		can never lose track of what it is holding or how to reproduce it.""")
 	public record BarSeriesResponse(

@@ -7,6 +7,7 @@ import java.util.Map;
 import com.tradeez.analysis.SetupDtos.RuleView;
 import com.tradeez.analysis.SetupDtos.SetupView;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
+import com.tradeez.marketdata.dto.MarketDataDtos.CompanionBars;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -56,7 +57,9 @@ public final class LessonDtos {
 		@Schema(description = "The candles around it: up to the candle it is known by, and a few after")
 		List<BarResponse> bars,
 		@Schema(description = "The hit, drawn as the chart's Setups layer draws it") SetupView setup,
-		RuleView rule) {
+		RuleView rule,
+		@Schema(description = "A rule that reads two markets (DEC-075): the other one's candles over the same minutes")
+		CompanionBars companion) {
 	}
 
 	public record LessonResponse(
