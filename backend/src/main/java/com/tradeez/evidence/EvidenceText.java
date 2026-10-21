@@ -41,7 +41,7 @@ public final class EvidenceText {
 		Map.entry("PD", "premium and discount halves"), Map.entry("OTE", "optimal trade entry zones"),
 		Map.entry("STDEV", "deviation levels"), Map.entry("PO3", "power-of-three days"),
 		Map.entry("DAILY_PROFILE", "named days"), Map.entry("WEEKLY_PROFILE", "named weeks"),
-		Map.entry("JUDAS", "Judas swings"));
+		Map.entry("JUDAS", "Judas swings"), Map.entry("SMT", "SMT divergences"));
 
 	/** What a kind is called among its rule's hits. */
 	private static final Map<String, String> KINDS = Map.ofEntries(Map.entry("BULLISH", "bullish"),

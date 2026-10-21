@@ -3,6 +3,7 @@ package com.tradeez.analysis;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.tradeez.marketdata.Bar;
 
@@ -46,6 +47,43 @@ public final class Segments {
 			segments.add(current);
 		}
 		return segments;
+	}
+
+	/**
+	 * Two markets' rolls in one list, in time order (T20): where a rule that reads both splits its candles, so
+	 * that each segment is one contract of each.
+	 */
+	public static List<Instant> merged(List<Instant> rolls, List<Instant> companionRolls) {
+		return Stream.concat(rolls.stream(), companionRolls.stream()).distinct().sorted().toList();
+	}
+
+	/**
+	 * The companion market's candles over a segment's minutes (T20): those opening from the segment's first
+	 * candle to its last.
+	 *
+	 * @param companion that market's candles, in time order
+	 */
+	public static Detector.Companion beside(List<Bar> segment, String symbol, List<Bar> companion) {
+		if (segment.isEmpty()) {
+			return new Detector.Companion(symbol, List.of());
+		}
+		return new Detector.Companion(symbol, companion.subList(firstAtOrAfter(companion, segment.getFirst().openTime()),
+			firstAtOrAfter(companion, segment.getLast().openTime().plusNanos(1))));
+	}
+
+	/** The index of the first candle opening at or after {@code time}. */
+	private static int firstAtOrAfter(List<Bar> bars, Instant time) {
+		int lo = 0;
+		int hi = bars.size();
+		while (lo < hi) {
+			int mid = (lo + hi) >>> 1;
+			if (bars.get(mid).openTime().isBefore(time)) {
+				lo = mid + 1;
+			} else {
+				hi = mid;
+			}
+		}
+		return lo;
 	}
 
 	/** True when each candle opens exactly one step after the one before it: no break between. */

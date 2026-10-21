@@ -51,6 +51,29 @@ class SegmentsTest {
 	}
 
 	@Test
+	@DisplayName("a rule reading two markets splits at both markets' rolls, in time order, each once (T20)")
+	void merged() {
+		Instant a = at(10).openTime();
+		Instant b = at(20).openTime();
+		Instant c = at(30).openTime();
+		assertThat(Segments.merged(List.of(a, c), List.of(b, c))).containsExactly(a, b, c);
+		assertThat(Segments.merged(List.of(), List.of(b))).containsExactly(b);
+	}
+
+	@Test
+	@DisplayName("beside a segment: the other market's candles opening from its first candle to its last (T20)")
+	void beside() {
+		List<Bar> other = List.of(at(0), at(1), at(2), at(3), at(5), at(6));
+		Detector.Companion es = Segments.beside(List.of(at(1), at(2), at(4)), "ES", other);
+		assertThat(es.symbol()).isEqualTo("ES");
+		assertThat(minutes(es.bars())).containsExactly(1, 2, 3);
+		assertThat(minutes(Segments.beside(List.of(at(1), at(3)), "ES", other).bars())).containsExactly(1, 2, 3);
+		assertThat(minutes(Segments.beside(List.of(at(4)), "ES", other).bars())).isEmpty();
+		assertThat(minutes(Segments.beside(List.of(at(6), at(9)), "ES", other).bars())).containsExactly(6);
+		assertThat(Segments.beside(List.of(), "ES", other).bars()).isEmpty();
+	}
+
+	@Test
 	@DisplayName("consecutive means each candle opens exactly one step after the last")
 	void consecutive() {
 		assertThat(Segments.consecutive(List.of(at(0), at(1), at(2)), 60)).isTrue();

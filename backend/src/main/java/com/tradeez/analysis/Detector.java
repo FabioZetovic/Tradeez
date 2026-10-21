@@ -69,4 +69,28 @@ public interface Detector {
 
 	/** Every detection in one segment: candles in time order, of one contract, all at {@code timeframe}. */
 	List<Detection> detect(List<Bar> segment, Timeframe timeframe);
+
+	/**
+	 * The market this rule reads beside {@code symbol}, or null for a rule that reads one market (T20, DEC-073):
+	 * SMT compares NQ with ES.
+	 */
+	default String companionOf(String symbol) {
+		return null;
+	}
+
+	/**
+	 * Every detection in one segment, read beside the companion market's candles over the same minutes
+	 * ({@link Segments#beside}). Split at both markets' rolls, so they too are one contract's. The contract
+	 * holds for both: a detection depends only on companion candles that had opened by the segment candle
+	 * at whose close it is confirmed. A rule that reads one market ignores them.
+	 */
+	default List<Detection> detect(List<Bar> segment, Companion companion, Timeframe timeframe) {
+		return detect(segment, timeframe);
+	}
+
+	/** Another market's candles beside a segment (T20), in time order; {@link #NONE} for a rule that reads one. */
+	record Companion(String symbol, List<Bar> bars) {
+
+		public static final Companion NONE = new Companion(null, List.of());
+	}
 }

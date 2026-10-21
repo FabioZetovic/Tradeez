@@ -117,7 +117,9 @@ public class SetupScanner {
 		for (Detector detector : detectors) {
 			Instant reach = from.minus(timeframe.duration().multipliedBy(detector.lookbackBars(timeframe)))
 				.minus(CLOSED_REACH);
-			int minutes = simulated ? 0 : marketData.storedMinutes(instrument, reach, to);
+			Instrument companion = companion(detector, instrument);
+			int minutes = simulated ? 0 : marketData.storedMinutes(instrument, reach, to)
+				+ (companion == null ? 0 : marketData.storedMinutes(companion, reach, to));
 			Scan remembered = scanned.get(key(detector, instrument, timeframe, rowSeed, from, to));
 			if (remembered == null || !remembered.equals(
 					new Scan(count(detector, instrument, timeframe, rowSeed, from, to), minutes))) {
@@ -153,13 +155,26 @@ public class SetupScanner {
 			timeframe.code(), detector.id(), detector.ruleVersion(), from.toString(), to.toString());
 	}
 
-	/** Runs one detector over its candles and stores what it confirmed in {@code [from, to]}. */
+	/**
+	 * Runs one detector over its candles and stores what it confirmed in {@code [from, to]}. A rule that reads
+	 * a second market (T20) gets its candles from the same first candle on, and both markets' rolls split them.
+	 */
 	private void store(Detector detector, Instrument instrument, Timeframe timeframe, Long rowSeed,
 			Instant from, Instant to, List<Bar> bars, List<Instant> rolls) {
 		boolean simulated = rowSeed != null;
+		Instrument companion = companion(detector, instrument);
+		List<Bar> theirs = List.of();
+		List<Instant> splits = rolls;
+		if (companion != null && !bars.isEmpty()) {
+			Instant first = bars.getFirst().openTime();
+			theirs = marketData.internalBars(companion, timeframe, first, to, 0).bars();
+			splits = Segments.merged(rolls, marketData.rolls(companion, first, to));
+		}
 		List<Detection> found = new ArrayList<>();
-		for (List<Bar> segment : Segments.atRolls(bars, rolls)) {
-			for (Detection detection : detector.detect(segment, timeframe)) {
+		for (List<Bar> segment : Segments.atRolls(bars, splits)) {
+			Detector.Companion beside = companion == null ? Detector.Companion.NONE
+				: Segments.beside(segment, companion.getSymbol(), theirs);
+			for (Detection detection : detector.detect(segment, beside, timeframe)) {
 				if (!detection.confirmedAt().isAfter(to) && !detection.confirmedAt().isBefore(from)) {
 					found.add(detection);
 				}
@@ -188,6 +203,12 @@ public class SetupScanner {
 			ps.setLong(18, hit.highTicks());
 			ps.setString(19, write(hit.evidence()));
 		}));
+	}
+
+	/** The market a rule reads beside this one (T20), or null. */
+	private Instrument companion(Detector detector, Instrument instrument) {
+		String symbol = detector.companionOf(instrument.getSymbol());
+		return symbol == null ? null : marketData.requireInstrument(symbol);
 	}
 
 	/**

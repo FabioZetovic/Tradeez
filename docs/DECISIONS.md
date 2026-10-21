@@ -887,6 +887,40 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-073 — SMT divergence: ES beside NQ, each market's own swings, and a rule that reads a second market**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-21), T20 — ICT-66, DEC-042, DEC-049
+
+With Fabio's go-ahead (2026-10-21) ES joined NQ: an instrument row (V24: E-mini S&P 500, CME, 0.25 tick, $12.50) and
+an import from Massive's free plan exactly like NQ's — 680,761 one-minute candles from 22 October 2024 (the plan's two
+years back) to 2 October 2026, nine contracts, $0. `IMPORTED_PRIVATE`, like NQ (DEC-035). It is listed in the Chart
+tab beside NQ; practice and drills stay on NQ.
+
+**A rule may read a second market.** `Detector.companionOf(symbol)` names it. The scanner and the evidence counting
+hand such a rule the other market's candles over the same minutes as each segment (`Segments.beside`), with the
+candles split at **both** markets' rolls (`Segments.merged`). ES and NQ usually roll the same evening, but in
+December 2024 and September 2025 ES rolled a day earlier: split at NQ's roll alone, that day would have compared NQ
+with ES's next contract. The contract — causal, an honest lookback, one hit per place — holds for both markets, and
+`DetectorContractTest` now checks every rule beside a second seeded market. A rule that reads one market is unchanged.
+
+**`smt-1.0.0`.** A swing high on this market (swing-1.0.0) and the other market's earliest swing high at most 2 candles
+from it, each compared with the swing high before it on its own market — those two also at most 2 candles apart. One
+beyond its previous and the other not (equal counts as not) is a divergence: bearish at highs, bullish at lows. A point
+at this market's swing, labelled SMT; known at the close of this market's first candle by which both swings are
+confirmed; everything read lies within 200 candles. Of two of the other market's swings near this one the earlier is
+taken, so a later one can never replace a pair already found. The draft had the swings *confirmed* within 2 candles;
+pairing their times instead, for both pairs, makes the two compared the same two peaks.
+
+**Measured** (evidence-1.0.0, two years): NQ beside ES, 6,180 on 5-minute candles — 4.4 per 100 candles, about one
+swing in ten — 1,987 on 15 minutes, 467 on the hour; 51% bearish. ES beside NQ is close (6,059 on 5 minutes). Dense,
+like the swings it reads: the rule reports a disagreement, not whether it matters (INVARIANT 8).
+
+**Not in this decision:** a second chart beside the first (ICT-66's teaching mode A, "two charts, find the SMT"), and
+so no SMT drill; YM or other pairs; SMT at higher-timeframe or session highs and lows. A lesson example names ES's
+prices in its words but draws NQ only.
+
+**Reconsider if** one-candle swings prove too noisy to teach with: the same rule on intermediate-term swings would be
+`smt-1.1.0`.
+
 **DEC-072 — Trading costs: every market fill slips, a target may need trading through, the learner's own fees**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-20), T27 — DEC-008, DEC-012, CHATGPT_RESEARCH.md §5
 

@@ -91,9 +91,13 @@ public class EvidenceService {
 			}
 			long started = System.nanoTime();
 			List<Bar> bars = marketData.internalBars(instrument, timeframe, coverage[0], coverage[1], 0).bars();
-			List<List<Bar>> segments = Segments.atRolls(bars, marketData.rolls(instrument, coverage[0], coverage[1]));
+			List<Instant> rolls = marketData.rolls(instrument, coverage[0], coverage[1]);
+			List<List<Bar>> segments = Segments.atRolls(bars, rolls);
 			for (Detector detector : due) {
-				store(instrument, timeframe, detector, EvidenceCalculator.measure(detector, timeframe, segments),
+				String other = detector.companionOf(instrument.getSymbol());
+				store(instrument, timeframe, detector, other == null
+					? EvidenceCalculator.measure(detector, timeframe, segments)
+					: beside(instrument, timeframe, detector, marketData.requireInstrument(other), bars, rolls, coverage),
 					coverage[1]);
 				made++;
 			}
@@ -101,6 +105,18 @@ public class EvidenceService {
 				due.size(), bars.size(), (System.nanoTime() - started) / 1_000_000);
 		}
 		return made;
+	}
+
+	/**
+	 * A rule that reads a second market (T20), counted over the same minutes of it: the candles split at both
+	 * markets' rolls. Counted again when this market's data changes; the other's alone does not trigger it.
+	 */
+	private RuleEvidence beside(Instrument instrument, Timeframe timeframe, Detector detector, Instrument companion,
+			List<Bar> bars, List<Instant> rolls, Instant[] coverage) {
+		List<Bar> theirs = marketData.internalBars(companion, timeframe, coverage[0], coverage[1], 0).bars();
+		List<Instant> splits = Segments.merged(rolls, marketData.rolls(companion, coverage[0], coverage[1]));
+		return EvidenceCalculator.measure(detector, timeframe, Segments.atRolls(bars, splits),
+			segment -> Segments.beside(segment, companion.getSymbol(), theirs));
 	}
 
 	/** Every stored count of one rule on a market, finest timeframe first. */

@@ -293,10 +293,11 @@ class MassiveImporterTest extends AbstractIntegrationTest {
 		// The last stored minute opens at 23:59 UTC on 3 March, so the data runs until 00:00 on the 4th.
 		mockMvc.perform(get("/api/market/instruments").cookie(cookie))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.length()").value(1))
-			.andExpect(jsonPath("$[0].symbol").value("NQ"))
-			.andExpect(jsonPath("$[0].dataFrom").value((int) FROM.getEpochSecond()))
-			.andExpect(jsonPath("$[0].dataTo").value((int) TO.getEpochSecond()));
+			.andExpect(jsonPath("$.length()").value(2))
+			.andExpect(jsonPath("$[0].symbol").value("ES"))
+			.andExpect(jsonPath("$[1].symbol").value("NQ"))
+			.andExpect(jsonPath("$[1].dataFrom").value((int) FROM.getEpochSecond()))
+			.andExpect(jsonPath("$[1].dataTo").value((int) TO.getEpochSecond()));
 
 		mockMvc.perform(get("/api/market/instruments/NQ/bars").cookie(cookie)
 				.param("timeframe", "15m")

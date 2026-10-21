@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Timeframe;
@@ -105,18 +106,29 @@ public final class EvidenceCalculator {
 	 * @param segments the market's candles of {@code timeframe}, oldest first, split at contract rolls
 	 */
 	public static RuleEvidence measure(Detector detector, Timeframe timeframe, List<List<Bar>> segments) {
+		return measure(detector, timeframe, segments, segment -> Detector.Companion.NONE);
+	}
+
+	/**
+	 * The same for a rule that reads a second market (T20).
+	 *
+	 * @param segments split at both markets' rolls
+	 * @param beside   the second market's candles over each segment's minutes ({@link Segments#beside})
+	 */
+	public static RuleEvidence measure(Detector detector, Timeframe timeframe, List<List<Bar>> segments,
+			Function<List<Bar>, Detector.Companion> beside) {
 		List<List<Bar>> nonEmpty = segments.stream().filter(s -> !s.isEmpty()).toList();
 		long candles = nonEmpty.stream().mapToLong(List::size).sum();
 		Instant from = nonEmpty.isEmpty() ? Instant.EPOCH : nonEmpty.getFirst().getFirst().openTime();
 		Instant to = nonEmpty.isEmpty() ? Instant.EPOCH : nonEmpty.getLast().getLast().openTime().plus(timeframe.duration());
 		LifeRule life = LIVES.get(detector.id());
 		if (life != null) {
-			return lives(detector, timeframe, nonEmpty, life, from, to, candles);
+			return lives(detector, timeframe, nonEmpty, life, from, to, candles, beside);
 		}
 		Map<String, Long> kinds = new LinkedHashMap<>();
 		long hits = 0;
 		for (List<Bar> segment : nonEmpty) {
-			for (Detection d : detector.detect(segment, timeframe)) {
+			for (Detection d : detector.detect(segment, beside.apply(segment), timeframe)) {
 				hits++;
 				kinds.merge(d.kind() != null ? d.kind() : d.direction().name(), 1L, Long::sum);
 			}
@@ -127,7 +139,7 @@ public final class EvidenceCalculator {
 	}
 
 	private static RuleEvidence lives(Detector detector, Timeframe timeframe, List<List<Bar>> segments, LifeRule rule,
-			Instant from, Instant to, long candles) {
+			Instant from, Instant to, long candles, Function<List<Bar>, Detector.Companion> beside) {
 		long lives = 0;
 		long ended = 0;
 		Map<String, Long> reached = new LinkedHashMap<>();
@@ -136,7 +148,7 @@ public final class EvidenceCalculator {
 			List<Instant> opens = segment.stream().map(Bar::openTime).toList();
 			// One life per zone: its anchor and direction (a range's premium and discount are two).
 			Map<String, List<Detection>> byLife = new LinkedHashMap<>();
-			for (Detection d : detector.detect(segment, timeframe)) {
+			for (Detection d : detector.detect(segment, beside.apply(segment), timeframe)) {
 				byLife.computeIfAbsent(d.anchor() + "|" + d.direction() + "|" + d.lowTicks() + "|" + d.highTicks(),
 					k -> new ArrayList<>()).add(d);
 			}
