@@ -54,6 +54,18 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ## Environment
 
+### ENV-013 🟡 The edit scripts read "$$" in a replacement as "$"
+
+**Status:** verified (session 017, 2026-10-19)
+**Affects:** the scratchpad scripts that edit files by exact anchors (`edit`), not the product
+
+They passed the new text to `String.prototype.replace` as a string, and JavaScript reads `$$`, `$&`, `$'`
+and `` $` `` in a string replacement as patterns. A template literal `$${…}` — a dollar sign before a value —
+came out as `${…}`, and the risk-limit error read "A risk limit is $1 to 1,000,000." The T23 PracticeView test
+caught it before anything was committed. Every earlier script was searched for the four patterns: only this one
+had one. The scripts now share one helper that passes the replacement as a function, which is never read as a
+pattern.
+
 ### ENV-012 🟠 A mutation run cut off by the session's end left a mutated line in the source
 
 **Status:** verified (session 017, 2026-10-19)
@@ -344,6 +356,8 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 | Learn | Evidence is recounted after the app starts, not the moment data is imported | `EvidenceRefresher` (DEC-065) brings the counts up to date in the background after each start — about half a minute for two years on four timeframes. After an import, a card shows the older counts until the next start, with the dates they cover |
 | Learn | Some claims are not counted yet | The evidence counts what the rules emit: hits, kinds, how lives ended. Reach rates no rule emits — equilibrium reached, a deviation level reached, the nearer liquidity taken first — need their own counting (DEC-065) |
 | Practice | A model's checklist reads the session's own timeframe | The steps are checked on the chart the session was started on (1m, 5m or 15m), whatever timeframe the learner is viewing (DEC-066). ICT often reads the shift on one timeframe and enters on a lower one; a multi-timeframe checklist is later work |
+| Practice | A risk limit in dollars, not a share of an account | The limit is a fixed amount per trade (DEC-067). There is no account balance yet, so no "1% of the account" rule, no drawdown and no daily limit (T26) |
+| Practice | Calibration counts every trade with a confidence, from the first | No window: early trades weigh as much as recent ones. A learner who has improved sees it slowly; a rolling view belongs with the journal statistics (T25) |
 | Practice | Models are checked, not found | A learner can name a model and have it checked; the app does not yet find every past instance of a model, or start a session just before one (ICT_CONCEPTS.md Part 9, points 1 and 2) |
 | Chart | No infinite scroll into older history | Each view loads a fixed window ending at the chosen date; the date picker and the 1W–2Y jumps move it |
 | Training | Drills built on simulated data cannot be graded | DEC-034 — teaching from invented data would be circular |

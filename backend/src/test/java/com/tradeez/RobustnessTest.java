@@ -156,6 +156,11 @@ class RobustnessTest extends AbstractIntegrationTest {
 			c("plan, an unknown model", body(as(post(base + "/plan")),
 				"{\"direction\":\"LONG\",\"stopTicks\":1,\"targetTicks\":2,\"contracts\":1,\"model\":\"GUESS\"}"), 400),
 			c("context, no bracket", body(as(post(base + "/context")), "{\"model\":\"OTE\"}"), 400),
+			c("plan, a confidence that is not a number", body(as(post(base + "/plan")),
+				"{\"direction\":\"LONG\",\"stopTicks\":1,\"targetTicks\":2,\"contracts\":1,\"confidence\":\"sure\"}"), 400),
+			c("settings, a limit that is not a number", body(as(put("/api/practice/settings")), "{\"riskLimitCents\":\"lots\"}"), 400),
+			c("settings, a negative limit", body(as(put("/api/practice/settings")), "{\"riskLimitCents\":-1}"), 400),
+			c("settings, no body", as(put("/api/practice/settings")), 400),
 			c("plan, no contracts", body(as(post(base + "/plan")),
 				"{\"direction\":\"LONG\",\"stopTicks\":1,\"targetTicks\":2,\"contracts\":0}"), 400),
 			c("plan, a stop past the long range", body(as(post(base + "/plan")),
@@ -280,6 +285,9 @@ class RobustnessTest extends AbstractIntegrationTest {
 				post("/api/practice/sessions/" + uuid + "/skip"),
 				post("/api/practice/sessions/" + uuid + "/close"),
 				post("/api/practice/sessions/" + uuid + "/end"),
+				get("/api/practice/calibration"),
+				get("/api/practice/settings"),
+				put("/api/practice/settings"),
 				post("/api/auth/logout-all"),
 				post("/api/auth/password"))) {
 			int answered = mockMvc.perform(request.with(csrf())).andReturn().getResponse().getStatus();
@@ -304,7 +312,8 @@ class RobustnessTest extends AbstractIntegrationTest {
 			"/api/drills/{id}/answer", "/api/learning", "/api/learning/concepts/{id}/read", "/api/practice/sessions",
 			"/api/practice/sessions/{id}", "/api/practice/sessions/{id}/clock", "/api/practice/sessions/{id}/setups",
 			"/api/practice/sessions/{id}/plan", "/api/practice/sessions/{id}/context", "/api/practice/sessions/{id}/advance", "/api/practice/sessions/{id}/skip",
-			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/auth/register", "/api/auth/login",
+			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/practice/calibration",
+			"/api/practice/settings", "/api/auth/register", "/api/auth/login",
 			"/api/auth/refresh", "/api/auth/logout", "/api/auth/logout-all", "/api/auth/password", "/api/health");
 	}
 }

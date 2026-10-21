@@ -36,6 +36,9 @@ export interface PlanView {
   killzone?: string
   suggestedBias?: Bias
   checklist?: ChecklistView
+  /** T23: how sure the learner was, in percent, and the risk limit they had set then — each absent when not. */
+  confidence?: number
+  riskLimitCents?: number
 }
 
 /** ICT's entry models a trade can follow (T22, DEC-066), in the curriculum's order. */
@@ -107,6 +110,39 @@ export interface TradeView {
   entry?: EntryView
   /** Absent until the replay has passed the exit. */
   result?: ResultView
+  /** T23: outcome and process apart, nothing added up. Absent until the replay has passed the exit. */
+  scorecard?: ScorecardView
+}
+
+/** One statement about a trade; a verdict only where the rule is the learner's own (DEC-027). */
+export interface ScoreLine {
+  id: string
+  label: string
+  text: string
+  verdict?: 'KEPT' | 'BROKEN'
+}
+
+export interface ScorecardView {
+  version: string
+  outcome: ScoreLine[]
+  process: ScoreLine[]
+}
+
+/** Stated confidence against how often the target came first (calibration-1.0.0, T23). */
+export interface Calibration {
+  version: string
+  question: string
+  trades: number
+  decided: number
+  hits: number
+  meanConfidence?: number
+  low?: number
+  high?: number
+  closedByHand: number
+  timeExits: number
+  ambiguous: number
+  buckets: { confidence: number; trades: number; hits: number }[]
+  summary: string[]
 }
 
 /** The trades whose results have been revealed, added up. A running trade counts for nothing. */
@@ -178,11 +214,13 @@ export interface PlanRequest {
   contracts: number
 }
 
-/** What the learner means by the trade (T22): all optional. */
+/** What the learner means by the trade (T22), and how sure they are (T23): all optional. */
 export interface PlanIntent {
   model?: TradingModel
   bias?: Bias
   dolTicks?: number
+  /** 10, 20 … 90: percent sure the target comes before the stop. */
+  confidence?: number
 }
 
 export const PRACTICE_TIMEFRAMES = ['1m', '5m', '15m'] as const
@@ -248,6 +286,18 @@ export const skipToResult = (id: string, timeframe?: string) =>
 export const closeTrade = (id: string, timeframe?: string) =>
   apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/close${onTimeframe(timeframe)}`, {
     method: 'POST',
+  })
+
+export const getCalibration = () => apiFetch<Calibration>('/api/practice/calibration')
+
+/** The learner's practice rules: the most one trade may risk, absent when not set. */
+export const getPracticeSettings = () => apiFetch<{ riskLimitCents?: number }>('/api/practice/settings')
+
+/** Sets the risk limit; null clears it. Copied onto each plan as it is placed. */
+export const savePracticeSettings = (riskLimitCents: number | null) =>
+  apiFetch<{ riskLimitCents?: number }>('/api/practice/settings', {
+    method: 'PUT',
+    body: JSON.stringify(riskLimitCents === null ? {} : { riskLimitCents }),
   })
 
 /** Only while flat. Reveals the seed or the real date; ending twice changes nothing. */

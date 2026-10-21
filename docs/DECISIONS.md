@@ -887,6 +887,50 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-067 — The scorecard: what a trade did and how it was made, side by side; and calibration**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-19), T23 — DEC-027, ICT-83, ICT-84
+
+DEC-027 asked for a transparent scorecard — the outcome apart from the process, calibration with it, and no
+composite score. Every finished trade now has one (`scorecard-1.0.0`, worked out from the stored plan and
+result each time it is shown, never stored itself), in two sides shown at equal weight:
+
+- **Outcome** — what the trade did: the money and R; the worst and the best point, in R and in ticks (MAE,
+  MFE); and, when the learner named a draw on liquidity, whether price reached it while the trade was open,
+  or how close it came.
+- **Process** — how it was made, a line each: the risk against the learner's own limit; how much of the
+  plan was stated (a model, a bias, a draw, a confidence — "3 of 4"); the model's checklist as placed; the
+  trade against the learner's own bias; what the daily-bias reading suggested; the killzone; the planned
+  reward to risk; whether the bracket was held or the trade closed by hand; the stated confidence against
+  the outcome.
+
+**A verdict only on the learner's own rules.** Two lines carry a tick or a cross: the risk limit, and
+trading with or against the bias the learner stated. Whatever depends on a method is stated and not
+judged, as DEC-027's correction requires: a reward to risk under 1 : 1, a small worst point, a target that
+left most of the move, a trade against the daily-bias reading. The process side's headline counts those
+rules — "Your rules: 1 of 2 broken" — as large as the money on the outcome side: an unweighted count of
+the learner's own rules, never a score.
+
+**The risk limit** is set before a session, not per trade — a limit chosen trade by trade is not a limit
+— from $1 to $1,000,000 (V20, `practice_settings`). The plan panel shows a draft's risk against it ("over
+your $300.00 limit") and never blocks the trade; the limit in force is copied onto the plan when it is
+placed (`trade_plan.risk_limit_cents`), so changing it later never rewrites whether an old trade kept it.
+Risk is the stop's distance from the reference price times the contracts times the tick value — the
+number the plan panel shows; slippage and commission are not in it.
+
+**Calibration** (`calibration-1.0.0`). A plan may say how sure the learner is, in whole tens from 10% to
+90%, *that the target fills before the stop* (`trade_plan.confidence`). The journal compares that with
+how often it did: by confidence, with the number of trades behind each rate; overall, the average stated
+confidence against the hit rate; and, because a handful of trades proves little, the hit rate's 95% Wilson
+interval — the average confidence is read as above it (more sure than the trades), below it (less sure)
+or inside it (as close as that many trades can show). Only a trade the bracket decided counts: one closed
+by hand, one the session's close ended, and one whose stop and target fell inside one candle are counted
+apart and named. As with the score, a trade counts once the replay has shown its exit.
+
+**Not in this decision:** adherence and results by model, killzone and weekday (T25); drawdown, losing
+streaks and daily limits (T26, ICT-83); an account size and risk as a share of it; fees and slippage in the
+risk (T27); a weighted composite score, which DEC-027 allows only with visible, versioned, adjustable
+weights.
+
 **DEC-066 — ICT plans: a model, a bias and a draw, and the model's checklist at the decision moment**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-17), T22 — ICT-60, ICT-61, ICT-70 to ICT-76, ICT-78
 

@@ -3,17 +3,27 @@ import { PracticeSession } from './PracticeSession'
 import { ApiError } from '@/lib/api/client'
 import {
   createSession,
+  getCalibration,
+  getPracticeSettings,
   listSessions,
+  savePracticeSettings,
   KILLZONES,
   PRACTICE_TIMEFRAMES,
   WEEKDAYS,
+  type Calibration,
   type SessionResponse,
   type SessionSummary,
 } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatCents, formatR, STATUS_LABEL } from '@/lib/practice/plan'
 import { Button, Panel, Segmented } from '../ui'
-import { errorClass, fieldClass, panelTitle } from '@/lib/styles'
+import { errorClass, fieldClass, labelClass, panelTitle } from '@/lib/styles'
+
+const tableClass =
+  'w-full border-collapse text-sm tabular-nums [&_td]:border-b [&_td]:border-line/60 [&_td]:px-2 [&_td]:py-2 [&_th]:border-b [&_th]:border-line [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-subtle'
+
+/** A risk limit is $1 to $1,000,000 (V20). */
+const MAX_LIMIT_DOLLARS = 1_000_000
 
 interface PracticeViewProps {
   adapterFactory?: () => ChartAdapter
@@ -29,6 +39,9 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [created, setCreated] = useState<SessionResponse | undefined>(undefined)
   const [journal, setJournal] = useState<SessionSummary[] | null>(null)
+  const [calibration, setCalibration] = useState<Calibration | null>(null)
+  // undefined while loading; null when no limit is set.
+  const [riskLimit, setRiskLimit] = useState<number | null | undefined>(undefined)
   const [timeframe, setTimeframe] = useState<string>('5m')
   // Empty means "any": the server then picks from the whole history.
   const [killzone, setKillzone] = useState('')
@@ -40,7 +53,23 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     listSessions()
       .then(setJournal)
       .catch(() => setError('Could not load your practice journal.'))
+    getCalibration()
+      .then(setCalibration)
+      .catch(() => setError('Could not load your calibration.'))
+    getPracticeSettings()
+      .then((s) => setRiskLimit(s.riskLimitCents ?? null))
+      .catch(() => setError('Could not load your risk limit.'))
   }, [])
+
+  const saveLimit = async (cents: number | null) => {
+    setError(null)
+    try {
+      const saved = await savePracticeSettings(cents)
+      setRiskLimit(saved.riskLimitCents ?? null)
+    } catch {
+      setError('Could not save your risk limit.')
+    }
+  }
 
   useEffect(() => {
     if (openId === null) loadJournal()
@@ -73,6 +102,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         sessionId={openId}
         initial={created}
         adapterFactory={adapterFactory}
+        riskLimitCents={riskLimit ?? undefined}
         onBack={() => {
           setOpenId(null)
           setCreated(undefined)
@@ -126,6 +156,17 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             {starting ? 'Finding a moment…' : 'Start a session'}
           </Button>
         </div>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <RiskLimitField
+            cents={riskLimit}
+            onSave={(cents) => void saveLimit(cents)}
+            onInvalid={() => setError(`A risk limit is $1 to $${MAX_LIMIT_DOLLARS.toLocaleString('en-US')}.`)}
+          />
+          <p className="max-w-xl pb-2 text-xs text-subtle">
+            Your rule, set before you trade: each trade's scorecard says whether its risk kept it. It never blocks a
+            trade, and changing it later does not rewrite old ones.
+          </p>
+        </div>
         {error && (
           <p role="alert" className={`mt-3 ${errorClass}`}>
             {error}
@@ -142,7 +183,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         )}
         {journal?.length === 0 && <p className="text-sm text-subtle">No sessions yet.</p>}
         {journal && journal.length > 0 && (
-          <table className="w-full border-collapse text-sm tabular-nums [&_td]:border-b [&_td]:border-line/60 [&_td]:px-2 [&_td]:py-2 [&_th]:border-b [&_th]:border-line [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-subtle">
+          <table className={tableClass}>
             <thead>
               <tr>
                 <th>Started</th>
@@ -182,6 +223,91 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
           </table>
         )}
       </Panel>
+
+      {calibration && <CalibrationPanel calibration={calibration} />}
     </section>
+  )
+}
+
+/** The most one trade may risk, in dollars: committed on Enter or blur, cleared when emptied. */
+function RiskLimitField({
+  cents,
+  onSave,
+  onInvalid,
+}: {
+  cents: number | null | undefined
+  onSave: (cents: number | null) => void
+  onInvalid: () => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const text = draft ?? (cents == null ? '' : String(cents / 100))
+  const commit = () => {
+    if (draft === null) return
+    const dollars = Number(draft.replace(/[$,\s]/g, ''))
+    if (draft.trim() === '') onSave(null)
+    else if (Number.isFinite(dollars) && dollars >= 1 && dollars <= MAX_LIMIT_DOLLARS) onSave(Math.round(dollars * 100))
+    else onInvalid()
+    setDraft(null)
+  }
+  return (
+    <label className={labelClass}>
+      Risk limit per trade ($)
+      <input
+        className={`${fieldClass} w-40`}
+        inputMode="decimal"
+        placeholder="none"
+        disabled={cents === undefined}
+        value={text}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+      />
+    </label>
+  )
+}
+
+/**
+ * Calibration (T23): how sure the learner said they were, against how often the target came first — by
+ * confidence, with the number of trades behind every figure, and read against the range the results allow.
+ */
+function CalibrationPanel({ calibration }: { calibration: Calibration }) {
+  return (
+    <Panel aria-label="Calibration">
+      <h3 className={panelTitle}>Calibration</h3>
+      <p className="mb-2 text-sm text-subtle">{calibration.question}</p>
+      <div className="flex max-w-3xl flex-col gap-1 text-sm" data-testid="calibration-summary">
+        {calibration.summary.map((sentence) => (
+          <p key={sentence}>{sentence}</p>
+        ))}
+      </div>
+      {calibration.buckets.length > 0 && (
+        <table className={`${tableClass} mt-3 max-w-2xl`}>
+          <thead>
+            <tr>
+              <th>You said</th>
+              <th>Trades</th>
+              <th>Target first</th>
+              <th>Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {calibration.buckets.map((b) => (
+              <tr key={b.confidence} data-testid="calibration-row">
+                <td>{b.confidence}%</td>
+                <td>{b.trades}</td>
+                <td>{b.hits}</td>
+                <td>{Math.round((100 * b.hits) / b.trades)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="mt-3 text-xs text-subtle">
+        Each row is only as good as its number of trades: ten trades at one confidence can miss the truth by twenty
+        points or more. {calibration.version}.
+      </p>
+    </Panel>
   )
 }

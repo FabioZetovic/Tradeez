@@ -133,6 +133,56 @@ describe('PlanPanel reading (T22)', () => {
   })
 })
 
+describe('PlanPanel scorecard inputs (T23)', () => {
+  function limited(riskLimitCents: number | undefined, intent: PlanIntent = {}, onIntent = vi.fn()) {
+    return (
+      <PlanPanel
+        plan={LONG}
+        referenceTicks={REF}
+        tickSize={0.25}
+        tickValueCents={500}
+        riskLimitCents={riskLimitCents}
+        busy={false}
+        onPlace={vi.fn()}
+        onFlip={vi.fn()}
+        onDiscard={vi.fn()}
+        onChangeLevel={vi.fn()}
+        onChangeContracts={vi.fn()}
+        onLock={vi.fn()}
+        intent={intent}
+        onIntent={onIntent}
+      />
+    )
+  }
+
+  it("reads the draft's risk against the learner's limit — within at exactly the limit, over by a cent — and never blocks it", () => {
+    // Forty ticks of risk at $5 on one contract: $200.
+    const { rerender } = render(limited(20_000))
+    expect(screen.getByTestId('risk-limit')).toHaveTextContent('· within your $200.00 limit')
+    expect(screen.getByTestId('risk-limit')).toHaveClass('text-subtle')
+    rerender(limited(19_999))
+    expect(screen.getByTestId('risk-limit')).toHaveTextContent('· over your $199.99 limit')
+    expect(screen.getByTestId('risk-limit')).toHaveClass('text-down')
+    expect(screen.getByRole('button', { name: /place trade/i })).toBeEnabled()
+    rerender(limited(undefined))
+    expect(screen.queryByTestId('risk-limit')).toBeNull()
+  })
+
+  it('says how sure the learner is that the target comes first, and takes it back', async () => {
+    const onIntent = vi.fn()
+    const user = userEvent.setup()
+    const { rerender } = render(limited(undefined, {}, onIntent))
+    const sure = screen.getByLabelText('Target before stop')
+    expect(sure).toHaveValue('')
+    await user.selectOptions(sure, '70% sure')
+    expect(onIntent).toHaveBeenLastCalledWith({ confidence: 70 })
+    rerender(limited(undefined, { confidence: 70, bias: 'BULLISH' }, onIntent))
+    expect(sure).toHaveValue('70')
+    await user.selectOptions(sure, 'Not said')
+    expect(onIntent).toHaveBeenLastCalledWith({ bias: 'BULLISH', confidence: undefined })
+  })
+})
+
 describe('PlanPanel price boxes', () => {
   it('follow the bracket when it is dragged on the chart', () => {
     // The chart and the panel edit the same drawing. The box has no copy of its own to go stale.

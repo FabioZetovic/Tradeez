@@ -12,6 +12,8 @@ interface PlanPanelProps {
   referenceTicks: number
   tickSize: number
   tickValueCents: number
+  /** The learner's limit for one trade's risk (T23): shown, never enforced — the scorecard records it. */
+  riskLimitCents?: number
   busy: boolean
   onPlace: (direction: Direction) => void
   onFlip: () => void
@@ -41,6 +43,7 @@ export function PlanPanel({
   referenceTicks,
   tickSize,
   tickValueCents,
+  riskLimitCents,
   busy,
   onPlace,
   onFlip,
@@ -124,6 +127,16 @@ export function PlanPanel({
         <dt>Risk</dt>
         <dd>
           {numbers.riskTicks} ticks · {formatCents(numbers.riskCents)}
+          {riskLimitCents !== undefined && (
+            <span
+              data-testid="risk-limit"
+              className={numbers.riskCents > riskLimitCents ? 'font-medium text-down' : 'text-subtle'}
+            >
+              {numbers.riskCents > riskLimitCents
+                ? ` · over your ${formatCents(riskLimitCents)} limit`
+                : ` · within your ${formatCents(riskLimitCents)} limit`}
+            </span>
+          )}
         </dd>
         <dt>Reward</dt>
         <dd>

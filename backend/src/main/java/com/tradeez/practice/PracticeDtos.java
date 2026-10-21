@@ -49,11 +49,15 @@ public final class PracticeDtos {
 		@Schema(description = "Optional (T22): the ICT model the trade follows; its checklist is checked and kept")
 		TradingModel model,
 		@Schema(description = "Optional (T22): the learner's bias for the day") DailyBias.Bias bias,
-		@Schema(description = "Optional (T22): the liquidity the learner expects price to reach, in ticks") Long dolTicks) {
+		@Schema(description = "Optional (T22): the liquidity the learner expects price to reach, in ticks") Long dolTicks,
+		@Schema(description = """
+			Optional (T23): how sure the learner is, in percent, that the trade reaches its target before its \
+			stop — 10, 20 … 90. Compared with how often it did (calibration).""")
+		@Min(10) @Max(90) Integer confidence) {
 
 		/** A bracket alone, as before T22. */
 		public PlanRequest(FillEngine.Direction direction, Long stopTicks, Long targetTicks, Integer contracts) {
-			this(direction, stopTicks, targetTicks, contracts, null, null, null);
+			this(direction, stopTicks, targetTicks, contracts, null, null, null, null);
 		}
 	}
 
@@ -113,7 +117,10 @@ public final class PracticeDtos {
 		@Schema(description = "T22: the liquidity the learner expected, absent when none") Long dolTicks,
 		@Schema(description = "T22: the killzone the plan was placed in, absent outside them") String killzone,
 		@Schema(description = "T22: what daily-bias-1.0.0 suggested then, absent when nothing") String suggestedBias,
-		@Schema(description = "T22: the model's checklist as checked when the plan was placed") ChecklistView checklist) {
+		@Schema(description = "T22: the model's checklist as checked when the plan was placed") ChecklistView checklist,
+		@Schema(description = "T23: how sure the learner was, in percent, absent when not stated") Integer confidence,
+		@Schema(description = "T23: the learner's risk limit when the plan was placed, absent when none was set")
+		Long riskLimitCents) {
 	}
 
 	@Schema(description = "Where the trade was entered. Null until the replay has revealed it.")
@@ -148,7 +155,61 @@ public final class PracticeDtos {
 		@Schema(description = "1, 2, 3… in the order the trades were locked") int number,
 		PlanView plan,
 		EntryView entry,
-		@Schema(description = "Null until the replay has passed the exit") ResultView result) {
+		@Schema(description = "Null until the replay has passed the exit") ResultView result,
+		@Schema(description = "T23: the trade scored, outcome and process apart. Null until the replay has passed the exit")
+		ScorecardView scorecard) {
+	}
+
+	@Schema(description = """
+		One line of a scorecard: a statement about the trade with its reasons. A verdict only where the rule is \
+		the learner's own — their risk limit, their stated bias (DEC-027).""")
+	public record ScoreLineView(
+		String id,
+		String label,
+		String text,
+		@Schema(description = "KEPT | BROKEN; absent when the line states a fact and judges nothing") String verdict) {
+	}
+
+	@Schema(description = """
+		A finished trade on two sides of equal weight: what it did, and how it was made. Nothing is added up into \
+		one score (DEC-027, DEC-067).""")
+	public record ScorecardView(
+		@Schema(description = "scorecard-1.0.0") String version,
+		List<ScoreLineView> outcome,
+		List<ScoreLineView> process) {
+	}
+
+	@Schema(description = "Trades placed at one confidence, and how many reached their target first")
+	public record CalibrationBucketView(int confidence, int trades, int hits) {
+	}
+
+	@Schema(description = """
+		How sure the learner said they were, against how often their trades reached the target before the stop \
+		(T23, DEC-067). Counts only trades whose exit the replay has shown.""")
+	public record CalibrationView(
+		@Schema(description = "calibration-1.0.0") String version,
+		String question,
+		@Schema(description = "Finished trades with a confidence") int trades,
+		@Schema(description = "Of those, the ones that reached the target or the stop") int decided,
+		@Schema(description = "Of the decided, the ones that reached the target") int hits,
+		@Schema(description = "Mean stated confidence over the decided trades, percent; absent when none") Double meanConfidence,
+		@Schema(description = "The 95% Wilson interval for the hit rate, percent; absent when none") Integer low,
+		Integer high,
+		@Schema(description = "Closed by hand before either level: not counted") int closedByHand,
+		@Schema(description = "Neither level reached before the session closed: not counted") int timeExits,
+		@Schema(description = "Both levels inside one bar, order unknown: not counted") int ambiguous,
+		List<CalibrationBucketView> buckets,
+		@Schema(description = "The reading, in sentences") List<String> summary) {
+	}
+
+	@Schema(description = "The learner's practice rules")
+	public record SettingsView(
+		@Schema(description = "The most one trade may risk, cents; absent when not set") Long riskLimitCents) {
+	}
+
+	@Schema(description = "Set the learner's practice rules; a missing limit clears it")
+	public record SettingsRequest(
+		@Schema(description = "$1 to $1,000,000, in cents") @Min(100) @Max(100_000_000) Long riskLimitCents) {
 	}
 
 	@Schema(description = """

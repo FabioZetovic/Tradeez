@@ -97,6 +97,20 @@ const AFTER_ONE: ScoreView = {
   totalR: -1.04,
   netPnlCents: -24_250,
 }
+/** A learner with no finished trade that says how sure they were (calibration-1.0.0). */
+const NO_CALIBRATION = {
+  version: 'calibration-1.0.0',
+  question: 'How sure were you that the trade would reach its target before its stop?',
+  trades: 0,
+  decided: 0,
+  hits: 0,
+  closedByHand: 0,
+  timeExits: 0,
+  ambiguous: 0,
+  buckets: [],
+  summary: ['No finished trade says how sure you were yet.'],
+}
+
 /** Above 2^53 on purpose: as a JSON number this would be rounded (BUG-028). */
 const SEED = '1713776017923440752'
 
@@ -146,6 +160,8 @@ function happyServer(overrides: Partial<Record<'plan', { status: number; body: u
   let locked = 0
   return (call: Call) => {
     if (is(call, 'GET', '/api/practice/sessions')) return { body: [] }
+    if (is(call, 'GET', '/api/practice/calibration')) return { body: NO_CALIBRATION }
+    if (is(call, 'GET', '/api/practice/settings')) return { body: {} }
     if (is(call, 'POST', '/api/practice/sessions')) {
       return { status: 201, body: { state: ANALYSING, bars: BARS } satisfies SessionResponse }
     }
@@ -558,6 +574,111 @@ describe('Practice — a replay', () => {
 
     await waitFor(() => expect(screen.getByTestId('practice-cursor')).toBeInTheDocument())
     expect(calls.filter((c) => is(c, 'POST', '/advance'))).toHaveLength(1)
+  })
+})
+
+describe('Practice — the scorecard (T23)', () => {
+  it('sets a risk limit before a session, refuses one out of range, clears it, and reads the draft against it', async () => {
+    let saved: number | undefined = 15_000
+    const server = happyServer()
+    mockApi((call) => {
+      const limit = () => ({ body: saved === undefined ? {} : { riskLimitCents: saved } })
+      if (is(call, 'GET', '/api/practice/settings')) return limit()
+      if (is(call, 'PUT', '/api/practice/settings')) {
+        saved = (call.body as { riskLimitCents?: number }).riskLimitCents
+        return limit()
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    const field = screen.getByLabelText('Risk limit per trade ($)')
+    await waitFor(() => expect(field).toHaveValue('150'))
+    const puts = () => calls.filter((c) => is(c, 'PUT', '/api/practice/settings')).map((c) => c.body)
+
+    await user.clear(field)
+    await user.type(field, '0.5{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent('A risk limit is $1 to $1,000,000.')
+    expect(field).toHaveValue('150')
+    expect(puts()).toEqual([])
+
+    await user.clear(field)
+    await user.type(field, '$1,250{Enter}')
+    await waitFor(() => expect(field).toHaveValue('1250'))
+    expect(screen.queryByRole('alert')).toBeNull()
+    await user.clear(field)
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(field).toHaveValue(''))
+    await user.type(field, '150{Enter}')
+    await waitFor(() => expect(field).toHaveValue('150'))
+    expect(puts()).toEqual([{ riskLimitCents: 125_000 }, {}, { riskLimitCents: 15_000 }])
+
+    // Forty ticks at $5: $200, over the $150 limit — said, not prevented.
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    expect(screen.getByTestId('risk-limit')).toHaveTextContent('over your $150.00 limit')
+    expect(screen.getByRole('button', { name: /place trade/i })).toBeEnabled()
+  })
+
+  it('sends how sure the learner is with the plan, and starts the next draft unsaid', async () => {
+    mockApi(happyServer())
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    await user.selectOptions(screen.getByLabelText('Target before stop'), '70% sure')
+    await user.click(screen.getByRole('button', { name: /place trade/i }))
+    await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade'))
+    expect(calls.find((c) => is(c, 'POST', '/plan'))?.body).toMatchObject({ direction: 'LONG', confidence: 70 })
+  })
+
+  it('reads calibration in sentences, with the trades behind every rate', async () => {
+    const server = happyServer()
+    mockApi((call) =>
+      is(call, 'GET', '/api/practice/calibration')
+        ? {
+            body: {
+              ...NO_CALIBRATION,
+              trades: 7,
+              decided: 6,
+              hits: 2,
+              meanConfidence: 66.7,
+              low: 10,
+              high: 70,
+              closedByHand: 1,
+              buckets: [
+                { confidence: 50, trades: 2, hits: 1 },
+                { confidence: 80, trades: 4, hits: 1 },
+              ],
+              summary: [
+                'On 6 trades the bracket decided, you said 67% on average; 2 reached the target first (33%).',
+                'A hit rate from 10% to 70% fits these results (95%), and your 67% is inside it.',
+                'Not counted: 1 closed by hand. The bracket did not decide it.',
+              ],
+            },
+          }
+        : server(call),
+    )
+    renderPractice()
+    const panel = await screen.findByRole('region', { name: 'Calibration' })
+    expect(panel).toHaveTextContent('How sure were you that the trade would reach its target before its stop?')
+    expect(within(panel).getByTestId('calibration-summary')).toHaveTextContent(
+      'On 6 trades the bracket decided, you said 67% on average; 2 reached the target first (33%).A hit rate from 10% to 70%',
+    )
+    const rows = await within(panel).findAllByTestId('calibration-row')
+    expect(rows.map((r) => [...r.querySelectorAll('td')].map((td) => td.textContent))).toEqual([
+      ['50%', '2', '1', '50%'],
+      ['80%', '4', '1', '25%'],
+    ])
+    expect(panel).toHaveTextContent('calibration-1.0.0.')
+  })
+
+  it('with nothing to compare yet, says how to start and shows no table', async () => {
+    mockApi(happyServer())
+    renderPractice()
+    const panel = await screen.findByRole('region', { name: 'Calibration' })
+    expect(panel).toHaveTextContent('No finished trade says how sure you were yet.')
+    expect(within(panel).queryByRole('table')).toBeNull()
   })
 })
 

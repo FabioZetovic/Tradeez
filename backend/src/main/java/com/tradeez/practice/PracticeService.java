@@ -49,6 +49,7 @@ import com.tradeez.practice.FillEngine.Outcome;
 import com.tradeez.practice.FillEngine.Resolution;
 import com.tradeez.practice.PlanContextService.PlanContext;
 import com.tradeez.practice.PracticeDtos.AdvanceResponse;
+import com.tradeez.practice.PracticeDtos.CalibrationView;
 import com.tradeez.practice.PracticeDtos.ChecklistItemView;
 import com.tradeez.practice.PracticeDtos.ChecklistView;
 import com.tradeez.practice.PracticeDtos.ContextRequest;
@@ -61,6 +62,7 @@ import com.tradeez.practice.PracticeDtos.ResultView;
 import com.tradeez.practice.PracticeDtos.ScoreView;
 import com.tradeez.practice.PracticeDtos.SessionResponse;
 import com.tradeez.practice.PracticeDtos.SessionSummary;
+import com.tradeez.practice.PracticeDtos.SettingsView;
 import com.tradeez.practice.PracticeDtos.TradeView;
 import com.tradeez.practice.PracticeSession.Status;
 
@@ -167,6 +169,7 @@ public class PracticeService {
 	private final ClockService clocks;
 	private final SetupService setupService;
 	private final PlanContextService contexts;
+	private final PracticeSettingsStore settings;
 
 	/**
 	 * BUG-033 — transactions are opened by hand, around the database work only.
@@ -187,7 +190,7 @@ public class PracticeService {
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, PracticeCloseRepository closes, InstrumentRepository instruments,
 			MarketDataService marketData, ClockService clocks, SetupService setupService, PlanContextService contexts,
-			PlatformTransactionManager transactionManager) {
+			PracticeSettingsStore settings, PlatformTransactionManager transactionManager) {
 		this.sessions = sessions;
 		this.plans = plans;
 		this.results = results;
@@ -197,6 +200,7 @@ public class PracticeService {
 		this.clocks = clocks;
 		this.setupService = setupService;
 		this.contexts = contexts;
+		this.settings = settings;
 		this.writeTx = new TransactionTemplate(transactionManager);
 		this.readTx = new TransactionTemplate(transactionManager);
 		this.readTx.setReadOnly(true);
@@ -223,6 +227,11 @@ public class PracticeService {
 
 		long netPnlCents() {
 			return close != null ? close.getNetPnlCents() : result.getNetPnlCents();
+		}
+
+		/** How it ended: closed by hand, or the plan's own exit. */
+		Outcome outcome() {
+			return close != null ? Outcome.CLOSED : result.getOutcome();
 		}
 
 		/** True once the replay has passed the exit: the result is the past now. */
@@ -367,6 +376,9 @@ public class PracticeService {
 
 		long reference = lastVisibleClose(session, instrument, resolution);
 		validateBracket(request, reference);
+		if (request.confidence() != null && request.confidence() % 10 != 0) {
+			throw new IllegalArgumentException("Confidence is a whole ten, from 10 to 90 percent.");
+		}
 		// T22: what the app sees at this moment, kept with the plan. Read before the write, like the fill.
 		PlanContext context = contexts.at(session, instrument, request.direction(), reference, request.stopTicks(),
 			request.targetTicks(), request.model());
@@ -379,13 +391,15 @@ public class PracticeService {
 			// The fill was computed for the cursor in the snapshot. If the session moved since —
 			// a step in another tab — it is a fill for a moment the learner is no longer at.
 			PracticeSession current = requireUnchanged(userId, session);
+			// T23: the limit the learner had set when the trade was placed, kept with it.
+			Long riskLimit = settings.riskLimitCents(userId);
 			TradePlan plan = plans.save(new TradePlan(current.getId(), seen.trades().size() + 1,
 				request.direction(), request.stopTicks(), request.targetTicks(), request.contracts(),
 				reference, current.getCursorTime(), request.model(),
 				request.bias() == null ? null : request.bias().name(), request.dolTicks(),
 				context.killzone() == null ? null : context.killzone().name(),
 				context.suggestion().bias() == null ? null : context.suggestion().bias().name(),
-				context.checklist() == null ? null : stored(context.checklist())));
+				context.checklist() == null ? null : stored(context.checklist()), request.confidence(), riskLimit));
 			PracticeResult result = results.save(new PracticeResult(plan, fill,
 				instrument.getTickValueCents(), model, current.getGeneratorVersion(), current.getSeed(),
 				current.getDataSource()));
@@ -645,6 +659,42 @@ public class PracticeService {
 		}).toList();
 	}
 
+	/**
+	 * Calibration (T23, DEC-067): every finished trade of the learner's that says how sure they were, against
+	 * how it ended. A trade counts once its exit is revealed — the same rule as the score.
+	 */
+	@Transactional(readOnly = true)
+	public CalibrationView calibration(UUID userId) {
+		Map<UUID, List<TradePlan>> stated = plans.findAllWithConfidence(userId).stream()
+			.collect(Collectors.groupingBy(TradePlan::getSessionId));
+		Set<UUID> ids = stated.keySet();
+		Map<UUID, Instant> cursors = sessions.findAllById(ids).stream()
+			.collect(Collectors.toMap(PracticeSession::getId, PracticeSession::getCursorTime));
+		Map<UUID, List<PracticeResult>> resultsBySession = results.findAllBySessionIdIn(ids).stream()
+			.collect(Collectors.groupingBy(PracticeResult::getSessionId));
+		Map<UUID, List<PracticeClose>> closesBySession = closes.findAllBySessionIdIn(ids).stream()
+			.collect(Collectors.groupingBy(PracticeClose::getSessionId));
+		List<Calibration.Sample> samples = new ArrayList<>();
+		stated.forEach((id, sessionPlans) -> {
+			for (Trade trade : pair(sessionPlans, resultsBySession.getOrDefault(id, List.of()),
+					closesBySession.getOrDefault(id, List.of()))) {
+				if (trade.closedBy(cursors.get(id))) {
+					samples.add(new Calibration.Sample(trade.plan().getConfidence(), trade.outcome()));
+				}
+			}
+		});
+		return Calibration.of(samples);
+	}
+
+	public SettingsView settings(UUID userId) {
+		return new SettingsView(settings.riskLimitCents(userId));
+	}
+
+	public SettingsView saveSettings(UUID userId, Long riskLimitCents) {
+		settings.setRiskLimitCents(userId, riskLimitCents);
+		return new SettingsView(riskLimitCents);
+	}
+
 	// ---------------------------------------------------------------------------------------------
 	// Views
 	// ---------------------------------------------------------------------------------------------
@@ -668,7 +718,7 @@ public class PracticeService {
 			clock.basis(),
 			instrument.getDataClass().name(),
 			instrument.getDataClass() == DataClass.SIMULATED ? SIMULATED_DISCLAIMER : null,
-			trades.stream().map(t -> tradeView(t, cursor, clock)).toList(),
+			trades.stream().map(t -> tradeView(t, cursor, clock, instrument)).toList(),
 			score(trades, cursor),
 			// DEC-038 and DEC-025: the seed and the real date are the whole future, revealed only
 			// once the session has ended and no trade can use them.
@@ -678,15 +728,20 @@ public class PracticeService {
 			complete && clock.hidesDate() ? session.getStartTime().getEpochSecond() : null);
 	}
 
-	private static TradeView tradeView(Trade trade, Instant cursor, PracticeClock clock) {
-		PracticeResult result = trade.result();
+	private static TradeView tradeView(Trade trade, Instant cursor, PracticeClock clock, Instrument instrument) {
+		PracticeResult planned = trade.result();
 		// The entry is the open of the first bar after the plan was locked. It is revealed with that
 		// bar, not before: the price a market order will fill at is itself the future.
-		EntryView entry = cursor.isAfter(result.getEntryTime())
-			? new EntryView(clock.show(result.getEntryTime()), result.getEntryTicks())
+		EntryView entry = cursor.isAfter(planned.getEntryTime())
+			? new EntryView(clock.show(planned.getEntryTime()), planned.getEntryTicks())
 			: null;
-		return new TradeView(trade.plan().getSeq(), planView(trade.plan(), clock), entry,
-			trade.closedBy(cursor) ? resultView(trade, clock) : null);
+		PlanView plan = planView(trade.plan(), clock);
+		if (!trade.closedBy(cursor)) {
+			return new TradeView(trade.plan().getSeq(), plan, entry, null, null);
+		}
+		ResultView result = resultView(trade, clock);
+		return new TradeView(trade.plan().getSeq(), plan, entry, result,
+			Scorecard.score(plan, result, instrument.getTickSize(), instrument.getTickValueCents()));
 	}
 
 	/** The trades the replay has passed the exit of, added up. */
@@ -718,7 +773,8 @@ public class PracticeService {
 		return new PlanView(plan.getDirection(), plan.getStopTicks(), plan.getTargetTicks(),
 			plan.getContracts(), plan.getReferenceTicks(), clock.show(plan.getSubmittedCursor()),
 			round2((double) reward / risk), plan.getModel(), plan.getBias(), plan.getDolTicks(), plan.getKillzone(),
-			plan.getSuggestedBias(), plan.getChecklist() == null ? null : checklistView(plan.getChecklist()));
+			plan.getSuggestedBias(), plan.getChecklist() == null ? null : checklistView(plan.getChecklist()),
+			plan.getConfidence(), plan.getRiskLimitCents());
 	}
 
 	private static ResultView resultView(Trade trade, PracticeClock clock) {

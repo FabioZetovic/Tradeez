@@ -13,6 +13,8 @@ const KILLZONE_NAMES: Record<string, string> = {
 
 const BIASES = ['None', 'Bullish', 'Bearish'] as const
 
+const CONFIDENCES = [10, 20, 30, 40, 50, 60, 70, 80, 90] as const
+
 /**
  * What the learner means by the trade (T22, DEC-066): the ICT model it follows, their bias for the day and
  * the liquidity they expect price to reach — and, beside it, what the app sees: the killzone, the
@@ -64,6 +66,25 @@ export function PlanIntent({
           tickSize={tickSize}
           onCommit={(dolTicks) => onChange({ ...intent, dolTicks })}
         />
+        {/* T23: compared, across trades, with how often the target did come first (calibration). */}
+        <label
+          className={labelClass}
+          title="How sure you are that the target fills before the stop. The journal compares it with your results."
+        >
+          Target before stop
+          <select
+            className={fieldClass}
+            value={intent.confidence ?? ''}
+            onChange={(e) => onChange({ ...intent, confidence: e.target.value ? Number(e.target.value) : undefined })}
+          >
+            <option value="">Not said</option>
+            {CONFIDENCES.map((c) => (
+              <option key={c} value={c}>
+                {c}% sure
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {context && (
