@@ -314,6 +314,35 @@ export interface TradeReviewView {
 export const getTradeReview = (id: string, number: number) =>
   apiFetch<TradeReviewView>(`/api/practice/sessions/${encodeURIComponent(id)}/trades/${number}/review`)
 
+/** Finished trades added up (journal-stats-1.0.0, T25): the count behind every figure. */
+export interface StatisticsGroup {
+  label: string
+  trades: number
+  wins: number
+  losses: number
+  winRate?: number
+  avgWinR?: number
+  avgLossR?: number
+  /** The mean result in R, and its 95% range (absent below two trades). */
+  expectancyR?: number
+  low?: number
+  high?: number
+  profitFactor?: number
+  totalR: number
+  netPnlCents: number
+  /** The range in words. */
+  reading: string
+}
+
+export interface Statistics {
+  version: string
+  overall: StatisticsGroup
+  dimensions: { id: string; title: string; groups: StatisticsGroup[] }[]
+  notes: string[]
+}
+
+export const getStatistics = () => apiFetch<Statistics>('/api/practice/statistics')
+
 export const getCalibration = () => apiFetch<Calibration>('/api/practice/calibration')
 
 /** The learner's practice rules: the most one trade may risk, absent when not set. */

@@ -181,7 +181,7 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-81 | Targets and partials | 9 | R / J | 📝 | — | — |
 | ICT-82 | Trade management | 9 | J | 📝 | — | — |
 | ICT-83 | Risk rules and drawdown | 9 | D | ✅ partly (a risk limit per trade, checked on the scorecard, DEC-067) | `scorecard-1.0.0` | — |
-| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067; the review — DEC-068) | `scorecard-1.0.0`, `calibration-1.0.0` | — |
+| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067; the review — DEC-068; statistics by model, killzone, weekday — DEC-069) | `scorecard-1.0.0`, `calibration-1.0.0` | — |
 
 ---
 
@@ -1370,6 +1370,10 @@ confidence with how often their targets came first, with the number of trades be
 was placed and while it ran, each hit explained in its rule's numbers, whether price reached the learner's draw,
 and, after a close by hand, what the bracket would have done.
 
+*Implemented in T25 (DEC-069):* the statistics by tag this section asks for — by model, killzone, weekday, side,
+how much of the model was followed and whether the learner's own rules were kept — each with its number of trades
+and the expectancy's range.
+
 ---
 
 ## Part 11 — Not taught, and why
@@ -1449,7 +1453,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |
 | (all) | — | — | — | S-6 Evidence views | T21 ✅ (on every lesson card — DEC-065; reach rates the detectors do not emit, such as equilibrium reached, later) |
 | ICT-60, ICT-61, ICT-70 – ICT-78 | model compositions | model checklist | D | checklist at decision time | T22 ✅ (the model, bias and draw on liquidity in the plan; eight models' checklists at the decision moment; the daily-bias suggestion — DEC-066; historical instances later) |
-| ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 ✅ (the scorecard, a risk limit, calibration — DEC-067); T24 ✅ (the review — DEC-068); T25 – T28 |
+| ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 ✅ (the scorecard, a risk limit, calibration — DEC-067); T24 ✅ (the review — DEC-068); T25 ✅ (journal statistics — DEC-069); T26 – T28 |
 
 Task numbers refer to the ordered list in [`PATH.md`](PATH.md) → NEXT UP.
 

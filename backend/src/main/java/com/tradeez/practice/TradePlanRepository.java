@@ -14,8 +14,7 @@ public interface TradePlanRepository extends JpaRepository<TradePlan, UUID> {
 
 	List<TradePlan> findAllBySessionIdIn(Collection<UUID> sessionIds);
 
-	/** Every plan of a learner's that says how sure they were (T23): what calibration reads. */
-	@Query("SELECT p FROM TradePlan p WHERE p.confidence IS NOT NULL AND p.sessionId IN "
-		+ "(SELECT s.id FROM PracticeSession s WHERE s.userId = :userId)")
-	List<TradePlan> findAllWithConfidence(UUID userId);
+	/** Every plan of a learner's, from all their sessions: what calibration (T23) and statistics (T25) read. */
+	@Query("SELECT p FROM TradePlan p WHERE p.sessionId IN (SELECT s.id FROM PracticeSession s WHERE s.userId = :userId)")
+	List<TradePlan> findAllOfUser(UUID userId);
 }

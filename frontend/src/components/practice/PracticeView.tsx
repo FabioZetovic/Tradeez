@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { PracticeSession } from './PracticeSession'
+import { StatisticsPanel } from './StatisticsPanel'
 import { ApiError } from '@/lib/api/client'
 import {
   createSession,
   getCalibration,
   getPracticeSettings,
+  getStatistics,
   listSessions,
   savePracticeSettings,
   KILLZONES,
@@ -13,6 +15,7 @@ import {
   type Calibration,
   type SessionResponse,
   type SessionSummary,
+  type Statistics,
 } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatCents, formatR, STATUS_LABEL } from '@/lib/practice/plan'
@@ -40,6 +43,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   const [created, setCreated] = useState<SessionResponse | undefined>(undefined)
   const [journal, setJournal] = useState<SessionSummary[] | null>(null)
   const [calibration, setCalibration] = useState<Calibration | null>(null)
+  const [statistics, setStatistics] = useState<Statistics | null>(null)
   // undefined while loading; null when no limit is set.
   const [riskLimit, setRiskLimit] = useState<number | null | undefined>(undefined)
   const [timeframe, setTimeframe] = useState<string>('5m')
@@ -53,6 +57,9 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     listSessions()
       .then(setJournal)
       .catch(() => setError('Could not load your practice journal.'))
+    getStatistics()
+      .then(setStatistics)
+      .catch(() => setError('Could not load your statistics.'))
     getCalibration()
       .then(setCalibration)
       .catch(() => setError('Could not load your calibration.'))
@@ -224,6 +231,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         )}
       </Panel>
 
+      {statistics && <StatisticsPanel statistics={statistics} />}
       {calibration && <CalibrationPanel calibration={calibration} />}
     </section>
   )

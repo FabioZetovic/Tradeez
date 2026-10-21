@@ -45,6 +45,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **Evidence** (DEC-065): every rule counted over the whole imported history — how often it fires, how
   its zones' lives ended (filled, invalidated, left past their end), how its kinds divide — on each
   concept's lesson card, as base rates with their sample sizes, never as a forecast.
+- **Statistics that show their sample size** (DEC-069): the journal adds the trades up — win rate, expectancy,
+  profit factor — overall and by model, killzone, weekday and whether the learner kept their own rules, with the
+  number of trades first on every row and a range that says when a result cannot yet be told from luck.
 - **Every trade reviewed as it happened** (DEC-068): once a trade is over, the app tells it in order — what the
   rules had seen before it was placed and while it ran, each in the rule's own numbers, whether price reached the
   level the learner expected, and, after an early close, what the trade would have done — and can draw it all

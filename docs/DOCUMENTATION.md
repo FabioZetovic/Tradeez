@@ -1796,6 +1796,14 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Numbers that admit how little they know.** The journal now adds the practice trades up: how often they won,
+how much they won and lost on average, and what a trade was worth on average in units of risk — its
+"expectancy". It shows these for all the trades together and split by the model followed, the time of day, the
+day of the week, and whether the learner kept their own rules, so a learner can see, say, that their London
+trades lose and their New York ones do not. Every row starts with how many trades it rests on, and the average
+comes with a range: with twelve trades that range is wide, and while it still includes zero the page says plainly
+that the result cannot yet be told apart from luck.
+
 **Looking back at a trade, honestly.** When a practice trade is over, the learner can open its review: a short
 story of the trade in order. First, what the app's rules had spotted in the half-day before the trade was placed
 — a gap here, liquidity taken there — each with its reason in plain numbers. Then the trade itself, in the

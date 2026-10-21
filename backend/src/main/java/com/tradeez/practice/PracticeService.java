@@ -64,6 +64,8 @@ import com.tradeez.practice.PracticeDtos.ScoreView;
 import com.tradeez.practice.PracticeDtos.SessionResponse;
 import com.tradeez.practice.PracticeDtos.SessionSummary;
 import com.tradeez.practice.PracticeDtos.SettingsView;
+import com.tradeez.practice.PracticeDtos.ScorecardView;
+import com.tradeez.practice.PracticeDtos.StatisticsView;
 import com.tradeez.practice.PracticeDtos.TradeView;
 import com.tradeez.practice.PracticeSession.Status;
 
@@ -668,25 +670,63 @@ public class PracticeService {
 	 */
 	@Transactional(readOnly = true)
 	public CalibrationView calibration(UUID userId) {
-		Map<UUID, List<TradePlan>> stated = plans.findAllWithConfidence(userId).stream()
+		return Calibration.of(finished(userId).stream()
+			.filter(f -> f.trade().plan().getConfidence() != null)
+			.map(f -> new Calibration.Sample(f.trade().plan().getConfidence(), f.trade().outcome()))
+			.toList());
+	}
+
+	/**
+	 * Journal statistics (T25, DEC-069): every finished trade of the learner's, added up overall and by model,
+	 * killzone, weekday, side, model checks and own rules — the rules judged as the scorecard judges them.
+	 */
+	@Transactional(readOnly = true)
+	public StatisticsView statistics(UUID userId) {
+		Map<UUID, Instrument> byId = instruments.findAll().stream()
+			.collect(Collectors.toMap(Instrument::getId, Function.identity()));
+		return JournalStatistics.of(finished(userId).stream().map(f -> {
+			Trade trade = f.trade();
+			PracticeClock clock = f.session().getClock();
+			Instrument instrument = byId.get(f.session().getInstrumentId());
+			PlanView plan = planView(trade.plan(), clock);
+			ScorecardView card = Scorecard.score(plan, resultView(trade, clock), instrument.getTickSize(),
+				instrument.getTickValueCents());
+			return new JournalStatistics.Sample(round2(trade.r()), trade.netPnlCents(),
+				plan.model() == null ? null : plan.model().title(), plan.killzone(),
+				trade.plan().getSubmittedCursor().atZone(PracticeClock.NEW_YORK).getDayOfWeek(), plan.direction(),
+				plan.checklist() == null ? null : plan.checklist().met(),
+				plan.checklist() == null ? null : plan.checklist().total(),
+				(int) card.process().stream().filter(l -> Scorecard.KEPT.equals(l.verdict())).count(),
+				(int) card.process().stream().filter(l -> Scorecard.BROKEN.equals(l.verdict())).count());
+		}).toList());
+	}
+
+	/** A trade whose exit the replay has shown, and its session. */
+	private record Finished(Trade trade, PracticeSession session) {
+	}
+
+	/** Every trade of the learner's, from all their sessions, whose exit the replay has shown (DEC-009). */
+	private List<Finished> finished(UUID userId) {
+		Map<UUID, List<TradePlan>> bySession = plans.findAllOfUser(userId).stream()
 			.collect(Collectors.groupingBy(TradePlan::getSessionId));
-		Set<UUID> ids = stated.keySet();
-		Map<UUID, Instant> cursors = sessions.findAllById(ids).stream()
-			.collect(Collectors.toMap(PracticeSession::getId, PracticeSession::getCursorTime));
+		Set<UUID> ids = bySession.keySet();
+		Map<UUID, PracticeSession> owned = sessions.findAllById(ids).stream()
+			.collect(Collectors.toMap(PracticeSession::getId, Function.identity()));
 		Map<UUID, List<PracticeResult>> resultsBySession = results.findAllBySessionIdIn(ids).stream()
 			.collect(Collectors.groupingBy(PracticeResult::getSessionId));
 		Map<UUID, List<PracticeClose>> closesBySession = closes.findAllBySessionIdIn(ids).stream()
 			.collect(Collectors.groupingBy(PracticeClose::getSessionId));
-		List<Calibration.Sample> samples = new ArrayList<>();
-		stated.forEach((id, sessionPlans) -> {
+		List<Finished> done = new ArrayList<>();
+		bySession.forEach((id, sessionPlans) -> {
+			PracticeSession session = owned.get(id);
 			for (Trade trade : pair(sessionPlans, resultsBySession.getOrDefault(id, List.of()),
 					closesBySession.getOrDefault(id, List.of()))) {
-				if (trade.closedBy(cursors.get(id))) {
-					samples.add(new Calibration.Sample(trade.plan().getConfidence(), trade.outcome()));
+				if (trade.closedBy(session.getCursorTime())) {
+					done.add(new Finished(trade, session));
 				}
 			}
 		});
-		return Calibration.of(samples);
+		return done;
 	}
 
 	/**
@@ -794,7 +834,7 @@ public class PracticeService {
 		long reward = Math.abs(plan.getTargetTicks() - plan.getReferenceTicks());
 		return new PlanView(plan.getDirection(), plan.getStopTicks(), plan.getTargetTicks(),
 			plan.getContracts(), plan.getReferenceTicks(), clock.show(plan.getSubmittedCursor()),
-			round2((double) reward / risk), plan.getModel(), plan.getBias(), plan.getDolTicks(), plan.getKillzone(),
+			round2((double) reward / risk), plan.getModel(), plan.getBias(), plan.getDolTicks(), plan.killzoneWhenPlaced(),
 			plan.getSuggestedBias(), plan.getChecklist() == null ? null : checklistView(plan.getChecklist()),
 			plan.getConfidence(), plan.getRiskLimitCents());
 	}

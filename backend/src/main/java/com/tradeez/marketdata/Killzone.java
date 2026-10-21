@@ -42,6 +42,16 @@ public enum Killzone {
 		return endMinute - start.toSecondOfDay() / 60;
 	}
 
+	/** The killzone {@code instant} falls in, New York time; null outside them all. */
+	public static Killzone at(Instant instant) {
+		for (Killzone zone : values()) {
+			if (zone.contains(instant)) {
+				return zone;
+			}
+		}
+		return null;
+	}
+
 	/** True when {@code instant}, in New York time, falls inside this window. */
 	public boolean contains(Instant instant) {
 		LocalTime t = instant.atZone(NEW_YORK).toLocalTime();
