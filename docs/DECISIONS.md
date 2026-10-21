@@ -887,6 +887,43 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-066 — ICT plans: a model, a bias and a draw, and the model's checklist at the decision moment**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-17), T22 — ICT-60, ICT-61, ICT-70 to ICT-76, ICT-78
+
+A practice trade was a bracket and nothing else; ICT trades a *model*, in a direction it has *reasoned*,
+toward liquidity it *expects*. The plan now carries that, all optional, written once with the plan
+(INVARIANT 10): the **model** (eight of Part 9's — the 2022 model, Silver Bullet, OTE, unicorn, turtle
+soup, breaker or mitigation entry, session open reversal, opening range gap; the market maker models are
+judgement and are left out), the learner's **bias** for the day, and the **draw on liquidity** — the price
+they expect to be reached (ICT-16, ICT-60).
+
+Beside it, what the app sees at that moment, kept with the plan too:
+
+- the **killzone** the cursor is in;
+- **`daily-bias-1.0.0`** (ICT-61): the last two whole trading days before the cursor — a close beyond the
+  day before's high (low) suggests continuation, trading beyond it and closing back inside the other way,
+  an inside day or one that ran both sides nothing — shown with its reasons as *a suggestion, not a
+  verdict*, and never graded. ICT_CONCEPTS.md asks for the source to be checked before it is taught as
+  ICT's own; the words say it is the commonly taught reading. Real days only (INVARIANT 8b);
+- the **model's checklist** (`ModelChecklist`, each model's `model-*-1.0.0`): each step of the model as
+  ICT_CONCEPTS.md drafts it, met or not, in words, read from the hits of the model's rules **confirmed by
+  the cursor** — the replay's own scan, never a later candle (INVARIANT 1). The 2022 model, for one: in a
+  London or New York killzone; a market structure shift in the trade's direction in the last 30 candles
+  (the shift rule itself requires the sweep and the displacement); price back in the fair value gap its
+  leg left; the stop beyond the low (high) that made the sweep; the target reaching resting liquidity on
+  the far side. The Silver Bullet asks for ten points of room to that liquidity; a turtle soup must be in
+  the last three candles.
+
+The checklist is read while the bracket is drafted (`POST …/context`, settling a quarter of a second
+after the last drag) and checked again, and stored, when the trade is placed. Nothing blocks the trade:
+it is **adherence, scored apart from the outcome** (DEC-027) — the trade log shows "4/5", the result card
+the steps — and following a model is never presented as being right (INVARIANT 8).
+
+**Not in this decision:** finding every historical instance of a model and starting a practice session
+just before one (Part 9's points 1 and 2); the evidence of how often the daily-bias suggestion matched;
+grading the draw on liquidity against what price did (the review, T24); the scorecard that adds adherence
+up across trades (T23).
+
 **DEC-065 — Evidence: every rule counted over the whole history, as base rates, never as an edge**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-17), T21 — S-6
 

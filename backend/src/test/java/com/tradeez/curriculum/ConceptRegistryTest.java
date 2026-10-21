@@ -78,6 +78,9 @@ class ConceptRegistryTest {
 		assertThat(concept("ICT-40").status()).isEqualTo(Status.IMPLEMENTED);
 		assertThat(concept("ICT-62").status()).isEqualTo(Status.IMPLEMENTED);
 		assertThat(concept("ICT-57").rules()).containsExactly("ipda-1.0.0");
+		assertThat(concept("ICT-70").status()).isEqualTo(Status.IMPLEMENTED);
+		assertThat(concept("ICT-70").statusNote()).isEqualTo("partly (a checklist at the decision moment, DEC-066)");
+		assertThat(concept("ICT-70").rules()).containsExactly("model-2022-1.0.0");
 		assertThat(concept("ICT-55").status()).isEqualTo(Status.DRAFTED);
 		assertThat(concept("ICT-29").status()).isEqualTo(Status.DESCRIBED);
 		// Implemented as a question rather than a detector (DEC-058): listed with its rule, partly.

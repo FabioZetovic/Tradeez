@@ -62,16 +62,31 @@ public class SetupService {
 		return layer(instrument, timeframe, seed, from, from, scanTo, cursor, detectorIds, time);
 	}
 
+	/**
+	 * The stored hits of the named rules over a replay, confirmed by its cursor, in real time: what a plan's
+	 * checklist is checked against (T22). The same scan as {@link #forReplay}.
+	 */
+	public List<DetectedSetup> visibleForReplay(Instrument instrument, Timeframe timeframe, long seed, Instant from,
+			Instant scanTo, Instant cursor, List<String> detectorIds) {
+		return found(resolve(detectorIds), instrument, timeframe, seed, from, from, scanTo, cursor);
+	}
+
 	private SetupLayerResponse layer(Instrument instrument, Timeframe timeframe, long seed, Instant from,
 			Instant scanFrom, Instant scanTo, Instant until, List<String> detectorIds,
 			ToLongFunction<Instant> time) {
 		List<Detector> chosen = resolve(detectorIds);
+		return SetupDtos.of(chosen, found(chosen, instrument, timeframe, seed, from, scanFrom, scanTo, until),
+			marketData.rolls(instrument, from, until), time);
+	}
+
+	private List<DetectedSetup> found(List<Detector> chosen, Instrument instrument, Timeframe timeframe, long seed,
+			Instant from, Instant scanFrom, Instant scanTo, Instant until) {
 		scanner.ensureScanned(chosen, instrument, timeframe, seed, scanFrom, scanTo);
 		List<DetectedSetup> found = new ArrayList<>();
 		for (Detector detector : chosen) {
 			found.addAll(scanner.visible(detector, instrument, timeframe, seed, from, until, until));
 		}
-		return SetupDtos.of(chosen, found, marketData.rolls(instrument, from, until), time);
+		return found;
 	}
 
 	private List<Detector> resolve(List<String> ids) {

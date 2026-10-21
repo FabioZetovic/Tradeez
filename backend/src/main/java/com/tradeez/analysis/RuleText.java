@@ -747,6 +747,11 @@ public final class RuleText {
 		return new Prices(tickSize).of(ticks);
 	}
 
+	/** A midpoint in half-ticks as a price: the tick's decimals, and one more only when it lies between two ticks. */
+	public static String halfPrice(long halfTicks, BigDecimal tickSize) {
+		return new Prices(tickSize).ofHalf(halfTicks);
+	}
+
 	private record Prices(BigDecimal tickSize) {
 
 		String of(long ticks) {

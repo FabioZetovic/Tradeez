@@ -40,6 +40,7 @@ import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.Timeframe;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
+import com.tradeez.practice.DailyBias;
 
 /**
  * Lesson cards (T14, DEC-055): the first step of the concept loop — what a concept is, the exact rule
@@ -124,8 +125,11 @@ public class LessonService {
 		Instrument nq = marketData.requireInstrument(INSTRUMENT);
 		List<Example> examples = List.of();
 		String note;
+		boolean model = concept.rules().stream().anyMatch(r -> r.startsWith("model-") || r.equals(DailyBias.VERSION));
 		if (rules.isEmpty()) {
 			note = clock ? "Drawn by the New York clock layer on the Chart tab — switch it on there to see it."
+				: model ? "Read in Practice (T22): name it when you plan a trade, and the app checks it against the chart at that "
+					+ "moment and keeps the result with the trade."
 				: "Tradeez does not detect this concept yet, so there are no examples of it to show.";
 		} else {
 			Instant[] coverage = marketData.coverage(nq);

@@ -161,22 +161,22 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-56 | News times | 6 | D | 📝 | — | news calendar |
 | ICT-57 | IPDA data ranges, quarterly shifts | 6 | D / J | ✅ `ipda-1.0.0` (DEC-063) | `ipda-1.0.0` | daily, 60+ days |
 | ICT-60 | Higher-timeframe narrative | 7 | J | 📝 | — | multi-timeframe |
-| ICT-61 | Daily bias | 7 | J | 📝 | `daily-bias-1.0.0` (suggestion only) | daily |
+| ICT-61 | Daily bias | 7 | J | ✅ partly (a suggestion in the plan panel, DEC-066) | `daily-bias-1.0.0` (suggestion only) | daily |
 | ICT-62 | Power of three (AMD) | 7 | D after / J before | ✅ `po3-1.0.0` (DEC-063) | `po3-1.0.0` | 1m |
 | ICT-63 | Judas swing | 7 | R | ✅ `judas-1.0.0` (DEC-063) | `judas-1.0.0` | 1m, sessions |
 | ICT-64 | Daily profiles | 7 | D after | ✅ `daily-profile-1.0.0` (DEC-063) | `daily-profile-1.0.0` | 1m, sessions |
 | ICT-65 | Weekly profiles | 7 | D after | ✅ `weekly-profile-1.0.0` (DEC-063) | `weekly-profile-1.0.0` | 1m |
 | ICT-66 | SMT divergence (NQ vs ES) | 7 | R | 📐 | `smt-1.0.0` | 1m NQ **and ES** |
 | ICT-67 | Intermarket (DXY, yields) | 7 | J | ⛔ for now | — | other markets |
-| ICT-70 | The 2022 model | 8 | R | 📐 | `model-2022-1.0.0` | composition |
-| ICT-71 | Silver Bullet model | 8 | R | 📐 | `model-sb-1.0.0` | composition |
-| ICT-72 | OTE model | 8 | R | 📐 | `model-ote-1.0.0` | composition |
-| ICT-73 | Unicorn model | 8 | R | 📐 | `model-unicorn-1.0.0` | composition |
-| ICT-74 | Turtle soup model | 8 | R | 📐 | `model-turtle-1.0.0` | composition |
-| ICT-75 | Breaker / mitigation entry | 8 | R | 📐 | `model-breaker-1.0.0` | composition |
-| ICT-76 | Session open reversals (London, New York) | 8 | R | 📐 | `model-reversal-1.0.0` | composition |
+| ICT-70 | The 2022 model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-2022-1.0.0` | composition |
+| ICT-71 | Silver Bullet model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-sb-1.0.0` | composition |
+| ICT-72 | OTE model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-ote-1.0.0` | composition |
+| ICT-73 | Unicorn model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-unicorn-1.0.0` | composition |
+| ICT-74 | Turtle soup model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-turtle-1.0.0` | composition |
+| ICT-75 | Breaker / mitigation entry | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-breaker-1.0.0` | composition |
+| ICT-76 | Session open reversals (London, New York) | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-reversal-1.0.0` | composition |
 | ICT-77 | Market maker buy / sell models | 8 | J | 📝 | — | multi-timeframe |
-| ICT-78 | Opening range gap model | 8 | R | 📐 | `model-org-1.0.0` | composition |
+| ICT-78 | Opening range gap model | 8 | R | ✅ partly (a checklist at the decision moment, DEC-066) | `model-org-1.0.0` | composition |
 | ICT-80 | Stop placement | 9 | R / J | 📝 | — | — |
 | ICT-81 | Targets and partials | 9 | R / J | 📝 | — | — |
 | ICT-82 | Trade management | 9 | J | 📝 | — | — |
@@ -1105,6 +1105,12 @@ the day before, look for continuation toward the next buy-side liquidity; if yes
 but closed back inside, look the other way; an inside day says little. *Verify against the source
 before teaching it as ICT's method.*
 
+*Implemented in T22 (DEC-066):* `daily-bias-1.0.0` reads the last two whole trading days before the
+practice cursor — a close beyond the day before's high or low suggests continuation; trading beyond it and
+closing back inside suggests the other way; an inside day, or one that ran both sides, suggests nothing —
+and shows the suggestion with its reasons in the plan panel, beside the learner's own bias, which is kept
+with the trade. Real days only.
+
 **Tradeez.** `daily-bias-1.0.0` may compute a **suggestion with its reasoning**, never a verdict. The
 graded part is after the fact: a C drill ("will today take the previous day's high or low first?")
 and G (how often each suggestion matched, on real NQ, with the sample size).
@@ -1203,6 +1209,11 @@ same period** — the free Massive plan covers CME, so ES can be imported alongs
 ---
 
 ## Part 9 — Entry models (Level 8)
+
+*Implemented in T22 (DEC-066), point 3:* a learner names a model when planning a practice trade, and its
+checklist — the steps below as `model-*-1.0.0` reads them, met or not, in words — is checked against the
+rules confirmed by the cursor while the bracket is drafted, and kept with the trade when it is placed.
+Finding every historical instance (point 1) and starting a session before one (point 2) are later work.
 
 Models combine the concepts above into a trade. Each is a **composition of rules**, so the app can:
 
@@ -1425,7 +1436,7 @@ the app *suggests*, not what the learner is allowed to look at.
 | ICT-53, ICT-54, ICT-57, ICT-62 – ICT-65 | `po3`, `judas`, `daily-profile`, `weekly-profile`, `ipda` | windows, labels | B, C | G: profile distributions | T19 ✅ (detectors, the IPDA clock rule, overlay; drills and the profile distributions later — DEC-063) |
 | ICT-66 | `smt` | paired charts | A, C | needs ES import | T20 |
 | (all) | — | — | — | S-6 Evidence views | T21 ✅ (on every lesson card — DEC-065; reach rates the detectors do not emit, such as equilibrium reached, later) |
-| ICT-60, ICT-61, ICT-70 – ICT-78 | model compositions | model checklist | D | checklist at decision time | T22 |
+| ICT-60, ICT-61, ICT-70 – ICT-78 | model compositions | model checklist | D | checklist at decision time | T22 ✅ (the model, bias and draw on liquidity in the plan; eight models' checklists at the decision moment; the daily-bias suggestion — DEC-066; historical instances later) |
 | ICT-80 – ICT-84 | — | — | E, F | scorecard, journal stats | T23 – T28 |
 
 Task numbers refer to the ordered list in [`PATH.md`](PATH.md) → NEXT UP.

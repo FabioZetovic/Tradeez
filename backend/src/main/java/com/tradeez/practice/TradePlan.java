@@ -1,7 +1,11 @@
 package com.tradeez.practice;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -59,6 +63,27 @@ public class TradePlan {
 	@Column(name = "submitted_cursor", nullable = false, updatable = false)
 	private Instant submittedCursor;
 
+	// T22 (DEC-066): what the learner meant, and what the app saw then. All optional.
+	@Enumerated(EnumType.STRING)
+	@Column(name = "model", updatable = false)
+	private TradingModel model;
+
+	@Column(name = "bias", updatable = false)
+	private String bias;
+
+	@Column(name = "dol_ticks", updatable = false)
+	private Long dolTicks;
+
+	@Column(name = "killzone", updatable = false)
+	private String killzone;
+
+	@Column(name = "suggested_bias", updatable = false)
+	private String suggestedBias;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "checklist", updatable = false)
+	private Map<String, Object> checklist;
+
 	protected TradePlan() {
 		// for JPA
 	}
@@ -74,6 +99,19 @@ public class TradePlan {
 		this.referenceTicks = referenceTicks;
 		this.submittedCursor = submittedCursor;
 		this.submittedAt = Instant.now();
+	}
+
+	/** A plan with what the learner meant and what the app saw when it was placed (T22). */
+	public TradePlan(UUID sessionId, int seq, Direction direction, long stopTicks, long targetTicks, int contracts,
+			long referenceTicks, Instant submittedCursor, TradingModel model, String bias, Long dolTicks, String killzone,
+			String suggestedBias, Map<String, Object> checklist) {
+		this(sessionId, seq, direction, stopTicks, targetTicks, contracts, referenceTicks, submittedCursor);
+		this.model = model;
+		this.bias = bias;
+		this.dolTicks = dolTicks;
+		this.killzone = killzone;
+		this.suggestedBias = suggestedBias;
+		this.checklist = checklist;
 	}
 
 	public UUID getId() {
@@ -110,6 +148,30 @@ public class TradePlan {
 
 	public Instant getSubmittedCursor() {
 		return submittedCursor;
+	}
+
+	public TradingModel getModel() {
+		return model;
+	}
+
+	public String getBias() {
+		return bias;
+	}
+
+	public Long getDolTicks() {
+		return dolTicks;
+	}
+
+	public String getKillzone() {
+		return killzone;
+	}
+
+	public String getSuggestedBias() {
+		return suggestedBias;
+	}
+
+	public Map<String, Object> getChecklist() {
+		return checklist;
 	}
 
 }

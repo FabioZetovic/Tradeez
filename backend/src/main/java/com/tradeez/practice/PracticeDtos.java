@@ -45,7 +45,47 @@ public final class PracticeDtos {
 		@NotNull FillEngine.Direction direction,
 		@NotNull Long stopTicks,
 		@NotNull Long targetTicks,
-		@NotNull @Min(1) @Max(100) Integer contracts) {
+		@NotNull @Min(1) @Max(100) Integer contracts,
+		@Schema(description = "Optional (T22): the ICT model the trade follows; its checklist is checked and kept")
+		TradingModel model,
+		@Schema(description = "Optional (T22): the learner's bias for the day") DailyBias.Bias bias,
+		@Schema(description = "Optional (T22): the liquidity the learner expects price to reach, in ticks") Long dolTicks) {
+
+		/** A bracket alone, as before T22. */
+		public PlanRequest(FillEngine.Direction direction, Long stopTicks, Long targetTicks, Integer contracts) {
+			this(direction, stopTicks, targetTicks, contracts, null, null, null);
+		}
+	}
+
+	@Schema(description = "A bracket being drafted, to read the plan's context for (T22)")
+	public record ContextRequest(
+		@NotNull FillEngine.Direction direction,
+		@NotNull Long stopTicks,
+		@NotNull Long targetTicks,
+		@Schema(description = "Optional: the model whose checklist to check") TradingModel model) {
+	}
+
+	@Schema(description = "One step of a model, met or not, at the moment it was checked")
+	public record ChecklistItemView(String id, String text, boolean met) {
+	}
+
+	@Schema(description = "A model's checklist against the rules confirmed by the cursor (T22, DEC-066)")
+	public record ChecklistView(
+		TradingModel model,
+		String title,
+		@Schema(description = "model-2022-1.0.0 …") String version,
+		List<ChecklistItemView> items,
+		int met,
+		int total) {
+	}
+
+	@Schema(description = "What the app sees at the moment of a decision (T22, DEC-066)")
+	public record PlanContextView(
+		@Schema(description = "ASIA, LONDON, NEW_YORK_AM or NEW_YORK_PM; absent outside them") String killzone,
+		@Schema(description = "daily-bias-1.0.0: BULLISH, BEARISH, or absent when it suggests nothing") String suggestedBias,
+		String biasReasoning,
+		String biasRule,
+		@Schema(description = "Absent unless a model was named") ChecklistView checklist) {
 	}
 
 	@Schema(description = "How many bars to reveal")
@@ -67,7 +107,13 @@ public final class PracticeDtos {
 		@Schema(description = "The cursor when the plan was locked; entry is the next price after it")
 		long lockedAt,
 		@Schema(description = "Reward:risk as planned against the reference price")
-		double plannedRewardRisk) {
+		double plannedRewardRisk,
+		@Schema(description = "T22: the model named, absent when none") TradingModel model,
+		@Schema(description = "T22: the learner's bias, absent when none") String bias,
+		@Schema(description = "T22: the liquidity the learner expected, absent when none") Long dolTicks,
+		@Schema(description = "T22: the killzone the plan was placed in, absent outside them") String killzone,
+		@Schema(description = "T22: what daily-bias-1.0.0 suggested then, absent when nothing") String suggestedBias,
+		@Schema(description = "T22: the model's checklist as checked when the plan was placed") ChecklistView checklist) {
 	}
 
 	@Schema(description = "Where the trade was entered. Null until the replay has revealed it.")

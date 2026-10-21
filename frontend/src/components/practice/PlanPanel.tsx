@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { Direction, PlanRequest } from '@/lib/api/practice'
+import type { Direction, PlanContext, PlanIntent as Intent, PlanRequest } from '@/lib/api/practice'
 import { formatPrice, priceToTicks } from '@/lib/chart/priceFormat'
 import { formatCents, planNumbers, planProblem } from '@/lib/practice/plan'
 import { Button, Chip, Panel } from '../ui'
+import { PlanIntent } from './PlanIntent'
 import { errorClass, fieldClass, keyValueClass, panelTitle } from '@/lib/styles'
 
 interface PlanPanelProps {
@@ -19,6 +20,10 @@ interface PlanPanelProps {
   onChangeLevel: (level: 'stop' | 'target', ticks: number) => void
   onChangeContracts: (contracts: number) => void
   onLock: (plan: PlanRequest) => void
+  /** What the learner means by the trade (T22), and what the app sees for the draft. */
+  intent?: Intent
+  onIntent?: (intent: Intent) => void
+  context?: PlanContext | null
 }
 
 /**
@@ -43,6 +48,9 @@ export function PlanPanel({
   onChangeLevel,
   onChangeContracts,
   onLock,
+  intent = {},
+  onIntent = () => {},
+  context = null,
 }: PlanPanelProps) {
   if (!plan) {
     return (
@@ -109,6 +117,8 @@ export function PlanPanel({
           onChange={(e) => onChangeContracts(Number(e.target.value))}
         />
       </div>
+
+      <PlanIntent intent={intent} onChange={onIntent} context={context} tickSize={tickSize} />
 
       <dl className={keyValueClass} data-testid="plan-numbers">
         <dt>Risk</dt>

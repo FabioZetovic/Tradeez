@@ -299,6 +299,54 @@ describe('Practice — a replay', () => {
     expect(screen.queryByRole('button', { name: /end session/i })).not.toBeInTheDocument()
   })
 
+  it('T22: names a model and a bias, reads the checklist while drafting, and keeps both with the trade', async () => {
+    const checklist = {
+      model: 'MODEL_2022',
+      title: 'The 2022 model',
+      version: 'model-2022-1.0.0',
+      items: [
+        { id: 'killzone', text: 'Inside a killzone: London, 02:00–05:00.', met: true },
+        { id: 'shift', text: 'A bullish market structure shift.', met: true },
+        { id: 'gap', text: 'Price is not in the gap.', met: false },
+      ],
+      met: 2,
+      total: 3,
+    }
+    const server = happyServer()
+    mockApi((call) => {
+      if (is(call, 'POST', '/context')) {
+        const body = call.body as { model?: string }
+        return {
+          body: {
+            killzone: 'LONDON',
+            biasReasoning: 'Yesterday stayed inside the day before\'s range.',
+            biasRule: 'daily-bias-1.0.0',
+            ...(body.model ? { checklist } : {}),
+          },
+        }
+      }
+      if (is(call, 'POST', '/plan')) {
+        return { body: { ...ANALYSING, status: 'IN_TRADE', trades: [{ ...OPEN, plan: { ...OPEN.plan, model: 'MODEL_2022', checklist } }] } }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    expect(await screen.findByTestId('plan-context')).toHaveTextContent('In the London killzone.')
+
+    await user.selectOptions(screen.getByLabelText('Model'), 'MODEL_2022')
+    await user.click(screen.getByRole('button', { name: 'Bullish' }))
+    expect(await screen.findByTestId('checklist')).toHaveTextContent('The 2022 model checklist · 2 of 3')
+    expect(calls.filter((c) => is(c, 'POST', '/context')).at(-1)?.body).toMatchObject({ direction: 'LONG', model: 'MODEL_2022' })
+
+    await user.click(screen.getByRole('button', { name: /place trade/i }))
+    await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade'))
+    expect(calls.find((c) => is(c, 'POST', '/plan'))?.body).toMatchObject({ model: 'MODEL_2022', bias: 'BULLISH' })
+    expect(screen.getByTestId('trade-model')).toHaveTextContent('2/3')
+  })
+
   it('throws a draft away: nothing was placed, so nothing is sent', async () => {
     // Fabio's report: a bracket drawn with "Place long" looked like a trade and could not be taken
     // back, and price crossing its stop did nothing. It was a draft all along — now it says so, and

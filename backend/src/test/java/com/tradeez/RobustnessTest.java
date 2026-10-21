@@ -153,6 +153,9 @@ class RobustnessTest extends AbstractIntegrationTest {
 			c("setups, unknown detector", as(get(base + "/setups").param("detectors", "NOPE")), 400),
 			c("plan, unknown direction", body(as(post(base + "/plan")),
 				"{\"direction\":\"UP\",\"stopTicks\":1,\"targetTicks\":2,\"contracts\":1}"), 400),
+			c("plan, an unknown model", body(as(post(base + "/plan")),
+				"{\"direction\":\"LONG\",\"stopTicks\":1,\"targetTicks\":2,\"contracts\":1,\"model\":\"GUESS\"}"), 400),
+			c("context, no bracket", body(as(post(base + "/context")), "{\"model\":\"OTE\"}"), 400),
 			c("plan, no contracts", body(as(post(base + "/plan")),
 				"{\"direction\":\"LONG\",\"stopTicks\":1,\"targetTicks\":2,\"contracts\":0}"), 400),
 			c("plan, a stop past the long range", body(as(post(base + "/plan")),
@@ -272,6 +275,7 @@ class RobustnessTest extends AbstractIntegrationTest {
 				get("/api/practice/sessions/" + uuid + "/clock"),
 				get("/api/practice/sessions/" + uuid + "/setups").param("detectors", "FVG"),
 				post("/api/practice/sessions/" + uuid + "/plan"),
+				post("/api/practice/sessions/" + uuid + "/context"),
 				post("/api/practice/sessions/" + uuid + "/advance"),
 				post("/api/practice/sessions/" + uuid + "/skip"),
 				post("/api/practice/sessions/" + uuid + "/close"),
@@ -299,7 +303,7 @@ class RobustnessTest extends AbstractIntegrationTest {
 			"/api/concepts", "/api/concepts/{id}/lesson", "/api/drills/kinds", "/api/drills", "/api/drills/{id}",
 			"/api/drills/{id}/answer", "/api/learning", "/api/learning/concepts/{id}/read", "/api/practice/sessions",
 			"/api/practice/sessions/{id}", "/api/practice/sessions/{id}/clock", "/api/practice/sessions/{id}/setups",
-			"/api/practice/sessions/{id}/plan", "/api/practice/sessions/{id}/advance", "/api/practice/sessions/{id}/skip",
+			"/api/practice/sessions/{id}/plan", "/api/practice/sessions/{id}/context", "/api/practice/sessions/{id}/advance", "/api/practice/sessions/{id}/skip",
 			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/auth/register", "/api/auth/login",
 			"/api/auth/refresh", "/api/auth/logout", "/api/auth/logout-all", "/api/auth/password", "/api/health");
 	}

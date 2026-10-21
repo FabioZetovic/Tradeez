@@ -80,6 +80,8 @@ describe('the result of a trade', () => {
     expect(shown).toHaveTextContent('Best point8 ticks (0.80R)')
     expect(within(shown).queryByRole('note')).not.toBeInTheDocument()
     expect(screen.queryByTestId('gap-note')).not.toBeInTheDocument()
+    // It named no model: no checklist to show (T22).
+    expect(screen.queryByTestId('result-checklist')).toBeNull()
   })
 
   it('reads a stop: the loss in red with a minus sign, and more than −1R once slippage is in', () => {
@@ -141,5 +143,32 @@ describe('the result of a trade', () => {
     expect(shown).toHaveTextContent('Short3 contracts')
     expect(screen.getByTestId('result-net')).toHaveTextContent('$142.50')
     expect(shown).toHaveTextContent('Commission$7.50')
+  })
+
+  it('T22: shows how the trade followed the model it named, as adherence apart from the result', () => {
+    const named: TradeView = {
+      ...LONG,
+      plan: {
+        ...LONG.plan,
+        model: 'OTE',
+        checklist: {
+          model: 'OTE',
+          title: 'OTE model',
+          version: 'model-ote-1.0.0',
+          items: [
+            { id: 'shift', text: 'A bullish market structure shift.', met: true },
+            { id: 'retrace', text: 'Price is not in the OTE zone.', met: false },
+          ],
+          met: 1,
+          total: 2,
+        },
+      },
+    }
+    card(TARGET, named)
+    const checklist = screen.getByTestId('result-checklist')
+    expect(checklist).toHaveTextContent('OTE model: 1 of 2 checks met when placed')
+    expect(checklist).toHaveTextContent('✓ A bullish market structure shift.')
+    expect(checklist).toHaveTextContent('✗ Price is not in the OTE zone.')
+    expect(checklist).toHaveTextContent('adherence, scored apart from the result. model-ote-1.0.0.')
   })
 })

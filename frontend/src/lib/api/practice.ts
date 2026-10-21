@@ -28,6 +28,47 @@ export interface PlanView {
   /** The cursor when the plan was locked, UTC epoch seconds. */
   lockedAt: number
   plannedRewardRisk: number
+  /** T22: the model named, the learner's bias and expected liquidity — each absent when not given. */
+  model?: TradingModel
+  bias?: Bias
+  dolTicks?: number
+  /** T22: what the app saw when it was placed. */
+  killzone?: string
+  suggestedBias?: Bias
+  checklist?: ChecklistView
+}
+
+/** ICT's entry models a trade can follow (T22, DEC-066), in the curriculum's order. */
+export const MODELS = [
+  { value: 'MODEL_2022', label: 'The 2022 model' },
+  { value: 'SILVER_BULLET', label: 'Silver Bullet' },
+  { value: 'OTE', label: 'OTE model' },
+  { value: 'UNICORN', label: 'Unicorn model' },
+  { value: 'TURTLE_SOUP', label: 'Turtle soup model' },
+  { value: 'BREAKER', label: 'Breaker or mitigation entry' },
+  { value: 'SESSION_REVERSAL', label: 'Session open reversal' },
+  { value: 'OPENING_RANGE_GAP', label: 'Opening range gap model' },
+] as const
+export type TradingModel = (typeof MODELS)[number]['value']
+export type Bias = 'BULLISH' | 'BEARISH'
+
+/** A model's checklist, checked against the rules confirmed by the cursor. */
+interface ChecklistView {
+  model: TradingModel
+  title: string
+  version: string
+  items: { id: string; text: string; met: boolean }[]
+  met: number
+  total: number
+}
+
+/** What the app sees for a bracket being drafted (T22). */
+export interface PlanContext {
+  killzone?: string
+  suggestedBias?: Bias
+  biasReasoning: string
+  biasRule: string
+  checklist?: ChecklistView
 }
 
 interface EntryView {
@@ -137,6 +178,13 @@ export interface PlanRequest {
   contracts: number
 }
 
+/** What the learner means by the trade (T22): all optional. */
+export interface PlanIntent {
+  model?: TradingModel
+  bias?: Bias
+  dolTicks?: number
+}
+
 export const PRACTICE_TIMEFRAMES = ['1m', '5m', '15m'] as const
 
 /** ICT killzones in New York time (sessions-1.0.0, DEC-043), for choosing a practice moment. */
@@ -171,7 +219,14 @@ const onTimeframe = (timeframe?: string) =>
 export const getSession = (id: string, timeframe?: string) =>
   apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}${onTimeframe(timeframe)}`)
 
-export const submitPlan = (id: string, plan: PlanRequest) =>
+/** The killzone, the daily-bias suggestion and the named model's checklist for a bracket being drafted. */
+export const getPlanContext = (id: string, body: { direction: Direction; stopTicks: number; targetTicks: number; model?: TradingModel }) =>
+  apiFetch<PlanContext>(`/api/practice/sessions/${encodeURIComponent(id)}/context`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+export const submitPlan = (id: string, plan: PlanRequest & PlanIntent) =>
   apiFetch<PracticeState>(`/api/practice/sessions/${encodeURIComponent(id)}/plan`, {
     method: 'POST',
     body: JSON.stringify(plan),

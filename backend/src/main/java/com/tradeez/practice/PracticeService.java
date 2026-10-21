@@ -47,7 +47,12 @@ import com.tradeez.practice.FillEngine.Fill;
 import com.tradeez.practice.FillEngine.FillModel;
 import com.tradeez.practice.FillEngine.Outcome;
 import com.tradeez.practice.FillEngine.Resolution;
+import com.tradeez.practice.PlanContextService.PlanContext;
 import com.tradeez.practice.PracticeDtos.AdvanceResponse;
+import com.tradeez.practice.PracticeDtos.ChecklistItemView;
+import com.tradeez.practice.PracticeDtos.ChecklistView;
+import com.tradeez.practice.PracticeDtos.ContextRequest;
+import com.tradeez.practice.PracticeDtos.PlanContextView;
 import com.tradeez.practice.PracticeDtos.EntryView;
 import com.tradeez.practice.PracticeDtos.PlanRequest;
 import com.tradeez.practice.PracticeDtos.PlanView;
@@ -161,6 +166,7 @@ public class PracticeService {
 	private final MarketDataService marketData;
 	private final ClockService clocks;
 	private final SetupService setupService;
+	private final PlanContextService contexts;
 
 	/**
 	 * BUG-033 — transactions are opened by hand, around the database work only.
@@ -180,7 +186,7 @@ public class PracticeService {
 
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, PracticeCloseRepository closes, InstrumentRepository instruments,
-			MarketDataService marketData, ClockService clocks, SetupService setupService,
+			MarketDataService marketData, ClockService clocks, SetupService setupService, PlanContextService contexts,
 			PlatformTransactionManager transactionManager) {
 		this.sessions = sessions;
 		this.plans = plans;
@@ -190,6 +196,7 @@ public class PracticeService {
 		this.marketData = marketData;
 		this.clocks = clocks;
 		this.setupService = setupService;
+		this.contexts = contexts;
 		this.writeTx = new TransactionTemplate(transactionManager);
 		this.readTx = new TransactionTemplate(transactionManager);
 		this.readTx.setReadOnly(true);
@@ -360,6 +367,9 @@ public class PracticeService {
 
 		long reference = lastVisibleClose(session, instrument, resolution);
 		validateBracket(request, reference);
+		// T22: what the app sees at this moment, kept with the plan. Read before the write, like the fill.
+		PlanContext context = contexts.at(session, instrument, request.direction(), reference, request.stopTicks(),
+			request.targetTicks(), request.model());
 
 		FillModel model = FillModel.DEFAULT;
 		Fill fill = FillEngine.resolve(new FillEngine.Plan(request.direction(), request.stopTicks(),
@@ -371,7 +381,11 @@ public class PracticeService {
 			PracticeSession current = requireUnchanged(userId, session);
 			TradePlan plan = plans.save(new TradePlan(current.getId(), seen.trades().size() + 1,
 				request.direction(), request.stopTicks(), request.targetTicks(), request.contracts(),
-				reference, current.getCursorTime()));
+				reference, current.getCursorTime(), request.model(),
+				request.bias() == null ? null : request.bias().name(), request.dolTicks(),
+				context.killzone() == null ? null : context.killzone().name(),
+				context.suggestion().bias() == null ? null : context.suggestion().bias().name(),
+				context.checklist() == null ? null : stored(context.checklist())));
 			PracticeResult result = results.save(new PracticeResult(plan, fill,
 				instrument.getTickValueCents(), model, current.getGeneratorVersion(), current.getSeed(),
 				current.getDataSource()));
@@ -381,6 +395,41 @@ public class PracticeService {
 			trades.add(new Trade(plan, result, null));
 			return state(current, instrument, trades);
 		});
+	}
+
+	/**
+	 * What the app sees for a bracket being drafted (T22, DEC-066): the killzone, the daily-bias-1.0.0
+	 * suggestion, and the named model's checklist — read, never written. Placing the plan reads it again.
+	 */
+	public PlanContextView context(UUID userId, UUID sessionId, ContextRequest request) {
+		Snapshot seen = snapshot(userId, sessionId);
+		PracticeSession session = seen.session();
+		if (session.getStatus() == Status.COMPLETE) {
+			throw new SessionEndedException();
+		}
+		Resolution resolution = seen.instrument().getDataClass() == DataClass.SIMULATED ? Resolution.S1 : Resolution.M1;
+		long reference = lastVisibleClose(session, seen.instrument(), resolution);
+		PlanContext context = contexts.at(session, seen.instrument(), request.direction(), reference, request.stopTicks(),
+			request.targetTicks(), request.model());
+		return new PlanContextView(context.killzone() == null ? null : context.killzone().name(),
+			context.suggestion().bias() == null ? null : context.suggestion().bias().name(), context.suggestion().reasoning(),
+			DailyBias.VERSION, context.checklist() == null ? null : checklistView(stored(context.checklist())));
+	}
+
+	/** A checklist as kept with the plan: its model, version and items. */
+	private static Map<String, Object> stored(ModelChecklist.Checklist checklist) {
+		return Map.of("model", checklist.model().name(), "version", checklist.version(), "items",
+			checklist.items().stream().map(i -> Map.<String, Object>of("id", i.id(), "text", i.text(), "met", i.met())).toList());
+	}
+
+	@SuppressWarnings("unchecked")
+	private static ChecklistView checklistView(Map<String, Object> stored) {
+		TradingModel model = TradingModel.valueOf((String) stored.get("model"));
+		List<ChecklistItemView> items = ((List<Map<String, Object>>) stored.get("items")).stream()
+			.map(i -> new ChecklistItemView((String) i.get("id"), (String) i.get("text"), Boolean.TRUE.equals(i.get("met"))))
+			.toList();
+		return new ChecklistView(model, model.title(), (String) stored.get("version"), items,
+			(int) items.stream().filter(ChecklistItemView::met).count(), items.size());
 	}
 
 	/**
@@ -668,7 +717,8 @@ public class PracticeService {
 		long reward = Math.abs(plan.getTargetTicks() - plan.getReferenceTicks());
 		return new PlanView(plan.getDirection(), plan.getStopTicks(), plan.getTargetTicks(),
 			plan.getContracts(), plan.getReferenceTicks(), clock.show(plan.getSubmittedCursor()),
-			round2((double) reward / risk));
+			round2((double) reward / risk), plan.getModel(), plan.getBias(), plan.getDolTicks(), plan.getKillzone(),
+			plan.getSuggestedBias(), plan.getChecklist() == null ? null : checklistView(plan.getChecklist()));
 	}
 
 	private static ResultView resultView(Trade trade, PracticeClock clock) {
@@ -823,6 +873,11 @@ public class PracticeService {
 		}
 		// Compared without subtracting: stop - reference overflows for a stop near Long.MIN_VALUE, and
 		// Math.abs of the overflow is negative — a stop that far away passed the check (BUG-071).
+		Long dol = request.dolTicks();
+		if (dol != null && (dol < reference - MAX_BRACKET_TICKS || dol > reference + MAX_BRACKET_TICKS)) {
+			throw new IllegalArgumentException(
+				"The liquidity you expect price to reach must be within " + MAX_BRACKET_TICKS + " ticks of the price.");
+		}
 		if (stop < reference - MAX_BRACKET_TICKS || stop > reference + MAX_BRACKET_TICKS
 				|| target < reference - MAX_BRACKET_TICKS || target > reference + MAX_BRACKET_TICKS) {
 			throw new IllegalArgumentException(

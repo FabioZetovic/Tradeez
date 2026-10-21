@@ -1796,6 +1796,18 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Trading a plan, not just a bracket.** ICT teaches models — the "2022 model", the "Silver Bullet" and
+others — each a sequence of steps: be in a killzone, see liquidity swept, see structure shift, enter on the
+pull-back into the gap the move left, put the stop beyond the sweep, aim at the liquidity on the other side.
+A practice trade can now name the model it follows, the direction the learner expects the day to take, and
+the price they think the market is drawn to. While the trade is still a draft, the app reads the chart as it
+stands at that moment — never a candle further — and ticks off the model's steps one by one, in words: met,
+or not, and why. When the trade is placed, that checklist is stored with it, and the trade log shows how
+closely each trade followed its model next to how it turned out, kept apart on purpose: a trade can follow
+its model and lose, or break it and win, and a learner needs to see both. Beside it, the app offers the
+common "daily bias" reading of the last two days — yesterday closed above the day before's high, so the
+reading looks for higher prices — as a suggestion with its reasons, never a verdict.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app

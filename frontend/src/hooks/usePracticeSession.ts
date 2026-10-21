@@ -7,6 +7,7 @@ import {
   getSession,
   skipToResult,
   submitPlan,
+  type PlanIntent,
   type PlanRequest,
   type PracticeState,
   type SessionResponse,
@@ -142,7 +143,7 @@ export function usePracticeSession(sessionId: string, initial?: SessionResponse)
   )
 
   const lockPlan = useCallback(
-    (plan: PlanRequest) =>
+    (plan: PlanRequest & PlanIntent) =>
       exclusive(async () => {
         setState(await submitPlan(sessionId, plan))
       }),

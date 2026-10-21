@@ -226,6 +226,9 @@ class LessonApiTest extends AbstractIntegrationTest {
 		assertThat(lines.get(lines.size() - 1).asString()).isEqualTo(EvidenceText.NOT_A_FORECAST);
 		// A concept read by a clock rule, not a detector, has no rule card to count.
 		assertThat(lesson("ICT-50").get("rules")).isEmpty();
+		// A model, or the daily bias, is read in Practice when a trade is planned (T22).
+		assertThat(lesson("ICT-70").get("examplesNote").asString()).startsWith("Read in Practice");
+		assertThat(lesson("ICT-61").get("examplesNote").asString()).startsWith("Read in Practice");
 	}
 
 	@Test
