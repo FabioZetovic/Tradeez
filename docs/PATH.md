@@ -2686,3 +2686,9 @@ to say merge (it carries T20 too). Next: T29 on `feat/onboarding`, branched from
 - At 1920px the guide spans the content width (1,488px), its four steps in one row; no horizontal scroll.
 - Tests: App +3 (the guide shown, closed, remembered, reopened; a step opens its tab; the three points in the footer).
   Mutations: 5, all caught. Frontend 361 → 364; backend unchanged at 675.
+
+**2026-10-21 — Fresh-clone check of `7b6a62d`** (`feat/onboarding`), no `.env`: backend 675 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 364/364, build clean. Waiting for Fabio
+to say merge: `feat/smt` (T20), `feat/partials` (T28) and `feat/onboarding` (T29), in that order, each on the one
+before. Paused for his input: everything left needs a decision of his (T31 deployment, T32 budget, Q-09 data rights)
+or is optional (T33 indicators, the SMT second chart and drill).
