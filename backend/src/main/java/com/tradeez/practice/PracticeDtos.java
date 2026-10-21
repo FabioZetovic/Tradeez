@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+import com.tradeez.analysis.SetupDtos.SetupLayerResponse;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -200,6 +201,28 @@ public final class PracticeDtos {
 		@Schema(description = "Both levels inside one bar, order unknown: not counted") int ambiguous,
 		List<CalibrationBucketView> buckets,
 		@Schema(description = "The reading, in sentences") List<String> summary) {
+	}
+
+	@Schema(description = "One moment of a trade's review, told in words")
+	public record ReviewMomentView(
+		@Schema(description = "When, on the session's clock") long time,
+		@Schema(description = "BEFORE the trade was placed | TRADE, from the decision to the exit | AFTER it ended") String phase,
+		@Schema(description = "DECISION | ENTRY | RULE (a rule's hit) | DRAW (the learner's draw reached) | EXIT | HELD (what the "
+			+ "bracket would have done without a close)") String kind,
+		String title,
+		@Schema(description = "For a rule's hit, why it qualified, in the rule's own numbers") List<String> lines) {
+	}
+
+	@Schema(description = """
+		A finished trade told as it happened (T24, DEC-068): what the rules saw before it was placed and while it \
+		ran, how it ended, and what hindsight adds. Nothing past the replay's cursor.""")
+	public record ReviewView(
+		@Schema(description = "review-1.0.0") String version,
+		@Schema(description = "The rules read: liquidity, sweeps, MSS, FVG, and a named model's own") List<String> rules,
+		List<ReviewMomentView> moments,
+		@Schema(description = "What has no moment: a draw not reached, a bracket's exit still ahead, hits not listed")
+		List<String> summary,
+		@Schema(description = "The hits told, to draw on the chart") SetupLayerResponse layer) {
 	}
 
 	@Schema(description = "The learner's practice rules")

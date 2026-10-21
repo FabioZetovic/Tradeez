@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes = PracticeController.class)
 public class PracticeExceptionHandler {
 
-	@ExceptionHandler(PracticeService.SessionNotFoundException.class)
+	@ExceptionHandler({ PracticeService.SessionNotFoundException.class, PracticeService.TradeNotFoundException.class })
 	public ResponseEntity<Map<String, Object>> notFound(RuntimeException e) {
 		return body(HttpStatus.NOT_FOUND, e.getMessage());
 	}
@@ -28,7 +28,8 @@ public class PracticeExceptionHandler {
 		PracticeService.TooManyTradesException.class,
 		PracticeService.MarketClosedException.class,
 		PracticeService.ReplayEndException.class,
-		PracticeService.NotInTradeException.class })
+		PracticeService.NotInTradeException.class,
+		PracticeService.ReviewNotReadyException.class })
 	public ResponseEntity<Map<String, Object>> conflict(RuntimeException e) {
 		return body(HttpStatus.CONFLICT, e.getMessage());
 	}

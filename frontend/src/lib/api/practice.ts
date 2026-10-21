@@ -1,5 +1,6 @@
 import { apiFetch } from './client'
 import type { DomainBar } from '../chart/types'
+import type { SetupLayer } from './setups'
 
 /**
  * Practice API calls.
@@ -287,6 +288,31 @@ export const closeTrade = (id: string, timeframe?: string) =>
   apiFetch<SessionResponse>(`/api/practice/sessions/${encodeURIComponent(id)}/close${onTimeframe(timeframe)}`, {
     method: 'POST',
   })
+
+/** One moment of a trade's review (review-1.0.0, T24), on the session's clock. */
+export interface ReviewMoment {
+  time: number
+  /** Before the decision, from the decision to the exit, or after it. */
+  phase: 'BEFORE' | 'TRADE' | 'AFTER'
+  kind: 'DECISION' | 'ENTRY' | 'RULE' | 'DRAW' | 'EXIT' | 'HELD'
+  title: string
+  /** A rule's hit: why it qualified, in the rule's own numbers. */
+  lines: string[]
+}
+
+export interface TradeReviewView {
+  version: string
+  rules: string[]
+  moments: ReviewMoment[]
+  /** What has no moment: a draw not reached, the bracket's exit still ahead, hits not listed. */
+  summary: string[]
+  /** The hits told, to draw on the chart. */
+  layer: SetupLayer
+}
+
+/** Only once the replay has passed the trade's exit (409 before). */
+export const getTradeReview = (id: string, number: number) =>
+  apiFetch<TradeReviewView>(`/api/practice/sessions/${encodeURIComponent(id)}/trades/${number}/review`)
 
 export const getCalibration = () => apiFetch<Calibration>('/api/practice/calibration')
 

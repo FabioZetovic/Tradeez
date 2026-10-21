@@ -86,7 +86,7 @@ files_in_repo:
       databento/ # Databento client + cost-capped importer (DEC-040)                          (017)
       massive/   # Massive client, request pacer, quarterly contracts, volume roll, importer (017, DEC-042)
     charting/    # saved drawings                                              (session 012)
-    practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057); TradingModel, ModelChecklist, DailyBias, PlanContextService — a plan's model, bias and checklist (T22, DEC-066); Scorecard, Calibration, PracticeSettingsStore, PracticeRecordController — the scorecard, calibration and the risk limit (T23, DEC-067)
+    practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057); TradingModel, ModelChecklist, DailyBias, PlanContextService — a plan's model, bias and checklist (T22, DEC-066); Scorecard, Calibration, PracticeSettingsStore, PracticeRecordController — the scorecard, calibration and the risk limit (T23, DEC-067); TradeReview, TradeReviewService — a finished trade told as it happened (T24, DEC-068)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), IPDA 20/40/60-day ranges within one contract (ipda-1.0.0), chart endpoint (017, T7, T12, T19)
     evidence/    # EvidenceService (counts every rule over the imported history, rule_evidence V18), EvidenceRefresher (after start-up), EvidenceText (the words) — T21, DEC-065
     analysis/    # Detector contract + registry (runsOn, T21), Segments, scanner, setups API (DEC-026, DEC-049); EvidenceCalculator (evidence-1.0.0); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); PO3, DAILY_PROFILE, WEEKLY_PROFILE, JUDAS on Periods — read once the day, week or window is over (DEC-063); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17–T19)
@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T21 (feat/evidence), T22 (feat/plans, from it) and T23 (feat/scorecard, from feat/plans) built, waiting for "merge"; T24 (review overlay) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: nothing — T21 (feat/evidence), T22 (feat/plans), T23 (feat/scorecard) and T24 (feat/review), each branched from the one before, built and waiting for "merge"; T25 (journal statistics) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -151,7 +151,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T23 scorecard, on branch feat/scorecard (from feat/plans, 2026-10-19)
+claimed_files:      # session 017 (CLAUDE) — T24 review, on branch feat/review (from feat/scorecard, 2026-10-19)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -168,7 +168,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged) · T21 evidence views, DEC-065 (017, on feat/evidence) · T22 ICT plans and model checklists, DEC-066 (017, on feat/plans) · T23 scorecard and calibration, DEC-067 (017, on feat/scorecard).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged) · T21 evidence views, DEC-065 (017, on feat/evidence) · T22 ICT plans and model checklists, DEC-066 (017, on feat/plans) · T23 scorecard and calibration, DEC-067 (017, on feat/scorecard) · T24 review, DEC-068 (017, on feat/review).
 
 ### Fabio's request, 2026-10-17 — every bug, missing tests, security hardening
 
@@ -255,7 +255,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 |---|---|---|---|---|
 | T22 | ~~**ICT plans and model checklists**~~ | T5, T17–T19 | I-60–61, I-70–78, D-027 | ✅ Session 017 (DEC-066), on `feat/plans`: the plan carries a model (eight of Part 9's), the learner's bias and draw on liquidity, all optional, written once; with it the killzone, the `daily-bias-1.0.0` suggestion (real days only) and the model's checklist (`model-*-1.0.0`) checked against the rules confirmed by the cursor — read live while drafting (`POST …/context`), kept when placed. Adherence apart from the outcome: "4/5" in the trade log, the steps on the result card. Model and bias lessons point to Practice. Historical model instances later. |
 | T23 | ~~**Scorecard**~~ | T5 | C §5.5, X §5, D-027 | ✅ Session 017 (DEC-067), on `feat/scorecard`: every finished trade scored on two sides of equal weight — outcome (money, R, worst and best point in R, the draw reached or how close) and process (risk against the learner's own limit, plan stated "3 of 4", the model's checklist, with or against their bias, the daily-bias reading, killzone, reward to risk, held or closed by hand, confidence) — a tick or a cross only on the learner's own rules, nothing added up (`scorecard-1.0.0`). A risk limit set before a session, copied onto each plan (V20). Calibration in the journal: confidence (10–90%, target before stop) against how often, per confidence and overall with a 95% Wilson interval, undecided trades counted apart (`calibration-1.0.0`). |
-| T24 | **Review overlay** | T22 | D-026 | After the trade: what the rules saw at each moment, explained in their own numbers. |
+| T24 | ~~**Review overlay**~~ | T22 | D-026 | ✅ Session 017 (DEC-068), on `feat/review`: once the replay has passed a trade's exit, "Read the review" tells it as it happened (`review-1.0.0`) — the hits of liquidity, sweeps, MSS, FVG and the model's own rules confirmed in the 30 candles before the decision (three latest each) and while it ran (up to 24), each explained in its rule's numbers; the decision in the learner's words; the fill and the exit; whether price reached the draw; after a close by hand, what the bracket would have done, once the replay has passed it. Its hits drawn on the chart on request. Nothing past the cursor. |
 | T25 | **Journal statistics** | T23 | C §1.4, X §5 | By model, killzone, weekday; sample sizes on every figure. |
 | T26 | **Management and risk drills** | T23 | D-023 | Modes E and F. |
 | T27 | **Fees, commission, slippage** | T5 | X §5 | New fill-model version (DEC-012). |
@@ -303,6 +303,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-068 | **Review** (T24): `review-1.0.0`, `GET …/trades/{n}/review` once the exit is revealed (409 before) — BEFORE (hits confirmed in the 30 candles to the decision, 3 latest per rule), TRADE (decision in the learner's words, fill, hits to the exit capped at 24, exit), AFTER (draw reached — at or beyond from the entry's side — and, after a close, the bracket's own exit once the cursor passes it); rules LIQUIDITY, SWEEP, MSS, FVG plus the model's; the told hits as a setup layer for the chart. |
 | DEC-067 | **Scorecard** (T23): `scorecard-1.0.0` — outcome (R, money, MAE/MFE in R, draw reached) beside process (risk limit, plan stated, checklist, own bias, daily-bias reading, killzone, R:R, execution, confidence) at equal weight; verdicts only on the learner's own rules (risk limit, own bias), the rest stated; headline an unweighted count of those rules, never a score. Risk limit $1–$1,000,000 set before a session (`practice_settings`), copied onto the plan (V20), never blocking. `calibration-1.0.0`: confidence 10–90% that the target fills first, against how often — per confidence with counts, overall with a 95% Wilson interval; closed by hand, session close and one-candle ambiguity counted apart; only revealed exits. |
 | DEC-066 | **ICT plans** (T22): plan fields model (MODEL_2022, SILVER_BULLET, OTE, UNICORN, TURTLE_SOUP, BREAKER, SESSION_REVERSAL, OPENING_RANGE_GAP), bias, dol_ticks — optional, immutable (V19); killzone, `daily-bias-1.0.0` suggestion (close beyond the day before's high/low → continuation; ran it and closed back → the other way; inside or both → nothing; real data only), and the model's checklist (`ModelChecklist`, `model-*-1.0.0`: each step read from hits confirmed by the cursor — shift within 30 candles, gap in its leg, stop beyond the sweep, target reaching resting liquidity; Silver Bullet ≥ 10 points; soup within 3 candles) — kept with the plan, scored apart from the outcome. |
 | DEC-065 | **Evidence** (`evidence-1.0.0`, S-6): every rule counted over a real market's whole history on 1m–1h, split at rolls — hits per 100 candles; lives counted once over (final state or 500 candles inside the data), a leg's range read by end/start; kinds; time rules against days, weeks and windows. Cached in `rule_evidence` (V18), refreshed after start-up when data, rule or counting version changes; never simulated data; on each lesson card, ending on "not a forecast". |
@@ -2469,3 +2470,29 @@ to say merge (it carries T21 too); T23 continues on `feat/scorecard`, branched f
 **2026-10-19 — Fresh-clone check of `81911d6`** (`feat/scorecard`), no `.env`: backend 599 test cases, 0 failures,
 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 332/332, build clean. Waiting for Fabio
 to say merge (it carries T21 and T22 too); T24 continues on `feat/review`, branched from this.
+
+**2026-10-19 — T24: the review (DEC-068).** On `feat/review`, branched from `feat/scorecard`, not merged.
+- **`GET /api/practice/sessions/{id}/trades/{n}/review`** (`review-1.0.0`): 409 until the replay has passed the exit,
+  404 for a trade or session that is not the learner's. `TradeReview` (pure) tells it; `TradeReviewService` gathers
+  the hits — the replay's own scan, confirmed by the cursor — and the minute candles after the entry.
+- **Told in three parts:** before the decision (30 candles, three latest per rule); while it ran (the decision in
+  the learner's words, the fill, hits up to 24 and a count, the exit); after (the draw reached, and after a close by
+  hand the bracket's own exit, once the cursor has passed it). Rules: LIQUIDITY, SWEEP, MSS, FVG and the model's own.
+- **On screen:** a Review panel under the result card, read on request, grouped by part; "Show its rules on the
+  chart" draws the told hits as a second setup layer, and takes them off.
+- **Found while building it:** "reached" first meant a candle containing the draw, so a market that gapped through
+  it would never have reached it; now it is a high at or above a draw above the entry, a low at or below one below it.
+- Checked live on real NQ (the T23 session's trade): nine hits before the decision — gaps, two sweeps, liquidity
+  resting and taken, each in its own numbers — the decision with the 2022 checklist, the fill, the target; drawn on
+  the chart beside the trade.
+- Tests: TradeReviewTest (7: order, the windows' edges, the caps, the draw both ways and through a gap, the held
+  bracket before and after the cursor and in its own words, the decision in words), TradeReviewApiTest (2), RobustnessTest (the endpoint
+  in the anonymous sweep and three bad requests); frontend TradeReview (3), PracticeView +1.
+- Mutations, one at a time after a passing baseline: 18 backend, all caught — the held target's wording survived the
+  first run and has its own test now; 7 frontend, all caught by tests — the trade number in the review's address was
+  first caught only by the type checker, which does not count, and the panel's test now asks for trade 2.
+- Backend 599 → 608, frontend 332 → 336.
+
+**2026-10-19 — Fresh-clone check of `ebbf55d`** (`feat/review`), no `.env`: backend 608 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 336/336, build clean. Waiting for Fabio
+to say merge (it carries T21–T23 too); T25 continues on `feat/stats`, branched from this.

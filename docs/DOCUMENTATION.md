@@ -1796,6 +1796,14 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Looking back at a trade, honestly.** When a practice trade is over, the learner can open its review: a short
+story of the trade in order. First, what the app's rules had spotted in the half-day before the trade was placed
+— a gap here, liquidity taken there — each with its reason in plain numbers. Then the trade itself, in the
+learner's own words, and everything the rules spotted while it ran, until it ended. Then what only hindsight
+can show: whether price did reach the level they expected, and, if they closed the trade early, what it would
+have done had they let it run — told only once the replay has really got that far, so the review never gives
+away anything the learner has not yet seen. A button draws those same findings on the chart.
+
 **Grading the decision, not the luck.** One trade's profit is mostly chance: a careful trade can lose and a
 reckless one can win, and an app that only shows the money teaches gambling. So every finished trade now gets
 a scorecard with two halves of the same size. One says what the trade did — the money, how far it went

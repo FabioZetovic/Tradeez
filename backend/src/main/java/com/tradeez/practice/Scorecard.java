@@ -152,7 +152,7 @@ public final class Scorecard {
 		return (cents < 0 ? "−" : "") + String.format(Locale.ROOT, "$%,d.%02d", Math.abs(cents) / 100, Math.abs(cents) % 100);
 	}
 
-	private static String capitalised(String word) {
+	static String capitalised(String word) {
 		return Character.toUpperCase(word.charAt(0)) + word.substring(1);
 	}
 

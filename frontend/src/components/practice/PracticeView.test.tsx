@@ -429,6 +429,62 @@ describe('Practice — a replay', () => {
     expect(screen.getByRole('button', { name: /plan long/i })).toBeInTheDocument()
   })
 
+  it('T24: reads the finished trade as it happened, and draws its hits on the chart beside the rest', async () => {
+    const review = {
+      version: 'review-1.0.0',
+      rules: ['LIQUIDITY', 'SWEEP', 'MSS', 'FVG'],
+      moments: [
+        { time: CURSOR, phase: 'TRADE', kind: 'DECISION', title: 'You placed a long', lines: [] },
+        { time: CURSOR + 1200, phase: 'TRADE', kind: 'EXIT', title: 'Stop and target inside one candle, scored as the stop at 19989.75: −1.04R.', lines: [] },
+      ],
+      summary: [],
+      layer: {
+        rules: [{ detector: 'FVG', version: 'fvg-1.0.0', conceptId: 'ICT-20', parameters: {}, methodologySource: 'x' }],
+        setups: [
+          { detector: 'FVG', shape: 'ZONE', direction: 'BULLISH', start: CURSOR - 600, anchor: CURSOR - 300, end: CURSOR,
+            confirmedAt: CURSOR, lowTicks: 79_990, highTicks: 80_000, midHalfTicks: 159_990 },
+        ],
+        rolls: [],
+      },
+    }
+    const server = happyServer()
+    let skips = 0
+    mockApi((call) => {
+      if (is(call, 'GET', '/trades/1/review')) return { body: review }
+      if (is(call, 'POST', '/skip') && ++skips === 2) {
+        const second = { number: 2, plan: PLAN, entry: { time: CURSOR + 1500, ticks: 79_970 }, result: { ...AMBIGUOUS, outcome: 'TARGET' } }
+        return { body: { state: { ...ANALYSING, cursor: CURSOR + 3000, trades: [CLOSED, second], score: AFTER_ONE }, bars: [] } }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await screen.findByTestId('result-outcome')
+    const overlays = screen.getAllByTestId('setup-overlay').length
+
+    await user.click(screen.getByRole('button', { name: 'Read the review' }))
+    expect(await screen.findByTestId('review-exit')).toHaveTextContent('scored as the stop at 19989.75')
+    expect(calls.some((c) => c.method === 'GET' && c.url === `/api/practice/sessions/${ID}/trades/1/review`)).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Show its rules on the chart' }))
+    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays + 1)
+    await user.click(screen.getByRole('button', { name: 'Hide its rules on the chart' }))
+    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays)
+
+    // Drawn again, then another trade ends: its review is its own, and trade 1's hits come off the chart.
+    await user.click(screen.getByRole('button', { name: 'Show its rules on the chart' }))
+    await lockLong(user)
+    await user.click(screen.getByRole('button', { name: /skip to result/i }))
+    await waitFor(() => expect(screen.getByTestId('result-outcome')).toHaveTextContent('Trade 2'))
+    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays)
+    expect(screen.getByRole('region', { name: 'Review' })).toHaveTextContent('Trade 2, as it happened')
+    await user.click(screen.getByRole('button', { name: 'Show trade 1' }))
+    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays)
+    expect(screen.getByRole('button', { name: 'Read the review' })).toBeInTheDocument()
+  })
+
   it('takes a second trade after the first, priced from where the replay is now', async () => {
     const user = userEvent.setup()
     renderPractice()

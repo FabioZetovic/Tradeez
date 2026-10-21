@@ -71,6 +71,15 @@ public class SetupService {
 		return found(resolve(detectorIds), instrument, timeframe, seed, from, from, scanTo, cursor);
 	}
 
+	/**
+	 * Hits already read, drawn as a layer like any other — a trade review's (T24). The rolls are the ones
+	 * between {@code from} and {@code until}.
+	 */
+	public SetupLayerResponse layerOf(Instrument instrument, List<String> detectorIds, List<DetectedSetup> hits,
+			Instant from, Instant until, ToLongFunction<Instant> time) {
+		return SetupDtos.of(resolve(detectorIds), hits, marketData.rolls(instrument, from, until), time);
+	}
+
 	private SetupLayerResponse layer(Instrument instrument, Timeframe timeframe, long seed, Instant from,
 			Instant scanFrom, Instant scanTo, Instant until, List<String> detectorIds,
 			ToLongFunction<Instant> time) {
