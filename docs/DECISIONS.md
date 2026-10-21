@@ -1917,7 +1917,7 @@ Never hand-edit the database. Seed only synthetic or permitted demo data.
 | ID | Question | Owner |
 |---|---|---|
 | Q-03 | Is order flow / footprint in scope at all? Both analyses say it is impossible without licensed trade/quote/depth data. **Recommendation: cut it from v1 and say why** rather than build a fake footprint chart. *Session 017: DEC-041 puts it out of scope for v1 (not part of ICT); close it if Fabio agrees.* | Fabio |
-| Q-08 | Croatian or English UI for the presentation? | Fabio |
+| ~~Q-08~~ | ~~Croatian or English UI for the presentation?~~ **Resolved (Fabio, 2026-10-21): English only for now.** | closed |
 | ~~Q-13~~ | ~~Default ICT reading?~~ **Resolved → DEC-043** (2022 mentorship; thin topics from 2016–17, labelled). | closed |
 | ~~Q-14~~ | ~~Which killzone table becomes `sessions-1.0.0`?~~ **Resolved → DEC-043** (index-futures version). | closed |
 | Q-15 | Source of historical economic-calendar dates for news-linked concepts. | either LLM, when Level 6 is built |
