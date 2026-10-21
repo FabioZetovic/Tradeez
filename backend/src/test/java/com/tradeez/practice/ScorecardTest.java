@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import com.tradeez.practice.FillEngine.Direction;
 import com.tradeez.practice.PracticeDtos.ChecklistItemView;
 import com.tradeez.practice.PracticeDtos.ChecklistView;
+import com.tradeez.practice.PracticeDtos.PartialView;
 import com.tradeez.practice.PracticeDtos.PlanView;
 import com.tradeez.practice.PracticeDtos.ResultView;
 import com.tradeez.practice.PracticeDtos.ScoreLineView;
@@ -36,7 +37,16 @@ class ScorecardTest {
 			String suggested, String killzone, Integer confidence) {
 		long sign = direction == Direction.LONG ? 1 : -1;
 		return new PlanView(direction, 80_000 - sign * 40, 80_000 + sign * 80, 1, 80_000, 0, 2.0, model, bias, dol,
-			killzone, suggested, model == null ? null : SILVER_BULLET, confidence, limit);
+			killzone, suggested, model == null ? null : SILVER_BULLET, confidence, limit, null, null, null);
+	}
+
+	/** T28: two contracts long, one off at 80,040 with the stop then to the entry; filled at {@code partialAt}. */
+	private static String partialLine(long partialAt, long exitAt) {
+		PlanView plan = new PlanView(Direction.LONG, 79_960, 80_080, 2, 80_000, 0, 1.5, null, null, null, null, null, null,
+			null, null, 80_040L, 1, true);
+		ResultView result = new ResultView("TARGET", null, 0, 80_000, exitAt, 80_080, 80, 59_100, 900, 0, 80, false, 1.5, "M1",
+			"fill-1.4.0", "mkt-1t/slip-1t/thru-1t/comm-450c", new PartialView(partialAt, 80_040, 1, 40, false));
+		return lines(Scorecard.score(plan, result, TICK, TICK_VALUE).outcome()).get("partial").text();
 	}
 
 	private static PlanView bare(Direction direction) {
@@ -45,7 +55,7 @@ class ScorecardTest {
 
 	private static ResultView result(String outcome, long entry, long mae, long mfe, double r) {
 		return new ResultView(outcome, null, 0, entry, 0, entry, 0, 0, 250, mae, mfe, false, r, "M1", "fill-1.2.0",
-			"slip-1t/comm-250c");
+			"slip-1t/comm-250c", null);
 	}
 
 	private static Map<String, ScoreLineView> lines(List<ScoreLineView> lines) {
@@ -98,23 +108,23 @@ class ScorecardTest {
 			.outcome()).get("costs").text()).isEqualTo("Fees $2.50 and 1 tick of slippage ($5.00): $7.50, 0.04R of what was risked.");
 		// The standard model on three contracts closed by hand: a tick in, a tick out, $4.50 a contract.
 		PlanView three = new PlanView(Direction.LONG, 79_960, 80_080, 3, 80_000, 0, 2.0, null, null, null, null, null, null,
-			null, null);
+			null, null, null, null, null);
 		ResultView closed = new ResultView("CLOSED", null, 0, 80_001, 0, 80_010, 9, 0, 1_350, 0, 12, false, 0.23, "M1",
-			"fill-1.3.0", "mkt-1t/slip-1t/thru-1t/comm-450c");
+			"fill-1.3.0", "mkt-1t/slip-1t/thru-1t/comm-450c", null);
 		assertThat(lines(Scorecard.score(three, closed, TICK, TICK_VALUE).outcome()).get("costs").text())
 			.isEqualTo("Fees $13.50 and 2 ticks of slippage ($30.00): $43.50, 0.07R of what was risked.");
 		// The standard model at the target: the entry slipped a tick, the limit filled at its own price.
 		ResultView target = new ResultView("TARGET", null, 0, 80_001, 0, 80_080, 79, 0, 450, 0, 79, false, 1.98, "M1",
-			"fill-1.3.0", "mkt-1t/slip-1t/thru-1t/comm-450c");
+			"fill-1.3.0", "mkt-1t/slip-1t/thru-1t/comm-450c", null);
 		assertThat(lines(Scorecard.score(bare(Direction.LONG), target, TICK, TICK_VALUE).outcome()).get("costs").text())
 			.isEqualTo("Fees $4.50 and 1 tick of slippage ($5.00): $9.50, 0.05R of what was risked.");
 		ResultView free = new ResultView("TARGET", null, 0, 80_000, 0, 80_080, 80, 0, 0, 0, 80, false, 2.0, "M1", "fill-1.3.0",
-			"slip-0t/comm-0c");
+			"slip-0t/comm-0c", null);
 		assertThat(lines(Scorecard.score(bare(Direction.LONG), free, TICK, TICK_VALUE).outcome()).get("costs").text())
 			.isEqualTo("No fees or slippage.");
 		// A model this version cannot read never breaks the card: the fees, and what is not known.
 		ResultView odd = new ResultView("STOP", null, 0, 80_000, 0, 79_959, -41, 0, 250, 41, 0, false, -1.03, "M1", "test",
-			"test");
+			"test", null);
 		assertThat(lines(Scorecard.score(bare(Direction.LONG), odd, TICK, TICK_VALUE).outcome()).get("costs").text())
 			.isEqualTo("Fees $2.50; the slippage cannot be read from its fill model (test).");
 	}
@@ -135,7 +145,7 @@ class ScorecardTest {
 
 		// Every contract counts: three of them risk $600.
 		PlanView three = new PlanView(Direction.LONG, 79_960, 80_080, 3, 80_000, 0, 2.0, null, null, null, null, null, null, null,
-			50_000L);
+			50_000L, null, null, null);
 		ScoreLineView contracts = lines(Scorecard.score(three, stop, TICK, TICK_VALUE).process()).get("risk");
 		assertThat(contracts.text()).isEqualTo("Risked $600.00, $100.00 over your $500.00 limit.");
 
@@ -220,5 +230,13 @@ class ScorecardTest {
 		assertThat(Scorecard.r(0)).isEqualTo("0.00R");
 		assertThat(Scorecard.money(123_456_789)).isEqualTo("$1,234,567.89");
 		assertThat(Scorecard.money(-5)).isEqualTo("−$0.05");
+	}
+
+	@Test
+	@DisplayName("T28: the partial taken, in R on its contracts; the stop on the rest moved only if the trade outlived its minute")
+	void partialMove() {
+		assertThat(partialLine(600, 1_200))
+			.isEqualTo("1 of 2 contracts taken off at 20010.00: +1.00R on each; the stop on the rest then moved to the entry.");
+		assertThat(partialLine(600, 600)).isEqualTo("1 of 2 contracts taken off at 20010.00: +1.00R on each.");
 	}
 }

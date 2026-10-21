@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 657/657 (Testcontainers, 2026-10-21, feat/smt), frontend 350/350 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 675/675 (Testcontainers, 2026-10-21, feat/partials), frontend 361/361 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -86,14 +86,14 @@ files_in_repo:
       databento/ # Databento client + cost-capped importer (DEC-040)                          (017)
       massive/   # Massive client, request pacer, quarterly contracts, volume roll, importer (017, DEC-042)
     charting/    # saved drawings                                              (session 012)
-    practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057); TradingModel, ModelChecklist, DailyBias, PlanContextService — a plan's model, bias and checklist (T22, DEC-066); Scorecard, Calibration, PracticeSettingsStore, PracticeRecordController — the scorecard, calibration and the risk limit (T23, DEC-067); TradeReview, TradeReviewService — a finished trade told as it happened (T24, DEC-068); JournalStatistics — the journal's statistics (T25, DEC-069)
+    practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057); TradingModel, ModelChecklist, DailyBias, PlanContextService — a plan's model, bias and checklist (T22, DEC-066); Scorecard, Calibration, PracticeSettingsStore, PracticeRecordController — the scorecard, calibration and the risk limit (T23, DEC-067); TradeReview, TradeReviewService — a finished trade told as it happened (T24, DEC-068); JournalStatistics — the journal's statistics (T25, DEC-069); partial targets in FillEngine (Partial, Leg; fill-1.4.0) and on plans, results and closes (T28, DEC-074)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), IPDA 20/40/60-day ranges within one contract (ipda-1.0.0), chart endpoint (017, T7, T12, T19)
     evidence/    # EvidenceService (counts every rule over the imported history, rule_evidence V18), EvidenceRefresher (after start-up), EvidenceText (the words) — T21, DEC-065
     analysis/    # Detector contract + registry (runsOn, T21), Segments, scanner, setups API (DEC-026, DEC-049); EvidenceCalculator (evidence-1.0.0); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); PO3, DAILY_PROFILE, WEEKLY_PROFILE, JUDAS on Periods — read once the day, week or window is over (DEC-063); SMT reads a second market — `Detector.companionOf`, `Segments.beside` and `merged` (T20, DEC-073); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17–T19)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
     learning/    # learning-1.0.0 (DEC-059): progress computed from graded drills (drills/DrillAttempts) and cards read — solid, SM-2 reviews, the ladder's unlocks; GET /api/learning, POST /api/learning/concepts/{id}/read  (017, T16)
     drills/      # drill engine (DEC-054): DrillKind catalogue (twelve drills, modes A, B and C), windows on real NQ, answer key = stored hits, excused candles; Prediction + PredictionText = predict-1.0.0 (mode C: two targets, the future withheld until the answer, DEC-058); FVG fixture on simulated data  (016, 017 T13, T15)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome) · V17 cards read (concept_read) · V18 rule evidence · V19 a plan's model, bias and checklist · V20 scorecard and risk limit · V21 risk drills · V22 management drills · V23 trading costs · V24 ES (T20)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome) · V17 cards read (concept_read) · V18 rule evidence · V19 a plan's model, bias and checklist · V20 scorecard and risk limit · V21 risk drills · V22 management drills · V23 trading costs · V24 ES (T20) · V25 partial targets (T28)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts, drills, lessons
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: Fabio — T20 (SMT, DEC-073) built on `feat/smt` and waiting for "merge". T21–T27 merged 2026-10-21; go-ahead for T28 (partial targets) given the same day, and Q-08 resolved (English only for now). Next: T28, then T29. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: Fabio — T20 (SMT, DEC-073) on `feat/smt` and T28 (partial targets, DEC-074) on `feat/partials`, branched from it, built and waiting for "merge". T21–T27 merged 2026-10-21; Q-08 resolved (English only for now). Next: T29. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -259,7 +259,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T25 | ~~**Journal statistics**~~ | T23 | C §1.4, X §5 | ✅ Session 017 (DEC-069), **merged 2026-10-21 as `75ab171`**: the journal's Statistics panel (`journal-stats-1.0.0`) — trades, win rate, average win and loss, expectancy with its 95% range read in words, profit factor, total R — overall and by model, killzone, weekday, side, model checks met and own rules kept (as the scorecard judges them); the count first on every row. |
 | T26 | ~~**Management and risk drills**~~ | T23 | D-023 | ✅ Session 017, **merged 2026-10-21 as `9449a13`**: **mode F** (DEC-070) — risk drills against the clock (`risk-1.0.0`): position size on NQ/MNQ, a losing streak's compounded drawdown, the gain a drawdown needs; answered once, the working with the result, the record per kind. **Mode E** (DEC-071) — "Manage an open trade" (`manage-1.0.0`): a trade a whole R in profit on real NQ, hold / stop to breakeven / half off, each played out on the real candles after, the ones that paid most the answer, every choice told in R. |
 | T27 | ~~**Fees, commission, slippage**~~ | T5 | X §5 | ✅ Session 017 (DEC-072), **merged 2026-10-21 as `6d6b340`**: fill-1.3.0 — every market fill slips (entry, close, the flat at the close), a target can need trading a tick through; the learner's own fees and slippage beside the risk limit (V23), the standard `mkt-1t/slip-1t/thru-1t/comm-450c` where unset; the plan resolved and a later close filled with the costs in force when placed; the plan panel's costs, the scorecard's Costs line. |
-| T28 | **Partial targets** | T5 | X §5, I-81 | More than one target per plan. |
+| T28 | ~~**Partial targets**~~ | T5 | X §5, I-81 | ✅ Session 017 (DEC-074), on `feat/partials`: one level for some of the contracts, filled like the target; optionally the stop on the rest to the entry from the next bar (fill-1.4.0); one walk for an exit or a close at market; kept on plan, result and close (V25); R and money over every contract; revealed while the rest runs; the chart, the scorecard's Partial line and costs, the review's PARTIAL moment. |
 
 **M5 — Presentation, and later**
 
@@ -2629,3 +2629,42 @@ importing ES (T20).
 **2026-10-21 — Fresh-clone check of `9def84f`** (`feat/smt`), no `.env`: backend 657 test cases, 0 failures,
 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 350/350, build clean. Waiting for Fabio
 to say merge. Next: T28 (partial targets) on `feat/partials`, branched from this one.
+
+**2026-10-21 — T28: partial targets** (`feat/partials`, from `feat/smt`, DEC-074).
+- **The engine (fill-1.4.0):** `FillEngine.Partial` on the plan, `FillEngine.Leg` on the fill; one private `walk` for
+  `resolve` and `closeAtMarket` (the close is a walk with a moment to close at), so the two cannot drift. A partial is
+  a limit like the target (trading through, gaps); target-and-partial in one bar fills both; stop-and-partial is
+  ambiguous, the stop for every contract; the breakeven stop applies from the next bar and slips like a stop.
+  `Fill.totalTicks` and `FillEngine.totalTicks` count every contract. Without a partial, nothing changes but the
+  version name.
+- **Storage (V25):** `trade_plan.partial_ticks / partial_contracts / breakeven_after_partial` (checked: some contracts,
+  between the price and the target, the move only with a partial); the leg's five columns on `practice_result` and
+  `practice_close`, all null together.
+- **The service:** `PlanRequest`'s three fields, checked (`validatePartial`); `TradePlan.enginePlan()`; R, wins and the
+  journal's statistics over `totalTicks`; `TradeView.partial` revealed once the cursor passes it; the ambiguity note names
+  the partial's level when it was still to be taken; `PlanView`'s planned reward : risk is the whole position's.
+- **Words:** the scorecard's Partial line ("1 of 2 contracts taken off at …: +1.00R on each; the stop on the rest then
+  moved to the entry"), costs counting slippage on the contracts that left by a stop or at market, Execution "Held to the
+  plan: the stop, moved to the entry after the partial, closed the rest", Reward : risk for the whole position; the
+  review's decision line and a PARTIAL moment.
+- **Frontend:** the plan panel's Partial price (empty = none), "Take off n of N", "then the stop to the entry" (two
+  contracts or more), Reward "40 then 80 ticks · $600.00" and the whole position's ratio; the partial dashed on the chart,
+  the stop drawn at the entry once it has moved; the open trade's Partial and Stop rows; the result card's Partial row;
+  PARTIAL among the learner's own review moments.
+- **Found live and fixed:** a partial and its target filled in the same minute, and the scorecard and review still said
+  the stop on the rest "moved to the entry" — the trade was already over. Both now say so only when the trade outlived the
+  partial's minute (ScorecardTest, TradeReviewTest).
+- Live on real NQ, 1920px: long 2 from 26,007.00, stop 25,997.00, one off at 26,017.00, the other to 26,027.00, stop to the
+  entry ticked — the panel "40 then 80 ticks · $600.00", 1.50; placed, "1 at 26017.00, then the stop to the entry"; four bars
+  on, the target: $591.00 net, +1.50R, "1 of 2 at 26017.00 · 40 ticks each", costs "$9.00 and slippage of 2 ticks across the
+  contracts ($10.00)".
+- Tests: FillEngineTest +11 (Partials), BracketOutcomeApiTest +5 (worked examples on stored minutes: the breakeven, held and
+  unreached, ambiguous with the stop, revealed then closed, refused with the reason), ScorecardTest +1, TradeReviewTest +1; frontend PlanPanel +4, plan +3, drawing +1,
+  ResultCard +2, PracticeView +1.
+- Planning the mutations found three things no test checked, each tested now: the service's own partial check (the
+  engine and the database refuse the same plan, so only its message tells — asserted), the ambiguity note naming the
+  partial's level (a worked example), and a partial set aside when the contracts drop to one (PracticeView).
+- Mutations, one at a time after a passing baseline: 22 backend, all caught; 9 frontend, all caught.
+- Re-read live after the fix: the same-minute trade's Partial line now ends "+1.00R on each.", and the review's PARTIAL
+  moment carries no line about the stop.
+- Backend 657 → 675, frontend 350 → 361.

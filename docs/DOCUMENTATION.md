@@ -1796,6 +1796,18 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Taking some off.** ICT teaches taking part of a trade off at the first pool of liquidity and letting the rest run,
+often with the stop moved to the entry so that the rest can no longer lose. A practice trade can now be planned that
+way: with two contracts or more, the learner names a price before the target where some of them come off, and ticks a
+box if the stop on the rest should then move to where they got in. All of it is decided before the trade is placed and
+cannot be changed afterwards, like the rest of the plan. The app fills the partial the way it fills the target, shows it
+as soon as the replay passes it, moves the stop on the chart, and counts every contract in the result: one contract off
+at one times the risk and the other stopped at the entry is half the risk gained, not one. One rule needed care: if the
+partial fills and price dips back to the entry within the same minute, the data cannot say which came first — so the
+stop moves only from the next minute, and the app says so. Testing it on real data found one more thing to fix: when
+the partial and the target filled in the same minute, the result said the stop had moved — but by then the trade was
+over. Now it says so only when it is true.
+
 **Two markets that should agree.** The Nasdaq (NQ) and the S&P 500 (ES) futures usually move together. ICT
 teaches watching for the moments they do not: one makes a new high and the other fails to — a "divergence", which
 ICT reads as a sign the move is cracking. To see it the app needed the second market, so two years of ES were
@@ -1886,7 +1898,7 @@ the detector framework, imbalances and gaps, any timeframe in practice, market s
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
 prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time, the security pass,
 evidence, ICT plans, the scorecard, the review, journal statistics, risk and management drills, trading costs, SMT
-divergence): backend 223 → 657, frontend 148 → 350, V9 to V24, DEC-044 to DEC-073.*
+divergence, partial targets): backend 223 → 675, frontend 148 → 361, V9 to V25, DEC-044 to DEC-074.*
 
 ---
 

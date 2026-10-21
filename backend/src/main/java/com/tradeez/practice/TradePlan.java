@@ -92,6 +92,16 @@ public class TradePlan {
 	@Column(name = "risk_limit_cents", updatable = false)
 	private Long riskLimitCents;
 
+	// T28: part of the position taken off before the target, and whether the stop on the rest then moves.
+	@Column(name = "partial_ticks", updatable = false)
+	private Long partialTicks;
+
+	@Column(name = "partial_contracts", updatable = false)
+	private Integer partialContracts;
+
+	@Column(name = "breakeven_after_partial", nullable = false, updatable = false)
+	private boolean breakevenAfterPartial;
+
 	protected TradePlan() {
 		// for JPA
 	}
@@ -111,11 +121,12 @@ public class TradePlan {
 
 	/**
 	 * A plan with what the learner meant and what the app saw when it was placed (T22), how sure they were and
-	 * the risk limit they had set (T23).
+	 * the risk limit they had set (T23), and a partial (T28).
 	 */
 	public TradePlan(UUID sessionId, int seq, Direction direction, long stopTicks, long targetTicks, int contracts,
 			long referenceTicks, Instant submittedCursor, TradingModel model, String bias, Long dolTicks, String killzone,
-			String suggestedBias, Map<String, Object> checklist, Integer confidence, Long riskLimitCents) {
+			String suggestedBias, Map<String, Object> checklist, Integer confidence, Long riskLimitCents,
+			FillEngine.Partial partial) {
 		this(sessionId, seq, direction, stopTicks, targetTicks, contracts, referenceTicks, submittedCursor);
 		this.model = model;
 		this.bias = bias;
@@ -125,6 +136,11 @@ public class TradePlan {
 		this.checklist = checklist;
 		this.confidence = confidence;
 		this.riskLimitCents = riskLimitCents;
+		if (partial != null) {
+			this.partialTicks = partial.ticks();
+			this.partialContracts = partial.contracts();
+			this.breakevenAfterPartial = partial.breakeven();
+		}
 	}
 
 	public UUID getId() {
@@ -201,6 +217,16 @@ public class TradePlan {
 
 	public Long getRiskLimitCents() {
 		return riskLimitCents;
+	}
+
+	/** Part of the position to take off before the target (T28), or null. */
+	public FillEngine.Partial partial() {
+		return partialTicks == null ? null : new FillEngine.Partial(partialTicks, partialContracts, breakevenAfterPartial);
+	}
+
+	/** The plan as the fill engine reads it. */
+	public FillEngine.Plan enginePlan() {
+		return new FillEngine.Plan(direction, stopTicks, targetTicks, contracts, partial());
 	}
 
 }

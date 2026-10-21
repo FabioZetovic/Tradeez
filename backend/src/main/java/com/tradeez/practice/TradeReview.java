@@ -54,7 +54,8 @@ public final class TradeReview {
 	public record Facts(Direction direction, int contracts, long reference, long stop, long target, BigDecimal tickSize,
 			Duration candle, String checklist, String bias, Long dol, Integer confidence, Instant decision, Instant entry,
 			long entryTicks, Instant exit, long exitTicks, Outcome outcome, double r, boolean gapExit, Instant plannedExit,
-			Outcome plannedOutcome, long plannedExitTicks, double plannedR, Instant cursor, List<Hit> hits, List<Bar> bars) {
+			Outcome plannedOutcome, long plannedExitTicks, double plannedR, Instant cursor, List<Hit> hits, List<Bar> bars,
+			FillEngine.Partial partial, FillEngine.Leg partialFill) {
 	}
 
 	public record Moment(Instant at, String phase, String kind, String title, List<String> lines) {
@@ -81,6 +82,10 @@ public final class TradeReview {
 		plan.add(Scorecard.capitalised(side) + " " + f.contracts() + (f.contracts() == 1 ? " contract" : " contracts") + " at market from "
 			+ price(f.reference(), f) + ": stop " + price(f.stop(), f) + ", target " + price(f.target(), f) + String.format(
 				Locale.ROOT, ", %.2f : 1.", (double) Math.abs(f.target() - f.reference()) / Math.abs(f.reference() - f.stop())));
+		if (f.partial() != null) {
+			plan.add("Take " + f.partial().contracts() + " off at " + price(f.partial().ticks(), f)
+				+ (f.partial().breakeven() ? ", then move the stop on the rest to the entry." : "."));
+		}
 		if (f.checklist() != null) {
 			plan.add(f.checklist());
 		}
@@ -127,6 +132,17 @@ public final class TradeReview {
 				+ "above the chart to see every one.");
 		}
 
+		if (f.partialFill() != null) {
+			FillEngine.Leg leg = f.partialFill();
+			int rest = f.contracts() - leg.contracts();
+			placed.add(new Placed(new Moment(leg.time(), TRADE, "PARTIAL", leg.contracts() + " of " + f.contracts()
+				+ " taken off at " + price(leg.exitTicks(), f) + (leg.gap() ? ", the market opening beyond your level" : "")
+				+ ": " + Scorecard.r((double) leg.pnlTicks() / Math.abs(f.reference() - f.stop())) + " on each.",
+				// Moved only if the trade outlived the candle that filled the partial.
+				f.partial().breakeven() && f.exit().isAfter(leg.time()) ? List.of("The stop on " + (rest == 1
+					? "the last contract" : "the other " + rest + " contracts") + " moved to the entry, "
+					+ price(f.entryTicks(), f) + ", once that candle had closed.") : List.of()), 4));
+		}
 		placed.add(new Placed(new Moment(f.exit(), TRADE, "EXIT", ended(f.outcome(), f.gapExit()) + " at "
 			+ price(f.exitTicks(), f) + ": " + Scorecard.r(f.r()) + ".", List.of()), 5));
 

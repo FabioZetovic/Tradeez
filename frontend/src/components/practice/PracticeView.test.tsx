@@ -381,6 +381,44 @@ describe('Practice — a replay', () => {
     expect(screen.getByTestId('trade-model')).toHaveTextContent('2/3')
   })
 
+  it('T28: takes part off at a price, and draws the stop at the entry once that has filled', async () => {
+    const server = happyServer()
+    const placed = { ...PLAN, contracts: 2, partialTicks: 80_046, partialContracts: 1, breakevenAfterPartial: true }
+    const filled = { time: CURSOR + 60, ticks: 80_046, contracts: 1, pnlTicks: 39, gap: false }
+    mockApi((call) => {
+      if (is(call, 'POST', '/plan')) {
+        return { body: { ...ANALYSING, status: 'IN_TRADE', trades: [{ ...ENTERED, plan: placed, partial: filled }] } }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    await user.clear(screen.getByLabelText('Contracts'))
+    await user.type(screen.getByLabelText('Contracts'), '2')
+    await user.type(screen.getByLabelText('Partial'), '20011.50{Enter}')
+    // Back to one contract, the partial is set aside rather than blocking the trade; at two it is back.
+    await user.clear(screen.getByLabelText('Contracts'))
+    await user.type(screen.getByLabelText('Contracts'), '1')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Contracts'))
+    await user.type(screen.getByLabelText('Contracts'), '2')
+    expect(screen.getByLabelText('Partial')).toHaveValue('20011.50')
+    await user.click(screen.getByRole('checkbox', { name: /stop to the entry/ }))
+    await user.click(screen.getByRole('button', { name: /place trade/i }))
+    await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade'))
+
+    expect(calls.find((c) => is(c, 'POST', '/plan'))?.body).toMatchObject({
+      contracts: 2,
+      partialTicks: 80_046,
+      partialContracts: 1,
+      breakevenAfterPartial: true,
+    })
+    expect(screen.getByTestId('trade-partial')).toHaveTextContent('1 taken off at 20011.50')
+    expect(screen.getByTestId('trade-stop')).toHaveTextContent('20001.75 — moved to the entry')
+  })
+
   it('throws a draft away: nothing was placed, so nothing is sent', async () => {
     // Fabio's report: a bracket drawn with "Place long" looked like a trade and could not be taken
     // back, and price crossing its stop did nothing. It was a draft all along — now it says so, and

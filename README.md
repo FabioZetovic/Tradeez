@@ -75,7 +75,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   the candle still forming is built only from what came before (DEC-051) — and place a bracket trade
   whenever you see a setup; when it is over, take the next (DEC-046).
   - A bracket is a draft until you place it — it says so, and can be discarded. A placed trade ends
-    at its stop or target, or whenever you close it at market (DEC-057).
+    at its stop or target, or whenever you close it at market (DEC-057). With two contracts or more,
+    some can come off at a price before the target, and the stop on the rest can then move to the
+    entry (DEC-074).
   - Each trade is resolved on the finest bars stored (one-minute for real NQ today), and a genuinely
     undecidable one is reported as *ambiguous*, not guessed.
   - Each result shows P&L, R-multiple, worst and best excursion; finished trades stay on the chart.

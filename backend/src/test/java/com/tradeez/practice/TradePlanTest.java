@@ -29,7 +29,7 @@ class TradePlanTest {
 	@DisplayName("a plan from T22 on keeps the killzone it was placed in: the record, not a reading")
 	void kept() {
 		TradePlan plan = new TradePlan(UUID.randomUUID(), 1, Direction.LONG, 1, 3, 1, 2, NY_AM, null, null, null, "LONDON",
-			null, null, null, null);
+			null, null, null, null, null);
 		assertThat(plan.killzoneWhenPlaced()).isEqualTo("LONDON");
 	}
 }

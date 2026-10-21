@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import com.tradeez.practice.FillEngine.Fill;
+import com.tradeez.practice.FillEngine.Leg;
 import com.tradeez.practice.FillEngine.FillModel;
 import com.tradeez.practice.FillEngine.Outcome;
 
@@ -99,6 +100,22 @@ public class PracticeResult {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
+	// T28: the contracts a partial took off before the exit; all null when none did.
+	@Column(name = "partial_time", updatable = false)
+	private Instant partialTime;
+
+	@Column(name = "partial_exit_ticks", updatable = false)
+	private Long partialExitTicks;
+
+	@Column(name = "partial_pnl_ticks", updatable = false)
+	private Long partialPnlTicks;
+
+	@Column(name = "partial_contracts", updatable = false)
+	private Integer partialContracts;
+
+	@Column(name = "partial_gap", updatable = false)
+	private Boolean partialGap;
+
 	protected PracticeResult() {
 		// for JPA
 	}
@@ -126,7 +143,26 @@ public class PracticeResult {
 		this.seed = seed;
 		this.dataSource = dataSource;
 		this.createdAt = Instant.now();
+		if (fill.partial() != null) {
+			this.partialTime = fill.partial().time();
+			this.partialExitTicks = fill.partial().exitTicks();
+			this.partialPnlTicks = fill.partial().pnlTicks();
+			this.partialContracts = fill.partial().contracts();
+			this.partialGap = fill.partial().gap();
+		}
 	}
+
+	/** The contracts a partial took off before the exit (T28), or null. */
+	public Leg partial() {
+		return partialTime == null ? null
+			: new Leg(partialTime, partialExitTicks, partialPnlTicks, partialContracts, partialGap);
+	}
+
+	/** Every contract's ticks together, the partial's and the rest's. */
+	public long totalTicks(int contracts) {
+		return FillEngine.totalTicks(pnlTicks, partial(), contracts);
+	}
+
 
 	public UUID getSessionId() {
 		return sessionId;

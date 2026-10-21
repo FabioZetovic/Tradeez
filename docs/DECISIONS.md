@@ -887,6 +887,34 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-074 — Partial targets: one level for some of the contracts, and the stop on the rest to the entry**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-21), T28 — ICT-81, ICT-82, DEC-008, DEC-012, DEC-013, DEC-072
+
+ICT takes profit on part of a position at the first liquidity and lets the rest run, often with the stop moved to
+the entry. With Fabio's go-ahead (2026-10-21) a practice plan can now say so — **once**, before it is placed: a price
+between the current price and the target where some of the contracts come off (at least one, fewer than all), and
+whether the stop on the rest then moves to the entry. The plan stays immutable (DEC-013): the move is part of what was
+committed to, not a revision made while watching.
+
+**fill-1.4.0.** The partial is a resting limit like the target — filled on its own price, after trading through by
+the learner's setting (DEC-072), at an open beyond it when the market gaps past. Reaching the target means passing the
+partial, so a bar that reaches both fills both. A bar that reaches the partial and the stop is ambiguous, like one
+that reaches the target and the stop, and assumed to be the stop for every contract (INVARIANT 6). **The stop moves to
+the entry from the bar after the one that filled the partial** — never inside it, where the order of the two cannot be
+known from the data. The breakeven stop slips like any stop. A close at market keeps a partial already filled and
+takes the rest. The engine walks a trade once, for its own exit or a close at market alike; a plan without a partial
+resolves exactly as fill-1.3.0 did.
+
+**What a result keeps** (V25): the plan's partial; on the result, and on a close, the partial's fill — when, where, for
+how many contracts, what each made, whether at a gap. The R and the money count every contract: one off at +1R and one
+stopped at the entry is +0.5R. The partial is shown as soon as the replay passes it, while the rest still runs; the
+chart draws it dashed between the entry and the target, and the stop at the entry once it has moved. The scorecard
+gains a **Partial** line, its costs count slippage only on the contracts that left by a stop or at market, and the
+planned reward : risk is the whole position's. The review tells the partial as a moment of its own.
+
+**Not in this decision:** more than one partial, a trailing stop, a stop moved anywhere but the entry, and a partial
+on a one-contract trade (it would need fractional contracts; MNQ is not offered).
+
 **DEC-073 — SMT divergence: ES beside NQ, each market's own swings, and a rule that reads a second market**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-21), T20 — ICT-66, DEC-042, DEC-049
 

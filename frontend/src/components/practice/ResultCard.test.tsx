@@ -40,6 +40,12 @@ const LONG: TradeView = {
   },
 }
 
+/** T28: one of two off at 80,004 before the other reached the target. */
+const HALVES = (): { trade: TradeView; result: ResultView } => ({
+  trade: { ...LONG, plan: { ...LONG.plan, contracts: 2, partialTicks: 80_004, partialContracts: 1 } },
+  result: { ...TARGET, partial: { time: T + 30, ticks: 80_004, contracts: 1, pnlTicks: 4, gap: false } },
+})
+
 const TARGET: ResultView = {
   outcome: 'TARGET',
   entryTime: T,
@@ -217,5 +223,21 @@ describe('the result of a trade', () => {
     expect(checklist).toHaveTextContent('✓ A bullish market structure shift.')
     expect(checklist).toHaveTextContent('✗ Price is not in the OTE zone.')
     expect(checklist).toHaveTextContent('adherence, scored apart from the result. model-ote-1.0.0.')
+  })
+})
+
+describe('ResultCard partial (T28)', () => {
+  it('shows what the partial took off, and the rest per contract', () => {
+    const { trade, result } = HALVES()
+    render(<ResultCard state={STATE} trade={trade} result={result} />)
+    expect(screen.getByTestId('result-partial')).toHaveTextContent('1 of 2 at 20001.00')
+    expect(screen.getByTestId('result-partial')).toHaveTextContent('4 ticks each')
+    expect(screen.getByText('The rest, each')).toBeInTheDocument()
+  })
+
+  it('says nothing of one when there was none', () => {
+    render(<ResultCard state={STATE} trade={LONG} result={TARGET} />)
+    expect(screen.queryByTestId('result-partial')).not.toBeInTheDocument()
+    expect(screen.getByText('Per contract')).toBeInTheDocument()
   })
 })

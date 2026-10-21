@@ -69,7 +69,16 @@ export function ResultCard({
             <dd>
               {formatPrice(result.exitTicks, state.tickSize)} · {formatSessionTime(result.exitTime, tz, basis)}
             </dd>
-            <dt>Per contract</dt>
+            {result.partial && (
+              <>
+                <dt>Partial</dt>
+                <dd data-testid="result-partial">
+                  {result.partial.contracts} of {plan.contracts} at {formatPrice(result.partial.ticks, state.tickSize)} ·{' '}
+                  {formatSessionTime(result.partial.time, tz, basis)} · {result.partial.pnlTicks} ticks each
+                </dd>
+              </>
+            )}
+            <dt>{result.partial ? 'The rest, each' : 'Per contract'}</dt>
             <dd>{result.pnlTicks} ticks</dd>
             <dt>Commission</dt>
             <dd>{formatCents(result.commissionCents)}</dd>
