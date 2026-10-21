@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: Fabio — T20 (SMT, DEC-073) on `feat/smt`, T28 (partial targets, DEC-074) on `feat/partials` and T29 (disclaimers and the guide) on `feat/onboarding`, each branched from the one before, built and waiting for "merge". Left: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: his budget decision), T33 (indicators, low priority), the SMT second chart and drill, and Q-09 (showing the data to the jury).
+blocked_on: Fabio — T20 (SMT, DEC-073) on `feat/smt`, T28 (partial targets, DEC-074) on `feat/partials` and T29 (disclaimers and the guide) on `feat/onboarding`, each branched from the one before, built and waiting for "merge". Left: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), the SMT second chart and drill, and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -268,7 +268,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T29 | ~~**Disclaimers, onboarding, UI language**~~ | — | D-015, X, Q-08 | ✅ Session 017 (DEC-015 note), on `feat/onboarding`: the footer and sign-in page state the CFTC's three points and that practice never reaches a market; a first-visit guide to the four tabs and what the app is not, reopened from "How it works"; the slide's text in DOCUMENTATION.md; English only, `lang="en"` (Q-08). |
 | T30 | ~~**BUG-035**~~ | — | BUGS.md | ✅ Already done in session 017, before the merge of `feat/real-nq-data`: the seven warnings fixed and `npm run lint` runs `oxlint --deny-warnings` (BUGS.md). The row was stale. |
 | T31 | **€0 deployment smoke test; jury data rights** | M0 | X, C §4.1, Q-09 | Was task 8. No purchase without Fabio. |
-| T32 | **Deeper history and one-second bars** | Fabio's budget decision | D-040 | Databento importer is built; or a month of Massive's paid plan. |
+| T32 | **Deeper history and one-second bars** | Fabio's budget decision | D-040 | Databento importer is built; or a month of Massive's paid plan. **Skipped for now (Fabio, 2026-10-21): no budget; to be revisited at the end.** |
 | T33 | **Indicators (VWAP, ATR, EMA)** | T3 | X §4 | Low priority for ICT. |
 
 ---
@@ -2692,3 +2692,7 @@ to say merge (it carries T20 too). Next: T29 on `feat/onboarding`, branched from
 to say merge: `feat/smt` (T20), `feat/partials` (T28) and `feat/onboarding` (T29), in that order, each on the one
 before. Paused for his input: everything left needs a decision of his (T31 deployment, T32 budget, Q-09 data rights)
 or is optional (T33 indicators, the SMT second chart and drill).
+
+**2026-10-21 — Fabio on what is left.** T32: "i dont have any money skip it i guess for now and we will circle to it in
+the end" — skipped, nothing bought, revisited at the end. He asked what T31 (deployment, deferred by him on 2026-10-17)
+and Q-09 (showing the real data to the jury) mean; both explained, neither decided yet.
