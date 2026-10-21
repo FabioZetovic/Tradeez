@@ -361,3 +361,49 @@ describe('App — signed in', () => {
     expect(requests('/api/auth/logout-all')).toHaveLength(1)
   })
 })
+
+describe('App — the guide and the disclaimer (T29)', () => {
+  beforeEach(() => {
+    mockApi(signedIn)
+    localStorage.removeItem('tradeez.guideSeen')
+  })
+
+  it('greets a first visit with what each tab is for and what the app is not, until it is closed', async () => {
+    const { unmount } = render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    const guide = await screen.findByRole('region', { name: 'How Tradeez works' })
+    expect(guide).toHaveTextContent('nothing you do here reaches a market')
+    expect(screen.getByTestId('guide-not')).toHaveTextContent("taught as ICT's claims")
+    expect(screen.queryByRole('button', { name: 'How it works' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('region', { name: 'How Tradeez works' })).not.toBeInTheDocument()
+    unmount()
+
+    // Closed once, it stays closed — and comes back when asked for.
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await screen.findByText('Fabio')
+    expect(screen.queryByRole('region', { name: 'How Tradeez works' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'How it works' }))
+    expect(screen.getByRole('region', { name: 'How Tradeez works' })).toBeInTheDocument()
+  })
+
+  it('starts with Learn, or opens any step it names', async () => {
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await screen.findByRole('region', { name: 'How Tradeez works' })
+    await userEvent.click(screen.getByRole('button', { name: 'Start with Learn' }))
+    expect(screen.getByRole('tab', { name: 'Learn' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('region', { name: 'How Tradeez works' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'How it works' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Practice' }))
+    expect(screen.getByRole('tab', { name: 'Practice' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it("states DEC-015's three points on every screen: not advice, simulated, and losses beyond the deposit", async () => {
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    const footer = await screen.findByRole('contentinfo')
+    expect(footer).toHaveTextContent('not financial advice')
+    expect(footer).toHaveTextContent('never reach a market')
+    expect(footer).toHaveTextContent('losses can exceed the money deposited')
+  })
+})

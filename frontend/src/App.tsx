@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
 import { AccountMenu } from '@/components/AccountMenu'
+import { Guide } from '@/components/Guide'
 import { ChartWorkspace } from '@/components/ChartWorkspace'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
@@ -19,14 +20,39 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'drills', label: 'Drills' },
 ]
 
-/** DEC-015: visible on every screen. */
+/** DEC-015: visible on every screen — the CFTC's three points with it (T29). */
 const DISCLAIMER =
-  'Educational software. Not financial advice. Simulated results do not guarantee live results. ' +
-  'Futures are leveraged instruments and most retail day traders lose money.'
+  'Educational software, not financial advice. Practice trades are simulated on past market data and never reach a ' +
+  'market; simulated results do not guarantee live results. Futures are leveraged: most retail day traders lose ' +
+  'money, and losses can exceed the money deposited.'
+
+/** The guide's "seen" mark, per browser: closing it is a convenience, not a record (T29). */
+const GUIDE_KEY = 'tradeez.guideSeen'
+
+function guideSeen(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markGuideSeen() {
+  try {
+    localStorage.setItem(GUIDE_KEY, '1')
+  } catch {
+    // Storage refused (a private window): the guide simply shows again next time.
+  }
+}
 
 export default function App({ adapterFactory }: { adapterFactory?: () => ChartAdapter } = {}) {
   const { state, login, register, logout, logoutEverywhere, changePassword } = useSession()
   const [section, setSection] = useState<Section>('chart')
+  const [guide, setGuide] = useState(() => !guideSeen())
+  const closeGuide = () => {
+    markGuideSeen()
+    setGuide(false)
+  }
   // A lesson's "Practise it" opens the Drills tab on that drill.
   const [drillKind, setDrillKind] = useState<string | undefined>()
   const practise = (kind: string) => {
@@ -83,6 +109,11 @@ export default function App({ adapterFactory }: { adapterFactory?: () => ChartAd
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm text-subtle">
+            {!guide && (
+              <Button variant="ghost" size="sm" onClick={() => setGuide(true)}>
+                How it works
+              </Button>
+            )}
             <AccountMenu user={state.user} onChangePassword={changePassword} onLogoutEverywhere={logoutEverywhere} />
             <Button variant="ghost" size="sm" onClick={logout}>
               Sign out
@@ -94,6 +125,15 @@ export default function App({ adapterFactory }: { adapterFactory?: () => ChartAd
       {/* BUG-032: w-full and min-w-0 give the page a definite width, so the chart — which holds the
           pixel width it last measured — can never push it wider than the window. */}
       <main className="mx-auto w-full min-w-0 max-w-screen-2xl flex-1 px-6 py-5">
+        {guide && (
+          <Guide
+            onClose={closeGuide}
+            onOpen={(to) => {
+              closeGuide()
+              setSection(to)
+            }}
+          />
+        )}
         {section === 'chart' && <ChartWorkspace adapterFactory={adapterFactory} />}
         {section === 'learn' && <LearnView onPractise={practise} adapterFactory={adapterFactory} />}
         {section === 'practice' && <PracticeView adapterFactory={adapterFactory} />}
