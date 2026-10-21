@@ -7,7 +7,7 @@ import { DrawingToolbar } from '../DrawingToolbar'
 import { SetupOverlay } from '../SetupOverlay'
 import { SetupToggles } from '../SetupToggles'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
-import { PlanPanel } from './PlanPanel'
+import { PlanPanel, type PlanCosts } from './PlanPanel'
 import { ResultCard } from './ResultCard'
 import { TradeReview } from './TradeReview'
 import { TradeLog } from './TradeLog'
@@ -56,6 +56,8 @@ interface PracticeSessionProps {
   adapterFactory?: () => ChartAdapter
   /** The learner's risk limit (T23), shown against each draft; absent when none is set. */
   riskLimitCents?: number
+  /** What the learner's trades cost (T27), shown against each draft. */
+  costs?: PlanCosts
 }
 
 /** How much of the history the chart opens on. Roughly a session's worth on 5m. */
@@ -78,7 +80,7 @@ const SPEED_LABELS = SPEEDS.map((s) => `${s}×`)
  * {@link PLAN_DRAWING_ID} — whose entry is pinned to the market price and which freezes when locked;
  * and each finished trade, drawn from entry to exit, which is the record and never editable.
  */
-export function PracticeSession({ sessionId, initial, onBack, adapterFactory, riskLimitCents }: PracticeSessionProps) {
+export function PracticeSession({ sessionId, initial, onBack, adapterFactory, riskLimitCents, costs }: PracticeSessionProps) {
   const {
     state,
     bars,
@@ -465,6 +467,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
             tickSize={state.tickSize}
             tickValueCents={state.tickValueCents}
             riskLimitCents={riskLimitCents}
+            costs={costs}
             busy={busy}
             onPlace={place}
             onFlip={flip}

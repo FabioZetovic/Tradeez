@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T21 (feat/evidence), T22 (feat/plans), T23 (feat/scorecard), T24 (feat/review), T25 (feat/stats) and T26 (feat/risk), each branched from the one before, built and waiting for "merge"; T27 (fees, commission, slippage) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: Fabio — T21 (feat/evidence) to T27 (feat/costs), each branched from the one before, built and waiting for "merge"; T28 (partial targets) changes the stored trade result and waits for his go-ahead; T29 needs Q-08 (the UI's language); T20 needs his go-ahead for an ES import. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -151,7 +151,7 @@ this block **load-bearing, not advisory**:
    claim older than 24 hours with no matching commit on the remote is stale by definition.
 
 ```yaml
-claimed_files:      # session 017 (CLAUDE) — T26 management and risk drills, on branch feat/risk (from feat/stats, 2026-10-20)
+claimed_files:      # session 017 (CLAUDE) — T27 fees, commission, slippage, on branch feat/costs (from feat/risk, 2026-10-20)
   - backend/**
   - frontend/src/**
   - docs/**
@@ -258,7 +258,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T24 | ~~**Review overlay**~~ | T22 | D-026 | ✅ Session 017 (DEC-068), on `feat/review`: once the replay has passed a trade's exit, "Read the review" tells it as it happened (`review-1.0.0`) — the hits of liquidity, sweeps, MSS, FVG and the model's own rules confirmed in the 30 candles before the decision (three latest each) and while it ran (up to 24), each explained in its rule's numbers; the decision in the learner's words; the fill and the exit; whether price reached the draw; after a close by hand, what the bracket would have done, once the replay has passed it. Its hits drawn on the chart on request. Nothing past the cursor. |
 | T25 | ~~**Journal statistics**~~ | T23 | C §1.4, X §5 | ✅ Session 017 (DEC-069), on `feat/stats`: the journal's Statistics panel (`journal-stats-1.0.0`) — trades, win rate, average win and loss, expectancy with its 95% range read in words, profit factor, total R — overall and by model, killzone, weekday, side, model checks met and own rules kept (as the scorecard judges them); the count first on every row. |
 | T26 | ~~**Management and risk drills**~~ | T23 | D-023 | ✅ Session 017, on `feat/risk`: **mode F** (DEC-070) — risk drills against the clock (`risk-1.0.0`): position size on NQ/MNQ, a losing streak's compounded drawdown, the gain a drawdown needs; answered once, the working with the result, the record per kind. **Mode E** (DEC-071) — "Manage an open trade" (`manage-1.0.0`): a trade a whole R in profit on real NQ, hold / stop to breakeven / half off, each played out on the real candles after, the ones that paid most the answer, every choice told in R. |
-| T27 | **Fees, commission, slippage** | T5 | X §5 | New fill-model version (DEC-012). |
+| T27 | ~~**Fees, commission, slippage**~~ | T5 | X §5 | ✅ Session 017 (DEC-072), on `feat/costs`: fill-1.3.0 — every market fill slips (entry, close, the flat at the close), a target can need trading a tick through; the learner's own fees and slippage beside the risk limit (V23), the standard `mkt-1t/slip-1t/thru-1t/comm-450c` where unset; the plan resolved and a later close filled with the costs in force when placed; the plan panel's costs, the scorecard's Costs line. |
 | T28 | **Partial targets** | T5 | X §5, I-81 | More than one target per plan. |
 
 **M5 — Presentation, and later**
@@ -266,7 +266,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
 | T29 | **Disclaimers, onboarding, UI language** | — | D-015, X, Q-08 | Visible in the app and on a slide. |
-| T30 | **BUG-035** | — | BUGS.md | The seven older lint warnings. |
+| T30 | ~~**BUG-035**~~ | — | BUGS.md | ✅ Already done in session 017, before the merge of `feat/real-nq-data`: the seven warnings fixed and `npm run lint` runs `oxlint --deny-warnings` (BUGS.md). The row was stale. |
 | T31 | **€0 deployment smoke test; jury data rights** | M0 | X, C §4.1, Q-09 | Was task 8. No purchase without Fabio. |
 | T32 | **Deeper history and one-second bars** | Fabio's budget decision | D-040 | Databento importer is built; or a month of Massive's paid plan. |
 | T33 | **Indicators (VWAP, ATR, EMA)** | T3 | X §4 | Low priority for ICT. |
@@ -303,6 +303,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-072 | **Trading costs** (T27): fill-1.3.0 — FillModel(market slippage, stop slippage, limit-through ticks, fees per round trip); market fills (entry, close, session flat) slip; a target fills once traded `through` ticks beyond (an open beyond fills at the open); BASIC = fill-1.2.0's `slip-1t/comm-250c`, STANDARD = `mkt-1t/slip-1t/thru-1t/comm-450c`; the name parsed back for a close; V23 settings (fees 0–5,000¢, slippages 0–8, through 0–4) saved all at once; the Costs line in the scorecard. |
 | DEC-071 | **Management drills** (T26, mode E): `OPEN_TRADE_MANAGEMENT`, `manage-1.0.0` — a constructed trade (stop 1.5 × ATR(14), ≥ 8 ticks; target 3R), the moment its first close ≥ 1R after ≥ 3 candles; HOLD / BREAKEVEN / HALF (half at the next open) played to the first level or 100 candles, gaps fill at the open, ties in a candle read on minutes or never asked; outcome the choices that paid most (ties all count); real data only (V22); practice, never rated. |
 | DEC-070 | **Risk drills** (T26, mode F): `risk-1.0.0` — CONTRACTS (account × risk% ÷ (stop ticks × $5 NQ / $0.50 MNQ), rounded down, ≤ 30, exact, 30 s), STREAK (1 − (1 − r)^n, ± 0.5 pt, 45 s), RECOVERY (d ÷ (100 − d), ± 1 pt, 30 s); V21 `risk_drill` (answer, tolerance, given/answered_at/correct together), `POST /api/drills/risk`, `GET …/{id}`, `POST …/{id}/answer` once; the time from the database's clock; a clock on the page that never refuses a late answer. |
 | DEC-069 | **Journal statistics** (T25): `journal-stats-1.0.0`, `GET /api/practice/statistics` — overall and by model, killzone (from the decision's time for pre-T22 trades, BUG-074), NY weekday (Sunday first), side, checks (every / some / none / no model), own rules (all kept / some broken / none) as the scorecard judges them; trades, wins, losses, win rate, avg win/loss R, expectancy ± 1.96 SE (≥ 2 trades) with a reading, profit factor, total R; only revealed exits. |
@@ -2559,3 +2560,32 @@ to say merge (it carries T21–T24 too); T26 continues on `feat/risk`, branched 
 **2026-10-20 — Fresh-clone check of `9ac95bb`** (`feat/risk`), no `.env`: backend 634 test cases, 0 failures,
 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 347/347, build clean. Waiting for Fabio
 to say merge (it carries T21–T25 too); T27 continues on `feat/costs`, branched from this.
+
+**2026-10-20 — T27: fees, commission, slippage (DEC-072).** On `feat/costs`, branched from `feat/risk`, not merged.
+- **fill-1.3.0** (`FillEngine`): `FillModel` now has market slippage, stop slippage, the ticks a target must be traded
+  through and the fees; every market fill slips — the entry, a close at market, the flat at the session's close — and a
+  target can need trading through. `BASIC` is fill-1.2.0's model under its old name; `STANDARD` is the new default. A
+  model is named on every result and read back from the name (`FillModel.parse`) to fill a later close the same way.
+- **The learner's costs** (V23 on `practice_settings`): fees, market and stop slippage, how targets fill — set beside
+  the risk limit, all at once; unset, the standard. The plan panel says the most a round trip can cost; the scorecard
+  says what it did, in dollars and R.
+- **Found while building it:** a close at market was filled with `FillModel.DEFAULT` whatever the plan had been
+  resolved with — harmless while there was one model, wrong the moment there are two; it now uses the plan's own.
+- The worked examples (PracticeApiTest, BracketOutcomeApiTest) keep fill-1.2.0's numbers by setting BASIC as the
+  learner's costs; new worked examples show the standard ones and a close keeping its plan's costs.
+- Live on real NQ: the draft "at most $14.50"; a trade stopped out — "Fees $4.50 and 2 ticks of slippage ($10.00):
+  $14.50, 0.07R of what was risked", resolved by fill-1.3.0 with `mkt-1t/slip-1t/thru-1t/comm-450c`.
+- Tests: FillEngineTest +6 (entry slippage both ways, through with its edges, an open at and beyond the target, the
+  flat, the close, the names), BracketOutcomeApiTest +2, ScorecardTest +1, ScorecardApiTest (the costs in the settings);
+  frontend PracticeView +1, PlanPanel +1.
+- Mutations, one at a time after a passing baseline: 17 backend, all caught — a target exit counted as slipping
+  survived the first run (no test had a standard-model target); one does now; 7 frontend, all caught.
+- **Found by the full suite:** two tests store results under a made-up fill model ("test"); the new Costs line could not
+  read it and the whole session failed to load. Real results always carry a readable name, but an unreadable one now
+  costs only that line its slippage ("the slippage cannot be read from its fill model").
+- Backend 634 → 643, frontend 347 → 349.
+
+**2026-10-20 — Fresh-clone check of `8e4eb97`** (`feat/costs`), no `.env`: backend 643 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 349/349, build clean. Waiting for Fabio
+to say merge (it carries T21–T26 too). Paused here for his input: T28 reshapes the stored result (one trade, several
+exits), T29 needs Q-08, T20 an ES import.

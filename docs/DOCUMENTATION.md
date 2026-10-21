@@ -1796,6 +1796,14 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Paying for every trade.** Real trading costs money twice: the broker and the exchange charge a fee on every trade,
+and orders rarely fill at exactly the price on the screen — a market order buys a little higher than the last price,
+a stop sells a little lower than where it was set, and an order waiting at an old high may never fill if the market
+only just touches it. Practice that ignores this flatters the learner. Every practice trade now pays a realistic
+standard — a tick of slippage on each market order and stop, a target that fills only once price trades through it,
+and $4.50 in fees — or the learner's own numbers, set beside their risk limit. The plan shows the most a trade can
+cost before it is placed, and the scorecard shows what it did cost afterwards.
+
 **What to do with a winning trade.** A trade that is already in profit asks a question beginners get wrong in both
 directions: hold on for the full target, protect it by moving the stop to the entry, or bank half now? The Drills tab
 now stops a real stretch of NQ at that moment — a trade drawn on the chart, a whole risk unit up — and asks. The answer

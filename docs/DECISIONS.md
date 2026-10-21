@@ -887,6 +887,35 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-072 — Trading costs: every market fill slips, a target may need trading through, the learner's own fees**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-20), T27 — DEC-008, DEC-012, CHATGPT_RESEARCH.md §5
+
+fill-1.2.0 slipped stops a tick and charged $2.50 a round trip; the entry and a close at market filled at the
+open exactly, and a target filled the moment price touched it. Real fills are worse, and a practice app that is
+kind about them teaches an edge that is not there. **fill-1.3.0** adds, versioned with the numbers it runs with
+(DEC-012):
+
+- **Market fills slip** — the entry, a close at market, and the flat at the session's close — by the model's
+  market slippage, against the trader.
+- **A target can need trading through.** A resting limit at an old high is not filled because price touched it:
+  the queue ahead of it is unknown. At a through-setting of 1 tick it fills (at its own price) only once price
+  trades a tick beyond; an open beyond it still fills at that open.
+- **Stops** slip by their own setting, as before.
+
+**The learner's costs** — commission and fees per round trip ($0–$50), slippage on a market fill and at the stop
+(0–8 ticks each), targets on the touch or traded through — are set on the Practice page beside the risk limit
+(V23), all saved at once. Unset, they are the **standard**: `mkt-1t/slip-1t/thru-1t/comm-450c` — a tick on every
+market and stop fill, a target traded through, $4.50 a round trip, roughly a retail account's commission and
+exchange fees together (an estimate the learner can change, not a quote). The plan is resolved with the costs in
+force when it is placed and keeps their name; a close at market later is filled with that same model, whatever the
+settings say by then. fill-1.2.0's model is `BASIC` and still reads by its old name, `slip-1t/comm-250c`.
+
+The plan panel shows the most a draft's round trip can cost; the scorecard's outcome side gains a **Costs** line —
+the fees charged and the ticks the fills slipped, by the result's own model, as dollars and as R of what was risked.
+
+**Not in this decision:** partial fills and queue position from order-book data (none is stored), costs that vary
+with volatility or the time of day, and per-instrument fee schedules (only NQ is traded).
+
 **DEC-071 — Management drills: an open trade in profit, three choices, real price decides (mode E)**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-20), T26 — DEC-023 mode E, ICT-82
 

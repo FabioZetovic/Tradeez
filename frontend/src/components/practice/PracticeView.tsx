@@ -13,6 +13,8 @@ import {
   PRACTICE_TIMEFRAMES,
   WEEKDAYS,
   type Calibration,
+  type PracticeSettings,
+  type SettingsUpdate,
   type SessionResponse,
   type SessionSummary,
   type Statistics,
@@ -44,8 +46,8 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   const [journal, setJournal] = useState<SessionSummary[] | null>(null)
   const [calibration, setCalibration] = useState<Calibration | null>(null)
   const [statistics, setStatistics] = useState<Statistics | null>(null)
-  // undefined while loading; null when no limit is set.
-  const [riskLimit, setRiskLimit] = useState<number | null | undefined>(undefined)
+  // undefined while loading.
+  const [settings, setSettings] = useState<PracticeSettings | undefined>(undefined)
   const [timeframe, setTimeframe] = useState<string>('5m')
   // Empty means "any": the server then picks from the whole history.
   const [killzone, setKillzone] = useState('')
@@ -64,17 +66,19 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
       .then(setCalibration)
       .catch(() => setError('Could not load your calibration.'))
     getPracticeSettings()
-      .then((s) => setRiskLimit(s.riskLimitCents ?? null))
-      .catch(() => setError('Could not load your risk limit.'))
+      .then(setSettings)
+      .catch(() => setError('Could not load your risk limit and costs.'))
   }, [])
 
-  const saveLimit = async (cents: number | null) => {
+  // Every rule is saved at once (T27): the ones not being changed are sent as they are.
+  const save = async (update: SettingsUpdate) => {
+    if (!settings) return
     setError(null)
     try {
-      const saved = await savePracticeSettings(cents)
-      setRiskLimit(saved.riskLimitCents ?? null)
+      const { fillModel: _, ...current } = settings
+      setSettings(await savePracticeSettings({ ...current, ...update }))
     } catch {
-      setError('Could not save your risk limit.')
+      setError('Could not save your settings.')
     }
   }
 
@@ -109,7 +113,8 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         sessionId={openId}
         initial={created}
         adapterFactory={adapterFactory}
-        riskLimitCents={riskLimit ?? undefined}
+        riskLimitCents={settings?.riskLimitCents}
+        costs={settings}
         onBack={() => {
           setOpenId(null)
           setCreated(undefined)
@@ -165,8 +170,8 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         </div>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <RiskLimitField
-            cents={riskLimit}
-            onSave={(cents) => void saveLimit(cents)}
+            cents={settings === undefined ? undefined : (settings.riskLimitCents ?? null)}
+            onSave={(cents) => void save({ riskLimitCents: cents ?? undefined })}
             onInvalid={() => setError(`A risk limit is $1 to $${MAX_LIMIT_DOLLARS.toLocaleString('en-US')}.`)}
           />
           <p className="max-w-xl pb-2 text-xs text-subtle">
@@ -174,6 +179,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             trade, and changing it later does not rewrite old ones.
           </p>
         </div>
+        {settings && <CostsFields settings={settings} onSave={(update) => void save(update)} />}
         {error && (
           <p role="alert" className={`mt-3 ${errorClass}`}>
             {error}
@@ -233,6 +239,73 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
 
       {statistics && <StatisticsPanel statistics={statistics} />}
       {calibration && <CalibrationPanel calibration={calibration} />}
+    </section>
+  )
+}
+
+const TICKS = ['0', '1', '2', '3', '4'] as const
+const TARGET_FILLS = ['On the touch', 'Traded through'] as const
+
+/**
+ * What trading costs (T27, DEC-072): fees per round trip, the ticks a market order and a stop slip, and whether a
+ * target fills on the touch or once price trades through it. Used for trades placed from now on; each result keeps
+ * the costs it was made with.
+ */
+function CostsFields({ settings, onSave }: { settings: PracticeSettings; onSave: (update: SettingsUpdate) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const fees = draft ?? String(settings.feesCents / 100)
+  const commitFees = () => {
+    if (draft === null) return
+    const dollars = Number(draft.replace(/[$,\s]/g, ''))
+    if (Number.isFinite(dollars) && dollars >= 0 && dollars <= 50) onSave({ feesCents: Math.round(dollars * 100) })
+    setDraft(null)
+  }
+  return (
+    <section aria-label="Your costs" className="mt-4 flex flex-wrap items-end gap-4">
+      <label className={labelClass}>
+        Fees per round trip ($)
+        <input
+          className={`${fieldClass} w-28`}
+          inputMode="decimal"
+          value={fees}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitFees}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitFees()
+          }}
+        />
+      </label>
+      <div className={labelClass}>
+        Slippage in, ticks
+        <Segmented<(typeof TICKS)[number]>
+          options={TICKS}
+          value={String(settings.marketSlippageTicks) as (typeof TICKS)[number]}
+          onChange={(t) => onSave({ marketSlippageTicks: Number(t) })}
+          label="Slippage on a market order, ticks"
+        />
+      </div>
+      <div className={labelClass}>
+        At the stop, ticks
+        <Segmented<(typeof TICKS)[number]>
+          options={TICKS}
+          value={String(settings.stopSlippageTicks) as (typeof TICKS)[number]}
+          onChange={(t) => onSave({ stopSlippageTicks: Number(t) })}
+          label="Slippage at the stop, ticks"
+        />
+      </div>
+      <div className={labelClass}>
+        Targets fill
+        <Segmented<(typeof TARGET_FILLS)[number]>
+          options={TARGET_FILLS}
+          value={settings.limitThroughTicks === 0 ? 'On the touch' : 'Traded through'}
+          onChange={(f) => onSave({ limitThroughTicks: f === 'On the touch' ? 0 : 1 })}
+          label="Targets fill"
+        />
+      </div>
+      <p className="max-w-md pb-2 text-xs text-subtle" data-testid="costs-model">
+        For trades placed from now: each keeps the costs it was made with ({settings.fillModel}). The standard: $4.50, a
+        tick in, a tick at the stop, a target filled once traded through.
+      </p>
     </section>
   )
 }

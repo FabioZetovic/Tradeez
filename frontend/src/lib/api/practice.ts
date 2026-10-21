@@ -345,14 +345,30 @@ export const getStatistics = () => apiFetch<Statistics>('/api/practice/statistic
 
 export const getCalibration = () => apiFetch<Calibration>('/api/practice/calibration')
 
-/** The learner's practice rules: the most one trade may risk, absent when not set. */
-export const getPracticeSettings = () => apiFetch<{ riskLimitCents?: number }>('/api/practice/settings')
+/** A learner's practice rules: the risk limit as set (T23), and the costs as they apply — the standard ones where unset (T27). */
+export interface PracticeSettings {
+  riskLimitCents?: number
+  /** Commission and fees per contract, round trip. */
+  feesCents: number
+  /** Ticks the entry and a close at market slip. */
+  marketSlippageTicks: number
+  /** Ticks a stop fill slips. */
+  stopSlippageTicks: number
+  /** Ticks price must trade beyond a target before it fills: 0, the touch. */
+  limitThroughTicks: number
+  /** The fill model these make, as results store it. */
+  fillModel: string
+}
 
-/** Sets the risk limit; null clears it. Copied onto each plan as it is placed. */
-export const savePracticeSettings = (riskLimitCents: number | null) =>
-  apiFetch<{ riskLimitCents?: number }>('/api/practice/settings', {
+export type SettingsUpdate = Partial<Omit<PracticeSettings, 'fillModel'>>
+
+export const getPracticeSettings = () => apiFetch<PracticeSettings>('/api/practice/settings')
+
+/** Sets every rule at once; one left out is unset, and unset costs are the standard ones. */
+export const savePracticeSettings = (settings: SettingsUpdate) =>
+  apiFetch<PracticeSettings>('/api/practice/settings', {
     method: 'PUT',
-    body: JSON.stringify(riskLimitCents === null ? {} : { riskLimitCents }),
+    body: JSON.stringify(settings),
   })
 
 /** Only while flat. Reveals the seed or the real date; ending twice changes nothing. */

@@ -45,7 +45,7 @@ class ScorecardTest {
 
 	private static ResultView result(String outcome, long entry, long mae, long mfe, double r) {
 		return new ResultView(outcome, null, 0, entry, 0, entry, 0, 0, 250, mae, mfe, false, r, "M1", "fill-1.2.0",
-			"fill-model-1.0.0");
+			"slip-1t/comm-250c");
 	}
 
 	private static Map<String, ScoreLineView> lines(List<ScoreLineView> lines) {
@@ -59,7 +59,7 @@ class ScorecardTest {
 			"BEARISH", "NEW_YORK_AM", 70), result("TARGET", 80_000, 8, 80, 2.0), TICK, TICK_VALUE);
 
 		assertThat(card.version()).isEqualTo("scorecard-1.0.0");
-		assertThat(card.outcome()).extracting(ScoreLineView::id).containsExactly("adverse", "favourable", "draw");
+		assertThat(card.outcome()).extracting(ScoreLineView::id).containsExactly("adverse", "favourable", "costs", "draw");
 		Map<String, ScoreLineView> outcome = lines(card.outcome());
 		assertThat(outcome.get("adverse").text()).isEqualTo("0.20R against you (8 ticks).");
 		assertThat(outcome.get("favourable").text()).isEqualTo("2.00R in your favour (80 ticks).");
@@ -86,6 +86,37 @@ class ScorecardTest {
 		// Verdicts only on the learner's own rules; the reading, the reward to risk and the rest are stated.
 		assertThat(card.process()).filteredOn(l -> l.verdict() != null).extracting(ScoreLineView::id)
 			.containsExactly("risk", "bias");
+	}
+
+	@Test
+	@DisplayName("T27, costs: the fees charged and the ticks slipped by the result's own model, against what was risked")
+	void costs() {
+		// fill-1.2.0's model: a target exit slips nothing, a stop one tick; $2.50 a round trip.
+		assertThat(lines(Scorecard.score(bare(Direction.LONG), result("TARGET", 80_000, 0, 80, 2.0), TICK, TICK_VALUE)
+			.outcome()).get("costs").text()).isEqualTo("Fees $2.50: $2.50, 0.01R of what was risked.");
+		assertThat(lines(Scorecard.score(bare(Direction.LONG), result("STOP", 80_000, 41, 0, -1.03), TICK, TICK_VALUE)
+			.outcome()).get("costs").text()).isEqualTo("Fees $2.50 and 1 tick of slippage ($5.00): $7.50, 0.04R of what was risked.");
+		// The standard model on three contracts closed by hand: a tick in, a tick out, $4.50 a contract.
+		PlanView three = new PlanView(Direction.LONG, 79_960, 80_080, 3, 80_000, 0, 2.0, null, null, null, null, null, null,
+			null, null);
+		ResultView closed = new ResultView("CLOSED", null, 0, 80_001, 0, 80_010, 9, 0, 1_350, 0, 12, false, 0.23, "M1",
+			"fill-1.3.0", "mkt-1t/slip-1t/thru-1t/comm-450c");
+		assertThat(lines(Scorecard.score(three, closed, TICK, TICK_VALUE).outcome()).get("costs").text())
+			.isEqualTo("Fees $13.50 and 2 ticks of slippage ($30.00): $43.50, 0.07R of what was risked.");
+		// The standard model at the target: the entry slipped a tick, the limit filled at its own price.
+		ResultView target = new ResultView("TARGET", null, 0, 80_001, 0, 80_080, 79, 0, 450, 0, 79, false, 1.98, "M1",
+			"fill-1.3.0", "mkt-1t/slip-1t/thru-1t/comm-450c");
+		assertThat(lines(Scorecard.score(bare(Direction.LONG), target, TICK, TICK_VALUE).outcome()).get("costs").text())
+			.isEqualTo("Fees $4.50 and 1 tick of slippage ($5.00): $9.50, 0.05R of what was risked.");
+		ResultView free = new ResultView("TARGET", null, 0, 80_000, 0, 80_080, 80, 0, 0, 0, 80, false, 2.0, "M1", "fill-1.3.0",
+			"slip-0t/comm-0c");
+		assertThat(lines(Scorecard.score(bare(Direction.LONG), free, TICK, TICK_VALUE).outcome()).get("costs").text())
+			.isEqualTo("No fees or slippage.");
+		// A model this version cannot read never breaks the card: the fees, and what is not known.
+		ResultView odd = new ResultView("STOP", null, 0, 80_000, 0, 79_959, -41, 0, 250, 41, 0, false, -1.03, "M1", "test",
+			"test");
+		assertThat(lines(Scorecard.score(bare(Direction.LONG), odd, TICK, TICK_VALUE).outcome()).get("costs").text())
+			.isEqualTo("Fees $2.50; the slippage cannot be read from its fill model (test).");
 	}
 
 	@Test
@@ -117,7 +148,7 @@ class ScorecardTest {
 	@DisplayName("a bare bracket: nothing stated, so no model, bias or confidence lines, and the plan line says so")
 	void bare() {
 		ScorecardView card = Scorecard.score(bare(Direction.SHORT), result("STOP", 80_000, 0, 0, -1.0), TICK, TICK_VALUE);
-		assertThat(card.outcome()).extracting(ScoreLineView::id).containsExactly("adverse", "favourable");
+		assertThat(card.outcome()).extracting(ScoreLineView::id).containsExactly("adverse", "favourable", "costs");
 		assertThat(lines(card.outcome()).get("adverse").text()).isEqualTo("It never went against you.");
 		assertThat(lines(card.outcome()).get("favourable").text()).isEqualTo("It never went your way.");
 		assertThat(card.process()).extracting(ScoreLineView::id).containsExactly("risk", "plan", "killzone", "reward", "execution");
