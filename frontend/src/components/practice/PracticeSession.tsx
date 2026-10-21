@@ -46,6 +46,7 @@ import {
   planFromDrawing,
   STATUS_LABEL,
   TRADE_DRAWING_PREFIX,
+  type PartialDraft,
 } from '@/lib/practice/plan'
 
 interface PracticeSessionProps {
@@ -103,6 +104,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   const [activeTool, setActiveTool] = useState<DrawingKind | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('magnet')
   const [contracts, setContracts] = useState(1)
+  // T28: part of the draft to take off before the target; only with two contracts or more.
+  const [partial, setPartial] = useState<PartialDraft | null>(null)
+  const draftPartial = contracts >= 2 ? partial : null
   // T22: the model, bias and expected liquidity of the trade being drafted; cleared once it is placed.
   const [intent, setIntent] = useState<PlanIntent>({})
   // Both remember when they were set, and lapse when the replay moves past that. A trade picked in
@@ -213,9 +217,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   // through undo and redo, which only ever see the learner's own edits.
   const storedPlan = drawingState.drawings.find((d) => d.id === PLAN_DRAWING_ID)
   const planDrawing: Drawing | undefined = openTrade
-    ? lockedBracket(openTrade.plan, anchorTime)
+    ? lockedBracket(openTrade.plan, anchorTime, openTrade.entry?.ticks, openTrade.partial)
     : !locked && storedPlan
-      ? pinEntry(storedPlan, referenceTicks, anchorTime)
+      ? { ...pinEntry(storedPlan, referenceTicks, anchorTime), partialTicks: draftPartial?.ticks }
       : undefined
   const shownState = {
     ...drawingState,
@@ -239,7 +243,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
     onDeleteSelected: deleteSelected,
   })
 
-  const draftPlan = planDrawing && !locked ? planFromDrawing(planDrawing, contracts) : null
+  const draftPlan = planDrawing && !locked ? planFromDrawing(planDrawing, contracts, draftPartial) : null
   // T22: the killzone, the bias suggestion and the model's checklist for the bracket on the chart.
   const planContext = usePlanContext(sessionId, state?.status === 'ANALYSING' ? draftPlan : null, intent.model, cursor)
 
@@ -474,6 +478,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
             onDiscard={discard}
             onChangeLevel={changeLevel}
             onChangeContracts={setContracts}
+            onChangePartial={setPartial}
             intent={intent}
             onIntent={setIntent}
             context={planContext}
@@ -485,6 +490,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
                 if (ok) {
                   rawDispatch({ type: 'forget', id: PLAN_DRAWING_ID })
                   setIntent({})
+                  setPartial(null)
                 }
               })
             }}
@@ -505,7 +511,23 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
                   : 'at the next price'}
               </dd>
               <dt>Stop</dt>
-              <dd>{formatPrice(openTrade.plan.stopTicks, state.tickSize)}</dd>
+              <dd data-testid="trade-stop">
+                {openTrade.plan.breakevenAfterPartial && openTrade.partial && openTrade.entry
+                  ? `${formatPrice(openTrade.entry.ticks, state.tickSize)} — moved to the entry`
+                  : formatPrice(openTrade.plan.stopTicks, state.tickSize)}
+              </dd>
+              {openTrade.plan.partialTicks !== undefined && (
+                <>
+                  <dt>Partial</dt>
+                  <dd data-testid="trade-partial">
+                    {openTrade.partial
+                      ? `${openTrade.partial.contracts} taken off at ${formatPrice(openTrade.partial.ticks, state.tickSize)}`
+                      : `${openTrade.plan.partialContracts} at ${formatPrice(openTrade.plan.partialTicks, state.tickSize)}${
+                          openTrade.plan.breakevenAfterPartial ? ', then the stop to the entry' : ''
+                        }`}
+                  </dd>
+                </>
+              )}
               <dt>Target</dt>
               <dd>{formatPrice(openTrade.plan.targetTicks, state.tickSize)}</dd>
               <dt>Reward : risk</dt>

@@ -54,11 +54,24 @@ public final class PracticeDtos {
 		@Schema(description = """
 			Optional (T23): how sure the learner is, in percent, that the trade reaches its target before its \
 			stop — 10, 20 … 90. Compared with how often it did (calibration).""")
-		@Min(10) @Max(90) Integer confidence) {
+		@Min(10) @Max(90) Integer confidence,
+		@Schema(description = """
+			Optional (T28): a price between the current price and the target where some of the contracts are taken \
+			off, by a resting limit like the target's""") Long partialTicks,
+		@Schema(description = "With partialTicks: how many contracts it takes off — at least one, fewer than all")
+		@Min(1) @Max(99) Integer partialContracts,
+		@Schema(description = "With partialTicks: once it has filled, move the stop on the rest to the entry")
+		Boolean breakevenAfterPartial) {
 
 		/** A bracket alone, as before T22. */
 		public PlanRequest(FillEngine.Direction direction, Long stopTicks, Long targetTicks, Integer contracts) {
-			this(direction, stopTicks, targetTicks, contracts, null, null, null, null);
+			this(direction, stopTicks, targetTicks, contracts, null, null, null, null, null, null, null);
+		}
+
+		/** The partial asked for (T28), or null. Read once it has been checked. */
+		FillEngine.Partial partial() {
+			return partialTicks == null ? null
+				: new FillEngine.Partial(partialTicks, partialContracts, Boolean.TRUE.equals(breakevenAfterPartial));
 		}
 	}
 
@@ -111,7 +124,9 @@ public final class PracticeDtos {
 		long referenceTicks,
 		@Schema(description = "The cursor when the plan was locked; entry is the next price after it")
 		long lockedAt,
-		@Schema(description = "Reward:risk as planned against the reference price")
+		@Schema(description = """
+			Reward:risk as planned against the reference price; with a partial (T28), the whole position's, each part \
+			to its own level""")
 		double plannedRewardRisk,
 		@Schema(description = "T22: the model named, absent when none") TradingModel model,
 		@Schema(description = "T22: the learner's bias, absent when none") String bias,
@@ -121,7 +136,20 @@ public final class PracticeDtos {
 		@Schema(description = "T22: the model's checklist as checked when the plan was placed") ChecklistView checklist,
 		@Schema(description = "T23: how sure the learner was, in percent, absent when not stated") Integer confidence,
 		@Schema(description = "T23: the learner's risk limit when the plan was placed, absent when none was set")
-		Long riskLimitCents) {
+		Long riskLimitCents,
+		@Schema(description = "T28: where some of the contracts are taken off, absent when nowhere") Long partialTicks,
+		@Schema(description = "T28: how many contracts the partial takes off, absent without one") Integer partialContracts,
+		@Schema(description = "T28: whether the stop on the rest moves to the entry once the partial fills, absent without one")
+		Boolean breakevenAfterPartial) {
+	}
+
+	@Schema(description = "T28: the contracts a partial took off: when, where, and what each made")
+	public record PartialView(
+		long time,
+		long ticks,
+		int contracts,
+		@Schema(description = "Per contract, before commission") long pnlTicks,
+		@Schema(description = "Filled at an opening price beyond the level") boolean gap) {
 	}
 
 	@Schema(description = "Where the trade was entered. Null until the replay has revealed it.")
@@ -139,7 +167,9 @@ public final class PracticeDtos {
 		long entryTicks,
 		long exitTime,
 		long exitTicks,
-		@Schema(description = "Per contract, after slippage, before commission") long pnlTicks,
+		@Schema(description = """
+			Per contract held to the exit — every one, or those a partial left — after slippage, before commission""")
+		long pnlTicks,
 		@Schema(description = "All contracts, commission included") long netPnlCents,
 		long commissionCents,
 		@Schema(description = "Maximum adverse excursion, ticks") long maeTicks,
@@ -148,7 +178,8 @@ public final class PracticeDtos {
 		@Schema(description = "Result in multiples of the planned risk") double rMultiple,
 		String resolution,
 		String engineVersion,
-		String fillModelVersion) {
+		String fillModelVersion,
+		@Schema(description = "T28: the contracts a partial took off before the exit, absent when none") PartialView partial) {
 	}
 
 	@Schema(description = "One trade of the replay (DEC-046)")
@@ -158,7 +189,9 @@ public final class PracticeDtos {
 		EntryView entry,
 		@Schema(description = "Null until the replay has passed the exit") ResultView result,
 		@Schema(description = "T23: the trade scored, outcome and process apart. Null until the replay has passed the exit")
-		ScorecardView scorecard) {
+		ScorecardView scorecard,
+		@Schema(description = "T28: the partial's fill, from the moment the replay passes it — before the exit too")
+		PartialView partial) {
 	}
 
 	@Schema(description = """

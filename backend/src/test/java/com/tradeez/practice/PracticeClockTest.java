@@ -72,7 +72,7 @@ class PracticeClockTest {
 	@Test
 	@DisplayName("an ambiguous result names the unit of the bars that could not decide it")
 	void ambiguityWording() {
-		assertThat(PracticeService.ambiguousAssumption(Resolution.M1)).contains("same minute");
-		assertThat(PracticeService.ambiguousAssumption(Resolution.S1)).contains("same second");
+		assertThat(PracticeService.ambiguousAssumption(Resolution.M1, false)).contains("same minute");
+		assertThat(PracticeService.ambiguousAssumption(Resolution.S1, false)).contains("same second");
 	}
 }

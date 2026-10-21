@@ -167,6 +167,16 @@ function drawPosition(
     ctx.lineTo(right, y)
     ctx.stroke()
   }
+  const partial = drawing.partialTicks === undefined ? null : projection.priceToY(drawing.partialTicks)
+  if (partial !== null) {
+    ctx.strokeStyle = '#3fb950'
+    ctx.setLineDash([4, 3])
+    ctx.beginPath()
+    ctx.moveTo(left, partial)
+    ctx.lineTo(right, partial)
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
 
   const metrics = positionMetrics(drawing.anchors)
   const riskCents = metrics.riskTicks * options.tickValueCents

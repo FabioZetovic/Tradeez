@@ -228,6 +228,19 @@ describe('geometry', () => {
       ])
     })
 
+    it('T28: draws a practice trade\'s partial dashed, between its entry and target, and nothing when there is none', () => {
+      const dashes: number[][] = []
+      const ctx = new Proxy(
+        { setLineDash: (d: number[]) => dashes.push(d), measureText: () => ({ width: 0 }) },
+        { get: (target, key) => (key in target ? target[key as keyof typeof target] : () => {}) },
+      ) as unknown as CanvasRenderingContext2D
+      const options = { width: CHART_WIDTH, height: 600, selectedId: null, tickValueCents: 500, tickSize: 0.25 }
+      renderDrawings(ctx, [drawing({ id: 'p', kind: 'position', anchors })], projection, options)
+      expect(dashes.filter((d) => d.length > 0)).toEqual([])
+      renderDrawings(ctx, [drawing({ id: 'p', kind: 'position', anchors, partialTicks: anchors[0].priceTicks + 1 })], projection, options)
+      expect(dashes.filter((d) => d.length > 0)).toEqual([[4, 3]])
+    })
+
     it('cannot be clicked to the right of its exit', () => {
       const ended = drawing({ id: 'p', kind: 'position', anchors, endTime: 1400 })
       // On the entry level, inside the trade, then well past its exit.

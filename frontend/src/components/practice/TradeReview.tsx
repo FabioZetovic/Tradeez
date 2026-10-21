@@ -12,7 +12,7 @@ const PHASES = [
 ] as const
 
 /** The learner's own moments stand out from the rules' hits. */
-const OWN = new Set<ReviewMoment['kind']>(['DECISION', 'ENTRY', 'EXIT', 'HELD', 'DRAW'])
+const OWN = new Set<ReviewMoment['kind']>(['DECISION', 'ENTRY', 'PARTIAL', 'EXIT', 'HELD', 'DRAW'])
 
 /**
  * A finished trade told as it happened (T24, DEC-068): what the rules had seen before it was placed, what they

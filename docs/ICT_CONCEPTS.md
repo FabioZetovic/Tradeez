@@ -1338,7 +1338,9 @@ fact, and graded only as adherence to the model the learner chose.
 Fibonacci extensions (ICT-43) and standard deviations (ICT-44); partial profits are often taken at the
 first target.
 
-**Tradeez.** The practice bracket has one target today. Partial targets are task T28.
+**Tradeez.** Since T28 (DEC-074, fill-1.4.0) a practice plan can take some of its contracts off at a price before the
+target and, if the learner says so when placing it, move the stop on the rest to the entry once that has filled.
+One partial a trade; the stop moves from the bar after the partial's, never inside it.
 
 ### ICT-82 · Trade management
 

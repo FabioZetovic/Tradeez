@@ -75,7 +75,7 @@ public class TradeReviewService {
 			planned.getEntryTicks(), exit, close != null ? close.getExitTicks() : planned.getExitTicks(),
 			close != null ? Outcome.CLOSED : planned.getOutcome(), r, close == null && planned.isGapExit(),
 			close != null ? planned.getExitTime() : null, planned.getOutcome(), planned.getExitTicks(), plannedR, cursor,
-			hits, bars));
+			hits, bars, plan.partial(), close != null ? close.partial() : planned.partial()));
 
 		PracticeClock clock = session.getClock();
 		return new ReviewView(TradeReview.VERSION, rules,

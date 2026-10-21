@@ -9,6 +9,7 @@ import java.util.Map;
 import com.tradeez.analysis.RuleText;
 import com.tradeez.practice.FillEngine.Direction;
 import com.tradeez.practice.FillEngine.FillModel;
+import com.tradeez.practice.PracticeDtos.PartialView;
 import com.tradeez.practice.PracticeDtos.PlanView;
 import com.tradeez.practice.PracticeDtos.ResultView;
 import com.tradeez.practice.PracticeDtos.ScoreLineView;
@@ -50,6 +51,9 @@ public final class Scorecard {
 		lines.add(fact("favourable", "Best point", result.mfeTicks() == 0 ? "It never went your way."
 			: ratio(result.mfeTicks(), risk) + " in your favour (" + ticks(result.mfeTicks()) + ")."));
 		lines.add(fact("costs", "Costs", costs(plan, result, risk, tickValueCents)));
+		if (plan.partialTicks() != null) {
+			lines.add(fact("partial", "Partial", partial(plan, result, risk, tickSize)));
+		}
 		if (plan.dolTicks() != null) {
 			// How far the draw lay from the fill, on the trade's side; behind the entry it is reached by going against.
 			long toward = sign(plan.direction()) * (plan.dolTicks() - result.entryTicks());
@@ -103,13 +107,16 @@ public final class Scorecard {
 		}
 		lines.add(fact("killzone", "Time", plan.killzone() == null ? "Placed outside the killzones."
 			: "Placed in the " + KILLZONES.get(plan.killzone()) + " killzone."));
-		lines.add(fact("reward", "Reward : risk", String.format(Locale.ROOT, "Planned %.2f : 1.", plan.plannedRewardRisk())));
+		lines.add(fact("reward", "Reward : risk", String.format(Locale.ROOT, "Planned %.2f : 1", plan.plannedRewardRisk())
+			+ (plan.partialTicks() == null ? "." : ", the partial's contracts to their level and the rest to the target.")));
 		lines.add(fact("execution", "Execution", switch (result.outcome()) {
 			case "CLOSED" -> "Closed by hand at " + r(result.rMultiple()) + ", before the stop or the target.";
 			case "TIME_EXIT" -> "Held to the bracket: neither level was reached, and it was closed at the session's close.";
 			case "AMBIGUOUS" -> "Held to the bracket: both levels were touched inside one candle.";
 			case "TARGET" -> "Held to the bracket: the target closed it.";
-			default -> "Held to the bracket: the stop closed it.";
+			default -> result.partial() != null && Boolean.TRUE.equals(plan.breakevenAfterPartial())
+				? "Held to the plan: the stop, moved to the entry after the partial, closed the rest."
+				: "Held to the bracket: the stop closed it.";
 		}));
 		if (plan.confidence() != null) {
 			String said = plan.confidence() + "% sure it would reach the target before the stop";
@@ -138,19 +145,37 @@ public final class Scorecard {
 			return "Fees " + money(result.commissionCents()) + "; the slippage cannot be read from its fill model ("
 				+ result.fillModelVersion() + ").";
 		}
-		long slip = model.marketSlippageTicks() + switch (result.outcome()) {
+		long exit = switch (result.outcome()) {
 			case "STOP", "AMBIGUOUS" -> model.stopSlippageTicks();
 			case "TARGET" -> 0;
 			default -> model.marketSlippageTicks(); // a close at market, or the flat at the session's close
 		};
-		long slipCents = slip * tickValueCents * plan.contracts();
+		// The entry slipped for every contract, the exit only for those held to it: a partial is a limit (T28).
+		int held = plan.contracts() - (result.partial() == null ? 0 : result.partial().contracts());
+		long slipped = model.marketSlippageTicks() * plan.contracts() + exit * held;
+		long slipCents = slipped * tickValueCents;
 		long total = result.commissionCents() + slipCents;
 		if (total == 0) {
 			return "No fees or slippage.";
 		}
-		return "Fees " + money(result.commissionCents()) + (slip == 0 ? "" : " and " + ticks(slip) + " of slippage ("
+		String slippage = result.partial() == null ? ticks(slipped / plan.contracts()) + " of slippage"
+			: "slippage of " + ticks(slipped) + " across the contracts";
+		return "Fees " + money(result.commissionCents()) + (slipped == 0 ? "" : " and " + slippage + " ("
 			+ money(slipCents) + ")") + ": " + money(total) + ", " + String.format(Locale.ROOT, "%.2fR",
 				(double) total / (risk * tickValueCents * plan.contracts())) + " of what was risked.";
+	}
+
+	/** What the partial did (T28): taken, and what each of its contracts made in R, or not reached. */
+	private static String partial(PlanView plan, ResultView result, long risk, BigDecimal tickSize) {
+		PartialView taken = result.partial();
+		String at = RuleText.price(plan.partialTicks(), tickSize);
+		if (taken == null) {
+			return "Your partial at " + at + " was not reached before the exit.";
+		}
+		return taken.contracts() + " of " + plan.contracts() + " contracts taken off at " + RuleText.price(taken.ticks(), tickSize)
+			+ (taken.gap() ? ", the market opening beyond " + at : "") + ": " + r((double) taken.pnlTicks() / risk)
+			+ " on each" + (Boolean.TRUE.equals(plan.breakevenAfterPartial()) && result.exitTime() > taken.time()
+				? "; the stop on the rest then moved to the entry." : ".");
 	}
 
 	private static ScoreLineView fact(String id, String label, String text) {

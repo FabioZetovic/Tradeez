@@ -40,7 +40,7 @@ class TradeReviewTest {
 	private static Facts facts(List<Hit> hits, Long dol, List<Bar> bars, Outcome outcome, Instant plannedExit, Instant cursor) {
 		return new Facts(Direction.LONG, 1, 80_000, 79_960, 80_080, new BigDecimal("0.25"), CANDLE, null, null, dol, null,
 			DECISION, ENTRY, 80_001, EXIT, outcome == Outcome.CLOSED ? 80_020 : 80_080, outcome, outcome == Outcome.CLOSED ? 0.5 : 1.98,
-			false, plannedExit, Outcome.STOP, 79_959, -1.03, cursor, hits, bars);
+			false, plannedExit, Outcome.STOP, 79_959, -1.03, cursor, hits, bars, null, null);
 	}
 
 	private static Facts plain(List<Hit> hits) {
@@ -167,7 +167,7 @@ class TradeReviewTest {
 		words.forEach((outcome, title) -> {
 			Facts f = new Facts(Direction.LONG, 1, 80_000, 79_960, 80_080, new BigDecimal("0.25"), CANDLE, null, null, null, null,
 				DECISION, ENTRY, 80_001, EXIT, 80_020, Outcome.CLOSED, 0.5, false, planned, outcome, 80_080, 2.0,
-				planned.plusSeconds(1), List.of(), List.of());
+				planned.plusSeconds(1), List.of(), List.of(), null, null);
 			assertThat(TradeReview.build(f).moments().getLast().title()).as(outcome.name()).isEqualTo(title);
 		});
 	}
@@ -177,7 +177,7 @@ class TradeReviewTest {
 	void decision() {
 		Facts f = new Facts(Direction.SHORT, 3, 80_000, 80_040, 79_960, new BigDecimal("0.25"), CANDLE,
 			"Silver Bullet: 3 of 5 checks met when placed.", "BEARISH", 79_900L, 70, DECISION, ENTRY, 79_999, EXIT, 80_041,
-			Outcome.STOP, -1.03, true, null, Outcome.STOP, 80_041, -1.03, EXIT, List.of(), List.of());
+			Outcome.STOP, -1.03, true, null, Outcome.STOP, 80_041, -1.03, EXIT, List.of(), List.of(), null, null);
 		Review review = TradeReview.build(f);
 		assertThat(review.moments().getFirst().title()).isEqualTo("You placed a short");
 		assertThat(review.moments().getFirst().lines()).containsExactly(
@@ -185,5 +185,28 @@ class TradeReviewTest {
 			"Silver Bullet: 3 of 5 checks met when placed.", "Your bias: bearish.", "Your draw on liquidity: 19975.00.",
 			"70% sure the target would fill before the stop.");
 		assertThat(review.moments().getLast().title()).isEqualTo("The stop filled, the market opening beyond it, at 20010.25: −1.03R.");
+	}
+
+	@Test
+	@DisplayName("T28: a partial in the trade's story; the stop moved only if the trade outlived the partial's candle")
+	void partial() {
+		FillEngine.Partial planned = new FillEngine.Partial(80_040, 1, true);
+		Facts later = new Facts(Direction.LONG, 2, 80_000, 79_960, 80_080, new BigDecimal("0.25"), CANDLE, null, null, null,
+			null, DECISION, ENTRY, 80_000, EXIT, 79_999, Outcome.STOP, 0.49, false, null, Outcome.STOP, 79_999, 0.49, EXIT,
+			List.of(), List.of(), planned, new FillEngine.Leg(ENTRY.plusSeconds(600), 80_040, 40, 1, false));
+		Review review = TradeReview.build(later);
+		assertThat(review.moments().getFirst().lines())
+			.contains("Take 1 off at 20010.00, then move the stop on the rest to the entry.");
+		TradeReview.Moment partial = review.moments().stream().filter(m -> m.kind().equals("PARTIAL")).findFirst().orElseThrow();
+		assertThat(partial.title()).isEqualTo("1 of 2 taken off at 20010.00: +1.00R on each.");
+		assertThat(partial.lines())
+			.containsExactly("The stop on the last contract moved to the entry, 20000.00, once that candle had closed.");
+
+		Facts together = new Facts(Direction.LONG, 2, 80_000, 79_960, 80_080, new BigDecimal("0.25"), CANDLE, null, null, null,
+			null, DECISION, ENTRY, 80_000, EXIT, 80_080, Outcome.TARGET, 1.5, false, null, Outcome.TARGET, 80_080, 1.5, EXIT,
+			List.of(), List.of(), planned, new FillEngine.Leg(EXIT, 80_040, 40, 1, false));
+		List<TradeReview.Moment> moments = TradeReview.build(together).moments();
+		assertThat(moments.stream().filter(m -> m.kind().equals("PARTIAL")).findFirst().orElseThrow().lines()).isEmpty();
+		assertThat(moments.getLast().kind()).as("the partial before the exit at the same moment").isEqualTo("EXIT");
 	}
 }

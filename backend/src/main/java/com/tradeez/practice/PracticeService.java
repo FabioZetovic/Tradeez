@@ -45,6 +45,7 @@ import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
 import com.tradeez.practice.FillEngine.Direction;
 import com.tradeez.practice.FillEngine.Fill;
 import com.tradeez.practice.FillEngine.FillModel;
+import com.tradeez.practice.FillEngine.Leg;
 import com.tradeez.practice.FillEngine.Outcome;
 import com.tradeez.practice.FillEngine.Resolution;
 import com.tradeez.practice.PlanContextService.PlanContext;
@@ -55,6 +56,7 @@ import com.tradeez.practice.PracticeDtos.ChecklistView;
 import com.tradeez.practice.PracticeDtos.ContextRequest;
 import com.tradeez.practice.PracticeDtos.PlanContextView;
 import com.tradeez.practice.PracticeDtos.EntryView;
+import com.tradeez.practice.PracticeDtos.PartialView;
 import com.tradeez.practice.PracticeDtos.PlanRequest;
 import com.tradeez.practice.PracticeDtos.PlanView;
 import com.tradeez.practice.PracticeDtos.PracticeState;
@@ -227,8 +229,15 @@ public class PracticeService {
 			return close != null ? close.getExitTime() : result.getExitTime();
 		}
 
-		long pnlTicks() {
-			return close != null ? close.getPnlTicks() : result.getPnlTicks();
+		/** Every contract's ticks together: a partial's and the rest's (T28). */
+		long totalTicks() {
+			int contracts = plan.getContracts();
+			return close != null ? close.totalTicks(contracts) : result.totalTicks(contracts);
+		}
+
+		/** The partial's fill: the close's when closed by hand, otherwise the result's (T28). */
+		Leg partial() {
+			return close != null ? close.partial() : result.partial();
 		}
 
 		long netPnlCents() {
@@ -246,14 +255,15 @@ public class PracticeService {
 		}
 
 		/**
-		 * The result in units of what the learner planned to risk.
+		 * The result in units of what the learner planned to risk: every contract's, so a partial weighs by
+		 * the contracts it took off (T28).
 		 *
 		 * <p>Measured against the plan's reference price, not the fill: R is a statement about the
 		 * decision the learner made, and they made it looking at the reference.
 		 */
 		double r() {
 			long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
-			return (double) pnlTicks() / risk;
+			return (double) totalTicks() / (risk * plan.getContracts());
 		}
 	}
 
@@ -382,6 +392,7 @@ public class PracticeService {
 
 		long reference = lastVisibleClose(session, instrument, resolution);
 		validateBracket(request, reference);
+		validatePartial(request, reference);
 		if (request.confidence() != null && request.confidence() % 10 != 0) {
 			throw new IllegalArgumentException("Confidence is a whole ten, from 10 to 90 percent.");
 		}
@@ -392,7 +403,7 @@ public class PracticeService {
 		// T27: the learner's costs, as set now; the result keeps the model it was resolved with.
 		FillModel model = settings.fillModel(userId);
 		Fill fill = FillEngine.resolve(new FillEngine.Plan(request.direction(), request.stopTicks(),
-			request.targetTicks(), request.contracts()), bars, model, resolution);
+			request.targetTicks(), request.contracts(), request.partial()), bars, model, resolution);
 
 		return writeTx.execute(tx -> {
 			// The fill was computed for the cursor in the snapshot. If the session moved since —
@@ -406,7 +417,8 @@ public class PracticeService {
 				request.bias() == null ? null : request.bias().name(), request.dolTicks(),
 				context.killzone() == null ? null : context.killzone().name(),
 				context.suggestion().bias() == null ? null : context.suggestion().bias().name(),
-				context.checklist() == null ? null : stored(context.checklist()), request.confidence(), riskLimit));
+				context.checklist() == null ? null : stored(context.checklist()), request.confidence(), riskLimit,
+				request.partial()));
 			PracticeResult result = results.save(new PracticeResult(plan, fill,
 				instrument.getTickValueCents(), model, current.getGeneratorVersion(), current.getSeed(),
 				current.getDataSource()));
@@ -533,8 +545,7 @@ public class PracticeService {
 		List<Bar> walked = fine(session, seen.instrument(), resolution, locked, sessionEnd(locked));
 		// Filled as the plan was resolved: its own model, whatever the costs are set to now (T27).
 		FillModel model = FillModel.parse(open.getFillModelVersion());
-		Fill fill = FillEngine.closeAtMarket(new FillEngine.Plan(plan.getDirection(), plan.getStopTicks(),
-			plan.getTargetTicks(), plan.getContracts()), walked, session.getCursorTime(), model, resolution);
+		Fill fill = FillEngine.closeAtMarket(plan.enginePlan(), walked, session.getCursorTime(), model, resolution);
 		if (fill == null) {
 			return skipToResult(userId, sessionId, timeframeCode);
 		}
@@ -747,7 +758,7 @@ public class PracticeService {
 		ChecklistView checklist = plan.getChecklist() == null ? null : checklistView(plan.getChecklist());
 		long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
 		return reviews.review(seen.session(), seen.instrument(), plan, trade.result(), trade.close(), round2(trade.r()),
-			round2((double) trade.result().getPnlTicks() / risk), checklist == null ? null
+			round2((double) trade.result().totalTicks(plan.getContracts()) / (risk * plan.getContracts())), checklist == null ? null
 				: checklist.title() + ": " + checklist.met() + " of " + checklist.total() + " checks met when placed.");
 	}
 
@@ -810,12 +821,15 @@ public class PracticeService {
 			? new EntryView(clock.show(planned.getEntryTime()), planned.getEntryTicks())
 			: null;
 		PlanView plan = planView(trade.plan(), clock);
+		// T28: a partial is revealed with the bar it filled in, like the entry — while the rest still runs.
+		Leg taken = trade.partial();
+		PartialView partial = taken != null && cursor.isAfter(taken.time()) ? partialView(taken, clock) : null;
 		if (!trade.closedBy(cursor)) {
-			return new TradeView(trade.plan().getSeq(), plan, entry, null, null);
+			return new TradeView(trade.plan().getSeq(), plan, entry, null, null, partial);
 		}
 		ResultView result = resultView(trade, clock);
 		return new TradeView(trade.plan().getSeq(), plan, entry, result,
-			Scorecard.score(plan, result, instrument.getTickSize(), instrument.getTickValueCents()));
+			Scorecard.score(plan, result, instrument.getTickSize(), instrument.getTickValueCents()), partial);
 	}
 
 	/** The trades the replay has passed the exit of, added up. */
@@ -830,7 +844,7 @@ public class PracticeService {
 				continue;
 			}
 			closed++;
-			long ticks = trade.pnlTicks();
+			long ticks = trade.totalTicks();
 			wins += ticks > 0 ? 1 : 0;
 			losses += ticks < 0 ? 1 : 0;
 			// The sum of the R column as the learner sees it, so adding it up by hand agrees with
@@ -844,11 +858,22 @@ public class PracticeService {
 	private static PlanView planView(TradePlan plan, PracticeClock clock) {
 		long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
 		long reward = Math.abs(plan.getTargetTicks() - plan.getReferenceTicks());
+		FillEngine.Partial partial = plan.partial();
+		// With a partial, the whole position's: its contracts to their level, the rest to the target (T28).
+		long rewardTicks = partial == null ? reward * plan.getContracts()
+			: partial.contracts() * Math.abs(partial.ticks() - plan.getReferenceTicks())
+				+ (plan.getContracts() - partial.contracts()) * reward;
 		return new PlanView(plan.getDirection(), plan.getStopTicks(), plan.getTargetTicks(),
 			plan.getContracts(), plan.getReferenceTicks(), clock.show(plan.getSubmittedCursor()),
-			round2((double) reward / risk), plan.getModel(), plan.getBias(), plan.getDolTicks(), plan.killzoneWhenPlaced(),
+			round2((double) rewardTicks / (risk * plan.getContracts())), plan.getModel(), plan.getBias(), plan.getDolTicks(), plan.killzoneWhenPlaced(),
 			plan.getSuggestedBias(), plan.getChecklist() == null ? null : checklistView(plan.getChecklist()),
-			plan.getConfidence(), plan.getRiskLimitCents());
+			plan.getConfidence(), plan.getRiskLimitCents(), partial == null ? null : partial.ticks(),
+			partial == null ? null : partial.contracts(), partial == null ? null : partial.breakeven());
+	}
+
+	private static PartialView partialView(Leg leg, PracticeClock clock) {
+		return leg == null ? null
+			: new PartialView(clock.show(leg.time()), leg.exitTicks(), leg.contracts(), leg.pnlTicks(), leg.gap());
 	}
 
 	private static ResultView resultView(Trade trade, PracticeClock clock) {
@@ -858,12 +883,14 @@ public class PracticeService {
 			return new ResultView(Outcome.CLOSED.name(), null, clock.show(result.getEntryTime()), result.getEntryTicks(),
 				clock.show(close.getExitTime()), close.getExitTicks(), close.getPnlTicks(), close.getNetPnlCents(),
 				close.getCommissionCents(), close.getMaeTicks(), close.getMfeTicks(), false, round2(trade.r()),
-				close.getResolution(), close.getEngineVersion(), close.getFillModelVersion());
+				close.getResolution(), close.getEngineVersion(), close.getFillModelVersion(),
+				partialView(close.partial(), clock));
 		}
 		return new ResultView(
 			result.getOutcome().name(),
 			result.getOutcome() == Outcome.AMBIGUOUS
-				? ambiguousAssumption(Resolution.valueOf(result.getResolution()))
+				? ambiguousAssumption(Resolution.valueOf(result.getResolution()),
+					trade.plan().partial() != null && result.partial() == null)
 				: null,
 			clock.show(result.getEntryTime()),
 			result.getEntryTicks(),
@@ -878,14 +905,20 @@ public class PracticeService {
 			round2(trade.r()),
 			result.getResolution(),
 			result.getEngineVersion(),
-			result.getFillModelVersion());
+			result.getFillModelVersion(),
+			partialView(result.partial(), clock));
 	}
 
-	/** INVARIANT 6: an assumed outcome says so, in the unit of the bars that could not decide it. */
-	static String ambiguousAssumption(Resolution resolution) {
-		return "The stop and the target were both touched inside the same " + resolution.unit()
+	/**
+	 * INVARIANT 6: an assumed outcome says so, in the unit of the bars that could not decide it.
+	 *
+	 * @param partialLevel the partial was still to be taken, so its level was among those touched (T28)
+	 */
+	static String ambiguousAssumption(Resolution resolution, boolean partialLevel) {
+		return "The stop and " + (partialLevel ? "the price to take part off at" : "the target")
+			+ " were both touched inside the same " + resolution.unit()
 			+ ", so which came first cannot be known from this data. The result assumes the worst "
-			+ "case: the stop.";
+			+ "case: the stop" + (partialLevel ? ", for every contract." : ".");
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -1012,6 +1045,29 @@ public class PracticeService {
 				|| target < reference - MAX_BRACKET_TICKS || target > reference + MAX_BRACKET_TICKS) {
 			throw new IllegalArgumentException(
 				"Stop and target must be within " + MAX_BRACKET_TICKS + " ticks of the price.");
+		}
+	}
+
+	/** T28: some of the contracts, at a price between the current price and the target. */
+	private static void validatePartial(PlanRequest request, long reference) {
+		Long at = request.partialTicks();
+		if (at == null) {
+			if (request.partialContracts() != null || Boolean.TRUE.equals(request.breakevenAfterPartial())) {
+				throw new IllegalArgumentException("Taking part off needs a price to take it off at.");
+			}
+			return;
+		}
+		Integer some = request.partialContracts();
+		if (some == null || some < 1 || some >= request.contracts()) {
+			throw new IllegalArgumentException("A partial takes off some of the contracts: at least one, and fewer than all "
+				+ request.contracts() + ".");
+		}
+		boolean between = request.direction() == Direction.LONG
+			? at > reference && at < request.targetTicks()
+			: at < reference && at > request.targetTicks();
+		if (!between) {
+			throw new IllegalArgumentException("The partial's price must lie between the current price (" + reference
+				+ " ticks) and the target.");
 		}
 	}
 

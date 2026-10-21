@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Direction, PlanContext, PlanIntent as Intent, PlanRequest } from '@/lib/api/practice'
 import { formatPrice, priceToTicks } from '@/lib/chart/priceFormat'
-import { formatCents, planNumbers, planProblem } from '@/lib/practice/plan'
+import { formatCents, planNumbers, planProblem, type PartialDraft } from '@/lib/practice/plan'
 import { Button, Chip, Panel } from '../ui'
 import { PlanIntent } from './PlanIntent'
 import { errorClass, fieldClass, keyValueClass, panelTitle } from '@/lib/styles'
@@ -23,6 +23,8 @@ interface PlanPanelProps {
   onDiscard: () => void
   onChangeLevel: (level: 'stop' | 'target', ticks: number) => void
   onChangeContracts: (contracts: number) => void
+  /** T28: part of the position to take off before the target, or null for none. */
+  onChangePartial?: (partial: PartialDraft | null) => void
   onLock: (plan: PlanRequest) => void
   /** What the learner means by the trade (T22), and what the app sees for the draft. */
   intent?: Intent
@@ -53,6 +55,7 @@ export function PlanPanel({
   onDiscard,
   onChangeLevel,
   onChangeContracts,
+  onChangePartial = () => {},
   onLock,
   intent = {},
   onIntent = () => {},
@@ -122,6 +125,7 @@ export function PlanPanel({
           value={plan.contracts}
           onChange={(e) => onChangeContracts(Number(e.target.value))}
         />
+        <PartialFields plan={plan} tickSize={tickSize} onChange={onChangePartial} />
       </div>
 
       <PlanIntent intent={intent} onChange={onIntent} context={context} tickSize={tickSize} />
@@ -142,7 +146,9 @@ export function PlanPanel({
           )}
         </dd>
         <dt>Reward</dt>
-        <dd>
+        <dd data-testid="plan-reward">
+          {/* T28: the partial's distance first, then the target's; the money is the whole position's. */}
+          {plan.partialTicks !== undefined && `${Math.abs(plan.partialTicks - referenceTicks)} then `}
           {numbers.rewardTicks} ticks · {formatCents(numbers.rewardCents)}
         </dd>
         <dt>Reward : risk</dt>
@@ -196,6 +202,77 @@ function costsText(costs: PlanCosts, contracts: number, tickValueCents: number):
 }
 
 /**
+ * Part of the position to take off before the target (T28): where, how many contracts, and whether the stop on the
+ * rest then moves to the entry. Two contracts or more; an empty price is no partial.
+ */
+function PartialFields({
+  plan,
+  tickSize,
+  onChange,
+}: {
+  plan: PlanRequest
+  tickSize: number
+  onChange: (partial: PartialDraft | null) => void
+}) {
+  if (plan.contracts < 2) {
+    return (
+      <>
+        <span className="text-subtle">Partial</span>
+        <span className="text-xs text-subtle">With two contracts or more, part can come off before the target.</span>
+      </>
+    )
+  }
+  const current: PartialDraft | null =
+    plan.partialTicks === undefined
+      ? null
+      : { ticks: plan.partialTicks, contracts: plan.partialContracts ?? 1, breakeven: plan.breakevenAfterPartial ?? false }
+  return (
+    <>
+      <PriceField
+        label="Partial"
+        ticks={current?.ticks}
+        tickSize={tickSize}
+        placeholder="none"
+        onCommit={(ticks) =>
+          onChange({ ticks, contracts: current?.contracts ?? Math.floor(plan.contracts / 2), breakeven: current?.breakeven ?? false })
+        }
+        onClear={() => onChange(null)}
+      />
+      {current && (
+        <>
+          <label htmlFor="plan-partial-contracts" className="text-subtle">
+            Take off
+          </label>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-2">
+              <input
+                id="plan-partial-contracts"
+                className={`${fieldClass} w-20`}
+                type="number"
+                min={1}
+                max={plan.contracts - 1}
+                step={1}
+                value={current.contracts}
+                onChange={(e) => onChange({ ...current, contracts: Number(e.target.value) })}
+              />
+              <span className="text-subtle">of {plan.contracts}</span>
+            </span>
+            <label className="flex items-center gap-2 text-subtle">
+              <input
+                type="checkbox"
+                checked={current.breakeven}
+                onChange={(e) => onChange({ ...current, breakeven: e.target.checked })}
+              />
+              then the stop to the entry
+            </label>
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+/**
  * A price box that commits on Enter or blur.
  *
  * Committing on every keystroke would round "20012." to a tick while it is still being typed, and
@@ -205,23 +282,31 @@ function PriceField({
   label,
   ticks,
   tickSize,
+  placeholder,
   onCommit,
+  onClear,
 }: {
   label: string
-  ticks: number
+  /** Absent: an optional price not set. */
+  ticks: number | undefined
   tickSize: number
+  placeholder?: string
   onCommit: (ticks: number) => void
+  /** For an optional price: emptying the box removes it. */
+  onClear?: () => void
 }) {
   // What the learner is typing, or null when they are not. While null the box simply shows the
   // plan's price, so a bracket dragged on the chart updates it with no syncing effect.
   const [draft, setDraft] = useState<string | null>(null)
-  const text = draft ?? formatPrice(ticks, tickSize)
+  const text = draft ?? (ticks === undefined ? '' : formatPrice(ticks, tickSize))
 
   const id = `plan-${label.toLowerCase()}`
   const commit = () => {
     if (draft === null) return
     const price = Number(draft)
-    if (draft.trim() !== '' && Number.isFinite(price) && price > 0) {
+    if (draft.trim() === '' && onClear) {
+      onClear()
+    } else if (draft.trim() !== '' && Number.isFinite(price) && price > 0) {
       onCommit(priceToTicks(price, tickSize))
     }
     // Valid or not, typing is over: show the plan's price, which is the committed value or,
@@ -238,6 +323,7 @@ function PriceField({
         id={id}
         className={`${fieldClass} w-36`}
         inputMode="decimal"
+        placeholder={placeholder}
         value={text}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}

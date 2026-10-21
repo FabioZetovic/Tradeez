@@ -1,6 +1,7 @@
 import type {
   Direction,
   Outcome,
+  PartialView,
   PlanRequest,
   PlanView,
   PracticeState,
@@ -55,15 +56,20 @@ export function pinEntry(drawing: Drawing, referenceTicks: number, time: number)
   return { ...drawing, anchors }
 }
 
-/** The running trade's plan as a position drawing, anchored to the bar last visible at the lock. */
-export function lockedBracket(plan: PlanView, time: number): Drawing {
+/**
+ * The running trade's plan as a position drawing, anchored to the bar last visible at the lock — with its
+ * partial (T28), and once a partial with the breakeven move has filled, its stop at the entry.
+ */
+export function lockedBracket(plan: PlanView, time: number, entryTicks?: number, partial?: PartialView): Drawing {
+  const moved = plan.breakevenAfterPartial && partial !== undefined && entryTicks !== undefined
   return {
     ...defaultBracket(plan.direction, plan.referenceTicks, time),
     anchors: [
       { time, priceTicks: plan.referenceTicks },
-      { time, priceTicks: plan.stopTicks },
+      { time, priceTicks: moved ? entryTicks : plan.stopTicks },
       { time, priceTicks: plan.targetTicks },
     ],
+    partialTicks: plan.partialTicks,
   }
 }
 
@@ -90,6 +96,7 @@ export function closedTradeDrawing(trade: TradeView, candleOf: (time: number) =>
     ],
     style: DEFAULT_STYLES.position,
     endTime: candleOf(result.exitTime),
+    partialTicks: trade.plan.partialTicks,
   }
 }
 
@@ -105,12 +112,24 @@ export function directionOf(drawing: Drawing): Direction {
   return drawing.anchors[2].priceTicks >= drawing.anchors[0].priceTicks ? 'LONG' : 'SHORT'
 }
 
-export function planFromDrawing(drawing: Drawing, contracts: number): PlanRequest {
+/** Part of a draft to take off before the target (T28): where, how many, and whether the stop then moves. */
+export interface PartialDraft {
+  ticks: number
+  contracts: number
+  breakeven: boolean
+}
+
+export function planFromDrawing(drawing: Drawing, contracts: number, partial?: PartialDraft | null): PlanRequest {
   return {
     direction: directionOf(drawing),
     stopTicks: drawing.anchors[1].priceTicks,
     targetTicks: drawing.anchors[2].priceTicks,
     contracts,
+    ...(partial && {
+      partialTicks: partial.ticks,
+      partialContracts: partial.contracts,
+      breakevenAfterPartial: partial.breakeven,
+    }),
   }
 }
 
@@ -137,6 +156,17 @@ export function planProblem(plan: PlanRequest, referenceTicks: number): string |
   ) {
     return 'Stop and target must be within 5,000 points of the price.'
   }
+  const { partialTicks, partialContracts } = plan
+  if (partialTicks !== undefined) {
+    if (partialContracts === undefined || !Number.isInteger(partialContracts) || partialContracts < 1 || partialContracts >= contracts) {
+      return 'A partial takes off some of the contracts: at least one, and fewer than all.'
+    }
+    const between =
+      direction === 'LONG'
+        ? partialTicks > referenceTicks && partialTicks < targetTicks
+        : partialTicks < referenceTicks && partialTicks > targetTicks
+    if (!between) return "The partial's price must lie between the current price and the target."
+  }
   return null
 }
 
@@ -155,13 +185,17 @@ export function planNumbers(
 ): PlanNumbers {
   const riskTicks = Math.abs(referenceTicks - plan.stopTicks)
   const rewardTicks = Math.abs(plan.targetTicks - referenceTicks)
+  // T28: with a partial, the whole position's reward — its contracts to their level, the rest to the target.
+  const off = plan.partialTicks === undefined ? 0 : (plan.partialContracts ?? 0)
+  const rewardAll =
+    off * Math.abs((plan.partialTicks ?? referenceTicks) - referenceTicks) + (plan.contracts - off) * rewardTicks
   return {
     riskTicks,
     rewardTicks,
-    ratio: riskTicks === 0 ? null : rewardTicks / riskTicks,
+    ratio: riskTicks === 0 || plan.contracts <= 0 ? null : rewardAll / (riskTicks * plan.contracts),
     // Integer cents throughout; only formatting turns them into dollars (INVARIANT 3).
     riskCents: riskTicks * tickValueCents * plan.contracts,
-    rewardCents: rewardTicks * tickValueCents * plan.contracts,
+    rewardCents: rewardAll * tickValueCents,
   }
 }
 

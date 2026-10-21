@@ -47,6 +47,11 @@ import com.tradeez.marketdata.Bar;
  *       sparse — a quiet minute has no bar — and fill-1.0.0's rule that any gap meant the session had
  *       ended would have closed real trades early (T4).</li>
  *   <li>Commission is charged per contract per round trip.</li>
+ *   <li>A plan may take part of the position off at a level before the target (fill-1.4.0, T28, DEC-074): a
+ *       resting limit for some of the contracts, filled like the target, and on the way to it. A bar that reaches
+ *       it and the stop is ambiguous like one that reaches the target and the stop, and assumed to be the stop.
+ *       With the breakeven option the stop on the rest moves to the entry once the bar that filled the partial
+ *       has closed.</li>
  *   <li>A running trade can be closed at market ({@link #closeAtMarket}, fill-1.2.0, DEC-057): it
  *       exits at the open of the first bar at or after the moment it is closed, like the entry — unless
  *       that open already reaches the stop or the target, which then fill first.</li>
@@ -60,7 +65,7 @@ import com.tradeez.marketdata.Bar;
 public final class FillEngine {
 
 	/** Bump on ANY change to fill behaviour. Stored on every result. */
-	public static final String VERSION = "fill-1.3.0";
+	public static final String VERSION = "fill-1.4.0";
 
 	private FillEngine() {
 	}
@@ -156,25 +161,56 @@ public final class FillEngine {
 		}
 	}
 
-	public record Plan(Direction direction, long stopTicks, long targetTicks, int contracts) {
+	/**
+	 * Part of the position taken off before the target (T28, DEC-074): a resting limit for {@code contracts} of
+	 * them at {@code ticks}, filled as the target is. With {@code breakeven}, the stop on the rest moves to the
+	 * entry price once the candle that filled it has closed — never inside it, whose order cannot be known.
+	 */
+	public record Partial(long ticks, int contracts, boolean breakeven) {
+	}
+
+	public record Plan(Direction direction, long stopTicks, long targetTicks, int contracts, Partial partial) {
 
 		public Plan {
 			if (contracts <= 0) {
 				throw new IllegalArgumentException("A trade needs at least one contract.");
 			}
+			if (partial != null && (partial.contracts() < 1 || partial.contracts() >= contracts)) {
+				throw new IllegalArgumentException("A partial takes off some of the contracts: not none, and not all.");
+			}
+			if (partial != null && (Long.compare(partial.ticks(), stopTicks) != Long.compare(targetTicks, stopTicks)
+					|| Long.compare(targetTicks, partial.ticks()) != Long.compare(targetTicks, stopTicks))) {
+				throw new IllegalArgumentException("A partial lies between the stop and the target.");
+			}
 		}
+
+		/** A bracket alone. */
+		public Plan(Direction direction, long stopTicks, long targetTicks, int contracts) {
+			this(direction, stopTicks, targetTicks, contracts, null);
+		}
+	}
+
+	/**
+	 * The contracts a partial took off (T28): when, where, and their result.
+	 *
+	 * @param pnlTicks per contract, signed, before commission
+	 * @param gap      filled at an opening price beyond the level, rather than at the level
+	 */
+	public record Leg(Instant time, long exitTicks, long pnlTicks, int contracts, boolean gap) {
 	}
 
 	/**
 	 * What happened.
 	 *
-	 * @param pnlTicks  per contract, signed, after slippage, before commission
+	 * @param pnlTicks  per contract held to the exit — every one, or those a partial left — signed, after
+	 *                  slippage, before commission
 	 * @param maeTicks  maximum adverse excursion — how far the trade went against the entry. Never
 	 *                  negative.
 	 * @param mfeTicks  maximum favourable excursion — how far it went in the trader's favour. Never
 	 *                  negative.
 	 * @param gapExit   true when the exit was filled at an opening price beyond the order, rather than
 	 *                  at the order's own price
+	 * @param partial   the contracts a partial took off before the exit, or null
 	 */
 	public record Fill(
 		Outcome outcome,
@@ -186,12 +222,16 @@ public final class FillEngine {
 		long maeTicks,
 		long mfeTicks,
 		boolean gapExit,
-		Resolution resolution) {
+		Resolution resolution,
+		Leg partial) {
+
+		public long totalTicks(int contracts) {
+			return FillEngine.totalTicks(pnlTicks, partial, contracts);
+		}
 
 		/** Net result in cents across all contracts, commission included. */
 		public long netPnlCents(long tickValueCents, int contracts, FillModel model) {
-			return pnlTicks * tickValueCents * contracts
-				- model.commissionCentsPerContractRound() * contracts;
+			return totalTicks(contracts) * tickValueCents - model.commissionCentsPerContractRound() * contracts;
 		}
 	}
 
@@ -212,11 +252,40 @@ public final class FillEngine {
 		if (bars.isEmpty()) {
 			throw new IllegalArgumentException("No market data to enter the trade into.");
 		}
+		return walk(plan, bars, model, resolution, null);
+	}
 
+	/**
+	 * Closes a running trade at market at {@code at} (DEC-057).
+	 *
+	 * <p>A market order fills at the next price there is: the open of the first bar at or after
+	 * {@code at} — the same rule as the entry, slipped like the entry (fill-1.3.0). Every bar before it
+	 * was survived (the trade is still running), so their extremes count as excursions; the exit price
+	 * is the last one that does. A partial filled before then stays filled (T28); the close takes the rest.
+	 *
+	 * @param bars the bars the trade was resolved on: from the lock to the session's close
+	 * @return the close, or null when the trade's own exit comes first — its stop or target is reached
+	 *         before {@code at}, or the very open the close would fill at already reaches one of them,
+	 *         where the resting order fills first
+	 */
+	public static Fill closeAtMarket(Plan plan, List<Bar> bars, Instant at, FillModel model, Resolution resolution) {
+		if (bars.isEmpty()) {
+			throw new IllegalArgumentException("No market data to close the trade in.");
+		}
+		Fill fill = walk(plan, bars, model, resolution, at);
+		return fill.outcome() == Outcome.CLOSED ? fill : null;
+	}
+
+	/**
+	 * The trade, bar by bar, to its exit: the stop, the target, a close at market at {@code closeAt} when there
+	 * is one, or the last bar. A partial is taken on the way, and with it, from the next bar, the stop on the
+	 * rest may move to the entry.
+	 */
+	private static Fill walk(Plan plan, List<Bar> bars, FillModel model, Resolution resolution, Instant closeAt) {
 		final Direction dir = plan.direction();
 		final int sign = dir.sign();
-		final long stop = plan.stopTicks();
 		final long target = plan.targetTicks();
+		final Partial partial = plan.partial();
 		final long slip = model.stopSlippageTicks();
 		final long through = model.limitThroughTicks();
 
@@ -224,47 +293,69 @@ public final class FillEngine {
 		final Instant entryTime = first.openTime();
 		final long entry = first.openTicks() + sign * model.marketSlippageTicks();
 
+		long stop = plan.stopTicks();
+		Leg taken = null;
 		long mae = 0;
 		long mfe = 0;
 
-		for (int i = 0; i < bars.size(); i++) {
-			Bar bar = bars.get(i);
+		for (Bar bar : bars) {
 			long open = bar.openTicks();
+			// The bar that filled the partial has closed: the rest's stop is at the entry from here on.
+			if (taken != null && partial.breakeven()) {
+				stop = entry;
+			}
 
 			// The open first. If the market opened beyond a level, the order fills at the open —
 			// never at its own price, which the market skipped straight past.
 			if (stopTouched(dir, open, open, stop)) {
 				long exit = open - sign * slip;
 				return fill(Outcome.STOP, entryTime, entry, bar.openTime(), exit, sign,
-					Math.max(mae, adverse(sign, entry, exit)), mfe, open != stop, resolution);
+					Math.max(mae, adverse(sign, entry, exit)), mfe, open != stop, resolution, taken);
+			}
+			if (taken == null && partial != null && targetTouched(dir, open, open, partial.ticks(), through)) {
+				taken = leg(bar.openTime(), entry, open, sign, partial, open != partial.ticks());
+				mfe = Math.max(mfe, favourable(sign, entry, open));
 			}
 			if (targetTouched(dir, open, open, target, through)) {
 				return fill(Outcome.TARGET, entryTime, entry, bar.openTime(), open, sign,
-					mae, Math.max(mfe, favourable(sign, entry, open)), open != target, resolution);
+					mae, Math.max(mfe, favourable(sign, entry, open)), open != target, resolution, taken);
+			}
+			if (closeAt != null && !bar.openTime().isBefore(closeAt)) {
+				long exit = open - sign * model.marketSlippageTicks();
+				return fill(Outcome.CLOSED, entryTime, entry, bar.openTime(), exit, sign,
+					Math.max(mae, adverse(sign, entry, exit)), Math.max(mfe, favourable(sign, entry, open)), false,
+					resolution, taken);
 			}
 
 			boolean stopHit = stopTouched(dir, bar.lowTicks(), bar.highTicks(), stop);
 			boolean targetHit = targetTouched(dir, bar.lowTicks(), bar.highTicks(), target, through);
+			boolean partialHit = taken == null && partial != null
+				&& targetTouched(dir, bar.lowTicks(), bar.highTicks(), partial.ticks(), through);
 
-			if (stopHit && targetHit) {
+			if (stopHit && (targetHit || partialHit)) {
 				// Both inside one bar. The order cannot be known from this data, and pretending
-				// otherwise would be presenting a guess as a fact. Record the pessimistic exit so there
-				// is something to show, flagged as what it is.
+				// otherwise would be presenting a guess as a fact. Record the pessimistic exit — the stop, for
+				// every contract still held — so there is something to show, flagged as what it is.
 				long exit = stop - sign * slip;
 				return fill(Outcome.AMBIGUOUS, entryTime, entry, bar.openTime(), exit, sign,
 					Math.max(mae, adverse(sign, entry, exit)),
-					Math.max(mfe, favourable(sign, entry, target)), false, resolution);
+					Math.max(mfe, favourable(sign, entry, targetHit ? target : partial.ticks())), false, resolution,
+					taken);
 			}
 			if (stopHit) {
 				long exit = stop - sign * slip;
 				// Only the exit price counts toward excursion on the exit bar: whatever else the bar
 				// did happened after, or before, a position that no longer existed.
 				return fill(Outcome.STOP, entryTime, entry, bar.openTime(), exit, sign,
-					Math.max(mae, adverse(sign, entry, exit)), mfe, false, resolution);
+					Math.max(mae, adverse(sign, entry, exit)), mfe, false, resolution, taken);
+			}
+			if (partialHit) {
+				// Nearer than the target, so reached first on the way to it.
+				taken = leg(bar.openTime(), entry, partial.ticks(), sign, partial, false);
 			}
 			if (targetHit) {
 				return fill(Outcome.TARGET, entryTime, entry, bar.openTime(), target, sign,
-					mae, Math.max(mfe, favourable(sign, entry, target)), false, resolution);
+					mae, Math.max(mfe, favourable(sign, entry, target)), false, resolution, taken);
 			}
 
 			// Survived the whole bar: its extremes are genuine excursions.
@@ -278,56 +369,17 @@ public final class FillEngine {
 		// flatten at the last close.
 		Bar last = bars.getLast();
 		return fill(Outcome.TIME_EXIT, entryTime, entry, last.openTime(), last.closeTicks() - sign * model.marketSlippageTicks(),
-			sign, mae, mfe, false, resolution);
+			sign, mae, mfe, false, resolution, taken);
 	}
 
-	/**
-	 * Closes a running trade at market at {@code at} (DEC-057).
-	 *
-	 * <p>A market order fills at the next price there is: the open of the first bar at or after
-	 * {@code at} — the same rule as the entry, slipped like the entry (fill-1.3.0). Every bar before it
-	 * was survived (the trade is still running), so their extremes count as excursions; the exit price
-	 * is the last one that does.
-	 *
-	 * @param bars the bars the trade was resolved on: from the lock to the session's close
-	 * @return the close, or null when the trade's own exit comes first — its stop or target is reached
-	 *         before {@code at}, or the very open the close would fill at already reaches one of them,
-	 *         where the resting order fills first
-	 */
-	public static Fill closeAtMarket(Plan plan, List<Bar> bars, Instant at, FillModel model, Resolution resolution) {
-		if (bars.isEmpty()) {
-			throw new IllegalArgumentException("No market data to close the trade in.");
-		}
-		final Direction dir = plan.direction();
-		final int sign = dir.sign();
-		final Bar first = bars.getFirst();
-		final Instant entryTime = first.openTime();
-		final long entry = first.openTicks() + sign * model.marketSlippageTicks();
-		final long through = model.limitThroughTicks();
-		long mae = 0;
-		long mfe = 0;
-		for (Bar bar : bars) {
-			long open = bar.openTicks();
-			if (!bar.openTime().isBefore(at)) {
-				if (stopTouched(dir, open, open, plan.stopTicks()) || targetTouched(dir, open, open, plan.targetTicks(), through)) {
-					return null;
-				}
-				long exit = open - sign * model.marketSlippageTicks();
-				return fill(Outcome.CLOSED, entryTime, entry, bar.openTime(), exit, sign,
-					Math.max(mae, adverse(sign, entry, exit)), Math.max(mfe, favourable(sign, entry, open)), false,
-					resolution);
-			}
-			if (stopTouched(dir, bar.lowTicks(), bar.highTicks(), plan.stopTicks())
-					|| targetTouched(dir, bar.lowTicks(), bar.highTicks(), plan.targetTicks(), through)) {
-				return null;
-			}
-			long worst = dir == Direction.LONG ? bar.lowTicks() : bar.highTicks();
-			long best = dir == Direction.LONG ? bar.highTicks() : bar.lowTicks();
-			mae = Math.max(mae, adverse(sign, entry, worst));
-			mfe = Math.max(mfe, favourable(sign, entry, best));
-		}
-		// No bar after the moment: the session closed first, and the plan's time exit stands.
-		return null;
+	/** Every contract's ticks together: a partial's at its level, the rest's at the exit (T28). */
+	public static long totalTicks(long pnlTicks, Leg partial, int contracts) {
+		return partial == null ? pnlTicks * contracts
+			: partial.pnlTicks() * partial.contracts() + pnlTicks * (contracts - partial.contracts());
+	}
+
+	private static Leg leg(Instant time, long entry, long exit, int sign, Partial partial, boolean gap) {
+		return new Leg(time, exit, sign * (exit - entry), partial.contracts(), gap);
 	}
 
 	private static boolean stopTouched(Direction dir, long low, long high, long stop) {
@@ -350,8 +402,8 @@ public final class FillEngine {
 	}
 
 	private static Fill fill(Outcome outcome, Instant entryTime, long entry, Instant exitTime,
-			long exit, int sign, long mae, long mfe, boolean gap, Resolution resolution) {
+			long exit, int sign, long mae, long mfe, boolean gap, Resolution resolution, Leg partial) {
 		return new Fill(outcome, entryTime, entry, exitTime, exit, sign * (exit - entry),
-			mae, mfe, gap, resolution);
+			mae, mfe, gap, resolution, partial);
 	}
 }

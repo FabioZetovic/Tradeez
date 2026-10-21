@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { PlanPanel } from './PlanPanel'
@@ -234,5 +234,71 @@ describe('PlanPanel price boxes', () => {
 
     expect(onChangeLevel).not.toHaveBeenCalled()
     expect(stop).toHaveValue('19991.50')
+  })
+})
+
+describe('PlanPanel partial (T28)', () => {
+  function partialPanel(plan: PlanRequest, onChangePartial = vi.fn()) {
+    return (
+      <PlanPanel
+        plan={plan}
+        referenceTicks={REF}
+        tickSize={0.25}
+        tickValueCents={500}
+        busy={false}
+        onPlace={vi.fn()}
+        onFlip={vi.fn()}
+        onDiscard={vi.fn()}
+        onChangeLevel={vi.fn()}
+        onChangeContracts={vi.fn()}
+        onChangePartial={onChangePartial}
+        onLock={vi.fn()}
+      />
+    )
+  }
+  const TWO: PlanRequest = { ...LONG, contracts: 2 }
+  const HALF: PlanRequest = { ...TWO, partialTicks: 80_046, partialContracts: 1, breakevenAfterPartial: false }
+
+  it('needs two contracts or more', () => {
+    render(partialPanel(LONG))
+    expect(screen.queryByLabelText('Partial')).not.toBeInTheDocument()
+    expect(screen.getByText(/two contracts or more/)).toBeInTheDocument()
+  })
+
+  it('takes half off at a typed price, by default, and leaves the stop where it is', async () => {
+    const onChangePartial = vi.fn()
+    const user = userEvent.setup()
+    render(partialPanel(TWO, onChangePartial))
+    expect(screen.getByLabelText('Partial')).toHaveValue('')
+    await user.type(screen.getByLabelText('Partial'), '20011.50{Enter}')
+    expect(onChangePartial).toHaveBeenCalledWith({ ticks: 80_046, contracts: 1, breakeven: false })
+  })
+
+  it('sets how many come off and the stop to the entry, and is removed when its price is emptied', async () => {
+    const onChangePartial = vi.fn()
+    const user = userEvent.setup()
+    render(partialPanel({ ...HALF, contracts: 3 }, onChangePartial))
+    expect(screen.getByLabelText('Partial')).toHaveValue('20011.50')
+    await user.click(screen.getByRole('checkbox', { name: /stop to the entry/ }))
+    expect(onChangePartial).toHaveBeenLastCalledWith({ ticks: 80_046, contracts: 1, breakeven: true })
+    fireEvent.change(screen.getByLabelText('Take off'), { target: { value: '2' } })
+    expect(onChangePartial).toHaveBeenLastCalledWith({ ticks: 80_046, contracts: 2, breakeven: false })
+    await user.clear(screen.getByLabelText('Partial'))
+    await user.tab()
+    expect(onChangePartial).toHaveBeenLastCalledWith(null)
+  })
+
+  it("reads the whole position's reward — the partial to its level, the rest to the target — and refuses one past it", () => {
+    const { rerender } = render(partialPanel(HALF))
+    const numbers = screen.getByTestId('plan-numbers')
+    // One contract 40 ticks to the partial, one 80 to the target, on 40 ticks of risk each.
+    expect(screen.getByTestId('plan-reward')).toHaveTextContent('40 then 80 ticks · $600.00')
+    expect(numbers).toHaveTextContent('1.50')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    rerender(partialPanel({ ...HALF, partialTicks: 80_086 }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/between the current price and the target/)
+    rerender(partialPanel({ ...HALF, partialContracts: 2 }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/fewer than all/)
   })
 })

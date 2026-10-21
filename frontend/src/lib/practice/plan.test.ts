@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   closedTradeDrawing,
   defaultBracket,
+  lockedBracket,
   directionOf,
   flipBracket,
   formatCents,
@@ -249,5 +250,77 @@ describe('what each outcome is called', () => {
     expect(outcomeLabel('STOP')).toBe('Stopped out')
     expect(outcomeLabel('TIME_EXIT')).toBe('Closed at the session end')
     expect(outcomeLabel('CLOSED')).toBe('Closed by you')
+  })
+})
+
+describe('partials (T28)', () => {
+  const plan = {
+    direction: 'LONG' as const,
+    stopTicks: REF - 40,
+    targetTicks: REF + 80,
+    contracts: 2,
+    referenceTicks: REF,
+    lockedAt: T,
+    plannedRewardRisk: 1.5,
+    partialTicks: REF + 40,
+    partialContracts: 1,
+    breakevenAfterPartial: true,
+  }
+  const filled = { time: T + 120, ticks: REF + 40, contracts: 1, pnlTicks: 39, gap: false }
+
+  it('goes into the request only when there is one', () => {
+    const drawing = defaultBracket('LONG', REF, T)
+    expect(planFromDrawing(drawing, 2, { ticks: REF + 40, contracts: 1, breakeven: true })).toEqual({
+      direction: 'LONG',
+      stopTicks: REF - 40,
+      targetTicks: REF + 80,
+      contracts: 2,
+      partialTicks: REF + 40,
+      partialContracts: 1,
+      breakevenAfterPartial: true,
+    })
+    expect(planFromDrawing(drawing, 2, null)).not.toHaveProperty('partialTicks')
+  })
+
+  it('is drawn on the running trade; once filled with the move, the stop is drawn at the entry', () => {
+    const before = lockedBracket(plan, T, REF + 1)
+    expect(before.partialTicks).toBe(REF + 40)
+    expect(before.anchors[1].priceTicks).toBe(REF - 40)
+    expect(lockedBracket(plan, T, REF + 1, filled).anchors[1].priceTicks).toBe(REF + 1)
+    expect(lockedBracket({ ...plan, breakevenAfterPartial: false }, T, REF + 1, filled).anchors[1].priceTicks).toBe(REF - 40)
+  })
+
+  it('stays on the finished trade, and is checked for its contracts and its place', () => {
+    const result = {
+      outcome: 'STOP' as const,
+      entryTime: T,
+      entryTicks: REF + 1,
+      exitTime: T + 600,
+      exitTicks: REF,
+      pnlTicks: -1,
+      netPnlCents: 0,
+      commissionCents: 500,
+      maeTicks: 1,
+      mfeTicks: 40,
+      gapExit: false,
+      rMultiple: 0.48,
+      resolution: 'M1',
+      engineVersion: 'fill-1.4.0',
+      fillModelVersion: 'slip-1t/comm-250c',
+      partial: filled,
+    }
+    expect(closedTradeDrawing({ number: 1, plan, result }, (t) => t)?.partialTicks).toBe(REF + 40)
+    const request = { direction: 'LONG' as const, stopTicks: REF - 40, targetTicks: REF + 80, contracts: 2 }
+    expect(planProblem({ ...request, partialTicks: REF + 40, partialContracts: 1 }, REF)).toBeNull()
+    expect(planProblem({ ...request, partialTicks: REF + 40 }, REF)).toMatch(/fewer than all/)
+    expect(planProblem({ ...request, partialTicks: REF, partialContracts: 1 }, REF)).toMatch(/between/)
+    expect(planProblem({ ...request, direction: 'SHORT', stopTicks: REF + 40, targetTicks: REF - 80, partialTicks: REF - 81, partialContracts: 1 }, REF)).toMatch(/between/)
+    expect(planNumbers({ ...request, partialTicks: REF + 40, partialContracts: 1 }, REF, 500)).toEqual({
+      riskTicks: 40,
+      rewardTicks: 80,
+      ratio: 1.5,
+      riskCents: 40_000,
+      rewardCents: 60_000,
+    })
   })
 })

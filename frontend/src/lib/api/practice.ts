@@ -40,6 +40,20 @@ export interface PlanView {
   /** T23: how sure the learner was, in percent, and the risk limit they had set then — each absent when not. */
   confidence?: number
   riskLimitCents?: number
+  /** T28: where some of the contracts come off, how many, and whether the stop then moves — absent without one. */
+  partialTicks?: number
+  partialContracts?: number
+  breakevenAfterPartial?: boolean
+}
+
+/** T28: the contracts a partial took off — when, where, and what each made before commission. */
+export interface PartialView {
+  time: number
+  ticks: number
+  contracts: number
+  pnlTicks: number
+  /** Filled at an opening price beyond the level. */
+  gap: boolean
 }
 
 /** ICT's entry models a trade can follow (T22, DEC-066), in the curriculum's order. */
@@ -88,7 +102,7 @@ export interface ResultView {
   entryTicks: number
   exitTime: number
   exitTicks: number
-  /** Per contract, after slippage, before commission. */
+  /** Per contract held to the exit — every one, or those a partial left — after slippage, before commission. */
   pnlTicks: number
   /** All contracts, commission included. */
   netPnlCents: number
@@ -100,6 +114,8 @@ export interface ResultView {
   resolution: string
   engineVersion: string
   fillModelVersion: string
+  /** T28: the contracts a partial took off before the exit; absent when none did. */
+  partial?: PartialView
 }
 
 /** One trade of the replay. Only the last can still be running. */
@@ -113,6 +129,8 @@ export interface TradeView {
   result?: ResultView
   /** T23: outcome and process apart, nothing added up. Absent until the replay has passed the exit. */
   scorecard?: ScorecardView
+  /** T28: the partial's fill, once the replay has passed it — while the rest still runs, too. */
+  partial?: PartialView
 }
 
 /** One statement about a trade; a verdict only where the rule is the learner's own (DEC-027). */
@@ -213,6 +231,10 @@ export interface PlanRequest {
   stopTicks: number
   targetTicks: number
   contracts: number
+  /** T28: some of the contracts off at a price before the target, and optionally the stop to the entry after. */
+  partialTicks?: number
+  partialContracts?: number
+  breakevenAfterPartial?: boolean
 }
 
 /** What the learner means by the trade (T22), and how sure they are (T23): all optional. */
@@ -294,7 +316,7 @@ export interface ReviewMoment {
   time: number
   /** Before the decision, from the decision to the exit, or after it. */
   phase: 'BEFORE' | 'TRADE' | 'AFTER'
-  kind: 'DECISION' | 'ENTRY' | 'RULE' | 'DRAW' | 'EXIT' | 'HELD'
+  kind: 'DECISION' | 'ENTRY' | 'RULE' | 'DRAW' | 'PARTIAL' | 'EXIT' | 'HELD'
   title: string
   /** A rule's hit: why it qualified, in the rule's own numbers. */
   lines: string[]

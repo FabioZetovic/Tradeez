@@ -67,6 +67,8 @@ export interface Drawing {
   endTime?: number
   /** A label's words, or a zone's name. At most {@link MAX_TEXT} characters. */
   text?: string
+  /** Position only (T28): where part of a practice trade comes off, drawn dashed between entry and target. */
+  partialTicks?: number
 }
 
 export const MAX_TEXT = 80

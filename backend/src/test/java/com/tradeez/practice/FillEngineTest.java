@@ -609,6 +609,180 @@ class FillEngineTest {
 	}
 
 	@Nested
+	@DisplayName("partials (fill-1.4.0, T28)")
+	class Partials {
+
+		/** Two contracts long from 1000: stop 960, one off at 1040, the other to 1080. */
+		private Plan halfAt1040(boolean breakeven) {
+			return new Plan(Direction.LONG, 960, 1080, 2, new FillEngine.Partial(1040, 1, breakeven));
+		}
+
+		@Test
+		@DisplayName("one off at its level on the way, the other at the target: every contract counted")
+		void thenTarget() {
+			Fill f = FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1045, 1001, 1030),
+				s(2, 1030, 1080, 1020, 1070)), NO_COSTS);
+
+			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(f.partial()).isEqualTo(new FillEngine.Leg(T0.plusSeconds(1), 1040, 40, 1, false));
+			assertThat(f.pnlTicks()).isEqualTo(80);
+			assertThat(f.totalTicks(2)).isEqualTo(120);
+			assertThat(f.netPnlCents(500, 2, new FillModel(0, 250))).isEqualTo(120 * 500 - 2 * 250);
+		}
+
+		@Test
+		@DisplayName("the target reached in the bar that reaches the partial: both filled, the partial first")
+		void bothInOneBar() {
+			Fill f = FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1085, 1001, 1080)), NO_COSTS);
+			assertThat(f.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(f.partial().exitTicks()).isEqualTo(1040);
+			assertThat(f.totalTicks(2)).isEqualTo(120);
+		}
+
+		@Test
+		@DisplayName("without the breakeven move, the rest goes on to the original stop")
+		void thenStop() {
+			Fill f = FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1045, 1001, 1030),
+				s(2, 1030, 1031, 995, 996),
+				s(3, 996, 997, 960, 965)), NO_COSTS);
+			assertThat(f.outcome()).isEqualTo(Outcome.STOP);
+			assertThat(f.exitTicks()).isEqualTo(960);
+			assertThat(f.totalTicks(2)).isEqualTo(40 - 40);
+		}
+
+		@Test
+		@DisplayName("with it, the stop is at the entry from the bar after the partial — never inside that bar")
+		void breakeven() {
+			List<Bar> bars = List.of(
+				s(0, 1000, 1010, 995, 1005),
+				// Reaches the partial and dips below the entry: which came first is unknown, so the stop stays put.
+				s(1, 1005, 1045, 999, 1030),
+				s(2, 1030, 1031, 995, 996));
+			Fill f = FillEngine.resolve(halfAt1040(true), bars, NO_COSTS);
+			assertThat(f.outcome()).isEqualTo(Outcome.STOP);
+			assertThat(f.exitTime()).isEqualTo(T0.plusSeconds(2));
+			assertThat(f.exitTicks()).isEqualTo(1000);
+			assertThat(f.totalTicks(2)).isEqualTo(40);
+			// The stop slips from the entry like any stop.
+			assertThat(FillEngine.resolve(halfAt1040(true), bars, new FillModel(1, 0)).exitTicks()).isEqualTo(999);
+			// Without the move the same bars run on to the session's end.
+			assertThat(FillEngine.resolve(halfAt1040(false), bars, NO_COSTS).outcome()).isEqualTo(Outcome.TIME_EXIT);
+		}
+
+		@Test
+		@DisplayName("the stop and the partial's level in one bar: ambiguous, assumed the stop for every contract")
+		void ambiguous() {
+			Fill f = FillEngine.resolve(halfAt1040(true), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1045, 955, 1000)), NO_COSTS);
+			assertThat(f.outcome()).isEqualTo(Outcome.AMBIGUOUS);
+			assertThat(f.partial()).isNull();
+			assertThat(f.totalTicks(2)).isEqualTo(-80);
+			assertThat(f.mfeTicks()).isEqualTo(40);
+		}
+
+		@Test
+		@DisplayName("an open beyond the level fills it there; beyond the target too, both")
+		void gaps() {
+			Fill past = FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1050, 1055, 1045, 1050),
+				s(2, 1050, 1080, 1045, 1075)), NO_COSTS);
+			assertThat(past.partial()).isEqualTo(new FillEngine.Leg(T0.plusSeconds(1), 1050, 50, 1, true));
+			assertThat(past.mfeTicks()).isEqualTo(80);
+
+			Fill both = FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1090, 1095, 1085, 1090)), NO_COSTS);
+			assertThat(both.outcome()).isEqualTo(Outcome.TARGET);
+			assertThat(both.gapExit()).isTrue();
+			assertThat(both.partial()).isEqualTo(new FillEngine.Leg(T0.plusSeconds(1), 1090, 90, 1, true));
+			assertThat(both.totalTicks(2)).isEqualTo(180);
+		}
+
+		@Test
+		@DisplayName("a short mirrors it; a partial never reached leaves every contract to the exit")
+		void shortAndUnreached() {
+			Plan plan = new Plan(Direction.SHORT, 1040, 920, 3, new FillEngine.Partial(960, 2, false));
+			Fill f = FillEngine.resolve(plan, List.of(
+				s(0, 1000, 1005, 990, 995),
+				s(1, 995, 996, 955, 970),
+				s(2, 970, 975, 920, 925)), NO_COSTS);
+			assertThat(f.partial()).isEqualTo(new FillEngine.Leg(T0.plusSeconds(1), 960, 40, 2, false));
+			assertThat(f.totalTicks(3)).isEqualTo(2 * 40 + 80);
+
+			Fill stopped = FillEngine.resolve(plan, List.of(
+				s(0, 1000, 1005, 990, 995),
+				s(1, 995, 1040, 990, 1035)), NO_COSTS);
+			assertThat(stopped.partial()).isNull();
+			assertThat(stopped.totalTicks(3)).isEqualTo(3 * -40);
+		}
+
+		@Test
+		@DisplayName("a partial that must be traded through, like the target")
+		void through() {
+			FillModel through = new FillModel(0, 0, 1, 0);
+			assertThat(FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1040, 1001, 1030)), through).partial()).isNull();
+			assertThat(FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1041, 1001, 1030)), through).partial().exitTicks()).isEqualTo(1040);
+		}
+
+		@Test
+		@DisplayName("a close at market keeps a partial filled before it, and takes every contract when none was")
+		void closeAtMarket() {
+			List<Bar> bars = List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1045, 1001, 1030),
+				s(2, 1030, 1035, 1020, 1025),
+				s(3, 1025, 1030, 1015, 1020));
+			Fill after = FillEngine.closeAtMarket(halfAt1040(false), bars, T0.plusSeconds(3), NO_COSTS, Resolution.S1);
+			assertThat(after.outcome()).isEqualTo(Outcome.CLOSED);
+			assertThat(after.partial().exitTicks()).isEqualTo(1040);
+			assertThat(after.exitTicks()).isEqualTo(1025);
+			assertThat(after.totalTicks(2)).isEqualTo(40 + 25);
+
+			Fill before = FillEngine.closeAtMarket(halfAt1040(false), bars, T0.plusSeconds(1), NO_COSTS, Resolution.S1);
+			assertThat(before.partial()).isNull();
+			assertThat(before.totalTicks(2)).isEqualTo(2 * 5);
+		}
+
+		@Test
+		@DisplayName("a session's end flattens the rest and keeps the partial")
+		void timeExit() {
+			Fill f = FillEngine.resolve(halfAt1040(false), List.of(
+				s(0, 1000, 1010, 995, 1005),
+				s(1, 1005, 1045, 1001, 1030)), NO_COSTS);
+			assertThat(f.outcome()).isEqualTo(Outcome.TIME_EXIT);
+			assertThat(f.totalTicks(2)).isEqualTo(40 + 30);
+		}
+
+		@Test
+		@DisplayName("some of the contracts, not none or all, between the stop and the target")
+		void checked() {
+			assertThatThrownBy(() -> new Plan(Direction.LONG, 960, 1080, 2, new FillEngine.Partial(1040, 2, false)))
+				.isInstanceOf(IllegalArgumentException.class);
+			assertThatThrownBy(() -> new Plan(Direction.LONG, 960, 1080, 2, new FillEngine.Partial(1040, 0, false)))
+				.isInstanceOf(IllegalArgumentException.class);
+			assertThatThrownBy(() -> new Plan(Direction.LONG, 960, 1080, 2, new FillEngine.Partial(1080, 1, false)))
+				.isInstanceOf(IllegalArgumentException.class);
+			assertThatThrownBy(() -> new Plan(Direction.LONG, 960, 1080, 2, new FillEngine.Partial(960, 1, false)))
+				.isInstanceOf(IllegalArgumentException.class);
+			assertThatThrownBy(() -> new Plan(Direction.SHORT, 1040, 920, 2, new FillEngine.Partial(1050, 1, false)))
+				.isInstanceOf(IllegalArgumentException.class);
+			assertThat(new Plan(Direction.SHORT, 1040, 920, 2, new FillEngine.Partial(921, 1, false)).partial()).isNotNull();
+		}
+	}
+
+	@Nested
 	@DisplayName("fill-1.3.0's costs (T27, DEC-072)")
 	class Fill130 {
 

@@ -2,6 +2,7 @@ package com.tradeez.practice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,7 +45,7 @@ import jakarta.servlet.http.Cookie;
 
 /**
  * Stop loss and take profit through the whole app — the API, the service, the fill engine, the
- * database — on imported one-minute NQ, as a learner's trade really runs (fill-1.3.0).
+ * database — on imported one-minute NQ, as a learner's trade really runs (fill-1.4.0).
  *
  * <p>Two kinds of test. <b>Worked examples</b>: the replay is put at a chosen minute and the minutes
  * after it are written by hand, so each case reads like the lesson it is — a long reaching its target,
@@ -431,7 +432,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		JsonNode result = result(skip(id));
 
 		assertThat(result.get("fillModelVersion").asString()).isEqualTo("mkt-1t/slip-1t/thru-1t/comm-450c");
-		assertThat(result.get("engineVersion").asString()).isEqualTo("fill-1.3.0");
+		assertThat(result.get("engineVersion").asString()).isEqualTo("fill-1.4.0");
 		assertThat(result.get("outcome").asString()).isEqualTo("TARGET");
 		assertThat(result.get("entryTicks").asLong()).as("a market order a tick dear").isEqualTo(80_001);
 		assertThat(result.get("exitTicks").asLong()).as("the limit's own price, once traded through").isEqualTo(80_008);
@@ -487,6 +488,173 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		assertThat(result.get("pnlTicks").asLong()).isEqualTo(2);
 		assertThat(result.get("netPnlCents").asLong()).isEqualTo(2 * TICK_CENTS - COMMISSION_CENTS);
 		assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.04);
+	}
+
+	@Nested
+	@DisplayName("a partial (T28, DEC-074)")
+	class Partials {
+
+		/**
+		 * Long two from 80,000: stop 79,990, one off at 80,010, the other to 80,020. The second minute reaches the
+		 * partial; the fourth comes back a tick under the entry, and the fifth falls through the stop.
+		 */
+		private String upThenDown() throws Exception {
+			return standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
+				m(80_000, 80_004, 79_998, 80_003),
+				m(80_003, 80_011, 80_002, 80_008),
+				m(80_008, 80_009, 80_004, 80_005),
+				m(80_005, 80_006, 79_999, 80_000),
+				m(80_000, 80_001, 79_985, 79_986));
+		}
+
+		private ResultActions planWithPartial(String id, String partial) throws Exception {
+			return mockMvc.perform(post("/api/practice/sessions/" + id + "/plan").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"direction\":\"LONG\",\"stopTicks\":79990,\"targetTicks\":80020,\"contracts\":2" + partial + "}"));
+		}
+
+		private static String line(JsonNode lines, String id) {
+			for (JsonNode line : lines) {
+				if (line.get("id").asString().equals(id)) {
+					return line.get("text").asString();
+				}
+			}
+			return null;
+		}
+
+		@Test
+		@DisplayName("one off at +1R, the stop on the other then at the entry: +10 and −1 ticks, $40.00 net, 0.45R")
+		void breakeven() throws Exception {
+			String id = upThenDown();
+			planWithPartial(id, ",\"partialTicks\":80010,\"partialContracts\":1,\"breakevenAfterPartial\":true")
+				.andExpect(status().isOk());
+			JsonNode state = skip(id);
+			JsonNode result = result(state);
+
+			assertThat(result.get("outcome").asString()).isEqualTo("STOP");
+			assertThat(result.get("exitTicks").asLong()).as("the entry, slipped a tick").isEqualTo(79_999);
+			assertThat(result.get("pnlTicks").asLong()).isEqualTo(-1);
+			assertThat(result.at("/partial/ticks").asLong()).isEqualTo(80_010);
+			assertThat(result.at("/partial/contracts").asInt()).isEqualTo(1);
+			assertThat(result.at("/partial/pnlTicks").asLong()).isEqualTo(10);
+			assertThat(result.at("/partial/gap").asBoolean()).isFalse();
+			assertThat(result.get("netPnlCents").asLong()).isEqualTo((10 - 1) * TICK_CENTS - 2 * COMMISSION_CENTS);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.45);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.45);
+			assertThat(state.at("/score/wins").asInt()).isEqualTo(1);
+			assertThat(stored(id, 1).exitTime()).isEqualTo(TUESDAY_10AM.plusSeconds(180));
+
+			JsonNode plan = state.at("/trades/0/plan");
+			assertThat(plan.get("partialTicks").asLong()).isEqualTo(80_010);
+			assertThat(plan.get("partialContracts").asInt()).isEqualTo(1);
+			assertThat(plan.get("breakevenAfterPartial").asBoolean()).isTrue();
+			assertThat(plan.get("plannedRewardRisk").asDouble()).as("one to +1R, one to +2R").isEqualTo(1.5);
+
+			JsonNode card = state.at("/trades/0/scorecard");
+			assertThat(line(card.get("outcome"), "partial"))
+				.isEqualTo("1 of 2 contracts taken off at 20002.50: +1.00R on each; the stop on the rest then moved to the entry.");
+			assertThat(line(card.get("outcome"), "costs"))
+				.isEqualTo("Fees $5.00 and slippage of 1 tick across the contracts ($5.00): $10.00, 0.10R of what was risked.");
+			assertThat(line(card.get("process"), "execution"))
+				.isEqualTo("Held to the plan: the stop, moved to the entry after the partial, closed the rest.");
+			assertThat(line(card.get("process"), "reward"))
+				.isEqualTo("Planned 1.50 : 1, the partial's contracts to their level and the rest to the target.");
+
+			JsonNode review = read(mockMvc.perform(get("/api/practice/sessions/" + id + "/trades/1/review").cookie(alice))
+				.andExpect(status().isOk()));
+			JsonNode partial = null;
+			for (JsonNode moment : review.get("moments")) {
+				if (moment.get("kind").asString().equals("PARTIAL")) {
+					partial = moment;
+				}
+			}
+			assertThat(partial).isNotNull();
+			assertThat(partial.get("title").asString()).isEqualTo("1 of 2 taken off at 20002.50: +1.00R on each.");
+			assertThat(partial.get("lines").get(0).asString())
+				.isEqualTo("The stop on the last contract moved to the entry, 20000.00, once that candle had closed.");
+			JsonNode decision = null;
+			for (JsonNode moment : review.get("moments")) {
+				if (moment.get("kind").asString().equals("DECISION")) {
+					decision = moment;
+				}
+			}
+			assertThat(decision.get("lines").get(1).asString())
+				.isEqualTo("Take 1 off at 20002.50, then move the stop on the rest to the entry.");
+		}
+
+		@Test
+		@DisplayName("without the move the other runs on, and a partial never reached is said so")
+		void heldAndUnreached() throws Exception {
+			String id = upThenDown();
+			planWithPartial(id, ",\"partialTicks\":80010,\"partialContracts\":1").andExpect(status().isOk());
+			JsonNode held = result(skip(id));
+			assertThat(held.get("outcome").asString()).isEqualTo("STOP");
+			assertThat(stored(id, 1).exitTime()).as("on past the entry, to the stop").isEqualTo(TUESDAY_10AM.plusSeconds(240));
+			assertThat(held.get("rMultiple").asDouble()).as("+10 and −11 ticks over two contracts").isEqualTo(-0.05);
+
+			String far = upThenDown();
+			planWithPartial(far, ",\"partialTicks\":80015,\"partialContracts\":1").andExpect(status().isOk());
+			JsonNode state = skip(far);
+			assertThat(result(state).has("partial")).isFalse();
+			assertThat(line(state.at("/trades/0/scorecard/outcome"), "partial"))
+				.isEqualTo("Your partial at 20003.75 was not reached before the exit.");
+		}
+
+		@Test
+		@DisplayName("a minute reaching it and the stop is ambiguous: the stop for both, and the note names the level")
+		void ambiguous() throws Exception {
+			String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
+				m(80_000, 80_004, 79_998, 80_003),
+				m(80_003, 80_011, 79_989, 79_995));
+			planWithPartial(id, ",\"partialTicks\":80010,\"partialContracts\":1,\"breakevenAfterPartial\":true")
+				.andExpect(status().isOk());
+			JsonNode result = result(skip(id));
+			assertThat(result.get("outcome").asString()).isEqualTo("AMBIGUOUS");
+			assertThat(result.has("partial")).isFalse();
+			assertThat(result.get("assumption").asString()).contains("the price to take part off at")
+				.endsWith("the stop, for every contract.");
+			assertThat(result.get("rMultiple").asDouble()).as("−11 ticks on each of two").isEqualTo(-1.1);
+		}
+
+		@Test
+		@DisplayName("is shown once the replay passes it, before the exit; a close then takes the rest")
+		void revealedThenClosed() throws Exception {
+			String id = upThenDown();
+			planWithPartial(id, ",\"partialTicks\":80010,\"partialContracts\":1,\"breakevenAfterPartial\":true")
+				.andExpect(status().isOk());
+			JsonNode first = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"bars\":1,\"timeframe\":\"1m\"}"))
+				.andExpect(status().isOk())).get("state");
+			assertThat(first.at("/trades/0").has("partial")).as("its minute not yet closed").isFalse();
+			JsonNode second = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"bars\":1,\"timeframe\":\"1m\"}"))
+				.andExpect(status().isOk())).get("state");
+			assertThat(second.at("/trades/0/partial/ticks").asLong()).isEqualTo(80_010);
+			assertThat(second.at("/trades/0").has("result")).isFalse();
+
+			JsonNode result = result(read(mockMvc.perform(post("/api/practice/sessions/" + id + "/close?timeframe=1m")
+				.cookie(alice).with(csrf())).andExpect(status().isOk())).get("state"));
+			assertThat(result.get("outcome").asString()).isEqualTo("CLOSED");
+			assertThat(result.get("exitTicks").asLong()).isEqualTo(80_008);
+			assertThat(result.at("/partial/ticks").asLong()).isEqualTo(80_010);
+			assertThat(result.get("netPnlCents").asLong()).isEqualTo((10 + 8) * TICK_CENTS - 2 * COMMISSION_CENTS);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.9);
+		}
+
+		@Test
+		@DisplayName("some of the contracts, at a price between the price and the target, or it is refused")
+		void refused() throws Exception {
+			String id = upThenDown();
+			planWithPartial(id, ",\"partialTicks\":80010").andExpect(status().isBadRequest());
+			assertThat(read(planWithPartial(id, ",\"partialTicks\":80010,\"partialContracts\":2")
+				.andExpect(status().isBadRequest())).get("message").asString()).contains("fewer than all 2");
+			planWithPartial(id, ",\"partialTicks\":80020,\"partialContracts\":1").andExpect(status().isBadRequest());
+			assertThat(read(planWithPartial(id, ",\"partialTicks\":80000,\"partialContracts\":1")
+				.andExpect(status().isBadRequest())).get("message").asString()).contains("between the current price");
+			planWithPartial(id, ",\"partialContracts\":1").andExpect(status().isBadRequest());
+			planWithPartial(id, ",\"breakevenAfterPartial\":true").andExpect(status().isBadRequest());
+			planWithPartial(id, ",\"partialTicks\":80019,\"partialContracts\":1").andExpect(status().isOk());
+		}
 	}
 
 	// ---------------------------------------------------------------------------------------------
