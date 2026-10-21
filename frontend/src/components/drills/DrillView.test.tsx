@@ -43,6 +43,15 @@ const KINDS: DrillKindView[] = [
     ruleVersion: 'liquidity-1.0.0',
     instructions: 'The chart stops here. Which does price take first?',
   },
+  {
+    kind: 'OPEN_TRADE_MANAGEMENT',
+    mode: 'MANAGE',
+    title: 'Manage an open trade',
+    conceptId: 'ICT-82',
+    detector: 'MANAGE',
+    ruleVersion: 'manage-1.0.0',
+    instructions: 'A trade is open and in profit. Hold it, move its stop to the entry, or take half off?',
+  },
 ]
 
 const DRILL: DrillResponse = {
@@ -228,6 +237,54 @@ const PREDICTED = (choice: string): DrillResponse => ({
   },
 })
 
+/** A long from 80,000, stop 79,992, target 80,024: open at +1.13R when the chart stops (T26). */
+const MANAGEMENT: DrillResponse = {
+  ...PREDICTION,
+  id: 'drill-4',
+  kind: 'OPEN_TRADE_MANAGEMENT',
+  mode: 'MANAGE',
+  title: 'Manage an open trade',
+  conceptId: 'ICT-82',
+  instructions: 'A trade is open and in profit. Hold it, move its stop to the entry, or take half off?',
+  rule: { ...DRILL.rule, detector: 'MANAGE', version: 'manage-1.0.0', definition: 'A trade opened at a candle close.' },
+  question: {
+    version: 'manage-1.0.0',
+    definition: 'A trade opened at a candle close.',
+    closeTicks: 80_009,
+    targets: [],
+    context: [
+      { what: 'TRADE_TARGET', shape: 'LEVEL', fromTime: T0 + 15 * 300, lowTicks: 80_024, highTicks: 80_024, label: 'Target 20006.00' },
+      { what: 'TRADE_ENTRY', shape: 'LEVEL', fromTime: T0 + 15 * 300, lowTicks: 80_000, highTicks: 80_000, label: 'Long from 20000.00 · now +1.13R' },
+      { what: 'TRADE_STOP', shape: 'LEVEL', fromTime: T0 + 15 * 300, lowTicks: 79_992, highTicks: 79_992, label: 'Stop 19998.00' },
+    ],
+  },
+  options: [
+    { value: 'HOLD', label: 'Hold — leave the stop and the target' },
+    { value: 'BREAKEVEN', label: 'Stop to breakeven — move the stop to the entry' },
+    { value: 'HALF', label: 'Half off — close half at the next open, hold the rest' },
+  ],
+}
+
+const MANAGED = (choice: string): DrillResponse => ({
+  ...MANAGEMENT,
+  choice,
+  revealed: REVEALED,
+  result: {
+    answer: 'HOLD,BREAKEVEN',
+    correct: choice !== 'HALF',
+    setups: [],
+    outcomeTime: T0 + 31 * 300,
+    candlesAfter: 2,
+    explanation: [
+      'When the chart stopped, the long stood at +1.13R: entry 20000.00, stop 19998.00, target 20006.00.',
+      'Hold: the target filled at 20006.00, 2 candles later — +3.00R.',
+      'Stop to breakeven: the target filled at 20006.00, 2 candles later — +3.00R.',
+      'Half off at the next open, 20002.50 (+1.25R on that half), the rest held: +2.13R in all.',
+      'One trade shows which choice paid here, not which pays.',
+    ],
+  },
+})
+
 interface Call {
   method: string
   url: string
@@ -274,7 +331,14 @@ function server({
       const kind = (call.body as { kind?: string }).kind
       return {
         status: 201,
-        body: kind === 'BOS_CHOCH_CLASSIFICATION' ? CLASSIFY : kind === 'LIQUIDITY_FIRST_PREDICTION' ? PREDICTION : drill,
+        body:
+          kind === 'BOS_CHOCH_CLASSIFICATION'
+            ? CLASSIFY
+            : kind === 'LIQUIDITY_FIRST_PREDICTION'
+              ? PREDICTION
+              : kind === 'OPEN_TRADE_MANAGEMENT'
+                ? MANAGEMENT
+                : drill,
       }
     }
     if (call.method === 'POST' && call.url.endsWith('/answer')) {
@@ -446,6 +510,43 @@ describe('Drills — name (classification)', () => {
     const user = await startDrill('BOS_CHOCH_CLASSIFICATION')
     await user.click(screen.getByRole('button', { name: 'Change of character (CHoCH)' }))
     expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Correct — Change of character (CHoCH)')
+  })
+})
+
+describe('Drills — manage (T26)', () => {
+  beforeEach(() => mockApi(server({ answer: (body) => ({ body: MANAGED(body.choice ?? '') }) })))
+
+  it('draws the open trade and offers three choices — no targets, no names, nothing after the moment', async () => {
+    await startDrill('OPEN_TRADE_MANAGEMENT')
+    expect(started()?.body).toMatchObject({ kind: 'OPEN_TRADE_MANAGEMENT' })
+    expect(screen.getByTestId('graded')).toHaveTextContent('Graded by what price did · manage-1.0.0')
+    expect(screen.getByText('The trade is open and in profit. What do you do with it?')).toBeInTheDocument()
+    const answer = screen.getByRole('region', { name: 'Answer' })
+    expect(within(answer).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Hold — leave the stop and the target',
+      'Stop to breakeven — move the stop to the entry',
+      'Half off — close half at the next open, hold the rest',
+    ])
+    expect(screen.queryByTestId('target-facts')).toBeNull()
+    expect(screen.queryByTestId('drill-summary')).toBeNull()
+  })
+
+  it('a choice among those that paid most is right, and the hidden candles come with every choice told', async () => {
+    const user = await startDrill('OPEN_TRADE_MANAGEMENT')
+    await user.click(screen.getByRole('button', { name: 'Stop to breakeven — move the stop to the entry' }))
+    expect(calls.find((c) => c.url.endsWith('/answer'))?.body).toEqual({ choice: 'BREAKEVEN' })
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Yes — Hold and Stop to breakeven paid most here')
+    expect(screen.getByTestId('drill-grade')).toHaveTextContent('Graded by what real price did with each choice')
+    expect(screen.getByText(/the rest held: \+2\.13R in all/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Answer' })).toBeNull()
+  })
+
+  it('a choice that paid less says which paid most, and which was chosen', async () => {
+    const user = await startDrill('OPEN_TRADE_MANAGEMENT')
+    await user.click(screen.getByRole('button', { name: 'Half off — close half at the next open, hold the rest' }))
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent(
+      'Hold and Stop to breakeven paid most here; you chose Half off',
+    )
   })
 })
 

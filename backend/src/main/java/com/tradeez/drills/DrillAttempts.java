@@ -28,6 +28,7 @@ import tools.jackson.databind.ObjectMapper;
  *       found ÷ (found + missed + extra). Excused marks count neither way, as in the result.</li>
  *   <li>Naming (B): 1 for the rule's name, 0 for another.</li>
  *   <li>Predicting (C): 1 when the target chosen came first — practice, never rated.</li>
+ *   <li>Managing (E, T26): 1 when the choice was among those that paid most — practice, never rated.</li>
  * </ul>
  *
  * <p>Only graded drills are read, and the database grades a drill only on real data (DEC-034).
@@ -60,8 +61,7 @@ public class DrillAttempts {
 		jdbc.query(SQL, rs -> {
 			DrillKind kind = kind(rs.getString(1));
 			if (kind != null) {
-				attempts.add(new Attempt(kind.conceptId(), rs.getTimestamp(2).toInstant(), score(kind, rs),
-					kind.mode() != Mode.PREDICT));
+				attempts.add(new Attempt(kind.conceptId(), rs.getTimestamp(2).toInstant(), score(kind, rs), rated(kind)));
 			}
 		}, userId);
 		return attempts;
@@ -70,7 +70,12 @@ public class DrillAttempts {
 	/** Whether any drill grades this concept against a rule: a marking or naming drill practises it. */
 	public static boolean rates(String conceptId) {
 		return Arrays.stream(DrillKind.values())
-			.anyMatch(k -> k.mode() != Mode.PREDICT && k.conceptId().equals(conceptId));
+			.anyMatch(k -> rated(k) && k.conceptId().equals(conceptId));
+	}
+
+	/** Graded against a rule: marking and naming. What the future decides is practice, never a rating. */
+	private static boolean rated(DrillKind kind) {
+		return kind.mode() == Mode.IDENTIFY || kind.mode() == Mode.CLASSIFY;
 	}
 
 	private double score(DrillKind kind, ResultSet rs) throws SQLException {
@@ -89,6 +94,7 @@ public class DrillAttempts {
 			}
 			case CLASSIFY -> !kinds.isEmpty() && kinds.getFirst().equals(rs.getString(4)) ? 1.0 : 0.0;
 			case PREDICT -> rs.getString(4) != null && rs.getString(4).equals(rs.getString(6)) ? 1.0 : 0.0;
+			case MANAGE -> Management.paidMost(rs.getString(6), rs.getString(4)) ? 1.0 : 0.0;
 		};
 	}
 

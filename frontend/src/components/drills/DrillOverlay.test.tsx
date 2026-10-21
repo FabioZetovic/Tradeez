@@ -64,6 +64,36 @@ describe('the drill overlay', () => {
     expect(texts(calls)).not.toContain('chart ended')
   })
 
+  it('T26: draws an open trade — target green, stop red, entry plain — across the chart, past the moment', () => {
+    const trade: QuestionView = {
+      version: 'manage-1.0.0',
+      definition: 'manage-1.0.0.',
+      closeTicks: 80_009,
+      targets: [],
+      context: [
+        { what: 'TRADE_TARGET', shape: 'LEVEL', fromTime: T0 + 15 * 300, lowTicks: 80_024, highTicks: 80_024, label: 'Target 20006.00' },
+        { what: 'TRADE_ENTRY', shape: 'LEVEL', fromTime: T0 + 15 * 300, lowTicks: 80_000, highTicks: 80_000, label: 'Long from 20000.00' },
+        { what: 'TRADE_STOP', shape: 'LEVEL', fromTime: T0 + 15 * 300, lowTicks: 79_992, highTicks: 79_992, label: 'Stop 19998.00' },
+      ],
+    }
+    // Answered, with the future on the chart: the lines run on past the moment to the last candle.
+    const bars = [...BARS, { ...BARS[0], time: MOMENT + 600 }]
+    const calls = paint({ question: trade, moment: MOMENT, bars })
+    const lines = calls.filter((c) => c.op === 'lineTo')
+    expect(lines.map((c) => [c.args[1], c.stroke])).toEqual(
+      expect.arrayContaining([
+        [476, '#3fb950'],
+        [508, '#f85149'],
+        [500, '#e6edf3'],
+      ]),
+    )
+    // Each from the entry's candle to the last candle and on: past where the chart stopped.
+    expect(lines.filter((c) => c.args[1] === 476).every((c) => (c.args[0] as number) > MOMENT - 1000)).toBe(true)
+    expect(texts(calls)).toEqual(expect.arrayContaining(['Target 20006.00', 'Long from 20000.00', 'Stop 19998.00']))
+    const label = calls.find((c) => c.op === 'fillText' && c.args[0] === 'Stop 19998.00')
+    expect(label?.fill).toBe('#f85149')
+  })
+
   it('once answered, marks where the chart ended and rings the candle that decided it', () => {
     const decided = MOMENT + 300
     const result: ResultView = { answer: 'SSL', correct: false, setups: [], outcomeTime: decided, candlesAfter: 2 }

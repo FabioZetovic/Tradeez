@@ -269,7 +269,16 @@ function drawContext(
   const yHigh = projection.priceToY(item.highTicks)
   if (x === null || yLow === null || yHigh === null) return
   ctx.save()
-  if (item.shape === 'ZONE') {
+  if (item.what.startsWith('TRADE_')) {
+    // A management drill's trade: drawn across the whole chart, so the future after the answer reads against it.
+    ctx.strokeStyle = item.what === 'TRADE_TARGET' ? '#3fb950' : item.what === 'TRADE_STOP' ? '#f85149' : TEXT
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(x, yLow)
+    ctx.lineTo(right, yLow)
+    ctx.stroke()
+    label(ctx, item.label, right, yLow - 5, item.what === 'TRADE_TARGET' ? '#3fb950' : item.what === 'TRADE_STOP' ? '#f85149' : TEXT)
+  } else if (item.shape === 'ZONE') {
     ctx.fillStyle = item.what === 'IRL_BULLISH_GAP' ? 'rgba(63, 185, 80, 0.10)' : 'rgba(248, 81, 73, 0.10)'
     ctx.fillRect(x, Math.min(yLow, yHigh), right - x, Math.max(Math.abs(yLow - yHigh), 1))
     label(ctx, item.label, right, Math.min(yLow, yHigh) - 3, MUTED)

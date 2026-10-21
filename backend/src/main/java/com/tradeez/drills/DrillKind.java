@@ -80,6 +80,16 @@ public enum DrillKind {
 		List.of(List.of("IRL", "ERL")), 1, 0, 0,
 		"The last candle took resting liquidity — external liquidity. Does price next reach the gap left "
 			+ "behind (internal), or the next resting level beyond (external)?",
+		null),
+
+	/**
+	 * Mode E (T26, DEC-071): a trade is open and in profit — hold, stop to breakeven, or half off? What price did
+	 * with each decides ({@link Management}).
+	 */
+	OPEN_TRADE_MANAGEMENT(Mode.MANAGE, "MANAGE", "ICT-82", "Manage an open trade", Set.of(),
+		List.of(List.of("HOLD", "BREAKEVEN", "HALF")), 0, 0, 0,
+		"A trade is open and in profit. Hold it to its stop and target, move its stop to the entry, or take half off "
+			+ "at the next open and hold the rest?",
 		null);
 
 	public enum Mode {
@@ -88,11 +98,17 @@ public enum DrillKind {
 		/** Mode B: name the marked structure. */
 		CLASSIFY,
 		/** Mode C: say what price does next; the future decides. */
-		PREDICT;
+		PREDICT,
+		/** Mode E: manage an open trade; the future decides (T26). */
+		MANAGE;
 
-		/** Candles shown: a glance for A; for B and C, room for the context the answer depends on. */
+		/** Candles shown: a glance for A; for B and C, room for the context the answer depends on; for E, the trade's life. */
 		int windowBars() {
-			return this == IDENTIFY ? DrillService.WINDOW_BARS : DrillService.CLASSIFY_WINDOW_BARS;
+			return switch (this) {
+				case IDENTIFY -> DrillService.WINDOW_BARS;
+				case MANAGE -> DrillService.MANAGE_WINDOW_BARS;
+				default -> DrillService.CLASSIFY_WINDOW_BARS;
+			};
 		}
 	}
 
@@ -175,7 +191,7 @@ public enum DrillKind {
 		return options.stream().anyMatch(group -> group.contains(hit.getKind()));
 	}
 
-	/** For C: the two answers, in the order offered. */
+	/** For C: the two answers, in the order offered; for E, the three choices. */
 	List<String> predictions() {
 		return options.getFirst();
 	}

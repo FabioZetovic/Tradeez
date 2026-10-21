@@ -887,6 +887,56 @@ candles), about one candle in nine, which is T10's question.
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
 
+**DEC-071 — Management drills: an open trade in profit, three choices, real price decides (mode E)**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-20), T26 — DEC-023 mode E, ICT-82
+
+Mode E of the drill engine (DEC-023): "+1.5R and stalling — hold, breakeven, or partials?". One drill,
+`OPEN_TRADE_MANAGEMENT`, under the rule `manage-1.0.0` (`Management`), on real NQ only, in the same frame as the
+predictions (DEC-058): decided when made from stored candles, written once, nothing after the moment sent before
+the answer.
+
+- **The trade** is a construction, not an ICT setup, and the rule card says so: opened at a candle's close, long or
+  short, its stop 1.5 average true ranges of the 14 candles before away (at least 8 ticks), its target 3R.
+- **The moment** is its first close at least 1R in profit, three or more candles after the entry, the stop
+  untouched and the target not reached. The chart stops there, the entry, stop and target drawn across it.
+- **Three choices,** each played out on the candles after: *hold* — the stop and target as they are; *stop to
+  breakeven* — the stop moved to the entry; *half off* — half closed at the next open, the rest held. To the first
+  level or 100 candles; a candle opening beyond a level fills at its open; one reaching both is read on its minutes,
+  and a moment the minutes cannot settle is never asked. No slippage, no commission.
+- **Graded by what real price did:** the choices that paid most are the answer, a tie counting for each. The result
+  tells every choice in prices and R and ends with the caveat that matters: one trade shows which choice paid here,
+  not which pays — management is a policy, and only many of these show what each does on real NQ. Like the
+  predictions it is practice for the learning state, never a rating of ICT-82.
+
+Breakeven never finishes after holding — its stop is nearer and the target the same — so a drill is decided when
+holding ends.
+
+**Not in this decision:** the base rates across many drills (which choice pays most how often), trailing stops and
+partials at other levels, and management inside the practice replay itself (stop moves stay refused there, DEC-013).
+
+**DEC-070 — Risk drills: the arithmetic of risk, against the clock (mode F)**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-20), T26 — DEC-023 mode F, ICT-83
+
+Mode F of the drill engine (DEC-023): "position sizing under time pressure". Three questions of `risk-1.0.0`,
+generated on the server from a random draw and stored with their answer (V21, `risk_drill`):
+
+- **Position size** — an account ($25,000 to $250,000), a share of it to risk (0.5, 1 or 2%), a stop of 8 to 120
+  ticks on NQ ($5 a tick) or MNQ ($0.50): how many contracts? Always rounded down, or the risk is over the limit;
+  sometimes none, and then the working says MNQ may fit. Exact; at most 30 contracts are ever asked; 30 seconds.
+- **A losing streak** — 0.5 to 5% of what is left risked on each of 3 to 12 losses in a row: how far down? The
+  compounded answer, within half a point; the working sets it beside the fixed-dollar figure; 45 seconds.
+- **Recovery** — down 10 to 75%: what gain brings the account back? Within a point; 30 seconds.
+
+The answer and its working leave the server only with the result, and a question is answered once (the update
+requires it unanswered, so two racing answers cannot both count; the database keeps the answer, its time and its
+grade together). The clock is pressure, not a rule: the page counts down, an answer after it still counts, and the
+result says how long it took — the database's clock from the question to the answer — and whether that was
+inside the limit. Each kind keeps the learner's record: right so far, of how many. Commission and slippage are
+left out, and the question says so.
+
+**Not in this decision:** mode E, managing an open trade (next, DEC-071); drawdown and daily limits in the replay
+itself; account-size settings beyond the risk limit (DEC-067).
+
 **DEC-069 — Journal statistics: every figure with its count, and expectancy with its range**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-19), T25 — ANALYSIS_CLAUDE.md §1.4, ICT-84
 
