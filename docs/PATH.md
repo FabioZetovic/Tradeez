@@ -2625,3 +2625,7 @@ importing ES (T20).
   equivalent (equal prices are worded first). 2 frontend, both caught.
 - Fixed in passing: the `blocked_on` line still carried the old "T20 needs an ES import" after the merge write-up.
 - Backend 643 → 657, frontend 349 → 350.
+
+**2026-10-21 — Fresh-clone check of `9def84f`** (`feat/smt`), no `.env`: backend 657 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 350/350, build clean. Waiting for Fabio
+to say merge. Next: T28 (partial targets) on `feat/partials`, branched from this one.
