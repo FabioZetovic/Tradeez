@@ -2668,3 +2668,7 @@ to say merge. Next: T28 (partial targets) on `feat/partials`, branched from this
 - Re-read live after the fix: the same-minute trade's Partial line now ends "+1.00R on each.", and the review's PARTIAL
   moment carries no line about the stop.
 - Backend 657 → 675, frontend 350 → 361.
+
+**2026-10-21 — Fresh-clone check of `5433063`** (`feat/partials`), no `.env`: backend 675 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 361/361, build clean. Waiting for Fabio
+to say merge (it carries T20 too). Next: T29 on `feat/onboarding`, branched from this one.
