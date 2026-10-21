@@ -1928,6 +1928,12 @@ not guarantee live results. The CFTC warns that futures are leveraged and comple
 participants lose their funds, and that losses can exceed the deposit. Visible in the UI and on a
 presentation slide.
 
+*Session 017 (T29, 2026-10-21):* the footer on every screen, and the sign-in page, now state all three of the CFTC's
+points — not advice and simulated, leveraged with most retail day traders losing, and losses that can exceed the
+deposit — and that practice trades never reach a market. A first visit opens a guide to the four tabs, which ends on
+what the app is not: ICT's ideas taught as ICT's claims (INVARIANT 8). Closing it is remembered per browser; "How it
+works" in the header brings it back. The slide's text is in DOCUMENTATION.md. The UI is English only (Q-08).
+
 **DEC-006 — ~~Practice tab before the ICT engine~~** · `SUPERSEDED` by DEC-023 and DEC-018
 Fabio elected co-equal scope. The delivery-order concern it expressed is now handled by the
 vertical-slice roadmap instead.

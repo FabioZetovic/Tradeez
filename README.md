@@ -5,14 +5,17 @@ moment with the outcome hidden, commit to a trade plan, watch it play out, and g
 **quality of the decision** — not just the profit. The curriculum is specified concept by concept in
 [docs/ICT_CONCEPTS.md](docs/ICT_CONCEPTS.md).
 
-> **Educational software.** Not financial advice, and not a trading venue. Simulated results do not
-> guarantee live results. Futures are leveraged instruments; most retail day traders lose money.
+> **Educational software.** Not financial advice, and not a trading venue: practice trades are simulated on past
+> market data and never reach a market. Simulated results do not guarantee live results. Futures are leveraged;
+> most retail day traders lose money, and losses can exceed the money deposited.
 
 Graduation project (*završni rad*) by **Fabio Žetović**, built collaboratively with two AI
 engineering assistants, **Claude Code** and **ChatGPT Codex**.
 
 ### What works today
 
+- **A guide on the first visit** (T29): what Learn, Drills, Practice and Chart are each for, in that order, and what
+  the app is not. "How it works" in the header brings it back. English only (Q-08).
 - **Accounts:** register and sign in. Sessions use HttpOnly cookies with rotating refresh tokens.
   Passwords follow `password-1.0.0` (DEC-064): 12 characters to 72 bytes, not a common password, not
   your own name or email, and not found in a known breach (Have I Been Pwned, k-anonymous — the password

@@ -1796,6 +1796,13 @@ They agree with what earlier tasks measured by hand, and the counting is done by
 the chart, so a learner sees the same thing on the chart and on the card. Every count ends with the same
 sentence: it describes what happened on these dates, and is neither a forecast nor a reason to trade.
 
+**Saying what it is, and where to start.** The warning at the bottom of every screen now says all three things the
+US futures regulator warns about — that this is not advice and its results are simulated, that most retail day
+traders lose money, and that losses can exceed the money deposited — and that practice trades never reach a market. A
+first visit opens a short guide: Learn, then Drills, then Practice, then the Chart, each a click away, and one line on
+what the app is not — ICT's ideas are taught as ICT's claims, and the app measures what its rules find, not whether the
+method works. It can be closed, and brought back from the header. The app is in English only, as Fabio decided.
+
 **Taking some off.** ICT teaches taking part of a trade off at the first pool of liquidity and letting the rest run,
 often with the stop moved to the entry so that the rest can no longer lose. A practice trade can now be planned that
 way: with two contracts or more, the learner names a price before the target where some of them come off, and ticks a
@@ -1899,6 +1906,22 @@ the drill engine, lesson cards, the upgrade to the newest versions, drafts and c
 prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time, the security pass,
 evidence, ICT plans, the scorecard, the review, journal statistics, risk and management drills, trading costs, SMT
 divergence, partial targets): backend 223 → 675, frontend 148 → 361, V9 to V25, DEC-044 to DEC-074.*
+
+---
+
+## For the presentation: the disclaimer slide
+
+DEC-015 asks for the disclaimer on a slide as well as in the app. Its text, as the app states it:
+
+> **Tradeez is educational software, not financial advice.**
+>
+> - Practice trades are simulated on past market data and never reach a market. Simulated results do not guarantee
+>   live results.
+> - Futures are leveraged and complex. Most retail day traders lose money, and losses can exceed the money deposited.
+> - ICT's ideas are taught as ICT's claims: the app measures what its rules find in the data, not whether the method
+>   works.
+> - The market data comes from Massive's free plan, for individual use: it is shown here only as far as its terms
+>   allow (Q-09).
 
 ---
 

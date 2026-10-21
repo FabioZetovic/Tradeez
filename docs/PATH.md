@@ -65,7 +65,7 @@ git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
 branch: master                                    # feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 675/675 (Testcontainers, 2026-10-21, feat/partials), frontend 361/361 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 675/675 (Testcontainers, 2026-10-21, feat/onboarding), frontend 364/364 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: Fabio — T20 (SMT, DEC-073) on `feat/smt` and T28 (partial targets, DEC-074) on `feat/partials`, branched from it, built and waiting for "merge". T21–T27 merged 2026-10-21; Q-08 resolved (English only for now). Next: T29. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: Fabio — T20 (SMT, DEC-073) on `feat/smt`, T28 (partial targets, DEC-074) on `feat/partials` and T29 (disclaimers and the guide) on `feat/onboarding`, each branched from the one before, built and waiting for "merge". Left: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: his budget decision), T33 (indicators, low priority), the SMT second chart and drill, and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -265,7 +265,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 
 | # | Task | Blocked by | Source | Notes |
 |---|---|---|---|---|
-| T29 | **Disclaimers, onboarding, UI language** | — | D-015, X, Q-08 | Visible in the app and on a slide. |
+| T29 | ~~**Disclaimers, onboarding, UI language**~~ | — | D-015, X, Q-08 | ✅ Session 017 (DEC-015 note), on `feat/onboarding`: the footer and sign-in page state the CFTC's three points and that practice never reaches a market; a first-visit guide to the four tabs and what the app is not, reopened from "How it works"; the slide's text in DOCUMENTATION.md; English only, `lang="en"` (Q-08). |
 | T30 | ~~**BUG-035**~~ | — | BUGS.md | ✅ Already done in session 017, before the merge of `feat/real-nq-data`: the seven warnings fixed and `npm run lint` runs `oxlint --deny-warnings` (BUGS.md). The row was stale. |
 | T31 | **€0 deployment smoke test; jury data rights** | M0 | X, C §4.1, Q-09 | Was task 8. No purchase without Fabio. |
 | T32 | **Deeper history and one-second bars** | Fabio's budget decision | D-040 | Databento importer is built; or a month of Massive's paid plan. |
@@ -2672,3 +2672,17 @@ to say merge. Next: T28 (partial targets) on `feat/partials`, branched from this
 **2026-10-21 — Fresh-clone check of `5433063`** (`feat/partials`), no `.env`: backend 675 test cases, 0 failures,
 0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 361/361, build clean. Waiting for Fabio
 to say merge (it carries T20 too). Next: T29 on `feat/onboarding`, branched from this one.
+
+**2026-10-21 — T29: disclaimers, the guide, English only** (`feat/onboarding`, from `feat/partials`).
+- The disclaimer (`App.tsx`, footer of every screen and the sign-in page) now states DEC-015's three CFTC points — not
+  advice and simulated; leveraged, most retail day traders lose; losses can exceed the money deposited — and that practice
+  trades never reach a market. The README's matches it.
+- `Guide.tsx`: a first visit opens "How Tradeez works" above the tab — Learn, Drills, Practice, Chart, each a link to its
+  tab, then what the app is not (ICT's claims taught as claims, nothing advice). Closing it, or following a step, is
+  remembered in `localStorage` (`tradeez.guideSeen`, read and written in try/catch; a refused store just shows it again);
+  "How it works" in the header reopens it.
+- Q-08: the UI was already English (`lang="en"`; no other language in any string). Nothing to change but to record it.
+- The presentation slide's text is in DOCUMENTATION.md ("For the presentation").
+- At 1920px the guide spans the content width (1,488px), its four steps in one row; no horizontal scroll.
+- Tests: App +3 (the guide shown, closed, remembered, reopened; a step opens its tab; the three points in the footer).
+  Mutations: 5, all caught. Frontend 361 → 364; backend unchanged at 675.
