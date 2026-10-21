@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import com.tradeez.analysis.DetectedSetup;
 import com.tradeez.analysis.Detector;
 import com.tradeez.analysis.DetectorRegistry;
+import com.tradeez.analysis.EvidenceCalculator;
 import com.tradeez.analysis.RuleText;
 import com.tradeez.analysis.SetupDtos.RuleView;
 import com.tradeez.analysis.SetupDtos.SetupView;
@@ -27,10 +28,13 @@ import com.tradeez.clock.ClockLayerBuilder;
 import com.tradeez.curriculum.ConceptRegistry.Concept;
 import com.tradeez.curriculum.LessonDtos.ConceptRef;
 import com.tradeez.curriculum.LessonDtos.DrillRef;
+import com.tradeez.curriculum.LessonDtos.EvidenceView;
 import com.tradeez.curriculum.LessonDtos.Example;
 import com.tradeez.curriculum.LessonDtos.LessonResponse;
 import com.tradeez.curriculum.LessonDtos.RuleCard;
 import com.tradeez.drills.DrillKind;
+import com.tradeez.evidence.EvidenceService;
+import com.tradeez.evidence.EvidenceText;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketDataService;
@@ -70,6 +74,16 @@ public class LessonService {
 
 	private static final long SEED = MarketDataService.PUBLIC_CHART_SEED;
 
+	/** The rule's base rates on every timeframe counted (T21): its stored evidence, in words. */
+	private List<EvidenceView> evidence(Instrument instrument, Detector detector) {
+		return evidence.forRule(instrument, detector).stream()
+			.map(s -> new EvidenceView(s.timeframe().code(), EvidenceCalculator.VERSION, s.evidence().from().getEpochSecond(),
+				s.evidence().to().getEpochSecond(), s.evidence().candles(), s.evidence().hits(),
+				EvidenceText.lines(detector.id(), instrument.getSymbol(), s.timeframe(), s.evidence()),
+				s.computedAt().getEpochSecond()))
+			.toList();
+	}
+
 	/** Rules drawn by the New York clock layer rather than detected as setups (DEC-047). */
 	private static final Set<String> CLOCK_RULES = Set.of(ClockLayerBuilder.SESSIONS, ClockLayerBuilder.OPENS,
 		ClockLayerBuilder.LEVELS, ClockLayerBuilder.IPDA);
@@ -80,13 +94,15 @@ public class LessonService {
 	private final DetectorRegistry detectors;
 	private final SetupScanner scanner;
 	private final MarketDataService marketData;
+	private final EvidenceService evidence;
 
 	public LessonService(ConceptRegistry concepts, DetectorRegistry detectors, SetupScanner scanner,
-			MarketDataService marketData) {
+			MarketDataService marketData, EvidenceService evidence) {
 		this.concepts = concepts;
 		this.detectors = detectors;
 		this.scanner = scanner;
 		this.marketData = marketData;
+		this.evidence = evidence;
 	}
 
 	public LessonResponse lesson(String id, String timeframeCode) {
@@ -127,7 +143,7 @@ public class LessonService {
 			concept.prerequisites().stream().map(p -> ref(byId.get(p))).toList(),
 			concepts.concepts().stream().filter(c -> c.prerequisites().contains(id)).map(LessonService::ref).toList(),
 			rules.stream().map(d -> new RuleCard(d.id(), d.ruleVersion(), d.parameters(), RuleText.definition(d),
-				d.methodologySource())).toList(),
+				d.methodologySource(), evidence(nq, d))).toList(),
 			!rules.isEmpty() ? "SETUPS" : clock ? "CLOCK" : null,
 			Arrays.stream(DrillKind.values()).filter(k -> k.conceptId().equals(id))
 				.map(k -> new DrillRef(k.name(), k.mode().name(), k.title())).toList(),

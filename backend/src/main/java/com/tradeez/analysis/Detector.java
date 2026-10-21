@@ -58,6 +58,15 @@ public interface Detector {
 	 */
 	int lookbackBars(Timeframe timeframe);
 
+	/**
+	 * Whether the rule reads candles of this timeframe at all (T21). Some only make sense where candles start
+	 * at the moments their periods do — midnight, 08:30, 09:30 — and find nothing elsewhere; evidence counted
+	 * there would read "none in 507 days" for a rule that never looked.
+	 */
+	default boolean runsOn(Timeframe timeframe) {
+		return true;
+	}
+
 	/** Every detection in one segment: candles in time order, of one contract, all at {@code timeframe}. */
 	List<Detection> detect(List<Bar> segment, Timeframe timeframe);
 }

@@ -1,3 +1,4 @@
+import { EvidencePanel } from './EvidencePanel'
 import { ExampleChart } from './ExampleChart'
 import { ProgressPanel } from './LearningProgress'
 import type { ConceptProgress } from '@/lib/api/learning'
@@ -39,7 +40,8 @@ const MODE = { IDENTIFY: 'Spot', CLASSIFY: 'Name', PREDICT: 'Predict' } as const
 
 /**
  * One concept's lesson card (T14, DEC-055), in the order of the concept loop: what it is, the exact
- * rule Tradeez uses, real examples the rule found, then the drills that practise it.
+ * rule Tradeez uses, what it found over the whole imported history (T21), real examples it found, then the
+ * drills that practise it.
  */
 export function LessonCard({
   lesson,
@@ -99,6 +101,8 @@ export function LessonCard({
           </p>
         </Panel>
       )}
+
+      {lesson.rules.length > 0 && <EvidencePanel lesson={lesson} />}
 
       <Panel aria-label="Examples">
         <div className="mb-3 flex flex-wrap items-center gap-3">

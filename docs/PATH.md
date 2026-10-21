@@ -88,7 +88,8 @@ files_in_repo:
     charting/    # saved drawings                                              (session 012)
     practice/    # fill engine, sessions, plans, results, replay API          (session 014); close at market (DEC-057)
     clock/       # New York clock layer: sessions/opens/levels rules, levels taken (liquidity-1.0.0), IPDA 20/40/60-day ranges within one contract (ipda-1.0.0), chart endpoint (017, T7, T12, T19)
-    analysis/    # Detector contract + registry, Segments, scanner, setups API (DEC-026, DEC-049); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); PO3, DAILY_PROFILE, WEEKLY_PROFILE, JUDAS on Periods — read once the day, week or window is over (DEC-063); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17–T19)
+    evidence/    # EvidenceService (counts every rule over the imported history, rule_evidence V18), EvidenceRefresher (after start-up), EvidenceText (the words) — T21, DEC-065
+    analysis/    # Detector contract + registry (runsOn, T21), Segments, scanner, setups API (DEC-026, DEC-049); EvidenceCalculator (evidence-1.0.0); rules: FVG, FVG_STATE, IFVG, BPR, VI, VOID, OPENING_GAP, ORG (DEC-039, DEC-050); SWING, SWING_TIER, STRUCTURE, BOS_CHOCH, DISPLACEMENT, MSS on SwingPoints (DEC-052); LIQUIDITY, EQHL, SWEEP, TURTLE_SOUP on LiquidityLevels (DEC-053); OB, BREAKER, MITIGATION, REJECTION, UNICORN on Blocks (each block followed for its life) and Flips (DEC-061); DEALING_RANGE, PD, OTE, STDEV on Ranges — one leg, read four ways (DEC-062); PO3, DAILY_PROFILE, WEEKLY_PROFILE, JUDAS on Periods — read once the day, week or window is over (DEC-063); RuleText = every rule in words and every hit explained (DEC-055)  (016, 017 T9–T14, T17–T19)
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
     learning/    # learning-1.0.0 (DEC-059): progress computed from graded drills (drills/DrillAttempts) and cards read — solid, SM-2 reviews, the ladder's unlocks; GET /api/learning, POST /api/learning/concepts/{id}/read  (017, T16)
     drills/      # drill engine (DEC-054): DrillKind catalogue (twelve drills, modes A, B and C), windows on real NQ, answer key = stored hits, excused candles; Prediction + PredictionText = predict-1.0.0 (mode C: two targets, the future withheld until the answer, DEC-058); FVG fixture on simulated data  (016, 017 T13, T15)
@@ -122,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — T21 (evidence views) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
+blocked_on: nothing — T21 built on feat/evidence; T22 (ICT plans and model checklists) next. T20 needs an ES import (Massive, free plan) — Fabio's go-ahead first. Deployment (T31, BUG-073) deferred by Fabio.
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -167,7 +168,7 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 **Done so far** (details in the session log): 1 reconcile the analyses (002) · 2 scaffold (006) ·
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
-practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged).
+practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged) · T21 evidence views, DEC-065 (017, on feat/evidence).
 
 ### Fabio's request, 2026-10-17 — every bug, missing tests, security hardening
 
@@ -246,7 +247,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 | T18 | ~~**Ranges and Fibonacci**~~ | T11 | I-40–44 | ✅ Session 017 (DEC-062), **merged 2026-10-17 as `8cf18bc`**: one leg read four ways — a displacement that breaks structure, from where it began to the first intermediate-term turn (measured: 0.7 per 30 candles; a one-candle turn left within 7 candles, the intermediate-term one within 10–11, kept); `dealing-range-1.0.0` (equilibrium line, broken high or low), `pd-1.0.0` (premium and discount halves), `ote-1.0.0` (62–79%, 70.5% line, tapped; 64% of legs retrace into it), `stdev-1.0.0` (−1, −2, −2.5, −4); four switches. ICT-43's Fibonacci tool was T8. |
 | T19 | ~~**Time models and profiles**~~ | T7, T11 | I-53–57, I-62–65 | ✅ Session 017 (DEC-063), **merged 2026-10-17 as `2f476e0`**: every draft measured on two years of real NQ first, two changed — `po3-1.0.0` (the midnight-to-17:00 day; 52% fit), `daily-profile-1.0.0` (London 00:00–08:30 against New York; London low 33%, London high 25%, New York reversal 39%), `weekly-profile-1.0.0` (the weekday of the extreme against the close, when first; Monday 48%, Tuesday 20%), `judas-1.0.0` (a level still resting at the window's open taken, then a close back through the open; London 60% of days, New York 12% — the draft's any-swing reading fired in 90–95%); `ipda-1.0.0` on the clock (20/40/60-day highs and lows from one SQL row per trading day, within one contract: drawn on 70 / 39 / 7% of days). Four setup switches and an IPDA clock switch. The Silver Bullet and macro windows were T7's (`sessions-1.0.0`). |
 | T20 | **SMT divergence** | T2, T11 | I-66 | NQ vs ES. First an ES instrument row (migration) and `ES` in `MassiveImporter.ROOTS`, then import ES like NQ. |
-| T21 | **Evidence views** | T10–T19 | I S-6 | How often each concept's claim held on real NQ, with sample size — never framed as an edge. |
+| T21 | ~~**Evidence views**~~ | T10–T19 | I S-6 | ✅ Session 017 (DEC-065), on `feat/evidence`: `evidence-1.0.0` counts every rule over the whole history of real NQ on 1m, 5m, 15m and 1h — hits per 100 candles, how lives ended (a life counts once over; a leg's range by its end or start), kinds, and the time rules against days, weeks and windows — in the background after start-up (697,003 one-minute candles in 18 s), kept in `rule_evidence` (V18), shown on each lesson card with its sample size and "not a forecast". `Detector.runsOn`. Agrees with the earlier hand measurements (gaps 94% filled, OB 83% invalidated, liquidity 95% taken, ranges 59% past their end, OTE 64%). |
 
 **M4 — Models and the exam**
 
@@ -302,6 +303,7 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-065 | **Evidence** (`evidence-1.0.0`, S-6): every rule counted over a real market's whole history on 1m–1h, split at rolls — hits per 100 candles; lives counted once over (final state or 500 candles inside the data), a leg's range read by end/start; kinds; time rules against days, weeks and windows. Cached in `rule_evidence` (V18), refreshed after start-up when data, rule or counting version changes; never simulated data; on each lesson card, ending on "not a forecast". |
 | DEC-064 | **Passwords and sign-in** (extends DEC-032): `password-1.0.0` — 12 characters to 72 bytes, 5 different characters and no straight run, not the email name, display name or app name, not a common password, not in a known breach (Have I Been Pwned range API, k-anonymous, padded, fails open after 3 s); `POST /api/auth/password` (current password, 403 when wrong; signs every other session out; 5 per account per 15 min and the per-IP limit); per-IP limits believe only `TRUSTED_PROXIES` entries of X-Forwarded-For (default 0); a Content-Security-Policy on the built page. No admin role exists; ownership is checked on the server. |
 | DEC-063 | **Time, measured first** (`Periods`): `po3-1.0.0` (midnight open to the 17:00 halt; extreme against the close first and ≥ 15% of the range beyond the open; ≤ 1h charts), `daily-profile-1.0.0` (London 00:00–08:30, New York 08:30–17:00; LONDON_LOW, LONDON_HIGH, NY_REVERSAL; ≤ 30m), `weekly-profile-1.0.0` (Sunday 18:00–Friday 17:00; the trading day of the extreme against the close, when first; every chart), `judas-1.0.0` (00:00–05:00 and 09:30–10:00; previous day, Asia and London levels resting at the window's open, taken a tick beyond, then a close back through the open in the window; ≤ 30m); `ipda-1.0.0` clock rule (20/40/60 trading days before each day, one contract, no hole > 4 days). All read after the fact. |
 | DEC-062 | **Ranges — one leg, read four ways** (`Ranges`): a displacement that breaks the latest swing, from where it began to the first intermediate-term turn, known when that rank is, only while price is inside, one range per turn; `dealing-range-1.0.0`, `pd-1.0.0` (halves at equilibrium, in half-ticks), `ote-1.0.0` (62–79% rounded outward, 70.5% line), `stdev-1.0.0` (−1, −2, −2.5, −4, rounded away); each range followed until broken high or low, or 500 candles. |
@@ -2373,3 +2375,34 @@ make the app perfect first. merge whats not merged and then continue with tasks"
 `--no-ff` as `2f476e0`, then `fix/bugs-and-security` as `7c6ca81`. Hosting, deployment (T31) and BUG-073
 wait until the app is finished. Next: T21, evidence views. T20 (SMT) needs ES imported from Massive's free plan
 first — asked of Fabio, not done unasked.
+
+**2026-10-17 — T21: evidence views (DEC-065).** On `feat/evidence`, not merged.
+- **evidence-1.0.0** (`EvidenceCalculator`, a pure function of a rule and the candles split at rolls): every
+  rule's hits and hits per 100 candles; lives (fvg-state, the five blocks, dealing-range, pd, ote,
+  liquidity) counted once over — a final state or 500 candles inside the data — with how they ended, a
+  leg's range read as past its end or its start; kinds; and the time rules against days, weeks and
+  windows. `Detector.runsOn` says which timeframes a rule reads.
+- **EvidenceService** counts a real market's whole history on 1m, 5m, 15m and 1h and keeps it in
+  `rule_evidence` (V18); `EvidenceRefresher` recounts what is stale after start-up, in the background
+  (697,003 one-minute candles in 18 s, 5m in 5 s, 121 rule-timeframe counts). Never simulated data.
+- **On the lesson card**, between the rule and the examples: the counts in words with their sample size
+  and dates, a timeframe switch, and "not a forecast, and not a reason to take a trade".
+- **Measured** (5m; 1m–1h within a few points): gaps ~11 per 100 candles, 94% filled, 91% inverted; liquidity
+  95% taken; OB 83% invalidated; ranges 59% past their end; OTE reached in 64%; 74% of takes are sweeps;
+  the time rules as T19 measured. Agrees with the hand measurements of DEC-050 to DEC-063.
+- **Found while building it:** the first counting read a range's break as above its high or below its low,
+  which mixes up and down legs — now past its end or its start; dealing ranges and halves never emit
+  "tapped", so it is not listed for them; the time rules on a timeframe they do not read would have read
+  "none in 507 days" — `runsOn`.
+- Tests: EvidenceCalculatorTest (5, stand-in rules), EvidenceTextTest (4), EvidenceServiceTest (4, on
+  ThreeWeeksOfNq), LessonApiTest +1, DetectorContractTest (runsOn); frontend LearnView +2.
+- Mutations, one at a time after a passing baseline: 17 backend, all caught; 5 frontend, all caught after one
+  survivor (the caveat shown as one more count) got its test. Three edge cases were written first: a life of
+  exactly 500 candles, a final state near the end of the data, windows that differ between London and New York.
+- Checked live at 1920 px: the ICT-22 card reads its gaps' lives, ICT-64 its days; the timeframe switch offers
+  only what the rule reads.
+- Backend 553 → 567, frontend 316 → 318.
+
+**2026-10-17 — Fresh-clone check of `9e7067b`** (`feat/evidence`), no `.env`: backend 567 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 318/318, build clean. Waiting for Fabio
+to say merge; T22 continues on `feat/plans`, branched from this.

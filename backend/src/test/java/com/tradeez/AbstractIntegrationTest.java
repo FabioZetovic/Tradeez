@@ -60,5 +60,7 @@ public abstract class AbstractIntegrationTest {
 		registry.add("spring.datasource.password", POSTGRES::getPassword);
 		// No test calls Have I Been Pwned: PwnedPasswordsTest checks the client against a local stand-in.
 		registry.add("tradeez.password.breach-check.enabled", () -> "false");
+		// Evidence is counted by the tests that mean to, not by every context that starts (EvidenceServiceTest).
+		registry.add("tradeez.evidence.refresh-on-start", () -> "false");
 	}
 }

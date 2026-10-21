@@ -70,6 +70,7 @@ class DetectorContractTest extends AbstractIntegrationTest {
 		for (Timeframe timeframe : SERIES.keySet()) {
 			List<Bar> bars = bars(timeframe);
 			for (Detector detector : detectors.all()) {
+				assertThat(detector.runsOn(timeframe)).as("%s runs on %s", detector.id(), timeframe.code()).isTrue();
 				assertThat(detector.lookbackBars(timeframe)).isPositive();
 				assertThat(detector.detect(bars, timeframe)).as("%s on %s", detector.id(), timeframe.code())
 					.isNotEmpty();

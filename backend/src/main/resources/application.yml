@@ -58,6 +58,11 @@ tradeez:
     # since a client can write anything in it. Behind one proxy that appends the caller's address, 1.
     trusted-proxies: ${TRUSTED_PROXIES:0}
 
+  evidence:
+    # T21 (DEC-065). Recount every rule over the imported history after start-up when the data, a rule's
+    # version or the counting changed — in the background. Tests switch it off.
+    refresh-on-start: ${EVIDENCE_REFRESH_ON_START:true}
+
   password:
     breach-check:
       # DEC-064. Have I Been Pwned's k-anonymous range API: only five hex characters of the password's SHA-1
