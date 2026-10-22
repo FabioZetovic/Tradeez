@@ -211,11 +211,13 @@ class ScorecardApiTest extends AbstractIntegrationTest {
 		JsonNode trade = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/skip").cookie(alice).with(csrf()))
 			.andExpect(status().isOk())).at("/state/trades/0");
 		JsonNode card = trade.get("scorecard");
-		assertThat(card.get("version").asString()).isEqualTo("scorecard-1.0.0");
+		assertThat(card.get("version").asString()).isEqualTo("scorecard-1.1.0");
 		JsonNode risk = card.at("/process/0");
 		assertThat(risk.get("id").asString()).isEqualTo("risk");
 		assertThat(risk.get("verdict").asString()).isEqualTo("BROKEN");
-		assertThat(risk.get("text").asString()).isEqualTo("Risked $200.00, $100.00 over your $100.00 limit.");
+		// The standard costs (DEC-072): a tick in, a tick out at $5, $4.50 a round trip (BUG-088).
+		assertThat(risk.get("text").asString())
+			.isEqualTo("Risked $200.00; $214.50 at the stop with slippage and fees, $114.50 over your $100.00 limit.");
 		assertThat(card.get("outcome").findValuesAsString("id")).containsExactly("adverse", "favourable", "costs");
 		assertThat(card.get("process").findValuesAsString("id")).contains("plan", "execution", "confidence");
 

@@ -47,6 +47,7 @@ import com.tradeez.drills.Prediction.Target;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
+import com.tradeez.marketdata.HiddenStretches;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.InstrumentRepository;
 import com.tradeez.marketdata.MarketDataService;
@@ -146,10 +147,11 @@ public class DrillService {
 	private final DetectorRegistry detectors;
 	private final TransactionTemplate writeTx;
 	private final ObjectMapper json;
+	private final HiddenStretches hiddenStretches;
 
 	public DrillService(DrillRepository drills, DetectedSetupRepository setups, InstrumentRepository instruments,
 			MarketDataService marketData, SetupScanner scanner, DetectorRegistry detectors,
-			PlatformTransactionManager transactionManager, ObjectMapper json) {
+			PlatformTransactionManager transactionManager, ObjectMapper json, HiddenStretches hiddenStretches) {
 		this.drills = drills;
 		this.setups = setups;
 		this.instruments = instruments;
@@ -158,6 +160,7 @@ public class DrillService {
 		this.detectors = detectors;
 		this.writeTx = new TransactionTemplate(transactionManager);
 		this.json = json;
+		this.hiddenStretches = hiddenStretches;
 	}
 
 	/** Every drill there is, with the rule each is graded by. */
@@ -194,8 +197,10 @@ public class DrillService {
 			throw new TooManyDrillsException();
 		}
 
+		// BUG-085, BUG-086: not inside an open practice session's replay, whose future it would show.
+		List<HiddenStretches.Stretch> avoid = simulated ? List.of() : hiddenStretches.of(userId);
 		if (kind.mode() == Mode.MANAGE) {
-			Managed managed = findManagement(instrument, timeframe);
+			Managed managed = findManagement(instrument, timeframe, avoid);
 			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
 				timeframe.code(), instrument.getDataClass(), kind.detector(), Management.VERSION, managed.from(),
 				managed.asked().trade().moment(), Set.of(), json.convertValue(managed.asked(), JSON_OBJECT),
@@ -205,7 +210,7 @@ public class DrillService {
 		}
 		Detector detector = detectors.require(kind.detector());
 		if (kind.mode() == Mode.PREDICT) {
-			Asked asked = findPrediction(kind, detector, instrument, timeframe);
+			Asked asked = findPrediction(kind, detector, instrument, timeframe, avoid);
 			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
 				timeframe.code(), instrument.getDataClass(), detector.id(), detector.ruleVersion(), asked.from(), asked.to(),
 				asked.question().targets().stream().map(Target::setupId).collect(Collectors.toSet()),
@@ -213,7 +218,7 @@ public class DrillService {
 				asked.revealTo())));
 			return view(drill, instrument, asked.bars(), List.of());
 		}
-		Window window = findWindow(kind, detector, instrument, timeframe);
+		Window window = findWindow(kind, detector, instrument, timeframe, avoid);
 		Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
 			timeframe.code(), instrument.getDataClass(), simulated ? SEED : null,
 			simulated ? DemoSeriesGenerator.GENERATOR_VERSION : null, detector.id(), detector.ruleVersion(),
@@ -295,7 +300,7 @@ public class DrillService {
 	 * A stretch of open market in which a trade, opened at a candle's close, stands a whole R in profit with its
 	 * stop untouched — and a future, on one contract, that tells what each choice made.
 	 */
-	private Managed findManagement(Instrument instrument, Timeframe timeframe) {
+	private Managed findManagement(Instrument instrument, Timeframe timeframe, List<HiddenStretches.Stretch> avoid) {
 		int length = Mode.MANAGE.windowBars();
 		long step = timeframe.seconds();
 		Instant[] coverage = marketData.coverage(instrument);
@@ -314,7 +319,8 @@ public class DrillService {
 			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
 			Instant from = Instant.ofEpochSecond(second - Math.floorMod(second, step));
 			Instant to = from.plusSeconds(length * step);
-			if (!SessionCalendar.isOpenThroughout(from, to) || !marketData.rolls(instrument, from, to).isEmpty()) {
+			if (HiddenStretches.touches(avoid, from, to.plus(FUTURE_REACH))
+					|| !SessionCalendar.isOpenThroughout(from, to) || !marketData.rolls(instrument, from, to).isEmpty()) {
 				continue;
 			}
 			List<Bar> stretch = marketData.internalBars(instrument, timeframe, from, to, SEED).bars();
@@ -351,7 +357,8 @@ public class DrillService {
 	 * A stretch of open market with a moment in it that asks a fair question — both targets on the chart,
 	 * and a future that answers it before the horizon, on one contract.
 	 */
-	private Asked findPrediction(DrillKind kind, Detector liquidity, Instrument instrument, Timeframe timeframe) {
+	private Asked findPrediction(DrillKind kind, Detector liquidity, Instrument instrument, Timeframe timeframe,
+			List<HiddenStretches.Stretch> avoid) {
 		int length = kind.mode().windowBars();
 		int stretchBars = length + PREDICT_SLIDE - 1;
 		long step = timeframe.seconds();
@@ -373,7 +380,8 @@ public class DrillService {
 			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
 			Instant from = Instant.ofEpochSecond(second - Math.floorMod(second, step));
 			Instant to = from.plusSeconds(stretchBars * step);
-			if (!SessionCalendar.isOpenThroughout(from, to) || !marketData.rolls(instrument, from, to).isEmpty()) {
+			if (HiddenStretches.touches(avoid, from, to.plus(FUTURE_REACH))
+					|| !SessionCalendar.isOpenThroughout(from, to) || !marketData.rolls(instrument, from, to).isEmpty()) {
 				continue;
 			}
 			List<Bar> stretch = marketData.internalBars(instrument, timeframe, from, to, SEED).bars();
@@ -443,7 +451,8 @@ public class DrillService {
 	 * <p>Every attempt's hits are stored, including the windows that are rejected: they are true hits
 	 * of the rule on this market, and DEC-026's table is meant to hold all of them.
 	 */
-	private Window findWindow(DrillKind kind, Detector detector, Instrument instrument, Timeframe timeframe) {
+	private Window findWindow(DrillKind kind, Detector detector, Instrument instrument, Timeframe timeframe,
+			List<HiddenStretches.Stretch> avoid) {
 		boolean simulated = instrument.getDataClass() == DataClass.SIMULATED;
 		int length = kind.mode().windowBars();
 		long step = timeframe.seconds();
@@ -468,7 +477,8 @@ public class DrillService {
 				+ random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
 			Instant from = Instant.ofEpochSecond(second - Math.floorMod(second, step));
 			Instant to = from.plusSeconds(length * step);
-			if (!SessionCalendar.isOpenThroughout(from, to)
+			if (HiddenStretches.touches(avoid, from, to.plusSeconds(CONFIRM_REACH * step))
+					|| !SessionCalendar.isOpenThroughout(from, to)
 					|| (!simulated && !marketData.rolls(instrument, from, to).isEmpty())) {
 				continue;
 			}

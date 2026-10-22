@@ -40,265 +40,24 @@ a hosting decision, not a code fix.
 
 ---
 
-### BUG-075 🔴 The per-address limit on sign-in and sign-up is skipped by escaping one letter of the path
+### BUG-093 🟡 The SMT lesson's test failed once: ES's first candle an hour before NQ's
 
-**Status:** verified live (2026-10-21, local backend). **Found by:** the bug hunt Fabio asked for — logged, not fixed
-**Affects:** `AuthRateLimitFilter.shouldNotFilter`; `/api/auth/login`, `/api/auth/register`
+**Status:** seen once, not reproduced (2026-10-22). **Affects:** `SmtDrillApiTest.lesson`, perhaps `LessonService.around`
 
-Twenty-four sign-in attempts in a row at `POST /api/auth/log%69n`, each with a different unknown address, all came back
-`401 Invalid email or password.` — the login handler answering — and never 429. Twenty-two sign-ups at
-`/api/auth/regist%65r` all reached validation (400). On the plain paths the limit (20 a window of five minutes per
-address, BUG-002, BUG-070) refuses the 21st.
+In one full-suite run on `fix/bug-hunt`, an ICT-66 lesson example's ES candles began at 06:10 UTC on 8 May 2025 and its
+NQ candles at 07:10 — `es.getFirst() >= nq.getFirst()` failed (1746684600 < 1746688200). The code should not be able
+to do that: ES is read from the first NQ candle's time on. Five runs of the test alone, and every later full run on the
+branch, passed. Examples are chosen at random, so a rare example, or what earlier test classes left in the shared
+database, may be the cause; it was not caught again to look at.
 
-The filter compares `request.getRequestURI()` — the raw path, still percent-encoded — with three exact strings, while
-Spring MVC and Spring Security both match the decoded path. So the escaped request is routed to the login handler,
-permitted, and exempt from CSRF like the plain one, but the filter does not recognise it. The per-account limit (ten
-in fifteen minutes) still holds for each address; what is gone is everything that limit does not cover: spraying one
-password over many accounts, stuffing leaked credentials, and walking registration to learn which addresses have
-accounts — the reason BUG-002 added the per-address limit.
-
-**Fix, when asked:** match the decoded, normalised path (`ServletRequestPathUtils` / `getServletPath()`), or apply the
-limit through a Spring Security request matcher, so it sees the request exactly as the router does.
-
----
-
-### BUG-076 🟠 Anyone can keep an account from signing in
-
-**Status:** verified live (2026-10-21). **Affects:** `AuthService.login`
-
-After ten wrong passwords for one address, the eleventh attempt is refused with 429 *before* its password is looked
-at — the right password included. The window is fifteen minutes and a correct sign-in is the only thing that clears
-it, which the lock prevents; ten more guesses every fifteen minutes keep a known address locked out for as long as
-someone cares to (from any number of addresses, or from one through BUG-075). Verified with a made-up address:
-`401` ten times, then `429`.
-
-**Fix, when asked:** let a correct password through a lock it did not cause — count failures per account *and*
-caller, or slow the caller rather than the account, or check the password first and throttle only failures.
-
----
-
-### BUG-077 🟠 "Sign out everywhere" and a password change leave a stolen access token working
-
-**Status:** verified live (2026-10-21). **Affects:** `JwtAuthenticationFilter`, `AuthService.logoutEverywhere`,
-`changePassword`
-
-`POST /api/auth/logout-all` revokes every refresh token, and the UI says every device is signed out. The access token
-those sessions already hold is a stateless JWT valid for up to fifteen minutes, and nothing checks it against the
-sign-out: after `logout-all`, the old access cookie still read `/api/me` and the practice journal (200). A password
-change — usually made because someone else may know the password — has the same gap. The filter already reads the
-user's row on every request, so the check would cost nothing.
-
-**Fix, when asked:** keep `tokens_valid_after` on `app_user`, set it on `logout-all` and on a password change, and
-refuse a JWT issued before it.
-
----
-
-### BUG-078 🟠 Every error Spring forwards to `/error` comes back as an empty 401
-
-**Status:** verified live (2026-10-21). **Affects:** `SecurityConfig`, `JwtAuthenticationFilter`; every client of the
-API
-
-A request without its CSRF token (should be 403), a body that is not JSON (400), a number too large for its field
-(400), the wrong HTTP method (405), a `text/plain` body (415) and a database failure (500, BUG-079) all came back as
-`401` with an empty body. Spring answers these by forwarding to `/error`; that forward passes through the security
-chain again, `JwtAuthenticationFilter` — a `OncePerRequestFilter` — does not run on the error dispatch, so the
-request is anonymous there, and `anyRequest().authenticated()` refuses it.
-
-What it does to the app: the client reads 401 as an expired session, refreshes it and **sends the request again** (a
-POST that failed for another reason is sent twice), then shows a bare "401" — the real reason, which the server wrote,
-never arrives. A server failure looks like a sign-in problem.
-
-**Fix, when asked:** permit the `ERROR` dispatcher type (or `/error`) in the security chain, or answer these exceptions
-in an `@RestControllerAdvice` so nothing is forwarded.
-
----
-
-### BUG-079 🟡 Text with a NUL character makes the database refuse the write
-
-**Status:** verified live (2026-10-21). **Affects:** every free-text field stored as `text` or `jsonb` — a drawing's text
-and style, the display name and email at sign-up
-
-A drawing label `"ab\u0000c"` (under the 80-character limit) reached PostgreSQL, which refused it — `invalid byte
-sequence for encoding "UTF8": 0x00` — and the `DataIntegrityViolationException` became a 500 (shown as a 401 through
-BUG-078). No data is damaged; the request simply fails in the most confusing way.
-
-**Fix, when asked:** refuse control characters in text input (one shared constraint), and answer a constraint
-violation with 400.
-
----
-
-### BUG-080 🟠 One signed-in user can keep the server busy: nothing limits the expensive reads
-
-**Status:** verified live (2026-10-21), timings on this machine. **Affects:** `GET …/setups`, `…/bars`, drills, lessons
-
-Every rule on hourly candles over 399 days took **12 s** the first time and **2.5 s** each time the window moved by an
-hour — a new window is a new cache key, so it is scanned again — and returned 5.3 MB. The daily chart took 5.6 s;
-fourteen days of the simulated market's five-minute candles 0.9 s. No read endpoint has a per-user or per-address
-limit; drills allow 600 an hour, each searching windows; a lesson searches random stretches every time it is asked. A
-few parallel requests from one account occupy the CPU for everyone.
-
-**Fix, when asked:** a per-user rate limit on the scanning endpoints, a cost cap (range × rules × timeframe), windows
-snapped to whole days so a moved window reuses its scan, and a bound on concurrent scans.
-
----
-
-### BUG-081 🟡 Any signed-in user sees the server's health details, its folder path included
-
-**Status:** verified live (2026-10-21). **Affects:** `management.endpoint.health.show-details: when-authorized`
-
-Signed in as an ordinary learner, `GET /actuator/health` lists the database (PostgreSQL), the disk's total and free
-space, and `"path":"C:\\Users\\Fabio\\Desktop\\…"`. *When authorized* with no roles named means any authenticated user.
-
-**Fix, when asked:** `show-details: never` (or a role nobody but an operator has).
-
----
-
-### BUG-082 🟡 The whole API description and Swagger UI are open without signing in
-
-**Status:** verified live (2026-10-21). **Affects:** `SecurityConfig` (`/v3/api-docs/**`, `/swagger-ui/**` permitted),
-springdoc defaults
-
-`/v3/api-docs` (68 KB) and `/swagger-ui.html` answer 200 to anyone. Useful locally; deployed, it is a map of every
-endpoint and parameter for whoever probes the API. Spring warns about it at start-up.
-
-**Fix, when asked:** turn springdoc off where `cookies.secure` is true, or put it behind sign-in.
-
----
-
-### BUG-083 🟡 Error messages name the server's Java types
-
-**Status:** verified live (2026-10-21). **Affects:** the shared validation error handler (`common/`)
-
-`GET /api/practice/sessions/not-a-uuid` answers *"Method parameter 'id': Failed to convert value of type
-'java.lang.String' to required type 'java.util.UUID'; Invalid UUID string: not-a-uuid"* — the framework's own words,
-naming its types. Harmless alone; part of what makes the server easy to fingerprint.
-
-**Fix, when asked:** answer a type mismatch with the parameter's name and what it should be.
-
----
-
-### BUG-084 🟡 A drawing accepts any time, any price and any style value
-
-**Status:** verified live (2026-10-21). **Affects:** `ChartDrawingController.save`
-
-A horizontal line at time 9.2 × 10¹⁸ and price −9.2 × 10¹⁸ ticks, styled `{"color":"<img src=x onerror=alert(1)>"}`,
-was saved and read back. The canvas ignores a colour it cannot parse, so nothing runs today — but the server stores
-whatever it is sent: style keys and values are only counted (BUG-072), and anchors are any 64-bit numbers.
-
-**Fix, when asked:** bound anchors to plausible times and prices; validate the style's keys and values (a colour as
-`#rrggbb` or `rgba(…)`, a line width of 1–4).
-
----
-
-### BUG-085 🟡 Prediction and management drills can be answered by looking up what came next on the Chart tab
-
-**Status:** reasoned (2026-10-21). **Affects:** `DrillService.view` (candles with their real times), the Chart tab
-
-A drill's candles carry their real times (the SMT drill read "Mon 22:45 CDT"), and the Chart tab's date picker opens
-any minute of the same history and everything after it. A prediction or a management choice — "graded by what real
-price did" — can therefore be read off before answering, and counts toward the learning state like an honest one.
-
-**Fix, when asked:** hide the date in drills as practice does (DEC-025, the shifted clock); at least, keep a drill
-whose real future was opened from counting.
-
----
-
-### BUG-086 🟡 A practice session's hidden date can be recovered from its prices
-
-**Status:** reasoned (2026-10-21). **Affects:** practice on real data (DEC-025), the Chart tab
-
-The replay hides the date, but every price is real NQ to the tick and the time of day is shown. Searching the Chart
-tab's two years for the same few candles finds the day — and with it everything the replay has not shown yet. Only a
-learner cheating themselves gains, but the record (calibration, statistics) then describes trades made knowing the
-future.
-
-**Fix, when asked:** offset every price of a session by a hidden constant (as the clock is offset), or say plainly that
-the date is hidden from casual recall, not from a search.
-
----
-
-### BUG-087 🟡 A trade that loses money after fees is counted as a win
-
-**Status:** reasoned (2026-10-21). **Affects:** the replay's score, journal statistics, the trade log's R
-
-Wins, losses, R, expectancy and the win rate are counted from ticks *before* commission (`totalTicks`), while the money
-shown beside them is net. With fees the learner sets — up to $50 a round trip (DEC-072) — one NQ contract out a tick
-ahead (+$5) nets −$45 and is still counted a win at +0.03R. The score can say "1 win" over a negative total.
-
-**Fix, when asked:** decide gross or net once: count wins and losses by net money and report R net of costs, or show
-both.
-
----
-
-### BUG-088 🟡 The risk-limit check ignores the costs the app itself charges
-
-**Status:** reasoned (2026-10-21). **Affects:** `Scorecard` (risk line), the plan panel's risk readout
-
-The risk compared with the learner's limit is the distance from the price to the stop, times the tick value and the
-contracts. A stop-out also pays the entry's market slippage, the stop's slippage and the fees — under the standard
-costs a one-contract trade "within your $400 limit" loses $414.50 at its stop ($10.00 of
-slippage, $4.50 of fees). The rule the scorecard judges ("risk limit:
-kept") is not the loss the learner would take.
-
-**Fix, when asked:** compare the limit with the loss at the stop under the plan's own costs, or show both numbers.
-
----
-
-### BUG-089 🟡 A decimal comma is read as a thousands separator, or silently thrown away
-
-**Status:** reasoned (2026-10-21, from the code). **Affects:** `RiskDrills`, `PracticeView` (risk limit, fees), the plan
-panel's price boxes (stop, target, partial, draw)
-
-Croatian traders — the author and the jury among them — write 1,5 for one and a half. The risk drill strips commas,
-so **"1,5" is read as 15** and graded wrong; the risk limit "250,50" becomes **$25,050** and is accepted; fees "4,50"
-become $450 and are refused. The price boxes turn "20011,5" into no number and put the old price back without a word.
-
-**Fix, when asked:** read a comma followed by one or two digits (and no dot) as the decimal point, and say so when an
-input is not understood instead of reverting it.
-
----
-
-### BUG-090 🟡 Flipping a draft leaves its partial on the wrong side
-
-**Status:** reasoned (2026-10-21). **Affects:** `PracticeSession` (`flip`, the partial's state)
-
-"Flip to short" mirrors the stop and the target through the price, but the partial (T28) is kept apart from the
-drawing and is not mirrored: a long's partial 40 ticks above becomes a short's partial 40 ticks above, the dashed line
-is drawn on the wrong side, and the plan is refused ("must lie between the current price and the target") until the
-learner retypes it.
-
-**Fix, when asked:** mirror the partial with the bracket.
-
----
-
-### BUG-091 🟡 Discarding a draft keeps its partial and its intent for the next one
-
-**Status:** reasoned (2026-10-21). **Affects:** `PracticeSession` (`discard`)
-
-Discard removes the drawing only. The partial and the plan's intent — model, bias, draw on liquidity, confidence —
-stay, so a new draft an hour of replay later starts with an old partial price (often no longer between the price and
-the target) and an old draw. Placing a trade clears them; discarding should too.
-
-**Fix, when asked:** reset the partial and the intent on discard.
-
----
-
-### BUG-092 🟡 The chart beside can be panned on its own and drift out of line
-
-**Status:** reasoned (2026-10-21). **Affects:** `CompanionChart` (`FollowRange` is one-way)
-
-The lower chart (DEC-075) keeps to the upper one, but it is a full chart of its own: dragging or zooming it moves it
-alone, and the two show different minutes until the upper one is moved and the lower snaps back. A trader comparing
-two swings can be reading a pair that is not the same moment.
-
-**Fix, when asked:** sync both ways with a guard against feedback, or let the lower chart follow only (no own time
-scrolling).
+**Next:** if it fails again, keep the surefire XML (the example's times) and the classes run before it.
 
 ---
 
 *BUG-075 to BUG-092 are the bug hunt of 2026-10-21* — Fabio: "go through the app and mark every single bug you can
-find … dont touch them yet", thinking like an attacker for the backend and a trader for the frontend. Logged, none
-fixed; each says whether it was reproduced against the running app or read from the code.
+find … dont touch them yet", thinking like an attacker for the backend and a trader for the frontend. Logged
+untouched, each saying whether it was reproduced against the running app or read from the code; then all eighteen
+fixed on `fix/bug-hunt` (Fabio: "merge, then fix all the bugs"), under [Fixed](#fixed).
 
 *Before it:* an audit at the end of session 017 — Fabio asked for every tracked bug to be fixed,
 and none was open — found four that had never been logged (BUG-040 to BUG-043); a review before the
@@ -663,6 +422,321 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-092 🟡 The chart beside can be panned on its own and drift out of line
+
+**Status:** reasoned (2026-10-21). **Affects:** `CompanionChart` (`FollowRange` is one-way)
+
+The lower chart (DEC-075) keeps to the upper one, but it is a full chart of its own: dragging or zooming it moves it
+alone, and the two show different minutes until the upper one is moved and the lower snaps back. A trader comparing
+two swings can be reading a pair that is not the same moment.
+
+**Fix, when asked:** sync both ways with a guard against feedback, or let the lower chart follow only (no own time
+scrolling).
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** The lower chart follows only: its time neither scrolls nor zooms on its own (`followsOnly`; its price axis
+still scales), and its caption says to move the chart above. A two-way sync was weighed and not taken: the lower chart
+framing its own new candles cannot be told from a learner dragging it, and would have moved the chart above.
+CompanionChart and adapter tests.
+
+### BUG-091 🟡 Discarding a draft keeps its partial and its intent for the next one
+
+**Status:** reasoned (2026-10-21). **Affects:** `PracticeSession` (`discard`)
+
+Discard removes the drawing only. The partial and the plan's intent — model, bias, draw on liquidity, confidence —
+stay, so a new draft an hour of replay later starts with an old partial price (often no longer between the price and
+the target) and an old draw. Placing a trade clears them; discarding should too.
+
+**Fix, when asked:** reset the partial and the intent on discard.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** Discarding clears the partial and the intent — model, bias, draw, confidence — as placing does. PracticeView
+test.
+
+### BUG-090 🟡 Flipping a draft leaves its partial on the wrong side
+
+**Status:** reasoned (2026-10-21). **Affects:** `PracticeSession` (`flip`, the partial's state)
+
+"Flip to short" mirrors the stop and the target through the price, but the partial (T28) is kept apart from the
+drawing and is not mirrored: a long's partial 40 ticks above becomes a short's partial 40 ticks above, the dashed line
+is drawn on the wrong side, and the plan is refused ("must lie between the current price and the target") until the
+learner retypes it.
+
+**Fix, when asked:** mirror the partial with the bracket.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** Flipping mirrors the partial through the entry with the stop and the target. PracticeView test: 20011.50
+above a 20001.50 price flips to 19991.50, and back.
+
+### BUG-089 🟡 A decimal comma is read as a thousands separator, or silently thrown away
+
+**Status:** reasoned (2026-10-21, from the code). **Affects:** `RiskDrills`, `PracticeView` (risk limit, fees), the plan
+panel's price boxes (stop, target, partial, draw)
+
+Croatian traders — the author and the jury among them — write 1,5 for one and a half. The risk drill strips commas,
+so **"1,5" is read as 15** and graded wrong; the risk limit "250,50" becomes **$25,050** and is accepted; fees "4,50"
+become $450 and are refused. The price boxes turn "20011,5" into no number and put the old price back without a word.
+
+**Fix, when asked:** read a comma followed by one or two digits (and no dot) as the decimal point, and say so when an
+input is not understood instead of reverting it.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** One reading of a typed number, `lib/decimal.ts`: a comma before one or two last digits, with no dot, is the
+decimal point; groups of three are thousands either way round ("1,234.50", "1.234,50"); anything else is not guessed
+at. The risk drill, the risk limit, the fees and the stop, target, partial and draw boxes read with it, and a box that
+cannot read its text says so and keeps it to be put right. `decimal.test.ts`, RiskDrills, PlanPanel and PracticeView
+tests. Live: "7718,75" became 7718.75; "abc" was answered "Not a price: write it like 20011.25 or 20011,25."
+
+### BUG-088 🟡 The risk-limit check ignores the costs the app itself charges
+
+**Status:** reasoned (2026-10-21). **Affects:** `Scorecard` (risk line), the plan panel's risk readout
+
+The risk compared with the learner's limit is the distance from the price to the stop, times the tick value and the
+contracts. A stop-out also pays the entry's market slippage, the stop's slippage and the fees — under the standard
+costs a one-contract trade "within your $400 limit" loses $414.50 at its stop ($10.00 of
+slippage, $4.50 of fees). The rule the scorecard judges ("risk limit:
+kept") is not the loss the learner would take.
+
+**Fix, when asked:** compare the limit with the loss at the stop under the plan's own costs, or show both numbers.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** DEC-076, `scorecard-1.1.0`: the limit is judged by the loss at the stop under the trade's own fill model —
+price risk, the entry's and the stop's slippage, the fees — and both are shown: "Risked $200.00; $207.50 at the stop
+with slippage and fees, $7.50 over your $200.00 limit." A fill model it cannot read: the price risk alone. The plan
+panel reads the same number before the trade is placed. `ScorecardTest.riskLimit`, `ScorecardApiTest.scored`,
+`PlanPanel.test`. Live: ES, 40 ticks, the standard costs → $529.50 at the stop.
+
+### BUG-087 🟡 A trade that loses money after fees is counted as a win
+
+**Status:** reasoned (2026-10-21). **Affects:** the replay's score, journal statistics, the trade log's R
+
+Wins, losses, R, expectancy and the win rate are counted from ticks *before* commission (`totalTicks`), while the money
+shown beside them is net. With fees the learner sets — up to $50 a round trip (DEC-072) — one NQ contract out a tick
+ahead (+$5) nets −$45 and is still counted a win at +0.03R. The score can say "1 win" over a negative total.
+
+**Fix, when asked:** decide gross or net once: count wins and losses by net money and report R net of costs, or show
+both.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** DEC-076: R is the net result — costs paid, the money shown beside it — over the planned price risk; a win
+made money, a loss lost it. A stop-out now reads a little worse than −1R, by its costs. Two old fixtures it touched said
+so: one had recorded −1 tick as −$1.00. `PracticeApiTest.netOfCosts` (in and out at one price under $40 of fees: a loss
+of 0.02R, not a 0R scratch), `totalMatchesTheColumn` (BUG-039's case, net: −1.09R and +1.96R make +0.87R).
+
+### BUG-086 🟡 A practice session's hidden date can be recovered from its prices
+
+**Status:** reasoned (2026-10-21). **Affects:** practice on real data (DEC-025), the Chart tab
+
+The replay hides the date, but every price is real NQ to the tick and the time of day is shown. Searching the Chart
+tab's two years for the same few candles finds the day — and with it everything the replay has not shown yet. Only a
+learner cheating themselves gains, but the record (calibration, statistics) then describes trades made knowing the
+future.
+
+**Fix, when asked:** offset every price of a session by a hidden constant (as the clock is offset), or say plainly that
+the date is hidden from casual recall, not from a search.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** DEC-077: the session the learner is in — the open one touched last — is held back from its cursor to a day
+past its replay; what the replay has shown stays, since finding the day by it shows nothing new. The prices were not
+offset: they are real NQ to the tick, which is the point of the app. Only the session in hand: the test account had 35
+left open, and hiding all of them would have taken some 140 days out of the chart. A learner set on cheating themselves
+still can, by resuming an older session after reading its days. `HiddenStretchesTest` (hidden, and back once ended; only
+the session in hand; lessons, drills and new sessions keep clear of it), the App test for the notice. Live on the test
+account: NQ and ES both without exactly 27 Aug 03:40 to 31 Aug 03:40 UTC, the notice under the chart.
+
+### BUG-085 🟡 Prediction and management drills can be answered by looking up what came next on the Chart tab
+
+**Status:** reasoned (2026-10-21). **Affects:** `DrillService.view` (candles with their real times), the Chart tab
+
+A drill's candles carry their real times (the SMT drill read "Mon 22:45 CDT"), and the Chart tab's date picker opens
+any minute of the same history and everything after it. A prediction or a management choice — "graded by what real
+price did" — can therefore be read off before answering, and counts toward the learning state like an honest one.
+
+**Fix, when asked:** hide the date in drills as practice does (DEC-025, the shifted clock); at least, keep a drill
+whose real future was opened from counting.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** With BUG-086 (DEC-077, `HiddenStretches`): the learner's newest drill, while unanswered, is held back from
+the Chart tab from its first candle to the last its answer is decided by — candles, setups and clock prices, on every
+real market — and the chart says why and what brings it back; no lesson example, new drill or new session is drawn
+from it. A drill left behind by "Next drill" is not hidden: the app never goes back to it. The date was not hidden in
+drills: a drill's question is about the candles, and the clock is part of reading them. `HiddenStretchesTest.drillHidden`.
+
+### BUG-084 🟡 A drawing accepts any time, any price and any style value
+
+**Status:** verified live (2026-10-21). **Affects:** `ChartDrawingController.save`
+
+A horizontal line at time 9.2 × 10¹⁸ and price −9.2 × 10¹⁸ ticks, styled `{"color":"<img src=x onerror=alert(1)>"}`,
+was saved and read back. The canvas ignores a colour it cannot parse, so nothing runs today — but the server stores
+whatever it is sent: style keys and values are only counted (BUG-072), and anchors are any 64-bit numbers.
+
+**Fix, when asked:** bound anchors to plausible times and prices; validate the style's keys and values (a colour as
+`#rrggbb` or `rgba(…)`, a line width of 1–4).
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** A style holds only `color` and `fill` (`#rgb` to `#rrggbbaa`, `rgb(…)` or `rgba(…)`) and `lineWidth`
+(above 0, at most 8); a point lies between 2000 and 2100 and within a billion ticks of zero, both sides spelled out —
+`Math.abs(Long.MIN_VALUE)` is still negative, caught while writing the check. It replaces BUG-072's count of entries and
+characters. `ChartDrawingApiTest.styleIsTheChartsOwn`, `anchorsBounded`.
+
+### BUG-083 🟡 Error messages name the server's Java types
+
+**Status:** verified live (2026-10-21). **Affects:** the shared validation error handler (`common/`)
+
+`GET /api/practice/sessions/not-a-uuid` answers *"Method parameter 'id': Failed to convert value of type
+'java.lang.String' to required type 'java.util.UUID'; Invalid UUID string: not-a-uuid"* — the framework's own words,
+naming its types. Harmless alone; part of what makes the server easy to fingerprint.
+
+**Fix, when asked:** answer a type mismatch with the parameter's name and what it should be.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** With BUG-078: `RequestErrorHandler` names the parameter and what it should have been — "'from' must be a
+whole number.", "'id' must be an id." — never a Java type. `RequestErrorsTest.parameters`, `expected`.
+
+### BUG-082 🟡 The whole API description and Swagger UI are open without signing in
+
+**Status:** verified live (2026-10-21). **Affects:** `SecurityConfig` (`/v3/api-docs/**`, `/swagger-ui/**` permitted),
+springdoc defaults
+
+`/v3/api-docs` (68 KB) and `/swagger-ui.html` answer 200 to anyone. Useful locally; deployed, it is a map of every
+endpoint and parameter for whoever probes the API. Spring warns about it at start-up.
+
+**Fix, when asked:** turn springdoc off where `cookies.secure` is true, or put it behind sign-in.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** Deployed (`tradeez.cookies.secure=true`), `/v3/api-docs/**` and Swagger UI are refused to everyone;
+locally they stay open, the frontend's contract (DEC-007). `DeployedServerTest.docsClosed`.
+
+### BUG-081 🟡 Any signed-in user sees the server's health details, its folder path included
+
+**Status:** verified live (2026-10-21). **Affects:** `management.endpoint.health.show-details: when-authorized`
+
+Signed in as an ordinary learner, `GET /actuator/health` lists the database (PostgreSQL), the disk's total and free
+space, and `"path":"C:\\Users\\Fabio\\Desktop\\…"`. *When authorized* with no roles named means any authenticated user.
+
+**Fix, when asked:** `show-details: never` (or a role nobody but an operator has).
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** `management.endpoint.health.show-details: never`. `DeployedServerTest.healthWithoutDetails`: up or down,
+signed in or not, nothing about the database, the disk or its path.
+
+### BUG-080 🟠 One signed-in user can keep the server busy: nothing limits the expensive reads
+
+**Status:** verified live (2026-10-21), timings on this machine. **Affects:** `GET …/setups`, `…/bars`, drills, lessons
+
+Every rule on hourly candles over 399 days took **12 s** the first time and **2.5 s** each time the window moved by an
+hour — a new window is a new cache key, so it is scanned again — and returned 5.3 MB. The daily chart took 5.6 s;
+fourteen days of the simulated market's five-minute candles 0.9 s. No read endpoint has a per-user or per-address
+limit; drills allow 600 an hour, each searching windows; a lesson searches random stretches every time it is asked. A
+few parallel requests from one account occupy the CPU for everyone.
+
+**Fix, when asked:** a per-user rate limit on the scanning endpoints, a cost cap (range × rules × timeframe), windows
+snapped to whole days so a moved window reuses its scan, and a bound on concurrent scans.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** Measured again first, and the entry's explanation was wrong: the public chart already scans whole UTC days,
+and an identical repeat took the same 2.7 s as a moved one — no rescan. The time was the re-check: two counts of a
+year of minutes per rule on every request. Now the minutes are counted once a call per market, over the widest reach
+any rule has (warm, every rule over the chart's 160 days of hours: 0.6 s); a chart's setups cover at most 6,000 candles,
+above the widest chart the app draws (four days of minutes, 5,760), so a year of hours is refused in 20 ms; at most two
+scans run at once server-wide and the rest wait; and candles, setups, the clock and lessons are limited to 240 a minute
+per account (`ReadRateLimit`, a 429). A cold scan of the widest chart is still about 5 s. `SetupScannerTest.scansBounded`,
+`SetupApiTest.costCapped`, `ReadRateLimitTest`. *Lesson:* measure the cause before fixing it — the bug's own account of
+it was a guess.
+
+### BUG-079 🟡 Text with a NUL character makes the database refuse the write
+
+**Status:** verified live (2026-10-21). **Affects:** every free-text field stored as `text` or `jsonb` — a drawing's text
+and style, the display name and email at sign-up
+
+A drawing label `"ab\u0000c"` (under the 80-character limit) reached PostgreSQL, which refused it — `invalid byte
+sequence for encoding "UTF8": 0x00` — and the `DataIntegrityViolationException` became a 500 (shown as a 401 through
+BUG-078). No data is damaged; the request simply fails in the most confusing way.
+
+**Fix, when asked:** refuse control characters in text input (one shared constraint), and answer a constraint
+violation with 400.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** `NoNulStrings`, a Jackson module: a string or map key in any request body holding U+0000 is refused while
+the body is read — a 400 that says why, nothing stored. `RequestErrorsTest.nul` (a label's text, a style key, a
+display name).
+
+### BUG-078 🟠 Every error Spring forwards to `/error` comes back as an empty 401
+
+**Status:** verified live (2026-10-21). **Affects:** `SecurityConfig`, `JwtAuthenticationFilter`; every client of the
+API
+
+A request without its CSRF token (should be 403), a body that is not JSON (400), a number too large for its field
+(400), the wrong HTTP method (405), a `text/plain` body (415) and a database failure (500, BUG-079) all came back as
+`401` with an empty body. Spring answers these by forwarding to `/error`; that forward passes through the security
+chain again, `JwtAuthenticationFilter` — a `OncePerRequestFilter` — does not run on the error dispatch, so the
+request is anonymous there, and `anyRequest().authenticated()` refuses it.
+
+What it does to the app: the client reads 401 as an expired session, refreshes it and **sends the request again** (a
+POST that failed for another reason is sent twice), then shows a bare "401" — the real reason, which the server wrote,
+never arrives. A server failure looks like a sign-in problem.
+
+**Fix, when asked:** permit the `ERROR` dispatcher type (or `/error`) in the security chain, or answer these exceptions
+in an `@RestControllerAdvice` so nothing is forwarded.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** The error dispatch is let through the security chain (`DispatcherType.ERROR` permitted), so a refusal keeps
+its own status, and `server.error.include-message: never` keeps whatever an exception says to the log. Requests refused
+before any controller — not JSON, the wrong content type or method, a parameter of the wrong type or missing — are
+answered first by `RequestErrorHandler`, in words about the request. `DeployedServerTest` (a real server on a real
+port: a CSRF refusal is a 403 with a body, a bad body a 400) and `RequestErrorsTest`. *Lesson:* MockMvc never forwards
+to `/error`, so every test passed while the real server answered 401: a layer only a real server exercises.
+
+### BUG-077 🟠 "Sign out everywhere" and a password change leave a stolen access token working
+
+**Status:** verified live (2026-10-21). **Affects:** `JwtAuthenticationFilter`, `AuthService.logoutEverywhere`,
+`changePassword`
+
+`POST /api/auth/logout-all` revokes every refresh token, and the UI says every device is signed out. The access token
+those sessions already hold is a stateless JWT valid for up to fifteen minutes, and nothing checks it against the
+sign-out: after `logout-all`, the old access cookie still read `/api/me` and the practice journal (200). A password
+change — usually made because someone else may know the password — has the same gap. The filter already reads the
+user's row on every request, so the check would cost nothing.
+
+**Fix, when asked:** keep `tokens_valid_after` on `app_user`, set it on `logout-all` and on a password change, and
+refuse a JWT issued before it.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** Every access token carries its account's token generation (`gen`); "sign out everywhere" and a password
+change move the account to the next (V27, `token_generation`), and the filter refuses a token of an earlier one — or
+with none. A first version compared issue times, which a JWT keeps to the second: a token stolen in the same second as
+the sign-out would have outlived it, and the tests' own tokens did. `AuthHardeningTest`: logout-all and a password
+change end this device's token and the other's, the new one works; a correctly signed token without a generation is
+refused. *Lesson:* a revocation by time inherits the clock's resolution; a counter has none.
+
+### BUG-076 🟠 Anyone can keep an account from signing in
+
+**Status:** verified live (2026-10-21). **Affects:** `AuthService.login`
+
+After ten wrong passwords for one address, the eleventh attempt is refused with 429 *before* its password is looked
+at — the right password included. The window is fifteen minutes and a correct sign-in is the only thing that clears
+it, which the lock prevents; ten more guesses every fifteen minutes keep a known address locked out for as long as
+someone cares to (from any number of addresses, or from one through BUG-075). Verified with a made-up address:
+`401` ten times, then `429`.
+
+**Fix, when asked:** let a correct password through a lock it did not cause — count failures per account *and*
+caller, or slow the caller rather than the account, or check the password first and throttle only failures.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** The account's ten are counted per account *and* address (`ClientAddress`, the per-address limit's own
+trusted-proxy rule): ten wrong guesses stop that address for that account, and the owner, elsewhere, signs in. Guessing
+from many addresses still costs ten tries an address a window, against password-1.0.0 and the breach check.
+`AuthHardeningTest.AccountLimit`. *Lesson:* a limit checked before the password stops whoever it is keyed on — key it
+on the guesser too, not on the account alone.
+
+### BUG-075 🔴 The per-address limit on sign-in and sign-up is skipped by escaping one letter of the path
+
+**Status:** verified live (2026-10-21, local backend). **Found by:** the bug hunt Fabio asked for — logged, not fixed
+**Affects:** `AuthRateLimitFilter.shouldNotFilter`; `/api/auth/login`, `/api/auth/register`
+
+Twenty-four sign-in attempts in a row at `POST /api/auth/log%69n`, each with a different unknown address, all came back
+`401 Invalid email or password.` — the login handler answering — and never 429. Twenty-two sign-ups at
+`/api/auth/regist%65r` all reached validation (400). On the plain paths the limit (20 a window of five minutes per
+address, BUG-002, BUG-070) refuses the 21st.
+
+The filter compares `request.getRequestURI()` — the raw path, still percent-encoded — with three exact strings, while
+Spring MVC and Spring Security both match the decoded path. So the escaped request is routed to the login handler,
+permitted, and exempt from CSRF like the plain one, but the filter does not recognise it. The per-account limit (ten
+in fifteen minutes) still holds for each address; what is gone is everything that limit does not cover: spraying one
+password over many accounts, stuffing leaked credentials, and walking registration to learn which addresses have
+accounts — the reason BUG-002 added the per-address limit.
+
+**Fix, when asked:** match the decoded, normalised path (`ServletRequestPathUtils` / `getServletPath()`), or apply the
+limit through a Spring Security request matcher, so it sees the request exactly as the router does.
+
+**✅ FIXED — Session 017 (2026-10-22), `fix/bug-hunt`.** The filter compares the path as the router reads it — decoded, `;` parameters removed
+(`UrlPathHelper`) — for the check and the key alike, so `/api/auth/log%69n` counts against `/api/auth/login`'s twenty.
+`AuthHardeningTest.EncodedPaths`: twenty escaped attempts, then the plain path is refused; escaped letters and `;x=1`
+read away. *Lesson:* a check on a path must read it as the router does, or a spelling the router accepts walks past it.
+
 ### BUG-074 🟡 Trades placed before T22 counted as "outside the killzones"
 
 **Status:** verified — on the test account's 236 trades (session 017, 2026-10-19)
@@ -686,7 +760,8 @@ The app sends a colour, a width and a fill; the server stored whatever `style` h
 500 drawings per chart — room for one account to fill the database with its own junk.
 
 **✅ FIXED — Session 017.** At most 8 entries and 512 characters, else a 400.
-`ChartDrawingApiTest.styleBounded`; the 500-drawing cap, never tested before, is `capped`.
+`ChartDrawingApiTest.styleBounded`; the 500-drawing cap, never tested before, is `capped`. *Since BUG-084:* the count
+gave way to the three keys the chart reads, each in the form it draws; `styleBounded` still passes.
 
 ### BUG-071 🟡 A stop far enough below the price slipped past the 20,000-tick check
 

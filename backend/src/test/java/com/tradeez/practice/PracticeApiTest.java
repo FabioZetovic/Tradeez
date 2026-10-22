@@ -693,7 +693,7 @@ class PracticeApiTest extends AbstractIntegrationTest {
 				INSERT INTO practice_result (session_id, seq, outcome, entry_time, entry_ticks, exit_time,
 				    exit_ticks, pnl_ticks, net_pnl_cents, commission_cents, mae_ticks, mfe_ticks, gap_exit,
 				    resolution, engine_version, fill_model_version, generator_version, seed)
-				SELECT ?::uuid, n, 'STOP', '2000-01-01', 100, '2000-01-01', 99, -1, -100, 0, 1, 0, false,
+				SELECT ?::uuid, n, 'STOP', '2000-01-01', 100, '2000-01-01', 99, -1, -500, 0, 1, 0, false,
 				    'S1', 'test', 'test', 'test', 1 FROM generate_series(1, ?) n""",
 				id, PracticeService.MAX_TRADES);
 
@@ -709,8 +709,9 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		@DisplayName("the total R is the sum of the R column as shown (BUG-039)")
 		void totalMatchesTheColumn() throws Exception {
 			String id = create(alice).at("/state/id").asString();
-			// The live case: −43 and +79 ticks on 40 of risk. Unrounded they sum to +0.90R; the
-			// learner sees −1.07R and +1.98R, and adds them up to +0.91R.
+			// The live case: −43 and +79 ticks on 40 of risk, each less a $2.50 round trip (DEC-076): −1.0875R and
+			// +1.9625R. Unrounded they sum to +0.875R, shown +0.88R; the learner sees −1.09R and +1.96R, and adds them
+			// up to +0.87R.
 			jdbc.update("""
 				INSERT INTO trade_plan (session_id, seq, direction, stop_ticks, target_ticks, contracts,
 				    reference_ticks, submitted_cursor)
@@ -726,9 +727,9 @@ class PracticeApiTest extends AbstractIntegrationTest {
 				        false, 'M1', 'test', 'test', 'test', 1)""", id, id);
 
 			JsonNode state = read(fetch(alice, id)).get("state");
-			assertThat(state.at("/trades/0/result/rMultiple").asDouble()).isEqualTo(-1.07);
-			assertThat(state.at("/trades/1/result/rMultiple").asDouble()).isEqualTo(1.98);
-			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.91);
+			assertThat(state.at("/trades/0/result/rMultiple").asDouble()).isEqualTo(-1.09);
+			assertThat(state.at("/trades/1/result/rMultiple").asDouble()).isEqualTo(1.96);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.87);
 			assertThat(state.at("/score/netPnlCents").asLong()).isEqualTo(17_500);
 		}
 
@@ -800,6 +801,28 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			JsonNode result = read(close(alice, id).andExpect(status().isOk())).at("/state/trades/0/result");
 			assertThat(result.get("pnlTicks").asLong()).isZero();
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo(-result.get("commissionCents").asLong());
+		}
+
+		@Test
+		@DisplayName("BUG-087 in and out at one price under $40 of fees: a loss of 0.02R, not a scratch at 0R")
+		void netOfCosts() throws Exception {
+			mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"feesCents\":4000,\"marketSlippageTicks\":0,\"stopSlippageTicks\":1,\"limitThroughTicks\":0}"))
+				.andExpect(status().isOk());
+			JsonNode session = create(alice);
+			String id = session.at("/state/id").asString();
+			wideLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
+			close(alice, id).andExpect(status().isOk());
+			JsonNode state = read(advance(alice, id, 1).andExpect(status().isOk())).get("state");
+
+			JsonNode result = state.at("/trades/0/result");
+			assertThat(result.get("pnlTicks").asLong()).isZero();
+			assertThat(result.get("netPnlCents").asLong()).isEqualTo(-4_000);
+			// 400 ticks to the stop at $5 is $2,000 risked; $40 of it is 0.02R.
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(-0.02);
+			assertThat(state.at("/score/wins").asInt()).isZero();
+			assertThat(state.at("/score/losses").asInt()).isEqualTo(1);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(-0.02);
 		}
 
 		@Test

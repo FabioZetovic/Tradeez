@@ -112,10 +112,6 @@ public class PracticeClose {
 			: new Leg(partialTime, partialExitTicks, partialPnlTicks, partialContracts, partialGap);
 	}
 
-	/** Every contract's ticks together, the partial's and the rest's. */
-	public long totalTicks(int contracts) {
-		return FillEngine.totalTicks(pnlTicks, partial(), contracts);
-	}
 
 
 	public UUID getSessionId() {

@@ -714,6 +714,10 @@ describe('Practice — the scorecard (T23)', () => {
     expect(field).toHaveValue('150')
     expect(puts()).toEqual([])
 
+    // BUG-089: a decimal comma is the decimal point, not a thousands separator — not $25,050.
+    await user.clear(field)
+    await user.type(field, '250,50{Enter}')
+    await waitFor(() => expect(field).toHaveValue('250.5'))
     await user.clear(field)
     await user.type(field, '$1,250{Enter}')
     await waitFor(() => expect(field).toHaveValue('1250'))
@@ -725,7 +729,8 @@ describe('Practice — the scorecard (T23)', () => {
     await waitFor(() => expect(field).toHaveValue('150'))
     // Saved all at once: the costs go with the limit, as they were.
     const { fillModel: _, ...costs } = STANDARD
-    expect(puts()).toEqual([{ ...costs, riskLimitCents: 125_000 }, costs, { ...costs, riskLimitCents: 15_000 }])
+    expect(puts()).toEqual([{ ...costs, riskLimitCents: 25_050 }, { ...costs, riskLimitCents: 125_000 }, costs,
+      { ...costs, riskLimitCents: 15_000 }])
 
     // Forty ticks at $5: $200, over the $150 limit — said, not prevented.
     await startSession(user)
@@ -763,14 +768,20 @@ describe('Practice — the scorecard (T23)', () => {
     await user.type(fees, '3.25{Enter}')
     await waitFor(() => expect(puts()).toHaveLength(2))
     expect(puts()[1]).toMatchObject({ feesCents: 325, stopSlippageTicks: 2 })
-    // More than $50 a round trip is not a fee: nothing is sent.
+    // More than $50 a round trip is not a fee: nothing is sent, and the learner is told (BUG-089).
     await user.clear(fees)
     await user.type(fees, '75{Enter}')
     expect(puts()).toHaveLength(2)
+    expect(screen.getByRole('alert')).toHaveTextContent('Fees are $0 to $50 a round trip, written like 4.50 or 4,50.')
+    // BUG-089: four dollars fifty, not $450 refused.
+    await user.clear(fees)
+    await user.type(fees, '3,25{Enter}')
+    await waitFor(() => expect(puts()).toHaveLength(3))
+    expect(puts()[2]).toMatchObject({ feesCents: 325 })
 
     await user.click(within(costs).getByRole('button', { name: 'On the touch' }))
-    await waitFor(() => expect(puts()).toHaveLength(3))
-    expect(puts()[2]).toMatchObject({ limitThroughTicks: 0, feesCents: 325 })
+    await waitFor(() => expect(puts()).toHaveLength(4))
+    expect(puts()[3]).toMatchObject({ limitThroughTicks: 0, feesCents: 325 })
 
     // And the draft reads its costs: $3.25 fees, a tick in, up to two out — at most $18.25.
     await startSession(user)
@@ -926,6 +937,62 @@ describe('Practice — a short, and the bracket around it', () => {
       targetTicks: 79_926,
       contracts: 3,
     })
+  })
+
+  it('BUG-089: a price box reads a decimal comma, and says so when its text is not a price', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    await user.clear(screen.getByLabelText('Stop'))
+    await user.type(screen.getByLabelText('Stop'), '19991,75{Enter}')
+    expect(screen.getByLabelText('Stop')).toHaveValue('19991.75')
+
+    await user.clear(screen.getByLabelText('Target'))
+    await user.type(screen.getByLabelText('Target'), '2002x{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent('Not a price: write it like 20011.25 or 20011,25.')
+    expect(screen.getByLabelText('Target')).toHaveValue('2002x')
+    expect(screen.getByLabelText('Target')).toHaveAttribute('aria-invalid', 'true')
+    // Put right, it is taken and the word goes.
+    await user.clear(screen.getByLabelText('Target'))
+    await user.type(screen.getByLabelText('Target'), '20030,5{Enter}')
+    expect(screen.getByLabelText('Target')).toHaveValue('20030.50')
+    expect(screen.queryByText(/Not a price/)).toBeNull()
+
+    await user.type(screen.getByLabelText('Draw on liquidity'), 'high{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent('Not a price')
+  })
+
+  it('BUG-090: flipping mirrors the partial through the price with the stop and the target', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    await user.clear(screen.getByLabelText('Contracts'))
+    await user.type(screen.getByLabelText('Contracts'), '2')
+    // Forty ticks above the 20001.50 price; flipped, forty below.
+    await user.type(screen.getByLabelText('Partial'), '20011.50{Enter}')
+    await user.click(screen.getByRole('button', { name: /flip to short/i }))
+    expect(screen.getByLabelText('Partial')).toHaveValue('19991.50')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /flip to long/i }))
+    expect(screen.getByLabelText('Partial')).toHaveValue('20011.50')
+  })
+
+  it('BUG-091: a discarded draft takes its partial and its draw with it', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    await user.clear(screen.getByLabelText('Contracts'))
+    await user.type(screen.getByLabelText('Contracts'), '2')
+    await user.type(screen.getByLabelText('Partial'), '20011.50{Enter}')
+    await user.type(screen.getByLabelText('Draw on liquidity'), '20030{Enter}')
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+
+    await user.click(screen.getByRole('button', { name: /plan long/i }))
+    expect(screen.getByLabelText('Partial')).toHaveValue('')
+    expect(screen.getByLabelText('Draw on liquidity')).toHaveValue('')
   })
 
   it('flips a draft long into the mirror-image short through the price, and back', async () => {

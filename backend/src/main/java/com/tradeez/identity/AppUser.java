@@ -49,6 +49,10 @@ public class AppUser {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	/** BUG-077: the generation of access tokens still good; an earlier one's are refused. */
+	@Column(name = "token_generation", nullable = false)
+	private int tokenGeneration;
+
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "settings", nullable = false)
 	private Map<String, Object> settings = new HashMap<>();
@@ -106,5 +110,17 @@ public class AppUser {
 	/** A new password's hash (DEC-064); the caller has checked the old one. */
 	public void changePasswordHash(String passwordHash) {
 		this.passwordHash = passwordHash;
+	}
+
+	/**
+	 * Ends every access token handed out so far (BUG-077): the account moves to the next generation, and tokens issued
+	 * from now on carry it.
+	 */
+	public void revokeAccessTokens() {
+		this.tokenGeneration++;
+	}
+
+	public int getTokenGeneration() {
+		return tokenGeneration;
 	}
 }

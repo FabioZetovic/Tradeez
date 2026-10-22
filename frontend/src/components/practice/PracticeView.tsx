@@ -20,6 +20,7 @@ import {
   type Statistics,
 } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
+import { parseDecimal } from '@/lib/decimal'
 import { formatCents, formatR, STATUS_LABEL } from '@/lib/practice/plan'
 import { Button, Panel, Segmented } from '../ui'
 import { errorClass, fieldClass, labelClass, panelTitle } from '@/lib/styles'
@@ -179,7 +180,13 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             trade, and changing it later does not rewrite old ones.
           </p>
         </div>
-        {settings && <CostsFields settings={settings} onSave={(update) => void save(update)} />}
+        {settings && (
+          <CostsFields
+            settings={settings}
+            onSave={(update) => void save(update)}
+            onInvalid={() => setError('Fees are $0 to $50 a round trip, written like 4.50 or 4,50.')}
+          />
+        )}
         {error && (
           <p role="alert" className={`mt-3 ${errorClass}`}>
             {error}
@@ -251,13 +258,22 @@ const TARGET_FILLS = ['On the touch', 'Traded through'] as const
  * target fills on the touch or once price trades through it. Used for trades placed from now on; each result keeps
  * the costs it was made with.
  */
-function CostsFields({ settings, onSave }: { settings: PracticeSettings; onSave: (update: SettingsUpdate) => void }) {
+function CostsFields({
+  settings,
+  onSave,
+  onInvalid,
+}: {
+  settings: PracticeSettings
+  onSave: (update: SettingsUpdate) => void
+  onInvalid: () => void
+}) {
   const [draft, setDraft] = useState<string | null>(null)
   const fees = draft ?? String(settings.feesCents / 100)
   const commitFees = () => {
     if (draft === null) return
-    const dollars = Number(draft.replace(/[$,\s]/g, ''))
-    if (Number.isFinite(dollars) && dollars >= 0 && dollars <= 50) onSave({ feesCents: Math.round(dollars * 100) })
+    const dollars = parseDecimal(draft, '$')
+    if (dollars !== null && dollars >= 0 && dollars <= 50) onSave({ feesCents: Math.round(dollars * 100) })
+    else onInvalid()
     setDraft(null)
   }
   return (
@@ -324,9 +340,9 @@ function RiskLimitField({
   const text = draft ?? (cents == null ? '' : String(cents / 100))
   const commit = () => {
     if (draft === null) return
-    const dollars = Number(draft.replace(/[$,\s]/g, ''))
+    const dollars = parseDecimal(draft, '$')
     if (draft.trim() === '') onSave(null)
-    else if (Number.isFinite(dollars) && dollars >= 1 && dollars <= MAX_LIMIT_DOLLARS) onSave(Math.round(dollars * 100))
+    else if (dollars !== null && dollars >= 1 && dollars <= MAX_LIMIT_DOLLARS) onSave(Math.round(dollars * 100))
     else onInvalid()
     setDraft(null)
   }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Direction, PlanContext, PlanIntent as Intent, PlanRequest } from '@/lib/api/practice'
 import { formatPrice, priceToTicks } from '@/lib/chart/priceFormat'
 import { formatCents, planNumbers, planProblem, type PartialDraft } from '@/lib/practice/plan'
+import { NOT_A_PRICE, parseDecimal } from '@/lib/decimal'
 import { Button, Chip, Panel } from '../ui'
 import { PlanIntent } from './PlanIntent'
 import { errorClass, fieldClass, keyValueClass, panelTitle } from '@/lib/styles'
@@ -84,6 +85,13 @@ export function PlanPanel({
 
   const problem = planProblem(plan, referenceTicks)
   const numbers = planNumbers(plan, referenceTicks, tickValueCents)
+  // BUG-088: what the stop would cost — the entry's slippage, the stop's and the fees too — is what the limit is
+  // judged by, as the scorecard judges it.
+  const atStopCents = costs
+    ? numbers.riskCents +
+      (costs.feesCents + (costs.marketSlippageTicks + costs.stopSlippageTicks) * tickValueCents) * plan.contracts
+    : null
+  const judgedCents = atStopCents ?? numbers.riskCents
 
   return (
     <Panel aria-label="Plan">
@@ -134,12 +142,15 @@ export function PlanPanel({
         <dt>Risk</dt>
         <dd>
           {numbers.riskTicks} ticks · {formatCents(numbers.riskCents)}
+          {atStopCents !== null && (
+            <span data-testid="risk-at-stop"> · {formatCents(atStopCents)} at the stop with costs</span>
+          )}
           {riskLimitCents !== undefined && (
             <span
               data-testid="risk-limit"
-              className={numbers.riskCents > riskLimitCents ? 'font-medium text-down' : 'text-subtle'}
+              className={judgedCents > riskLimitCents ? 'font-medium text-down' : 'text-subtle'}
             >
-              {numbers.riskCents > riskLimitCents
+              {judgedCents > riskLimitCents
                 ? ` · over your ${formatCents(riskLimitCents)} limit`
                 : ` · within your ${formatCents(riskLimitCents)} limit`}
             </span>
@@ -298,19 +309,24 @@ function PriceField({
   // What the learner is typing, or null when they are not. While null the box simply shows the
   // plan's price, so a bracket dragged on the chart updates it with no syncing effect.
   const [draft, setDraft] = useState<string | null>(null)
+  const [bad, setBad] = useState(false)
   const text = draft ?? (ticks === undefined ? '' : formatPrice(ticks, tickSize))
 
   const id = `plan-${label.toLowerCase()}`
   const commit = () => {
     if (draft === null) return
-    const price = Number(draft)
-    if (draft.trim() === '' && onClear) {
-      onClear()
-    } else if (draft.trim() !== '' && Number.isFinite(price) && price > 0) {
+    const price = parseDecimal(draft)
+    if (draft.trim() === '') {
+      onClear?.()
+    } else if (price !== null && price > 0) {
       onCommit(priceToTicks(price, tickSize))
+    } else {
+      // BUG-089: not put back in silence. The text stays, to be put right, and the box says why.
+      setBad(true)
+      return
     }
-    // Valid or not, typing is over: show the plan's price, which is the committed value or,
-    // for nonsense input, the one that was there before.
+    // Typing is over: show the plan's price — the committed value, or the one there before an emptied
+    // box that cannot be empty.
     setDraft(null)
   }
 
@@ -319,18 +335,30 @@ function PriceField({
       <label htmlFor={id} className="text-subtle">
         {label}
       </label>
-      <input
-        id={id}
-        className={`${fieldClass} w-36`}
-        inputMode="decimal"
-        placeholder={placeholder}
-        value={text}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit()
-        }}
-      />
+      <div className="flex flex-col gap-1">
+        <input
+          id={id}
+          className={`${fieldClass} w-36`}
+          inputMode="decimal"
+          placeholder={placeholder}
+          value={text}
+          aria-invalid={bad || undefined}
+          aria-describedby={bad ? `${id}-error` : undefined}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setBad(false)
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+          }}
+        />
+        {bad && (
+          <span id={`${id}-error`} role="alert" className={`${errorClass} text-xs`}>
+            {NOT_A_PRICE}
+          </span>
+        )}
+      </div>
     </>
   )
 }

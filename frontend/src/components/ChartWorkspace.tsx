@@ -7,6 +7,7 @@ import {
   listInstruments,
   TIMEFRAMES,
   type BarSeries,
+  type HiddenStretch,
   type Instrument,
   type TimeframeCode,
 } from '@/lib/api/marketData'
@@ -40,6 +41,18 @@ import { Button, Segmented } from './ui'
 import { cx, errorClass, fieldClass } from '@/lib/styles'
 
 /** Candles in view when a window loads; the rest of the window is a scroll away. */
+/** Why candles are missing from the window, and what brings them back (BUG-085, BUG-086). */
+function hiddenNotice(hidden: HiddenStretch[]): string {
+  const practice = hidden.some((s) => s.why === 'PRACTICE')
+  const drill = hidden.some((s) => s.why === 'DRILL')
+  if (practice && drill) {
+    return 'Some candles are held back while you are graded by them: the practice session you are in replays them, and your unanswered drill is decided by them. End the session in Practice and answer the drill to see them here.'
+  }
+  return practice
+    ? 'Some candles are held back: the practice session you are in replays them, and seeing them here would show its future. End the session in Practice to see them here.'
+    : 'Some candles are held back: the drill you have not answered yet is decided by them. Answer it to see them here.'
+}
+
 const RECENT_BARS = 200
 
 const DAY = 86_400
@@ -328,6 +341,12 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
       {error && (
         <p role="alert" className={errorClass}>
           {error}
+        </p>
+      )}
+
+      {series && series.hidden.length > 0 && (
+        <p role="status" data-testid="hidden-stretches" className="text-sm text-subtle">
+          {hiddenNotice(series.hidden)}
         </p>
       )}
 

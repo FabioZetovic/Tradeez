@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.tradeez.identity.JwtAuthenticationFilter;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,6 +47,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
+	/** The API's description and its UI (springdoc). */
+	static final String[] API_DOCS = { "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html" };
+
 	private final List<String> allowedOrigins;
 	private final boolean deployed;
 	private final JwtAuthenticationFilter jwtFilter;
@@ -73,20 +78,29 @@ public class SecurityConfig {
 				// Auth endpoints are exempt only until a session cookie exists to protect.
 				.ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh"))
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(auth -> auth
-				.requestMatchers(
-					"/api/health",
-					"/actuator/health",
-					"/api/auth/login",
-					"/api/auth/register",
-					// Authenticated by the refresh cookie itself, not by an access token.
-					"/api/auth/refresh",
-					"/api/auth/logout",
-					"/v3/api-docs/**",
-					"/swagger-ui/**",
-					"/swagger-ui.html")
-				.permitAll()
-				.anyRequest().authenticated())
+			.authorizeHttpRequests(auth -> {
+				// BUG-078: Spring answers a refused request by forwarding it to /error, a second pass through this
+				// chain on which the access-token filter does not run. Refused there as anonymous, every such error
+				// came back as an empty 401 — and the client, reading an expired session, refreshed and sent it again.
+				auth.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll();
+				auth.requestMatchers(
+						"/api/health",
+						"/actuator/health",
+						"/api/auth/login",
+						"/api/auth/register",
+						// Authenticated by the refresh cookie itself, not by an access token.
+						"/api/auth/refresh",
+						"/api/auth/logout")
+					.permitAll();
+				// BUG-082: the API's description is for building against it here; deployed, it is a map for anyone
+				// probing the API, so nobody is given it.
+				if (deployed) {
+					auth.requestMatchers(API_DOCS).denyAll();
+				} else {
+					auth.requestMatchers(API_DOCS).permitAll();
+				}
+				auth.anyRequest().authenticated();
+			})
 			// Return 401 rather than redirecting to a login page; this backend serves an SPA.
 			.exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
 			.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

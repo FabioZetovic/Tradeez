@@ -237,11 +237,11 @@ class RobustnessTest extends AbstractIntegrationTest {
 	void others() throws Exception {
 		UUID id = UUID.randomUUID();
 		String drawing = "/api/charts/NQ/drawings/" + id;
-		String line = "{\"id\":\"" + id + "\",\"kind\":\"horizontal-line\",\"anchors\":[{\"time\":0,\"priceTicks\":1}]}";
+		String line = "{\"id\":\"" + id + "\",\"kind\":\"horizontal-line\",\"anchors\":[{\"time\":1710338400,\"priceTicks\":1}]}";
 		assertThat(misanswered(Stream.of(
 			c("drawing, ids differ", body(as(put(drawing)), line.replace(id.toString(), UUID.randomUUID().toString())), 400),
 			c("drawing, unknown kind", body(as(put(drawing)), line.replace("horizontal-line", "circle")), 400),
-			c("drawing, a null anchor time", body(as(put(drawing)), line.replace("\"time\":0", "\"time\":null")), 400),
+			c("drawing, a null anchor time", body(as(put(drawing)), line.replace("\"time\":1710338400", "\"time\":null")), 400),
 			c("drawing, unknown instrument", body(as(put("/api/charts/NOPE/drawings/" + id)), line), 404),
 			c("drawing, delete on an unknown instrument", as(delete("/api/charts/NOPE/drawings/" + id)), 404),
 			c("drill, unknown kind", body(as(post("/api/drills")), "{\"kind\":\"NOPE\"}"), 400),

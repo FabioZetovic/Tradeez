@@ -175,7 +175,7 @@ public final class PracticeDtos {
 		@Schema(description = "Maximum adverse excursion, ticks") long maeTicks,
 		@Schema(description = "Maximum favourable excursion, ticks") long mfeTicks,
 		@Schema(description = "Filled at an opening price beyond the order") boolean gapExit,
-		@Schema(description = "Result in multiples of the planned risk") double rMultiple,
+		@Schema(description = "The net result, costs paid, in multiples of the planned risk (DEC-076)") double rMultiple,
 		String resolution,
 		String engineVersion,
 		String fillModelVersion,
@@ -262,7 +262,7 @@ public final class PracticeDtos {
 	public record StatisticsGroupView(
 		String label,
 		int trades,
-		@Schema(description = "Trades that made ticks before commission") int wins,
+		@Schema(description = "Trades that made money once every cost was paid (DEC-076)") int wins,
 		int losses,
 		@Schema(description = "Percent; absent with no trades") Double winRate,
 		@Schema(description = "The mean winning trade in R; absent with no wins") Double avgWinR,
@@ -314,7 +314,7 @@ public final class PracticeDtos {
 		until its exit is shown.""")
 	public record ScoreView(
 		int closedTrades,
-		@Schema(description = "Trades that made ticks before commission") int wins,
+		@Schema(description = "Trades that made money once every cost was paid (DEC-076)") int wins,
 		int losses,
 		@Schema(description = "Sum of the closed trades' R multiples") double totalR,
 		long netPnlCents) {

@@ -57,15 +57,15 @@
 ```yaml
 last_session: 017   # in progress — T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
 last_author: CLAUDE
-last_updated: 2026-10-21
+last_updated: 2026-10-22
 phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # feat/smt-chart (DEC-075, bug hunt BUG-075–092 logged) merged 2026-10-21 as 4e31dec; feat/smt, feat/partials, feat/onboarding (T20, T28, T29, DEC-073, DEC-074) merged 2026-10-21 in order as 5dade77, a8baa46, 9f332df; feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: fix/bug-hunt                              # from master 7043160: BUG-075–092 fixed (DEC-076, DEC-077), waiting for "merge"; feat/smt-chart (DEC-075, bug hunt BUG-075–092 logged) merged 2026-10-21 as 4e31dec; feat/smt, feat/partials, feat/onboarding (T20, T28, T29, DEC-073, DEC-074) merged 2026-10-21 in order as 5dade77, a8baa46, 9f332df; feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 679/679 (Testcontainers, 2026-10-21, feat/smt-chart), frontend 377/377 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: true  # backend 706/706 (Testcontainers, 2026-10-22, fix/bug-hunt), frontend 390/390 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -93,7 +93,7 @@ files_in_repo:
     curriculum/  # concept registry read from docs/ICT_CONCEPTS.md at startup; GET /api/concepts (017, T9); lesson cards with random real examples, GET /api/concepts/{id}/lesson (T14, DEC-055)
     learning/    # learning-1.0.0 (DEC-059): progress computed from graded drills (drills/DrillAttempts) and cards read — solid, SM-2 reviews, the ladder's unlocks; GET /api/learning, POST /api/learning/concepts/{id}/read  (017, T16)
     drills/      # drill engine (DEC-054): DrillKind catalogue (twelve drills, modes A, B and C), windows on real NQ, answer key = stored hits, excused candles; Prediction + PredictionText = predict-1.0.0 (mode C: two targets, the future withheld until the answer, DEC-058); FVG fixture on simulated data  (016, 017 T13, T15)
-  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome) · V17 cards read (concept_read) · V18 rule evidence · V19 a plan's model, bias and checklist · V20 scorecard and risk limit · V21 risk drills · V22 management drills · V23 trading costs · V24 ES (T20) · V25 partial targets (T28) · V26 the SMT drill (DEC-075)
+  backend/src/main/resources/db/migration/: V1 baseline · V2 instruments · V3 token hardening · V4 drawings · V5 practice · V6 setups + drills · V7 real market data · V8 simulated markets withdrawn from the list · V9 practice on real data · V10 several trades per replay · V11 ICT drawing tools (kinds, text, anchor counts) · V12 detector framework (shape, confirmation time) · V13 setup kinds · V14 drill engine (kinds, choice, excused candles) · V15 close at market (practice_close) · V16 prediction drills (question, outcome) · V17 cards read (concept_read) · V18 rule evidence · V19 a plan's model, bias and checklist · V20 scorecard and risk limit · V21 risk drills · V22 management drills · V23 trading costs · V24 ES (T20) · V25 partial targets (T28) · V26 the SMT drill (DEC-075) · V27 access tokens' generation (BUG-077)
   frontend/src/:
     lib/api/      # fetch client, auth, market data, drawings, practice, clock, setups, concepts, drills, lessons
     lib/chart/    # ChartAdapter + Lightweight Charts impl, tick<->price, time axis
@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — `feat/smt-chart` merged 2026-10-21; fixing BUG-075 to BUG-092 on `fix/bug-hunt` (Fabio: "merge, then fix all the bugs"). Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: Fabio's "merge" of `fix/bug-hunt` — BUG-075 to BUG-092 fixed (DEC-076, DEC-077); BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -303,6 +303,8 @@ Fabio's product calls. Do not re-litigate them here. The ones most likely to be 
 | DEC-049 | **One contract for every detector** (S-1): shape ZONE/LEVEL/POINT, confirmation time, honest lookback, causal — checked for every registered detector; candles split at rolls; a replay served from one scan filtered by its cursor; evidence never sent. The concept registry **is** `ICT_CONCEPTS.md`, read at startup (S-2). Overlay off by default (S-3). |
 | DEC-048 | **Three ICT drawing tools** extend DEC-037: Fibonacci (1 at the leg's start, 0 at its end, ICT's levels, OTE shaded), zone (CE in half-ticks), label (≤ 80 chars, own column). Server checks each kind's anchor count; a never-dragged two-point creation is not kept. |
 | DEC-047 | **The New York clock layer:** `sessions-1.0.0`, `opens-1.0.0`, `levels-1.0.0` (CME day 18:00–17:00), computed server-side from 1m bars, never past the cursor (a replay re-asks at `nextChange`), no level from a partly seen period or across a roll; drawn on its own canvas under the drawings. |
+| DEC-077 | **What a learner is still graded by stays off the Chart tab** (BUG-085, BUG-086): the session in hand (the open one touched last) from its cursor to a day past its replay, and the newest unanswered drill to the last candle its answer is decided by — candles, setups and clock prices left out on every real market, `hidden` on the bars and a notice under the chart; no lesson example, drill or session drawn from them. Prices not offset; sessions left behind not hidden. |
+| DEC-076 | **R and the score net of costs; the risk limit judged by the loss at the stop** (BUG-087, BUG-088): R = net money ÷ planned price risk, a win made money after costs; `scorecard-1.1.0` judges the limit by price risk + the entry's and stop's slippage + fees under the trade's fill model, both shown; the plan panel the same. |
 | DEC-072 | **Trading costs** (T27): fill-1.3.0 — FillModel(market slippage, stop slippage, limit-through ticks, fees per round trip); market fills (entry, close, session flat) slip; a target fills once traded `through` ticks beyond (an open beyond fills at the open); BASIC = fill-1.2.0's `slip-1t/comm-250c`, STANDARD = `mkt-1t/slip-1t/thru-1t/comm-450c`; the name parsed back for a close; V23 settings (fees 0–5,000¢, slippages 0–8, through 0–4) saved all at once; the Costs line in the scorecard. |
 | DEC-071 | **Management drills** (T26, mode E): `OPEN_TRADE_MANAGEMENT`, `manage-1.0.0` — a constructed trade (stop 1.5 × ATR(14), ≥ 8 ticks; target 3R), the moment its first close ≥ 1R after ≥ 3 candles; HOLD / BREAKEVEN / HALF (half at the next open) played to the first level or 100 candles, gaps fill at the open, ties in a candle read on minutes or never asked; outcome the choices that paid most (ties all count); real data only (V22); practice, never rated. |
 | DEC-070 | **Risk drills** (T26, mode F): `risk-1.0.0` — CONTRACTS (account × risk% ÷ (stop ticks × $5 NQ / $0.50 MNQ), rounded down, ≤ 30, exact, 30 s), STREAK (1 − (1 − r)^n, ± 0.5 pt, 45 s), RECOVERY (d ÷ (100 − d), ± 1 pt, 30 s); V21 `risk_drill` (answer, tolerance, given/answered_at/correct together), `POST /api/drills/risk`, `GET …/{id}`, `POST …/{id}/answer` once; the time from the database's clock; a clock on the page that never refuses a late answer. |
@@ -2753,3 +2755,46 @@ BUGS.md, none fixed:
 **2026-10-21 — `feat/smt-chart` merged.** Fabio: "merge, then fix all the bugs". Merged into `master` with `--no-ff` as
 4e31dec; master's tree is exactly the branch's, which passed its fresh-clone check (4b07dc6: backend 679, frontend 377).
 Next: BUG-075 to BUG-092 on `fix/bug-hunt`.
+
+**2026-10-22 — The bug hunt's eighteen, fixed** (`fix/bug-hunt`, from master 7043160, DEC-076, DEC-077). Fabio: "merge,
+then fix all the bugs".
+- **Security (BUG-075–079, 081–084):** the per-address limit reads the path as the router does (`UrlPathHelper`); the
+  account limit is per account and address (`ClientAddress`, shared with the filter); access tokens carry their
+  account's generation, moved on by "sign out everywhere" and a password change (V27 `token_generation`); the error
+  dispatch is let through the chain, `server.error.include-message: never`, and `RequestErrorHandler` answers what
+  Spring refuses before a controller in words; `NoNulStrings` refuses U+0000 while a body is read; health without
+  details; API docs closed when deployed; a drawing's style is the chart's three keys in their forms, its points within
+  2000–2100 and a billion ticks.
+- **Load (BUG-080):** measured first — an identical repeat took the same 2.7 s as a moved window, so the cause was the
+  per-rule re-check, not a rescan (the entry was wrong). Minutes counted once a call per market over the widest reach;
+  setups over at most 6,000 candles; two scans at a time server-wide; 240 costly reads a minute per account
+  (`ReadRateLimit`). Live: every rule over the chart's 160 days of hours, warm, 2.7 s → 0.6 s; a year of hours refused
+  in 20 ms.
+- **Honest numbers (BUG-087, BUG-088, DEC-076):** R net of costs over the planned risk, wins and losses by money;
+  `scorecard-1.1.0` judges the risk limit by the loss at the stop with slippage and fees, and the plan panel shows it.
+- **No peeking (BUG-085, BUG-086, DEC-077):** `HiddenStretches` — the session in hand from its cursor to a day past its
+  replay, the newest unanswered drill to the last candle that decides it — left out of the Chart tab's candles, setups
+  and clock prices on every real market, `hidden` on the bars and a notice under the chart; lessons, new drills and new
+  sessions keep clear. First hid every open session: the test account had 35, some 140 days of holes — narrowed to the
+  one in hand.
+- **Frontend (BUG-089–092):** `lib/decimal.ts` reads a decimal comma ("1,5", "250,50", "20011,25") and groups of three,
+  and a box that cannot read its text says so; flip mirrors the partial; discard clears the partial and the intent; the
+  chart beside follows only (`followsOnly`).
+- **Found on the way:** `Math.abs(Long.MIN_VALUE)` is negative (the anchor check); a JWT's issue time is to the second, so
+  revocation by time let a same-second token live (hence the generation); `AppUser`'s new field landed under the
+  settings' `@JdbcTypeCode(JSON)` — Hibernate's validation caught it; a practice fixture recorded −1 tick as −$1.00; a
+  setup confirmed at a replay's cursor counted as hidden by a second (`SetupService.knownBy`); tests that opened
+  sessions without ending them (RealPracticeApiTest's filters, BracketOutcomeApiTest's 40 brackets) now end each;
+  BUG-093, an SMT lesson example's ES an hour before its NQ, seen once in a full run and not again.
+- **Live at 1920px** (the window hidden, so read from the page, no screenshots): the notice and NQ/ES both missing
+  exactly 27 Aug 03:40 – 31 Aug 03:40 for the test account's ES session; ES's plan panel "$500.00 · $529.50 at the stop
+  with costs"; "7718,75" → 7718.75, "abc" → the message, kept, `aria-invalid`; the caption under the chart beside; the
+  journal's R net ("−1.10R −$219.50"). The draft discarded after; nothing else changed on the account.
+- Tests: AuthHardeningTest +7, RequestErrorsTest (4), DeployedServerTest (3, a real server as deployed),
+  ChartDrawingApiTest +2, SetupScannerTest +2, SetupApiTest +1, ReadRateLimitTest (1), HiddenStretchesTest (6),
+  PracticeApiTest +1, RealPracticeApiTest +1 (R in ES's money), ScorecardTest (rewritten risk line); BracketOutcomeApiTest and others in net R; frontend
+  decimal (5), App +1, PlanPanel +1 (and one rewritten), PracticeView +3, RiskDrills +1, CompanionChart, adapter +2.
+- Mutations, one at a time after a passing baseline: 34 backend, all caught — three only once the tests were
+  strengthened: R in a $12.50 market (every practice test had traded $5 ticks), a rescan after an import (never
+  tested, though older than this branch), lessons keeping clear (a replay planted mid-fixture, eight lessons); frontend 17, all caught.
+- Backend 679 → 706, frontend 377 → 390.

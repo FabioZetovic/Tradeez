@@ -2,6 +2,7 @@ package com.tradeez.analysis;
 
 import java.util.List;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.tradeez.analysis.SetupDtos.SetupLayerResponse;
 import com.tradeez.common.Epochs;
+import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,12 +34,13 @@ public class SetupController {
 			Every hit of the named detectors (comma-separated, e.g. FVG) touching [from, to) and \
 			confirmed by `to` (T9, DEC-049). Same range limits as the bars; one minute and above.""")
 	public SetupLayerResponse setups(
+			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable String symbol,
 			@RequestParam(defaultValue = "5m") String timeframe,
 			@RequestParam long from,
 			@RequestParam long to,
 			@RequestParam List<String> detectors) {
-		return setups.forChart(symbol, timeframe, Epochs.of(from, "from"), Epochs.of(to, "to"),
+		return setups.forChart(principal.id(), symbol, timeframe, Epochs.of(from, "from"), Epochs.of(to, "to"),
 			detectors);
 	}
 }

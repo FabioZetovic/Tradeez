@@ -269,9 +269,21 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   const place = (direction: Direction) => {
     dispatch({ type: 'add', drawing: defaultBracket(direction, referenceTicks, anchorTime) })
   }
-  const flip = () => planDrawing && dispatch({ type: 'update', drawing: flipBracket(planDrawing) })
-  // A draft is only a drawing until it is placed: throwing it away costs nothing.
-  const discard = () => dispatch({ type: 'remove', id: PLAN_DRAWING_ID })
+  const flip = () => {
+    if (!planDrawing) return
+    dispatch({ type: 'update', drawing: flipBracket(planDrawing) })
+    // BUG-090: the partial is the bracket's too, mirrored through the same price — or a long's partial above
+    // the price became a short's partial above it, on the wrong side.
+    const entry = planDrawing.anchors[0].priceTicks
+    setPartial((p) => (p === null ? p : { ...p, ticks: 2 * entry - p.ticks }))
+  }
+  // A draft is only a drawing until it is placed: throwing it away costs nothing — and keeps nothing, as placing
+  // it keeps nothing (BUG-091): the next draft starts without the old partial, model, bias, draw or confidence.
+  const discard = () => {
+    dispatch({ type: 'remove', id: PLAN_DRAWING_ID })
+    setPartial(null)
+    setIntent({})
+  }
   const changeLevel = (level: 'stop' | 'target', ticks: number) => {
     if (!planDrawing) return
     const anchors = [...planDrawing.anchors]

@@ -62,6 +62,27 @@ function mountedOptions(axisTimezone: 'exchange' | 'utc') {
   }
 }
 
+describe('LightweightChartAdapter — BUG-092', () => {
+  it('a chart that follows another neither scrolls nor zooms its time on its own; its price axis still scales', () => {
+    new LightweightChartAdapter().mount(document.createElement('div'), {
+      tickSize: 0.25,
+      exchangeTimezone: 'America/Chicago',
+      axisTimezone: 'exchange',
+      followsOnly: true,
+    })
+    expect(created[0].options).toMatchObject({
+      handleScroll: false,
+      handleScale: { mouseWheel: false, pinch: false, axisPressedMouseMove: { time: false, price: true } },
+    })
+  })
+
+  it('a chart of its own keeps the library’s scrolling and zooming', () => {
+    mountedOptions('exchange')
+    expect(created[0].options).not.toHaveProperty('handleScroll')
+    expect(created[0].options).not.toHaveProperty('handleScale')
+  })
+})
+
 describe('LightweightChartAdapter — BUG-029', () => {
   const NINE_CDT = 1710338400 // 2024-03-13 14:00 UTC
 

@@ -57,17 +57,25 @@ public class JwtService {
 			.issuer(ISSUER)
 			.subject(user.getId().toString())
 			.claim("email", user.getEmail())
+			.claim(GENERATION, user.getTokenGeneration())
 			.issuedAt(java.util.Date.from(now))
 			.expiration(java.util.Date.from(now.plus(accessTokenTtl)))
 			.signWith(key)
 			.compact();
 	}
 
+	/** The claim holding the account's token generation when the token was issued (BUG-077). */
+	private static final String GENERATION = "gen";
+
+	/** A valid access token's subject, and the generation it was issued in (BUG-077). */
+	public record AccessToken(UUID userId, int generation) {
+	}
+
 	/**
-	 * @return the authenticated user id, or empty when the token is absent, malformed, tampered
-	 *         with, or expired. Callers must not distinguish between those cases to the client.
+	 * @return the token's user and generation, or empty when the token is absent, malformed, tampered with, expired,
+	 *         or carries no generation. Callers must not distinguish between those cases to the client.
 	 */
-	public java.util.Optional<UUID> readSubject(String token) {
+	public java.util.Optional<AccessToken> read(String token) {
 		try {
 			Claims claims = Jwts.parser()
 				.verifyWith(key)
@@ -75,7 +83,11 @@ public class JwtService {
 				.build()
 				.parseSignedClaims(token)
 				.getPayload();
-			return java.util.Optional.of(UUID.fromString(claims.getSubject()));
+			Integer generation = claims.get(GENERATION, Integer.class);
+			if (generation == null) {
+				return java.util.Optional.empty();
+			}
+			return java.util.Optional.of(new AccessToken(UUID.fromString(claims.getSubject()), generation));
 		} catch (JwtException | IllegalArgumentException e) {
 			return java.util.Optional.empty();
 		}

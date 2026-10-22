@@ -3,11 +3,14 @@ package com.tradeez.clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
 import com.tradeez.clock.ClockDtos.ClockLayerResponse;
 import com.tradeez.marketdata.Bar;
+import com.tradeez.marketdata.DataClass;
+import com.tradeez.marketdata.HiddenStretches;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.MarketDataService.InvalidRangeException;
@@ -24,13 +27,15 @@ public class ClockService {
 	static final Duration MAX_RANGE = Duration.ofDays(200);
 
 	private final MarketDataService marketData;
+	private final HiddenStretches hiddenStretches;
 
-	public ClockService(MarketDataService marketData) {
+	public ClockService(MarketDataService marketData, HiddenStretches hiddenStretches) {
 		this.marketData = marketData;
+		this.hiddenStretches = hiddenStretches;
 	}
 
 	/** The layer over the public chart: the one public market (DEC-038), in real time. */
-	public ClockLayerResponse forChart(String symbol, Instant from, Instant to) {
+	public ClockLayerResponse forChart(UUID userId, String symbol, Instant from, Instant to) {
 		if (!to.isAfter(from)) {
 			throw new InvalidRangeException("'to' must be after 'from'.");
 		}
@@ -40,8 +45,16 @@ public class ClockService {
 		}
 		Instrument instrument = marketData.requireInstrument(symbol);
 		marketData.requireAffordable(instrument, from, to);
-		return ClockDtos.of(layer(instrument, from, to, MarketDataService.PUBLIC_CHART_SEED),
-			Instant::getEpochSecond, false);
+		ClockLayer layer = layer(instrument, from, to, MarketDataService.PUBLIC_CHART_SEED);
+		// BUG-085, BUG-086: a price over a stretch the learner is still graded by, or taken inside one, is left out.
+		// The shading is the calendar's alone and stays.
+		List<HiddenStretches.Stretch> hidden = instrument.getDataClass() == DataClass.SIMULATED ? List.of()
+			: hiddenStretches.of(userId);
+		List<ClockLayer.Line> lines = layer.lines().stream()
+			.filter(l -> !HiddenStretches.touches(hidden, l.from(), l.to()))
+			.filter(l -> l.takenAt() == null || !HiddenStretches.touches(hidden, l.takenAt(), l.takenAt().plusSeconds(60)))
+			.toList();
+		return ClockDtos.of(new ClockLayer(layer.windows(), lines, layer.nextChange()), Instant::getEpochSecond, false);
 	}
 
 	/**

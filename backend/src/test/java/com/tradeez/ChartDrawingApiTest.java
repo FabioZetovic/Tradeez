@@ -334,4 +334,54 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 			.replace("{\"color\":\"#58a6ff\"}", "{\"color\":\"#d29922\",\"lineWidth\":1,\"fill\":\"rgba(210, 153, 34, 0.12)\"}"), id)
 			.andExpect(status().isCreated());
 	}
+
+	private String styled(UUID id, String style) {
+		return body(id, "horizontal-line", 1710338400L, 80_000L).replace("{\"color\":\"#58a6ff\"}", style);
+	}
+
+	@Test
+	@DisplayName("BUG-084 a style holds only a colour, a fill and a line width, each in the form the chart draws")
+	void styleIsTheChartsOwn() throws Exception {
+		for (String style : java.util.List.of(
+				"{\"onload\":\"#58a6ff\"}",
+				"{\"color\":\"<img src=x onerror=alert(1)>\"}",
+				"{\"color\":\"red\"}",
+				"{\"color\":\"#58a6ff; background:url(x)\"}",
+				"{\"fill\":\"rgba(1, 2, 3, 0.5) url(x)\"}",
+				"{\"color\":12}",
+				"{\"lineWidth\":0}",
+				"{\"lineWidth\":8.5}",
+				"{\"lineWidth\":\"2\"}")) {
+			UUID id = UUID.randomUUID();
+			save(styled(id, style), id).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.startsWith("A drawing's style is")));
+		}
+		assertThat(drawings.count()).isZero();
+		for (String style : java.util.List.of("{}", "{\"color\":\"#abc\",\"lineWidth\":8}",
+				"{\"color\":\"#58A6FFCC\",\"fill\":\"rgb(1,2,3)\",\"lineWidth\":0.5}",
+				"{\"fill\":\"rgba(57, 197, 207, 1)\"}")) {
+			UUID id = UUID.randomUUID();
+			save(styled(id, style), id).andExpect(status().isCreated());
+		}
+	}
+
+	@Test
+	@DisplayName("BUG-084 a drawing's points lie between 2000 and 2100 and within a billion ticks of zero")
+	void anchorsBounded() throws Exception {
+		long[][] refused = { { 946_684_799L, 80_000L }, { 4_102_444_801L, 80_000L }, { Long.MIN_VALUE, 80_000L },
+			{ 1710338400L, 1_000_000_001L }, { 1710338400L, -1_000_000_001L }, { 1710338400L, Long.MAX_VALUE },
+			{ 1710338400L, Long.MIN_VALUE } };
+		for (long[] point : refused) {
+			UUID id = UUID.randomUUID();
+			save(body(id, "horizontal-line", point[0], point[1]), id).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(
+					"A drawing's points lie between the years 2000 and 2100, within 1000000000 ticks of zero."));
+		}
+		assertThat(drawings.count()).isZero();
+		long[][] accepted = { { 946_684_800L, 1_000_000_000L }, { 4_102_444_800L, -1_000_000_000L } };
+		for (long[] point : accepted) {
+			UUID id = UUID.randomUUID();
+			save(body(id, "trend-line", point[0], point[1]), id).andExpect(status().isCreated());
+		}
+	}
 }

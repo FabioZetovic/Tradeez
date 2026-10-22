@@ -32,6 +32,8 @@ interface PriceChartProps {
   recentBars?: number
   /** The chart's height, as Tailwind classes. The renderer fills whatever box it is given. */
   heightClass?: string
+  /** Moved only by the chart it keeps to (BUG-092). */
+  followsOnly?: boolean
 }
 
 export function PriceChart({
@@ -44,6 +46,7 @@ export function PriceChart({
   overlay,
   recentBars,
   heightClass = 'h-[30rem]',
+  followsOnly = false,
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ChartAdapter | null>(null)
@@ -82,7 +85,7 @@ export function PriceChart({
     if (!container) return
 
     const adapter = (factoryRef.current ?? (() => new LightweightChartAdapter()))()
-    adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone, daily })
+    adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone, daily, followsOnly })
     adapterRef.current = adapter
     setMountedAdapter(adapter)
 
@@ -98,7 +101,7 @@ export function PriceChart({
     }
     // recentBars is listed so the effect is honest about what it reads. In practice it is a
     // constant per screen, so it never triggers a remount on its own.
-  }, [tickSize, exchangeTimezone, axisTimezone, daily, recentBars])
+  }, [tickSize, exchangeTimezone, axisTimezone, daily, recentBars, followsOnly])
 
   // Data updates reuse the mounted chart.
   //

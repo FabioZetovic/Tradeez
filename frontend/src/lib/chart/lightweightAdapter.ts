@@ -52,6 +52,10 @@ export class LightweightChartAdapter implements ChartAdapter {
         horzLines: { color: 'rgba(48, 54, 61, 0.5)' },
       },
       crosshair: { mode: 0 }, // free crosshair: a trader reads levels between candles, not just on them
+      ...(options.followsOnly && {
+        handleScroll: false,
+        handleScale: { mouseWheel: false, pinch: false, axisPressedMouseMove: { time: false, price: true } },
+      }),
       rightPriceScale: { borderColor: '#30363d' },
       timeScale: {
         borderColor: '#30363d',

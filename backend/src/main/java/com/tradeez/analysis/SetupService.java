@@ -5,11 +5,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.ToLongFunction;
 
 import org.springframework.stereotype.Service;
 
 import com.tradeez.analysis.SetupDtos.SetupLayerResponse;
+import com.tradeez.marketdata.DataClass;
+import com.tradeez.marketdata.HiddenStretches;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.Timeframe;
@@ -24,29 +27,52 @@ public class SetupService {
 	/** More than the overlay toggles there are; a guard, not a product limit. */
 	static final int MAX_DETECTORS = 32;
 
+	/**
+	 * BUG-080: candles a chart's setups are found over at once — the widest chart the app draws is four days of
+	 * one-minute candles, 5,760. The bars allow 20,000, and every rule over a year of hourly candles was twelve seconds
+	 * of a core.
+	 */
+	static final int MAX_SETUP_BARS = 6_000;
+
 	private final MarketDataService marketData;
 	private final DetectorRegistry detectors;
 	private final SetupScanner scanner;
+	private final HiddenStretches hiddenStretches;
 
-	public SetupService(MarketDataService marketData, DetectorRegistry detectors, SetupScanner scanner) {
+	public SetupService(MarketDataService marketData, DetectorRegistry detectors, SetupScanner scanner,
+			HiddenStretches hiddenStretches) {
 		this.marketData = marketData;
 		this.detectors = detectors;
 		this.scanner = scanner;
+		this.hiddenStretches = hiddenStretches;
 	}
 
 	/**
 	 * Over the public chart: the one public market (DEC-038), in real time, under the same limits as
-	 * its bars. The scan covers whole UTC days, so scrolling a chart back and forth reuses one scan.
+	 * its bars. The scan covers whole UTC days, so scrolling a chart back and forth reuses one scan. A hit touching a
+	 * stretch the learner is still graded by, from its first candle to its confirmation, is left out (BUG-085, BUG-086).
 	 */
-	public SetupLayerResponse forChart(String symbol, String timeframeCode, Instant from, Instant to,
+	public SetupLayerResponse forChart(UUID userId, String symbol, String timeframeCode, Instant from, Instant to,
 			List<String> detectorIds) {
 		Instrument instrument = marketData.requireInstrument(symbol);
 		Timeframe timeframe = requireDetectable(timeframeCode);
 		marketData.requirePublicRange(instrument, timeframe, from, to);
+		long candles = java.time.Duration.between(from, to).toSeconds() / timeframe.seconds();
+		if (candles > MAX_SETUP_BARS) {
+			throw new IllegalArgumentException("Setups are found over at most " + MAX_SETUP_BARS + " candles at a time; "
+				+ "that range is about " + candles + " at " + timeframe.code() + ". Choose a shorter range or a larger "
+				+ "timeframe.");
+		}
 		Instant scanFrom = from.truncatedTo(ChronoUnit.DAYS);
 		Instant scanTo = to.truncatedTo(ChronoUnit.DAYS).plus(1, ChronoUnit.DAYS);
-		return layer(instrument, timeframe, MarketDataService.PUBLIC_CHART_SEED, from, scanFrom, scanTo, to,
-			detectorIds, Instant::getEpochSecond);
+		List<Detector> chosen = resolve(detectorIds);
+		List<HiddenStretches.Stretch> hidden = instrument.getDataClass() == DataClass.SIMULATED ? List.of()
+			: hiddenStretches.of(userId);
+		List<DetectedSetup> shown = found(chosen, instrument, timeframe, MarketDataService.PUBLIC_CHART_SEED, from,
+				scanFrom, scanTo, to).stream()
+			.filter(s -> !HiddenStretches.touches(hidden, s.getStartTime(), knownBy(s)))
+			.toList();
+		return SetupDtos.of(chosen, shown, marketData.rolls(instrument, from, to), Instant::getEpochSecond);
 	}
 
 	/**
@@ -96,6 +122,15 @@ public class SetupService {
 			found.addAll(scanner.visible(detector, instrument, timeframe, seed, from, until, until));
 		}
 		return found;
+	}
+
+	/**
+	 * Where what a hit says ends: its confirmation, the close of a candle already seen — so a hit confirmed at a replay's
+	 * cursor is the replay's own — or its last candle, whose open is itself a fact about that moment.
+	 */
+	private static Instant knownBy(DetectedSetup s) {
+		Instant end = s.getEndTime().plusSeconds(1);
+		return s.getConfirmedAt().isAfter(end) ? s.getConfirmedAt() : end;
 	}
 
 	private List<Detector> resolve(List<String> ids) {

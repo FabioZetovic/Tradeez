@@ -3,6 +3,7 @@ package com.tradeez.marketdata;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,8 +11,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.tradeez.common.Epochs;
+import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarResponse;
 import com.tradeez.marketdata.dto.MarketDataDtos.BarSeriesResponse;
+import com.tradeez.marketdata.dto.MarketDataDtos.HiddenResponse;
 import com.tradeez.marketdata.dto.MarketDataDtos.InstrumentResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,9 +37,11 @@ public class MarketDataController {
 	private static final String SIMULATED_DISCLAIMER = "SIMULATED DATA — NOT MARKET HISTORY";
 
 	private final MarketDataService service;
+	private final HiddenStretches hiddenStretches;
 
-	public MarketDataController(MarketDataService service) {
+	public MarketDataController(MarketDataService service, HiddenStretches hiddenStretches) {
 		this.service = service;
+		this.hiddenStretches = hiddenStretches;
 	}
 
 	@GetMapping("/instruments")
@@ -58,6 +63,7 @@ public class MarketDataController {
 			Prices are integer tick counts, not decimals — multiply by the instrument's tickSize \
 			to display. Always serves the one public market; a seed cannot be chosen (DEC-038).""")
 	public BarSeriesResponse bars(
+			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable String symbol,
 			@RequestParam(defaultValue = "5m") String timeframe,
 			@RequestParam long from,
@@ -77,12 +83,14 @@ public class MarketDataController {
 					+ "chart's market; practice sessions are read through /api/practice.");
 		}
 
-		BarSeries series = service.bars(
-			symbol,
-			Timeframe.fromCode(timeframe),
-			Epochs.of(from, "from"),
-			Epochs.of(to, "to"),
-			MarketDataService.PUBLIC_CHART_SEED);
+		Timeframe frame = Timeframe.fromCode(timeframe);
+		Instant start = Epochs.of(from, "from");
+		Instant end = Epochs.of(to, "to");
+		BarSeries series = service.bars(symbol, frame, start, end, MarketDataService.PUBLIC_CHART_SEED);
+		// BUG-085, BUG-086: a candle touching a stretch the learner is still graded by is left out whole — a daily
+		// candle's high and low are the hidden hours' too.
+		List<HiddenStretches.Stretch> hidden = series.dataClass() == DataClass.SIMULATED ? List.of()
+			: hiddenStretches.of(principal.id()).stream().filter(s -> s.overlaps(start, end)).toList();
 
 		return new BarSeriesResponse(
 			series.instrumentSymbol(),
@@ -93,9 +101,13 @@ public class MarketDataController {
 			series.generatorVersion(),
 			series.dataClass() == DataClass.SIMULATED ? SIMULATED_DISCLAIMER : null,
 			series.bars().stream()
+				.filter(b -> !HiddenStretches.touches(hidden, b.openTime(), b.openTime().plus(frame.duration())))
 				.map(b -> new BarResponse(
 					b.openTime().getEpochSecond(),
 					b.openTicks(), b.highTicks(), b.lowTicks(), b.closeTicks(), b.volume()))
+				.toList(),
+			hidden.stream()
+				.map(s -> new HiddenResponse(s.from().getEpochSecond(), s.to().getEpochSecond(), s.why().name()))
 				.toList());
 	}
 
