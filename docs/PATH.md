@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: Fabio's "merge" of `fix/bug-hunt` — BUG-075 to BUG-092 fixed (DEC-076, DEC-077); BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: Fabio's "merge" of `fix/bug-hunt` — BUG-075 to BUG-092 fixed (DEC-076, DEC-077), fresh clone of fe16cfb green; BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -2798,3 +2798,7 @@ then fix all the bugs".
   strengthened: R in a $12.50 market (every practice test had traded $5 ticks), a rescan after an import (never
   tested, though older than this branch), lessons keeping clear (a replay planted mid-fixture, eight lessons); frontend 17, all caught.
 - Backend 679 → 706, frontend 377 → 390.
+
+**2026-10-22 — Fresh-clone check of `fe16cfb`** (`fix/bug-hunt`), no `.env`: backend 706 test cases, 0 failures,
+0 errors, no `[ERROR]` lines; frontend `npm audit` 0, lint, typecheck, knip, 390/390, build clean. Waiting for Fabio's
+"merge".
