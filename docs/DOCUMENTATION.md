@@ -1963,6 +1963,10 @@ moves was never painted, and the drawing canvas, no longer sized by the old hook
 Checking the drawings live also found **BUG-096**, older than the redesign: undo and delete saved the drawings as they
 were one step before, so a deleted drawing came back on reload. Fixed. Mutations: 17, all caught. Frontend 398 → 404.
 
+**2026-10-23 — T36 and T37 merged.** Fabio: "Merge and continue". `feat/t36-shell` and `feat/t37-overlays` merged into
+`master` with `--no-ff` (06a7459, 18399e5); master's tree is exactly the T37 branch's, which passed its fresh-clone check
+(frontend 404, lint, typecheck, knip, build, `npm audit` 0; backend unchanged).
+
 ---
 
 ## For the presentation: the disclaimer slide

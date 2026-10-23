@@ -50,8 +50,8 @@
 
 | Task | Name | Blocked by | State | Branch / merge | Notes |
 |---|---|---|---|---|---|
-| T36 | Theme and shell | — | 🟢 built, waiting for "merge" | `feat/t36-shell` | DEC-078. Router (/chart /learn /drills/:kind? /practice /help /sign-in /sign-up; / → /chart until T39), AppShell + AccountMenu (shell/), footer short line + Read more, sign-in card, /help page, kit restyled + PageHeader + Glass (the rest of the kit with T39+, see §10). Screenshots docs/redesign/after/t36/. 398 tests, 14/14 mutants |
-| T37 | Chart overlays in the paint step (BUG-095) | — | 🟢 built, waiting for "merge" | `feat/t37-overlays` (from `feat/t36-shell`) | BUG-095 fixed: `ChartAdapter.addLayer` (a series primitive) + `useChartLayer`; clock and example band under the candles, setups over, drawings and drill marks on top; `useOverlayCanvas` deleted. BUG-096 (undo/delete saved one step late, older than T37) found and fixed. Screenshots docs/redesign/after/t37/. 404 tests, 17/17 mutants |
+| T36 | Theme and shell | — | ✅ merged 2026-10-23 | `feat/t36-shell` | DEC-078. Router (/chart /learn /drills/:kind? /practice /help /sign-in /sign-up; / → /chart until T39), AppShell + AccountMenu (shell/), footer short line + Read more, sign-in card, /help page, kit restyled + PageHeader + Glass (the rest of the kit with T39+, see §10). Screenshots docs/redesign/after/t36/. 398 tests, 14/14 mutants |
+| T37 | Chart overlays in the paint step (BUG-095) | — | ✅ merged 2026-10-23 | `feat/t37-overlays` (from `feat/t36-shell`) | BUG-095 fixed: `ChartAdapter.addLayer` (a series primitive) + `useChartLayer`; clock and example band under the candles, setups over, drawings and drill marks on top; `useOverlayCanvas` deleted. BUG-096 (undo/delete saved one step late, older than T37) found and fixed. Screenshots docs/redesign/after/t37/. 404 tests, 17/17 mutants |
 | T38 | Chart tab | T36, T37 | ⬜ | | |
 | T39 | Home | T36 (news card: T40) | ⬜ | | |
 | T40 | News | T36 | ⬜ | | feed terms checked first |
