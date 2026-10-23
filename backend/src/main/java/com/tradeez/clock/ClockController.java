@@ -1,5 +1,6 @@
 package com.tradeez.clock;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.tradeez.clock.ClockDtos.ClockLayerResponse;
 import com.tradeez.common.Epochs;
+import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,9 +33,10 @@ public class ClockController {
 			previous day and week highs and lows, and killzone highs and lows to draw (T7, DEC-047). \
 			Built from one-minute bars under versioned rules. At most 200 days.""")
 	public ClockLayerResponse clock(
+			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable String symbol,
 			@RequestParam long from,
 			@RequestParam long to) {
-		return clocks.forChart(symbol, Epochs.of(from, "from"), Epochs.of(to, "to"));
+		return clocks.forChart(principal.id(), symbol, Epochs.of(from, "from"), Epochs.of(to, "to"));
 	}
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { MODELS, type Bias, type PlanContext, type PlanIntent as Intent, type TradingModel } from '@/lib/api/practice'
 import { formatPrice, priceToTicks } from '@/lib/chart/priceFormat'
-import { cx, fieldClass, labelClass } from '@/lib/styles'
+import { NOT_A_PRICE, parseDecimal } from '@/lib/decimal'
+import { cx, errorClass, fieldClass, labelClass } from '@/lib/styles'
 import { Segmented } from '../ui'
 
 const KILLZONE_NAMES: Record<string, string> = {
@@ -140,12 +141,18 @@ function DrawField({
   onCommit: (ticks: number | undefined) => void
 }) {
   const [draft, setDraft] = useState<string | null>(null)
+  const [bad, setBad] = useState(false)
   const text = draft ?? (ticks === undefined ? '' : formatPrice(ticks, tickSize))
   const commit = () => {
     if (draft === null) return
-    const price = Number(draft)
+    const price = parseDecimal(draft)
     if (draft.trim() === '') onCommit(undefined)
-    else if (Number.isFinite(price) && price > 0) onCommit(priceToTicks(price, tickSize))
+    else if (price !== null && price > 0) onCommit(priceToTicks(price, tickSize))
+    else {
+      // BUG-089: said, not put back in silence.
+      setBad(true)
+      return
+    }
     setDraft(null)
   }
   return (
@@ -156,12 +163,21 @@ function DrawField({
         inputMode="decimal"
         placeholder="optional"
         value={text}
-        onChange={(e) => setDraft(e.target.value)}
+        aria-invalid={bad || undefined}
+        onChange={(e) => {
+          setDraft(e.target.value)
+          setBad(false)
+        }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') commit()
         }}
       />
+      {bad && (
+        <span role="alert" className={`${errorClass} text-xs`}>
+          {NOT_A_PRICE}
+        </span>
+      )}
     </label>
   )
 }

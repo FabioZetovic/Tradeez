@@ -38,6 +38,18 @@ export interface BarSeries {
   /** Non-null for simulated data. Rendered verbatim — the UI does not compose its own wording. */
   disclaimer: string | null
   bars: DomainBar[]
+  /**
+   * BUG-085, BUG-086: stretches inside the window whose candles are held back, because an open practice session or
+   * the drill being answered is graded by them.
+   */
+  hidden: HiddenStretch[]
+}
+
+export interface HiddenStretch {
+  /** UTC epoch seconds, [from, to). */
+  from: number
+  to: number
+  why: 'PRACTICE' | 'DRILL'
 }
 
 /** 4h and 1d count from the 18:00 New York open of the trading day, as the server builds them (T35). */

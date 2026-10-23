@@ -77,15 +77,24 @@ public class SetupScanner {
 	private record Scan(int hits, int minutes) {
 	}
 
+	/**
+	 * BUG-080: scans running at once, server-wide. A cold scan of a wide stretch is seconds of a core, and a few at once
+	 * from one account held the CPU for everyone. The rest wait their turn; reading back what is stored never waits.
+	 */
+	static final int CONCURRENT_SCANS = 2;
+	private final java.util.concurrent.Semaphore scanning = new java.util.concurrent.Semaphore(CONCURRENT_SCANS, true);
+
 	private final MarketDataService marketData;
+	private final DetectorRegistry registry;
 	private final DetectedSetupRepository setups;
 	private final JdbcTemplate jdbc;
 	private final ObjectMapper json;
 	private final TransactionTemplate writeTx;
 
-	public SetupScanner(MarketDataService marketData, DetectedSetupRepository setups,
+	public SetupScanner(MarketDataService marketData, DetectorRegistry registry, DetectedSetupRepository setups,
 			JdbcTemplate jdbc, ObjectMapper json, PlatformTransactionManager transactionManager) {
 		this.marketData = marketData;
+		this.registry = registry;
 		this.setups = setups;
 		this.jdbc = jdbc;
 		this.json = json;
@@ -113,23 +122,47 @@ public class SetupScanner {
 			long seed, Instant from, Instant to) {
 		boolean simulated = instrument.getDataClass() == DataClass.SIMULATED;
 		Long rowSeed = simulated ? seed : null;
+		// BUG-080: whether a market was imported since, counted once a call per market, over the widest reach any rule
+		// has at this timeframe. Counted per rule over its own, it was a count of a year of minutes per rule — two for
+		// SMT — on every request: two of a warm request's three seconds. The same reach for every rule means a rule
+		// asked for alone and with others compares like with like, and is not scanned again for the difference.
+		Instant reach = from.minus(timeframe.duration().multipliedBy(widestLookback(timeframe))).minus(CLOSED_REACH);
+		Map<String, Integer> stored = new java.util.HashMap<>();
+		java.util.function.ToIntFunction<Instrument> minutesOf = market -> stored.computeIfAbsent(market.getSymbol(),
+			symbol -> marketData.storedMinutes(market, reach, to));
 		Map<Detector, Integer> due = new LinkedHashMap<>();
 		for (Detector detector : detectors) {
-			Instant reach = from.minus(timeframe.duration().multipliedBy(detector.lookbackBars(timeframe)))
-				.minus(CLOSED_REACH);
 			Instrument companion = companion(detector, instrument);
-			int minutes = simulated ? 0 : marketData.storedMinutes(instrument, reach, to)
-				+ (companion == null ? 0 : marketData.storedMinutes(companion, reach, to));
-			Scan remembered = scanned.get(key(detector, instrument, timeframe, rowSeed, from, to));
-			if (remembered == null || !remembered.equals(
-					new Scan(count(detector, instrument, timeframe, rowSeed, from, to), minutes))) {
-				due.put(detector, minutes);
-			}
+			due.put(detector, simulated ? 0 : minutesOf.applyAsInt(instrument)
+				+ (companion == null ? 0 : minutesOf.applyAsInt(companion)));
 		}
+		due.keySet().removeIf(detector -> current(detector, instrument, timeframe, rowSeed, from, to, due.get(detector)));
 		if (due.isEmpty()) {
 			return;
 		}
+		scanning.acquireUninterruptibly();
+		try {
+			// Another request may have scanned it while this one waited its turn.
+			due.keySet().removeIf(detector -> current(detector, instrument, timeframe, rowSeed, from, to,
+				due.get(detector)));
+			if (!due.isEmpty()) {
+				scan(due, instrument, timeframe, seed, rowSeed, from, to);
+			}
+		} finally {
+			scanning.release();
+		}
+	}
 
+	/** Whether this rule's hits over the stretch are stored, and its market unchanged since. */
+	private boolean current(Detector detector, Instrument instrument, Timeframe timeframe, Long rowSeed,
+			Instant from, Instant to, int minutes) {
+		Scan remembered = scanned.get(key(detector, instrument, timeframe, rowSeed, from, to));
+		return remembered != null
+			&& remembered.equals(new Scan(count(detector, instrument, timeframe, rowSeed, from, to), minutes));
+	}
+
+	private void scan(Map<Detector, Integer> due, Instrument instrument, Timeframe timeframe, long seed, Long rowSeed,
+			Instant from, Instant to) {
 		int needed = due.keySet().stream().mapToInt(d -> d.lookbackBars(timeframe)).max().orElseThrow();
 		List<Bar> before = history(needed,
 			(a, b) -> marketData.internalBars(instrument, timeframe, a, b, seed).bars(), timeframe.duration(), from);
@@ -147,6 +180,11 @@ public class SetupScanner {
 			scanned.put(key(detector, instrument, timeframe, rowSeed, from, to),
 				new Scan(count(detector, instrument, timeframe, rowSeed, from, to), minutes));
 		});
+	}
+
+	/** The furthest back any rule there is reads at this timeframe, in candles. */
+	private int widestLookback(Timeframe timeframe) {
+		return registry.all().stream().mapToInt(d -> d.lookbackBars(timeframe)).max().orElse(0);
 	}
 
 	private static String key(Detector detector, Instrument instrument, Timeframe timeframe, Long rowSeed,

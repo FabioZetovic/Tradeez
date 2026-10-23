@@ -37,6 +37,9 @@ describe('CompanionChart (DEC-075)', () => {
     leader.visibleRange = { from: 1500, to: 2500 }
     act(() => leader.emitViewportChange())
     expect(follower.shownRange).toEqual({ from: 1500, to: 2500 })
+    // BUG-092: moved by the chart above alone, so the two never show different minutes.
+    expect(follower.mountOptions?.followsOnly).toBe(true)
+    expect(screen.getByRole('figure')).toHaveTextContent('move the chart above to move both')
   })
 
   it('stands on its own until the chart above is there, and lets go of it when unmounted', async () => {

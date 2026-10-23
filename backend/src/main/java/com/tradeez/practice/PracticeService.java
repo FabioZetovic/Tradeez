@@ -35,6 +35,7 @@ import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.BarSeries;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
+import com.tradeez.marketdata.HiddenStretches;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.InstrumentRepository;
 import com.tradeez.marketdata.Killzone;
@@ -177,6 +178,7 @@ public class PracticeService {
 	private final PlanContextService contexts;
 	private final PracticeSettingsStore settings;
 	private final TradeReviewService reviews;
+	private final HiddenStretches hiddenStretches;
 
 	/**
 	 * BUG-033 — transactions are opened by hand, around the database work only.
@@ -197,7 +199,8 @@ public class PracticeService {
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, PracticeCloseRepository closes, InstrumentRepository instruments,
 			MarketDataService marketData, ClockService clocks, SetupService setupService, PlanContextService contexts,
-			PracticeSettingsStore settings, TradeReviewService reviews, PlatformTransactionManager transactionManager) {
+			PracticeSettingsStore settings, TradeReviewService reviews, PlatformTransactionManager transactionManager,
+			HiddenStretches hiddenStretches) {
 		this.sessions = sessions;
 		this.plans = plans;
 		this.results = results;
@@ -209,6 +212,7 @@ public class PracticeService {
 		this.contexts = contexts;
 		this.settings = settings;
 		this.reviews = reviews;
+		this.hiddenStretches = hiddenStretches;
 		this.writeTx = new TransactionTemplate(transactionManager);
 		this.readTx = new TransactionTemplate(transactionManager);
 		this.readTx.setReadOnly(true);
@@ -223,16 +227,10 @@ public class PracticeService {
 	 * when the learner left at market before the plan's own exit (DEC-057). Then the close is what
 	 * happened, and the planned result stays only as the record of what the plan would have done.
 	 */
-	private record Trade(TradePlan plan, PracticeResult result, PracticeClose close) {
+	private record Trade(TradePlan plan, PracticeResult result, PracticeClose close, long tickValueCents) {
 
 		Instant exitTime() {
 			return close != null ? close.getExitTime() : result.getExitTime();
-		}
-
-		/** Every contract's ticks together: a partial's and the rest's (T28). */
-		long totalTicks() {
-			int contracts = plan.getContracts();
-			return close != null ? close.totalTicks(contracts) : result.totalTicks(contracts);
 		}
 
 		/** The partial's fill: the close's when closed by hand, otherwise the result's (T28). */
@@ -260,10 +258,32 @@ public class PracticeService {
 		 *
 		 * <p>Measured against the plan's reference price, not the fill: R is a statement about the
 		 * decision the learner made, and they made it looking at the reference.
+		 *
+		 * <p>DEC-076 (BUG-087): the result is the money it made, costs paid — the number shown beside it. Counted in
+		 * ticks before commission, a trade out a tick ahead under $50 of fees was "+0.03R, a win" over a $45 loss.
 		 */
 		double r() {
+			return inR(netPnlCents());
+		}
+
+		/** What the plan alone would have made, in the same units: a trade closed by hand keeps it for its review. */
+		double plannedR() {
+			return inR(result.getNetPnlCents());
+		}
+
+		/** Money in units of the planned risk: the stop's distance from the reference, every contract. */
+		private double inR(long cents) {
 			long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
-			return (double) totalTicks() / (risk * plan.getContracts());
+			return (double) cents / (risk * plan.getContracts() * tickValueCents);
+		}
+
+		/** Made money once every cost was paid (DEC-076). */
+		boolean won() {
+			return netPnlCents() > 0;
+		}
+
+		boolean lost() {
+			return netPnlCents() < 0;
 		}
 	}
 
@@ -328,7 +348,7 @@ public class PracticeService {
 		}
 
 		// Real history: a moment where the market really traded, behind a hidden date (DEC-025).
-		Instant start = pickRealStart(instrument, timeframe, killzone, weekday);
+		Instant start = pickRealStart(instrument, timeframe, killzone, weekday, hiddenStretches.of(userId));
 		BarSeries history = marketData.internalBars(instrument, timeframe, start.minus(HISTORY), start,
 			0);
 		PracticeClock clock = PracticeClock.hidingDateOf(start);
@@ -425,7 +445,7 @@ public class PracticeService {
 			current.setStatus(Status.IN_TRADE);
 			sessions.saveAndFlush(current);
 			List<Trade> trades = new ArrayList<>(seen.trades());
-			trades.add(new Trade(plan, result, null));
+			trades.add(new Trade(plan, result, null, instrument.getTickValueCents()));
 			return state(current, instrument, trades);
 		});
 	}
@@ -561,7 +581,7 @@ public class PracticeService {
 			settle(current, null);
 			sessions.saveAndFlush(current);
 			List<Trade> trades = new ArrayList<>(seen.trades());
-			trades.set(trades.size() - 1, new Trade(plan, open, saved));
+			trades.set(trades.size() - 1, new Trade(plan, open, saved, seen.instrument().getTickValueCents()));
 			return new AdvanceResponse(state(current, seen.instrument(), trades), toDto(bars, current.getClock()));
 		});
 	}
@@ -659,17 +679,19 @@ public class PracticeService {
 			.collect(Collectors.groupingBy(PracticeResult::getSessionId));
 		Map<UUID, List<PracticeClose>> closesBySession = closes.findAllBySessionIdIn(ids).stream()
 			.collect(Collectors.groupingBy(PracticeClose::getSessionId));
-		Map<UUID, String> symbols = instruments.findAll().stream()
-			.collect(Collectors.toMap(Instrument::getId, Instrument::getSymbol));
+		Map<UUID, Instrument> byId = instruments.findAll().stream()
+			.collect(Collectors.toMap(Instrument::getId, Function.identity()));
 
 		return recent.stream().map(s -> {
+			Instrument instrument = byId.get(s.getInstrumentId());
 			List<Trade> trades = pair(plansBySession.getOrDefault(s.getId(), List.of()),
-				resultsBySession.getOrDefault(s.getId(), List.of()), closesBySession.getOrDefault(s.getId(), List.of()));
+				resultsBySession.getOrDefault(s.getId(), List.of()), closesBySession.getOrDefault(s.getId(), List.of()),
+				instrument.getTickValueCents());
 			// The journal is a listing, and a listing is an easy place to leak an outcome by
 			// accident. Same rule as everywhere else: a trade counts once its exit is revealed.
 			return new SessionSummary(
 				s.getId(),
-				symbols.get(s.getInstrumentId()),
+				instrument.getSymbol(),
 				s.getTimeframe(),
 				s.getStatus().name(),
 				s.getCreatedAt().getEpochSecond(),
@@ -730,11 +752,13 @@ public class PracticeService {
 			.collect(Collectors.groupingBy(PracticeResult::getSessionId));
 		Map<UUID, List<PracticeClose>> closesBySession = closes.findAllBySessionIdIn(ids).stream()
 			.collect(Collectors.groupingBy(PracticeClose::getSessionId));
+		Map<UUID, Long> tickValues = instruments.findAll().stream()
+			.collect(Collectors.toMap(Instrument::getId, Instrument::getTickValueCents));
 		List<Finished> done = new ArrayList<>();
 		bySession.forEach((id, sessionPlans) -> {
 			PracticeSession session = owned.get(id);
 			for (Trade trade : pair(sessionPlans, resultsBySession.getOrDefault(id, List.of()),
-					closesBySession.getOrDefault(id, List.of()))) {
+					closesBySession.getOrDefault(id, List.of()), tickValues.get(session.getInstrumentId()))) {
 				if (trade.closedBy(session.getCursorTime())) {
 					done.add(new Finished(trade, session));
 				}
@@ -756,9 +780,8 @@ public class PracticeService {
 		}
 		TradePlan plan = trade.plan();
 		ChecklistView checklist = plan.getChecklist() == null ? null : checklistView(plan.getChecklist());
-		long risk = Math.abs(plan.getReferenceTicks() - plan.getStopTicks());
 		return reviews.review(seen.session(), seen.instrument(), plan, trade.result(), trade.close(), round2(trade.r()),
-			round2((double) trade.result().totalTicks(plan.getContracts()) / (risk * plan.getContracts())), checklist == null ? null
+			round2(trade.plannedR()), checklist == null ? null
 				: checklist.title() + ": " + checklist.met() + " of " + checklist.total() + " checks met when placed.");
 	}
 
@@ -844,9 +867,8 @@ public class PracticeService {
 				continue;
 			}
 			closed++;
-			long ticks = trade.totalTicks();
-			wins += ticks > 0 ? 1 : 0;
-			losses += ticks < 0 ? 1 : 0;
+			wins += trade.won() ? 1 : 0;
+			losses += trade.lost() ? 1 : 0;
 			// The sum of the R column as the learner sees it, so adding it up by hand agrees with
 			// the total. Summing the unrounded values could differ in the last digit (BUG-039).
 			totalR += round2(trade.r());
@@ -940,14 +962,16 @@ public class PracticeService {
 	private Snapshot snapshot(UUID userId, UUID sessionId) {
 		return readTx.execute(tx -> {
 			PracticeSession session = require(userId, sessionId);
-			return new Snapshot(session, instrumentOf(session),
-				pair(plans.findAllBySessionId(session.getId()),
-					results.findAllBySessionId(session.getId()), closes.findAllBySessionId(session.getId())));
+			Instrument instrument = instrumentOf(session);
+			return new Snapshot(session, instrument,
+				pair(plans.findAllBySessionId(session.getId()), results.findAllBySessionId(session.getId()),
+					closes.findAllBySessionId(session.getId()), instrument.getTickValueCents()));
 		});
 	}
 
 	/** Each plan with its result and any close, in the order the plans were locked. */
-	private static List<Trade> pair(List<TradePlan> plans, List<PracticeResult> results, List<PracticeClose> closed) {
+	private static List<Trade> pair(List<TradePlan> plans, List<PracticeResult> results, List<PracticeClose> closed,
+			long tickValueCents) {
 		Map<Integer, PracticeResult> bySeq = results.stream()
 			.collect(Collectors.toMap(PracticeResult::getSeq, Function.identity()));
 		Map<Integer, PracticeClose> closeBySeq = closed.stream()
@@ -959,7 +983,7 @@ public class PracticeService {
 				if (result == null) {
 					throw new IllegalStateException("Plan " + plan.getId() + " has no result");
 				}
-				return new Trade(plan, result, closeBySeq.get(plan.getSeq()));
+				return new Trade(plan, result, closeBySeq.get(plan.getSeq()), tickValueCents);
 			})
 			.toList();
 	}
@@ -1098,7 +1122,7 @@ public class PracticeService {
 	 * and with bars around it — the calendar knows the hours, not the holidays (T4).
 	 */
 	private Instant pickRealStart(Instrument instrument, Timeframe timeframe, Killzone killzone,
-			DayOfWeek weekday) {
+			DayOfWeek weekday, List<HiddenStretches.Stretch> avoid) {
 		Instant[] coverage = marketData.coverage(instrument);
 		if (coverage == null) {
 			throw new IllegalArgumentException("No real " + instrument.getSymbol()
@@ -1115,6 +1139,11 @@ public class PracticeService {
 			if (!matches(start, weekday) || start.isBefore(earliest) || start.isAfter(latest)
 					|| !SessionCalendar.isOpenThroughout(start.minus(timeframe.duration()),
 						start.plus(MIN_SESSION_LEFT))) {
+				continue;
+			}
+			// BUG-085, BUG-086: not over another open session's replay or the drill being answered — this one's
+			// history and replay would show what those are graded by.
+			if (HiddenStretches.touches(avoid, start.minus(HISTORY), start.plus(HiddenStretches.PAST_REPLAY_START))) {
 				continue;
 			}
 			// Only now the database: most candidates fail the cheap checks above.

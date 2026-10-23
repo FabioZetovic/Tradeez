@@ -73,6 +73,14 @@ public final class MarketDataDtos {
 		String generatorVersion,
 		@Schema(description = "Shown verbatim in the UI when dataClass is SIMULATED (DEC-033)")
 		String disclaimer,
-		List<BarResponse> bars) {
+		List<BarResponse> bars,
+		@Schema(description = """
+			BUG-085, BUG-086: stretches inside the range whose candles are left out for now, because an open \
+			practice session or an unanswered drill is graded by them. Empty when nothing is.""")
+		List<HiddenResponse> hidden) {
+	}
+
+	@Schema(description = "[from, to), UTC epoch seconds. why: PRACTICE (an open session) or DRILL (the drill unanswered)")
+	public record HiddenResponse(long from, long to, String why) {
 	}
 }

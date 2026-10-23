@@ -182,6 +182,25 @@ describe('PlanPanel scorecard inputs (T23)', () => {
     expect(screen.queryByTestId('risk-limit')).toBeNull()
   })
 
+  it('BUG-088: with costs known, the limit is read against what the stop would cost, costs paid', () => {
+    // The standard costs on forty ticks at $5: $200 to the stop, a tick in and a tick out, $4.50 of fees.
+    const costs = { feesCents: 450, marketSlippageTicks: 1, stopSlippageTicks: 1 }
+    const draft = (limit: number, plan: PlanRequest = LONG) => (
+      <PlanPanel plan={plan} referenceTicks={REF} tickSize={0.25} tickValueCents={500} costs={costs}
+        riskLimitCents={limit} busy={false} onPlace={vi.fn()} onFlip={vi.fn()} onDiscard={vi.fn()}
+        onChangeLevel={vi.fn()} onChangeContracts={vi.fn()} onLock={vi.fn()} />
+    )
+    const { rerender } = render(draft(21_450))
+    expect(screen.getByTestId('risk-at-stop')).toHaveTextContent('· $214.50 at the stop with costs')
+    expect(screen.getByTestId('risk-limit')).toHaveTextContent('· within your $214.50 limit')
+    // Within on the price alone, over once the stop's costs are paid.
+    rerender(draft(20_000))
+    expect(screen.getByTestId('risk-limit')).toHaveTextContent('· over your $200.00 limit')
+    expect(screen.getByTestId('risk-limit')).toHaveClass('text-down')
+    rerender(draft(50_000, { ...LONG, contracts: 2 }))
+    expect(screen.getByTestId('risk-at-stop')).toHaveTextContent('· $429.00 at the stop with costs')
+  })
+
   it('says how sure the learner is that the target comes first, and takes it back', async () => {
     const onIntent = vi.fn()
     const user = userEvent.setup()
@@ -222,7 +241,7 @@ describe('PlanPanel price boxes', () => {
     expect(onChangeLevel).toHaveBeenCalledWith('stop', 79_960)
   })
 
-  it('put the previous price back when the input is not a price', async () => {
+  it('BUG-089: say so when the input is not a price, keeping it to be put right — not put the old one back in silence', async () => {
     const onChangeLevel = vi.fn()
     const user = userEvent.setup()
     render(panel(LONG, onChangeLevel))
@@ -233,7 +252,13 @@ describe('PlanPanel price boxes', () => {
     await user.tab()
 
     expect(onChangeLevel).not.toHaveBeenCalled()
+    expect(stop).toHaveValue('abc')
+    expect(screen.getByRole('alert')).toHaveTextContent('Not a price: write it like 20011.25 or 20011,25.')
+    // An emptied box that cannot be empty still shows the price it had.
+    await user.clear(stop)
+    await user.tab()
     expect(stop).toHaveValue('19991.50')
+    expect(onChangeLevel).not.toHaveBeenCalled()
   })
 })
 

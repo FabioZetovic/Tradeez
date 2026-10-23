@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -39,9 +40,15 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 	private static final java.util.Set<String> LIMITED =
 		java.util.Set.of("/api/auth/login", "/api/auth/register", "/api/auth/password");
 
+	/**
+	 * BUG-075: the path as the router reads it — decoded, without {@code ;} parameters. The raw request URI let
+	 * {@code /api/auth/log%69n} through: routed to sign-in, but not the string this filter looked for.
+	 */
+	private static final UrlPathHelper PATHS = new UrlPathHelper();
+
 	private final RateLimiter rateLimiter;
 	private final int limit;
-	private final int trustedProxies;
+	private final ClientAddress clientAddress;
 
 	public AuthRateLimitFilter(
 			RateLimiter rateLimiter,
@@ -49,19 +56,23 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 			@Value("${tradeez.rate-limit.trusted-proxies:0}") int trustedProxies) {
 		this.rateLimiter = rateLimiter;
 		this.limit = limit;
-		this.trustedProxies = trustedProxies;
+		this.clientAddress = new ClientAddress(trustedProxies);
+	}
+
+	static String path(HttpServletRequest request) {
+		return PATHS.getPathWithinApplication(request);
 	}
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
-		return !LIMITED.contains(request.getRequestURI()) || !"POST".equalsIgnoreCase(request.getMethod());
+		return !LIMITED.contains(path(request)) || !"POST".equalsIgnoreCase(request.getMethod());
 	}
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
 			FilterChain chain) throws ServletException, IOException {
 
-		String key = "ip:" + clientIp(request) + ":" + request.getRequestURI();
+		String key = "ip:" + clientIp(request) + ":" + path(request);
 
 		if (!rateLimiter.tryAcquire(key, limit, WINDOW)) {
 			response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
@@ -77,23 +88,11 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 	}
 
 	/**
-	 * The caller's address.
-	 *
-	 * <p>BUG-070. This read the <i>first</i> {@code X-Forwarded-For} entry, which is whatever the client
-	 * wrote: a new value on every request was a new quota, and the per-IP limit could be walked around
-	 * entirely. Each proxy <i>appends</i> the address it saw, so only entries added by proxies we run can
-	 * be believed — counted from the right, {@code tradeez.rate-limit.trusted-proxies} of them. With none
-	 * (the default, and locally) the header is ignored and the connection's own address is used.
+	 * The caller's address (BUG-070): read once by {@link ClientAddress}, so the first {@code X-Forwarded-For} entry —
+	 * whatever the client wrote — is never believed.
 	 */
 	String clientIp(HttpServletRequest request) {
-		String forwarded = request.getHeader("X-Forwarded-For");
-		if (trustedProxies > 0 && forwarded != null && !forwarded.isBlank()) {
-			String[] hops = forwarded.split(",");
-			if (hops.length >= trustedProxies) {
-				return hops[hops.length - trustedProxies].trim();
-			}
-		}
-		return request.getRemoteAddr();
+		return clientAddress.of(request);
 	}
 
 	/** Keeps the limiter's map from growing without bound on attacker-supplied keys. */

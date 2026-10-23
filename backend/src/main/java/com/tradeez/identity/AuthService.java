@@ -36,7 +36,10 @@ public class AuthService {
 	 */
 	public static final Duration REUSE_GRACE = Duration.ofSeconds(20);
 
-	/** Failed sign-ins allowed against a single account before it is throttled (BUG-002). */
+	/**
+	 * Failed sign-ins allowed against a single account from a single address before that address is throttled for it
+	 * (BUG-002, BUG-076).
+	 */
 	public static final int ACCOUNT_ATTEMPTS = 10;
 	public static final Duration ACCOUNT_WINDOW = Duration.ofMinutes(15);
 
@@ -92,13 +95,18 @@ public class AuthService {
 		return issueFor(user, userAgent);
 	}
 
+	/**
+	 * @param clientAddress where the attempt comes from ({@link ClientAddress})
+	 */
 	@Transactional
-	public IssuedTokens login(LoginRequest request, String userAgent) {
-		// Per-account throttling, on top of the per-IP filter (BUG-002). The filter alone is not
-		// enough: an attacker with a pool of addresses can spread guesses at one account across many
-		// IPs and never trip a per-IP limit. Keyed on the normalised email so capitalisation cannot
-		// be used to get a fresh quota.
-		String throttleKey = "login:" + request.email().trim().toLowerCase(java.util.Locale.ROOT);
+	public IssuedTokens login(LoginRequest request, String userAgent, String clientAddress) {
+		// Per-account throttling, on top of the per-IP filter (BUG-002), keyed on the account *and* the address
+		// (BUG-076). Keyed on the account alone, ten wrong guesses from anywhere locked its owner out as well: the
+		// limit is checked before the password, so the right one was refused too, and ten more every fifteen
+		// minutes kept them out. Now the guesser is stopped and the owner, elsewhere, is not. Guessing from many
+		// addresses still costs ten tries an address a window, against password-1.0.0's twelve characters and the
+		// breach check. The email is normalised so capitalisation cannot buy a fresh quota.
+		String throttleKey = "login:" + request.email().trim().toLowerCase(java.util.Locale.ROOT) + ":" + clientAddress;
 		if (!rateLimiter.tryAcquire(throttleKey, ACCOUNT_ATTEMPTS, ACCOUNT_WINDOW)) {
 			throw new TooManyAttemptsException();
 		}
@@ -223,6 +231,8 @@ public class AuthService {
 		passwordPolicy.require(request.newPassword(), user.getEmail(), user.getDisplayName());
 
 		user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
+		// BUG-077: the access tokens already handed out end too, not only the refresh tokens.
+		user.revokeAccessTokens();
 		users.save(user);
 		int revoked = refreshTokens.revokeAllForUser(userId, Instant.now());
 		log.info("Password changed for user {}; {} session(s) signed out.", userId, revoked);
@@ -243,9 +253,14 @@ public class AuthService {
 			});
 	}
 
+	/** Every session: the refresh tokens, and the access tokens already handed out (BUG-077). */
 	@Transactional
 	public void logoutEverywhere(UUID userId) {
 		refreshTokens.revokeAllForUser(userId, Instant.now());
+		users.findById(userId).ifPresent(user -> {
+			user.revokeAccessTokens();
+			users.save(user);
+		});
 	}
 
 	/** True when this token was rotated so recently that a replay is almost certainly a duplicate. */

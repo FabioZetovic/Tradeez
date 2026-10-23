@@ -38,10 +38,12 @@ public class AuthController {
 
 	private final AuthService authService;
 	private final CookieService cookies;
+	private final ClientAddress clientAddress;
 
-	public AuthController(AuthService authService, CookieService cookies) {
+	public AuthController(AuthService authService, CookieService cookies, ClientAddress clientAddress) {
 		this.authService = authService;
 		this.cookies = cookies;
+		this.clientAddress = clientAddress;
 	}
 
 	@PostMapping("/register")
@@ -56,8 +58,9 @@ public class AuthController {
 	@Operation(summary = "Sign in with email and password")
 	public ResponseEntity<UserResponse> login(
 			@Valid @RequestBody LoginRequest request,
+			HttpServletRequest http,
 			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
-		return respond(authService.login(request, userAgent), HttpStatus.OK);
+		return respond(authService.login(request, userAgent, clientAddress.of(http)), HttpStatus.OK);
 	}
 
 	@PostMapping("/refresh")

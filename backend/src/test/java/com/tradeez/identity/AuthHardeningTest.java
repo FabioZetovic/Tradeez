@@ -2,6 +2,7 @@ package com.tradeez.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -28,7 +30,8 @@ import jakarta.servlet.http.Cookie;
 /**
  * The security pass Fabio asked for (session 017, DEC-064): long passwords (BUG-066), the password policy
  * at sign-up, changing a password, signing out everywhere, an expired session and a forged
- * {@code X-Forwarded-For} (BUG-070).
+ * {@code X-Forwarded-For} (BUG-070); and from the bug hunt of 2026-10-21, an escaped path (BUG-075), the owner locked
+ * out by a guesser (BUG-076) and access tokens that outlived "sign out everywhere" (BUG-077).
  */
 class AuthHardeningTest extends AbstractIntegrationTest {
 
@@ -49,6 +52,9 @@ class AuthHardeningTest extends AbstractIntegrationTest {
 
 	@Autowired
 	JdbcTemplate jdbc;
+
+	@Value("${tradeez.jwt.secret}")
+	String jwtSecret;
 
 	@BeforeEach
 	void cleanSlate() {
@@ -80,6 +86,10 @@ class AuthHardeningTest extends AbstractIntegrationTest {
 
 	private ResultActions refresh(Cookie refreshCookie) throws Exception {
 		return mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie));
+	}
+
+	private ResultActions me(Cookie access) throws Exception {
+		return mockMvc.perform(get("/api/me").cookie(access));
 	}
 
 	@Nested
@@ -166,6 +176,20 @@ class AuthHardeningTest extends AbstractIntegrationTest {
 		}
 
 		@Test
+		@DisplayName("BUG-077 ends the access tokens already handed out too; the one it hands back works")
+		void accessTokensEnd() throws Exception {
+			MvcResult first = register("marta@example.com", PASSWORD).andExpect(status().isCreated()).andReturn();
+			Cookie elsewhere = cookie(login("marta@example.com", PASSWORD).andReturn(), CookieService.ACCESS_TOKEN_COOKIE);
+			me(elsewhere).andExpect(status().isOk());
+
+			Cookie here = cookie(first, CookieService.ACCESS_TOKEN_COOKIE);
+			MvcResult changed = changePassword(here, PASSWORD, NEW_PASSWORD).andExpect(status().isOk()).andReturn();
+			me(elsewhere).andExpect(status().isUnauthorized());
+			me(here).andExpect(status().isUnauthorized());
+			me(cookie(changed, CookieService.ACCESS_TOKEN_COOKIE)).andExpect(status().isOk());
+		}
+
+		@Test
 		@DisplayName("a wrong current password is a 403, a weak or unchanged new one a 400; nothing changes")
 		void refused() throws Exception {
 			Cookie access = cookie(register("marta@example.com", PASSWORD).andReturn(), CookieService.ACCESS_TOKEN_COOKIE);
@@ -228,6 +252,38 @@ class AuthHardeningTest extends AbstractIntegrationTest {
 			assertThat(out.getResponse().getCookie(CookieService.REFRESH_TOKEN_COOKIE).getMaxAge()).isZero();
 			refresh(cookie(first, CookieService.REFRESH_TOKEN_COOKIE)).andExpect(status().isUnauthorized());
 			refresh(cookie(other, CookieService.REFRESH_TOKEN_COOKIE)).andExpect(status().isUnauthorized());
+		}
+
+		@Test
+		@DisplayName("BUG-077 signing out everywhere ends the access tokens already handed out, here and elsewhere")
+		void accessTokensEnd() throws Exception {
+			Cookie here = cookie(register("marta@example.com", PASSWORD).andReturn(), CookieService.ACCESS_TOKEN_COOKIE);
+			Cookie elsewhere = cookie(login("marta@example.com", PASSWORD).andReturn(), CookieService.ACCESS_TOKEN_COOKIE);
+			me(elsewhere).andExpect(status().isOk());
+
+			mockMvc.perform(post("/api/auth/logout-all").cookie(here).with(csrf())).andExpect(status().isNoContent());
+			// Still inside their fifteen minutes, and over all the same.
+			me(here).andExpect(status().isUnauthorized());
+			me(elsewhere).andExpect(status().isUnauthorized());
+			me(cookie(login("marta@example.com", PASSWORD).andReturn(), CookieService.ACCESS_TOKEN_COOKIE))
+				.andExpect(status().isOk());
+		}
+
+		@Test
+		@DisplayName("BUG-077 a token without a generation is refused, though signed with the right key")
+		void generationRequired() throws Exception {
+			register("marta@example.com", PASSWORD).andExpect(status().isCreated());
+			String userId = users.findByEmailIgnoreCase("marta@example.com").orElseThrow().getId().toString();
+			javax.crypto.SecretKey key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+				java.util.Base64.getDecoder().decode(jwtSecret));
+			java.util.Date now = new java.util.Date();
+			java.util.Date later = new java.util.Date(now.getTime() + 300_000);
+			String without = io.jsonwebtoken.Jwts.builder().issuer("tradeez").subject(userId)
+				.issuedAt(now).expiration(later).signWith(key).compact();
+			String with = io.jsonwebtoken.Jwts.builder().issuer("tradeez").subject(userId).claim("gen", 0)
+				.issuedAt(now).expiration(later).signWith(key).compact();
+			me(new Cookie(CookieService.ACCESS_TOKEN_COOKIE, with)).andExpect(status().isOk());
+			me(new Cookie(CookieService.ACCESS_TOKEN_COOKIE, without)).andExpect(status().isUnauthorized());
 		}
 
 		@Test
@@ -299,6 +355,62 @@ class AuthHardeningTest extends AbstractIntegrationTest {
 			// Fewer entries than proxies, or none: the connection's own address.
 			assertThat(new AuthRateLimitFilter(limiter, 20, 2).clientIp(request("198.51.100.7"))).isEqualTo("10.0.0.5");
 			assertThat(new AuthRateLimitFilter(limiter, 20, 1).clientIp(request(null))).isEqualTo("10.0.0.5");
+		}
+	}
+
+	@Nested
+	@DisplayName("BUG-075 the per-address limit reads the path as the router does")
+	class EncodedPaths {
+
+		@Test
+		@DisplayName("sign-in spelled with an escaped letter is counted as sign-in: the 21st try, however spelled, is refused")
+		void escapedPathCounted() throws Exception {
+			for (int i = 0; i < 20; i++) {
+				int answered = mockMvc.perform(post(java.net.URI.create("/api/auth/log%69n"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"nobody" + i + "@example.com\",\"password\":\"wrong-guess\"}"))
+					.andReturn().getResponse().getStatus();
+				assertThat(answered).as("attempt %d", i + 1).isEqualTo(401);
+			}
+			login("nobody20@example.com", "wrong-guess").andExpect(status().isTooManyRequests());
+		}
+
+		@Test
+		@DisplayName("escaped letters and ;parameters are read away before the path is compared")
+		void pathsDecoded() {
+			AuthRateLimitFilter filter = new AuthRateLimitFilter(new RateLimiter(), 20, 0);
+			for (String path : java.util.List.of("/api/auth/log%69n", "/api/auth/%6Cogin", "/api/auth/login;x=1",
+					"/api/auth/regist%65r", "/api/auth/p%61ssword")) {
+				assertThat(filter.shouldNotFilter(new MockHttpServletRequest("POST", path))).as(path).isFalse();
+			}
+			assertThat(AuthRateLimitFilter.path(new MockHttpServletRequest("POST", "/api/auth/log%69n")))
+				.isEqualTo("/api/auth/login");
+		}
+	}
+
+	@Nested
+	@DisplayName("BUG-076 the per-account sign-in limit")
+	class AccountLimit {
+
+		private ResultActions loginFrom(String address, String password) throws Exception {
+			return mockMvc.perform(post("/api/auth/login").with(r -> {
+					r.setRemoteAddr(address);
+					return r;
+				})
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"marta@example.com\",\"password\":\"" + password + "\"}"));
+		}
+
+		@Test
+		@DisplayName("stops the guesser's address, and not the owner signing in from another")
+		void guesserStoppedOwnerNot() throws Exception {
+			register("marta@example.com", PASSWORD).andExpect(status().isCreated());
+			for (int i = 0; i < AuthService.ACCOUNT_ATTEMPTS; i++) {
+				loginFrom("203.0.113.66", "wrong-guess-" + i).andExpect(status().isUnauthorized());
+			}
+			// The guesser is stopped, the right password included; the owner, elsewhere, is not.
+			loginFrom("203.0.113.66", PASSWORD).andExpect(status().isTooManyRequests());
+			loginFrom("198.51.100.20", PASSWORD).andExpect(status().isOk());
 		}
 	}
 }

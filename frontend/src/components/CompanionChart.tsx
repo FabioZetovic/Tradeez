@@ -18,7 +18,8 @@ interface CompanionChartProps {
 /**
  * The market a rule compares with, under the chart being read (DEC-075): SMT reads NQ beside ES, and a divergence
  * is seen by looking from one to the other. It keeps to the minutes the chart above shows as that one is panned or
- * zoomed, so a swing on one sits over the same moment on the other.
+ * zoomed, so a swing on one sits over the same moment on the other — and it is not moved on its own (BUG-092): a pan
+ * here alone showed two moments as one.
  */
 export function CompanionChart({
   companion,
@@ -33,7 +34,8 @@ export function CompanionChart({
   return (
     <figure className="flex min-w-0 flex-col gap-1" aria-label={`${companion.instrument} over the same minutes`}>
       <figcaption className="text-xs text-subtle">
-        <strong className="text-ink">{companion.instrument}</strong> over the same minutes
+        <strong className="text-ink">{companion.instrument}</strong> over the same minutes — move the chart above to
+        move both
       </figcaption>
       <PriceChart
         bars={companion.bars}
@@ -43,6 +45,7 @@ export function CompanionChart({
         daily={daily}
         adapterFactory={adapterFactory}
         heightClass={heightClass}
+        followsOnly
         overlay={(adapter) => (
           <>
             <FollowRange leader={leader} follower={adapter} bars={companion.bars} />

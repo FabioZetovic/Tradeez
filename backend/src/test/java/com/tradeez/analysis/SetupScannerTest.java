@@ -46,6 +46,9 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	@Autowired
+	com.tradeez.marketdata.MarketBarStore barStore;
+
 	private Instrument nq;
 
 	@BeforeEach
@@ -112,6 +115,43 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("a stretch whose market was imported since is scanned again, though its rows are all there")
+	void rescansAfterAnImport() {
+		java.util.concurrent.atomic.AtomicInteger scans = new java.util.concurrent.atomic.AtomicInteger();
+		Detector counting = new Detector() {
+			public String id() { return "COUNTING"; }
+			public String ruleVersion() { return "counting-1.0.0"; }
+			public String methodologySource() { return "a test's own"; }
+			public String conceptId() { return "ICT-01"; }
+			public java.util.Map<String, Object> parameters() { return java.util.Map.of(); }
+			public int lookbackBars(Timeframe timeframe) { return 0; }
+			public List<Detection> detect(List<Bar> segment, Timeframe timeframe) {
+				scans.incrementAndGet();
+				return List.of();
+			}
+		};
+		Instrument es = marketData.requireInstrument("ES");
+		com.tradeez.ThreeWeeksOfEs.insert(marketData, barStore);
+		try {
+			// Monday 12 May, on the June contract.
+			Instant from = Instant.parse("2025-05-12T14:00:00Z");
+			Instant to = Instant.parse("2025-05-12T18:00:00Z");
+			scanner.ensureScanned(counting, es, Timeframe.M5, 0, from, to);
+			scanner.ensureScanned(counting, es, Timeframe.M5, 0, from, to);
+			assertThat(scans).as("nothing changed: read back, not scanned").hasValue(1);
+
+			// A minute the import adds inside the rules' reach: the context may have changed.
+			Instant added = Instant.parse("2025-05-10T12:00:00Z");
+			barStore.insert(es.getId(), "1m", List.of(new com.tradeez.marketdata.MarketBarStore.StoredBar(
+				new Bar(added, 20_000, 20_001, 19_999, 20_000, 1), 202506)));
+			scanner.ensureScanned(counting, es, Timeframe.M5, 0, from, to);
+			assertThat(scans).hasValue(2);
+		} finally {
+			com.tradeez.ThreeWeeksOfEs.remove(marketData, jdbc);
+		}
+	}
+
+	@Test
 	@DisplayName("T35: rules scanned together read their candles once, and store exactly what each stores alone")
 	void togetherAsAlone() {
 		List<Detector> rules = List.of(fvg, swing, liquidity);
@@ -125,6 +165,46 @@ class SetupScannerTest extends AbstractIntegrationTest {
 		assertThat(stored()).isEqualTo(together);
 		assertThat(together).anyMatch(r -> r.startsWith("FVG ")).anyMatch(r -> r.startsWith("SWING "))
 			.anyMatch(r -> r.startsWith("LIQUIDITY "));
+	}
+
+	@Test
+	@DisplayName("BUG-080 at most two scans run at once, server-wide; the rest wait their turn and still run")
+	void scansBounded() {
+		java.util.concurrent.atomic.AtomicInteger running = new java.util.concurrent.atomic.AtomicInteger();
+		java.util.concurrent.atomic.AtomicInteger most = new java.util.concurrent.atomic.AtomicInteger();
+		java.util.concurrent.atomic.AtomicInteger scans = new java.util.concurrent.atomic.AtomicInteger();
+		Detector slow = new Detector() {
+			public String id() { return "SLOW"; }
+			public String ruleVersion() { return "slow-1.0.0"; }
+			public String methodologySource() { return "a test's own"; }
+			public String conceptId() { return "ICT-01"; }
+			public java.util.Map<String, Object> parameters() { return java.util.Map.of(); }
+			public int lookbackBars(Timeframe timeframe) { return 0; }
+			public List<Detection> detect(List<Bar> segment, Timeframe timeframe) {
+				most.accumulateAndGet(running.incrementAndGet(), Math::max);
+				scans.incrementAndGet();
+				try {
+					Thread.sleep(300);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+				running.decrementAndGet();
+				return List.of();
+			}
+		};
+		// Five different weekdays, so none is another's scan already done, and each has candles to read.
+		var pool = java.util.concurrent.Executors.newFixedThreadPool(5);
+		try {
+			List<CompletableFuture<Void>> five = java.util.stream.IntStream.of(0, 1, 2, 3, 6)
+				.mapToObj(day -> CompletableFuture.runAsync(() -> scanner.ensureScanned(slow, nq, Timeframe.M5, 42,
+					FROM.plus(java.time.Duration.ofDays(day)), TO.plus(java.time.Duration.ofDays(day))), pool))
+				.toList();
+			five.forEach(CompletableFuture::join);
+		} finally {
+			pool.shutdown();
+		}
+		assertThat(scans).hasValue(5);
+		assertThat(most).hasValue(SetupScanner.CONCURRENT_SCANS);
 	}
 
 	@Test

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.sql.Timestamp;
@@ -214,6 +215,20 @@ class SetupApiTest extends AbstractIntegrationTest {
 		mockMvc.perform(get("/api/market/instruments/NQ/setups").param("from", "1").param("to", "2")
 				.param("detectors", "FVG"))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("BUG-080 setups are found over at most 6,000 candles at once — the widest chart the app draws")
+	void costCapped() throws Exception {
+		Instant to = Instant.parse("2025-05-09T20:00:00Z");
+		// 300 days of hours: 7,200 candles, which the bars allow.
+		chartRequest("NQ", "1h", to.minusSeconds(300L * 86_400), to, "FVG")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.startsWith(
+				"Setups are found over at most 6000 candles at a time; that range is about 7200 at 1h.")));
+		// The app's widest: four days of minutes (5,760), and a daily chart's 400 days.
+		chartRequest("NQ", "1m", to.minusSeconds(4L * 86_400), to, "FVG").andExpect(status().isOk());
+		chartRequest("NQ", "1d", to.minusSeconds(400L * 86_400), to, "FVG").andExpect(status().isOk());
 	}
 
 	@Test

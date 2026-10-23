@@ -56,7 +56,8 @@ import jakarta.servlet.http.Cookie;
  *
  * <p>NQ: a tick is 0.25 points and $5.00 a contract; stops slip one tick; commission is $2.50 a
  * contract a round trip; market fills do not slip and a target fills on the touch — FillModel.BASIC, fill-1.2.0's
- * numbers, set as the learner's costs before each test (T27). The standard costs are PracticeApiTest's.
+ * numbers, set as the learner's costs before each test (T27). The standard costs are PracticeApiTest's. R is the net
+ * result, commission paid, over the risk planned (DEC-076): $2.50 on a 10-tick stop at $5 is 0.05R.
  */
 class BracketOutcomeApiTest extends AbstractIntegrationTest {
 
@@ -247,7 +248,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 	class Longs {
 
 		@Test
-		@DisplayName("reaching its target is closed at the target: +8 ticks, $37.50 net, 0.80R")
+		@DisplayName("reaching its target is closed at the target: +8 ticks, $37.50 net, 0.75R")
 		void target() throws Exception {
 			String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
 				m(80_000, 80_004, 79_998, 80_002),
@@ -261,7 +262,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.get("pnlTicks").asLong()).isEqualTo(8);
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo(8 * TICK_CENTS - COMMISSION_CENTS);
 			assertThat(result.get("commissionCents").asLong()).isEqualTo(COMMISSION_CENTS);
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.8);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.75);
 			assertThat(result.get("maeTicks").asLong()).isEqualTo(2);
 			assertThat(result.get("mfeTicks").asLong()).isEqualTo(8);
 			assertThat(result.get("gapExit").asBoolean()).isFalse();
@@ -272,7 +273,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		}
 
 		@Test
-		@DisplayName("reaching its stop is closed a tick beyond it: −11 ticks, −$57.50, −1.10R")
+		@DisplayName("reaching its stop is closed a tick beyond it: −11 ticks, −$57.50, −1.15R")
 		void stop() throws Exception {
 			String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
 				m(80_000, 80_003, 79_995, 79_996),
@@ -284,7 +285,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.get("exitTicks").asLong()).as("a stop slips a tick").isEqualTo(79_989);
 			assertThat(result.get("pnlTicks").asLong()).isEqualTo(-11);
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo(-11 * TICK_CENTS - COMMISSION_CENTS);
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(-1.1);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(-1.15);
 			assertThat(result.get("maeTicks").asLong()).isEqualTo(11);
 			assertThat(result.get("mfeTicks").asLong()).isEqualTo(3);
 		}
@@ -332,9 +333,9 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			// Three contracts: ticks × $5 × 3, less $2.50 × 3.
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo(7 * TICK_CENTS * 3 - COMMISSION_CENTS * 3);
 			assertThat(result.get("commissionCents").asLong()).isEqualTo(COMMISSION_CENTS * 3);
-			// R is about the decision: 7 ticks against the 10 the plan risked from 80,000.
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.7);
-			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.7);
+			// R is about the decision: 7 ticks against the 10 the plan risked from 80,000, less the commission.
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.65);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.65);
 			assertThat(state.at("/score/wins").asInt()).isEqualTo(1);
 		}
 	}
@@ -344,7 +345,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 	class Shorts {
 
 		@Test
-		@DisplayName("reaching its target below is closed at the target: +10 ticks, 1.00R")
+		@DisplayName("reaching its target below is closed at the target: +10 ticks, 0.95R")
 		void target() throws Exception {
 			String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
 				m(80_000, 80_002, 79_995, 79_996),
@@ -354,7 +355,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.get("outcome").asString()).isEqualTo("TARGET");
 			assertThat(result.get("exitTicks").asLong()).isEqualTo(79_990);
 			assertThat(result.get("pnlTicks").asLong()).as("a short gains as price falls").isEqualTo(10);
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(1.0);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.95);
 			assertThat(result.get("maeTicks").asLong()).isEqualTo(2);
 			assertThat(result.get("mfeTicks").asLong()).isEqualTo(10);
 		}
@@ -370,7 +371,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.get("exitTicks").asLong()).isEqualTo(80_011);
 			assertThat(result.get("pnlTicks").asLong()).isEqualTo(-11);
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo(-11 * TICK_CENTS * 2 - COMMISSION_CENTS * 2);
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(-1.1);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(-1.15);
 		}
 
 		@Test
@@ -385,7 +386,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.get("exitTicks").asLong()).isEqualTo(80_016);
 			assertThat(result.get("pnlTicks").asLong()).isEqualTo(-16);
 			assertThat(result.get("gapExit").asBoolean()).isTrue();
-			assertThat(result.get("rMultiple").asDouble()).as("more than the 1R planned").isEqualTo(-1.6);
+			assertThat(result.get("rMultiple").asDouble()).as("more than the 1R planned").isEqualTo(-1.65);
 		}
 	}
 
@@ -440,7 +441,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		assertThat(result.get("pnlTicks").asLong()).isEqualTo(7);
 		assertThat(result.get("commissionCents").asLong()).isEqualTo(450);
 		assertThat(result.get("netPnlCents").asLong()).isEqualTo(7 * TICK_CENTS - 450);
-		assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.7);
+		assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.61);
 		assertThat(result.get("maeTicks").asLong()).isEqualTo(2);
 		assertThat(result.get("mfeTicks").asLong()).isEqualTo(7);
 	}
@@ -469,7 +470,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		assertThat(result.get("pnlTicks").asLong()).isEqualTo(-2);
 		assertThat(result.get("commissionCents").asLong()).isEqualTo(300);
 		assertThat(result.get("netPnlCents").asLong()).isEqualTo(-2 * TICK_CENTS - 300);
-		assertThat(result.get("rMultiple").asDouble()).isEqualTo(-0.04);
+		assertThat(result.get("rMultiple").asDouble()).as("−$13.00 on a $250 risk").isEqualTo(-0.05);
 	}
 
 	@Test
@@ -487,7 +488,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		assertThat(result.get("exitTicks").asLong()).isEqualTo(80_002);
 		assertThat(result.get("pnlTicks").asLong()).isEqualTo(2);
 		assertThat(result.get("netPnlCents").asLong()).isEqualTo(2 * TICK_CENTS - COMMISSION_CENTS);
-		assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.04);
+		assertThat(result.get("rMultiple").asDouble()).as("$7.50 on a $250 risk").isEqualTo(0.03);
 	}
 
 	@Nested
@@ -523,7 +524,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 		}
 
 		@Test
-		@DisplayName("one off at +1R, the stop on the other then at the entry: +10 and −1 ticks, $40.00 net, 0.45R")
+		@DisplayName("one off at +1R, the stop on the other then at the entry: +10 and −1 ticks, $40.00 net, 0.40R")
 		void breakeven() throws Exception {
 			String id = upThenDown();
 			planWithPartial(id, ",\"partialTicks\":80010,\"partialContracts\":1,\"breakevenAfterPartial\":true")
@@ -539,8 +540,8 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.at("/partial/pnlTicks").asLong()).isEqualTo(10);
 			assertThat(result.at("/partial/gap").asBoolean()).isFalse();
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo((10 - 1) * TICK_CENTS - 2 * COMMISSION_CENTS);
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.45);
-			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.45);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.4);
+			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(0.4);
 			assertThat(state.at("/score/wins").asInt()).isEqualTo(1);
 			assertThat(stored(id, 1).exitTime()).isEqualTo(TUESDAY_10AM.plusSeconds(180));
 
@@ -590,7 +591,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			JsonNode held = result(skip(id));
 			assertThat(held.get("outcome").asString()).isEqualTo("STOP");
 			assertThat(stored(id, 1).exitTime()).as("on past the entry, to the stop").isEqualTo(TUESDAY_10AM.plusSeconds(240));
-			assertThat(held.get("rMultiple").asDouble()).as("+10 and −11 ticks over two contracts").isEqualTo(-0.05);
+			assertThat(held.get("rMultiple").asDouble()).as("+10 and −11 ticks over two contracts, $5.00 of fees").isEqualTo(-0.1);
 
 			String far = upThenDown();
 			planWithPartial(far, ",\"partialTicks\":80015,\"partialContracts\":1").andExpect(status().isOk());
@@ -613,7 +614,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.has("partial")).isFalse();
 			assertThat(result.get("assumption").asString()).contains("the price to take part off at")
 				.endsWith("the stop, for every contract.");
-			assertThat(result.get("rMultiple").asDouble()).as("−11 ticks on each of two").isEqualTo(-1.1);
+			assertThat(result.get("rMultiple").asDouble()).as("−11 ticks on each of two, and the fees").isEqualTo(-1.15);
 		}
 
 		@Test
@@ -638,7 +639,7 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.get("exitTicks").asLong()).isEqualTo(80_008);
 			assertThat(result.at("/partial/ticks").asLong()).isEqualTo(80_010);
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo((10 + 8) * TICK_CENTS - 2 * COMMISSION_CENTS);
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.9);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.85);
 		}
 
 		@Test
@@ -753,8 +754,12 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(result.get("outcome").asString()).isEqualTo(db.outcome());
 			assertThat(result.get("netPnlCents").asLong()).isEqualTo(db.net());
 			assertThat(result.get("rMultiple").asDouble())
-				.isEqualTo(Math.round(100.0 * pnl / risk) / 100.0);
+				.isEqualTo(Math.round(100.0 * db.net() / (risk * contracts * TICK_CENTS)) / 100.0);
 			assertThat(result.has("assumption")).isEqualTo("AMBIGUOUS".equals(db.outcome()));
+			// Ended, or the next session would have to start clear of this one's replay (DEC-077) — on two weeks of
+			// minutes there is not always such a moment.
+			mockMvc.perform(post("/api/practice/sessions/" + id + "/end").cookie(alice).with(csrf()))
+				.andExpect(status().isOk());
 			seen.merge(db.outcome(), 1, Integer::sum);
 			gaps += db.gap() ? 1 : 0;
 			shorts += longTrade ? 0 : 1;

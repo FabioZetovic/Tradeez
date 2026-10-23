@@ -33,7 +33,10 @@ spring:
 server:
   port: ${PORT:8080}
   error:
-    include-message: always
+    # BUG-078: errors now reach /error (the chain lets the forward through), and an unhandled exception's message
+    # can name SQL and values. Every message meant for the client is written by a handler; /error says only the
+    # status.
+    include-message: never
     include-stacktrace: never
 
 # INVARIANT 4: all timestamps are UTC. Converted to exchange time only at the presentation edge.
@@ -45,8 +48,8 @@ tradeez:
     # The default below is a well-known development value. JwtSecretGuard refuses to start the
     # application with it whenever cookies.secure is true, i.e. anywhere actually deployed.
     secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZC0wMDAwMDAwMA==}
-    # Short, because an access token cannot be revoked before it expires. This bounds the window
-    # in which an already-revoked session still works.
+    # Short, so a leaked token is good for minutes. "Sign out everywhere" and a password change end the
+    # tokens already handed out at once (BUG-077: each carries the account's token generation).
     access-token-ttl: 15m
     refresh-token-ttl: 30d
 
@@ -57,6 +60,9 @@ tradeez:
     # BUG-070. How many proxies in front of the app append to X-Forwarded-For. 0: the header is ignored,
     # since a client can write anything in it. Behind one proxy that appends the caller's address, 1.
     trusted-proxies: ${TRUSTED_PROXIES:0}
+    # BUG-080. Candles, setups, the clock and lessons asked for per account per minute (ReadRateLimit). The chart
+    # asks for at most five when its window moves.
+    reads-per-minute: ${READS_PER_MINUTE:240}
 
   evidence:
     # T21 (DEC-065). Recount every rule over the imported history after start-up when the data, a rule's
@@ -101,7 +107,9 @@ management:
         include: health,info
   endpoint:
     health:
-      show-details: when-authorized
+      # BUG-081: "when-authorized" with no roles named meant any signed-in learner, who was shown the database,
+      # the disk and the server's folder path.
+      show-details: never
 
 springdoc:
   api-docs:

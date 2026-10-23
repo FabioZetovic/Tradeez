@@ -39,6 +39,11 @@ export interface ChartMountOptions {
   watermark?: string
   /** Daily candles: labelled by trading day rather than by their 18:00 open (T35). */
   daily?: boolean
+  /**
+   * Its time is another chart's (BUG-092): no scrolling or zooming of its own, so the two can never show different
+   * minutes. Its price axis still scales.
+   */
+  followsOnly?: boolean
 }
 
 /**

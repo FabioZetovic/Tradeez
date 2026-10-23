@@ -23,10 +23,14 @@ import com.tradeez.practice.PracticeDtos.ScorecardView;
  * the bias they stated with the trade. What depends on a method — the reward to risk, how far price went
  * against them, how much of the move they kept, what the daily-bias reading suggested — is stated, never
  * judged (DEC-027's correction).
+ *
+ * <p>1.1.0 (BUG-088): the risk limit is judged against what the stop would have cost — the price risk, the entry's and
+ * the stop's slippage and the fees, under the trade's own fill model — not the price risk alone. Under the standard
+ * costs one contract "within a $400 limit" lost $414.50 at its stop.
  */
 public final class Scorecard {
 
-	public static final String VERSION = "scorecard-1.0.0";
+	public static final String VERSION = "scorecard-1.1.0";
 
 	public static final String KEPT = "KEPT";
 	public static final String BROKEN = "BROKEN";
@@ -69,16 +73,18 @@ public final class Scorecard {
 	private static List<ScoreLineView> process(PlanView plan, ResultView result, long risk, long tickValueCents) {
 		List<ScoreLineView> lines = new ArrayList<>();
 		long riskCents = risk * tickValueCents * plan.contracts();
+		Long atStop = lossAtStop(plan, result, risk, tickValueCents);
+		long judged = atStop == null ? riskCents : atStop;
+		String risked = "Risked " + money(riskCents) + (atStop == null ? "" : "; " + money(atStop)
+			+ " at the stop with slippage and fees");
 		Long limit = plan.riskLimitCents();
 		if (limit == null) {
-			lines.add(fact("risk", "Risk limit", "Risked " + money(riskCents)
-				+ ". No limit was set: set one before a session to have it checked."));
-		} else if (riskCents <= limit) {
-			lines.add(new ScoreLineView("risk", "Risk limit", "Risked " + money(riskCents) + ", within your " + money(limit)
-				+ " limit.", KEPT));
+			lines.add(fact("risk", "Risk limit", risked + ". No limit was set: set one before a session to have it checked."));
+		} else if (judged <= limit) {
+			lines.add(new ScoreLineView("risk", "Risk limit", risked + ", within your " + money(limit) + " limit.", KEPT));
 		} else {
-			lines.add(new ScoreLineView("risk", "Risk limit", "Risked " + money(riskCents) + ", " + money(riskCents - limit)
-				+ " over your " + money(limit) + " limit.", BROKEN));
+			lines.add(new ScoreLineView("risk", "Risk limit", risked + ", " + money(judged - limit) + " over your "
+				+ money(limit) + " limit.", BROKEN));
 		}
 
 		List<String> stated = new ArrayList<>();
@@ -130,6 +136,22 @@ public final class Scorecard {
 			}));
 		}
 		return lines;
+	}
+
+	/**
+	 * What the stop would have cost every contract (BUG-088): the distance to it, the entry's market slippage and the
+	 * stop's own, and the round trip's fees, under the fill model the trade was resolved with. Null when this version
+	 * cannot read that model; then the price risk alone is judged.
+	 */
+	static Long lossAtStop(PlanView plan, ResultView result, long risk, long tickValueCents) {
+		FillModel model;
+		try {
+			model = FillModel.parse(result.fillModelVersion());
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+		long ticks = risk + model.marketSlippageTicks() + model.stopSlippageTicks();
+		return (ticks * tickValueCents + model.commissionCentsPerContractRound()) * plan.contracts();
 	}
 
 	/**

@@ -52,6 +52,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   concept's lesson card, as base rates with their sample sizes, never as a forecast.
 - **Honest costs** (DEC-072): every market order slips a tick, a target fills only once price trades through it, and
   fees are charged — the learner's own numbers or a realistic standard — so a practice edge is not a fill-model gift.
+  R and the wins are counted after those costs, and the risk limit is checked against the loss at the stop with them
+  (DEC-076).
+- **No peeking** (DEC-077): the practice session in hand and the drill being answered are held back from the Chart
+  tab — candles, setups and clock prices — until they are over, and the chart says so.
 - **Managing a trade** (DEC-071): a real NQ trade is open and in profit — hold it, move the stop to breakeven, or
   take half off? Each choice is played out on the real candles that followed, and the result says which paid most
   here and that only many such drills say which pays.

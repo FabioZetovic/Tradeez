@@ -190,6 +190,8 @@ secure transport/storage policy is recorded in DEC-032 rather than inferred from
 
 - Spring Security owns password hashing, authentication and authorization.
 - Access JWTs are short-lived. Refresh tokens rotate and their server-side records can be revoked.
+  *Since BUG-077 (2026-10-22):* access tokens can be ended too — each carries its account's token generation, which
+  "sign out everywhere" and a password change move on (V27); a token of an earlier generation is refused at once.
 - Authentication tokens use `Secure`, `HttpOnly` cookies in deployed environments; never persist
   long-lived bearer tokens in `localStorage` or `sessionStorage`.
 - Cookie-based authenticated mutations use CSRF protection.
@@ -886,6 +888,48 @@ candles), about one candle in nine, which is T10's question.
 **Reconsider if** a detector genuinely needs to revise a past detection as later candles arrive (a
 swing that stops being one): that is a new detection with its own confirmation, not an edit, or the
 causal promise breaks.
+
+**DEC-077 — What a learner is still graded by stays off the Chart tab**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-22), BUG-085, BUG-086 — DEC-009, DEC-025, DEC-034
+
+The Chart tab opens any minute of two years of real NQ and ES. A practice session hides its date (DEC-025) but its
+prices are real to the tick, and a drill's candles carry their real times: the chart held the future either is graded
+by.
+
+- **Two stretches, the real timeline:** the practice session the learner is in — the open one touched last — from its
+  cursor to a day past its replay (`HiddenStretches.PAST_REPLAY_START`, the replay's three days and a day for a trade
+  still running); and the newest drill, while unanswered, from its first candle to the last its answer is decided by.
+  What a replay has shown stays: finding the day by it shows nothing new.
+- **Left out on every real market:** the candles touching them (a daily candle whole), the setups from first candle to
+  confirmation, the clock's prices drawn over them or taken inside them; the shading stays. The bars say what was left
+  out and why (`hidden`: PRACTICE or DRILL), and the chart says what brings it back.
+- **Nothing new drawn from them:** a lesson's examples, a new drill's window and its reach, a new session's history and
+  replay keep clear.
+
+**Not chosen:** offsetting a session's prices by a hidden constant — they would stop being real NQ, the point of the
+app; hiding every session left open — starting a session does not end the last, and the test account's 35 would have
+taken some 140 days out of the chart; hiding drills' dates — the time of day is part of reading the candles.
+
+**Reconsider if** sessions are ended when another starts, or a learner resuming an older session should find its days
+hidden again since they were opened.
+
+**DEC-076 — R and the score are net of costs; the risk limit is judged by the loss at the stop**
+`IMPLEMENTED` · Claude, Session 017 (2026-10-22), BUG-087, BUG-088 — DEC-067, DEC-072
+
+Costs became the learner's own in T27 (up to $50 a round trip), and two numbers stayed gross: R and the wins were
+counted in ticks before commission, while the money beside them was net — one contract out a tick ahead under $50 of
+fees was "+0.03R, a win" over a $45 loss — and the scorecard's risk line compared the limit with the price risk alone,
+under which a stop-out costs more (the standard costs: $414.50 lost "within a $400 limit").
+
+- **R** is the net result, costs paid, over the planned price risk (the stop's distance from the reference, every
+  contract): the money shown beside it, in units of what was risked. A stop-out reads a little worse than −1R, by its
+  costs. **Wins and losses** are trades that made or lost money once every cost was paid. Journal statistics, the
+  score and the review's planned R follow.
+- **The risk limit** (`scorecard-1.1.0`) is judged by the loss at the stop under the trade's own fill model — price
+  risk, the entry's market slippage, the stop's slippage, the fees — and both numbers are shown. A fill model the
+  version cannot read: the price risk alone. The plan panel shows the same number before the trade is placed.
+
+**Reconsider if** R should describe the decision alone (gross) — then show both, never one beside the other's money.
 
 **DEC-075 — SMT on two charts: the other market under the one being read, and "find the SMT"**
 `IMPLEMENTED` · Claude, Session 017 (2026-10-21) — ICT-66, DEC-073, DEC-054

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { answerRiskDrill, startRiskDrill, RISK_KINDS, type RiskDrill, type RiskKind } from '@/lib/api/drills'
+import { parseDecimal } from '@/lib/decimal'
 import { cx, errorClass, fieldClass, labelClass, panelTitle } from '@/lib/styles'
 import { Button, Panel, Segmented } from '../ui'
 
@@ -50,9 +51,9 @@ export function RiskDrills() {
 
   const submit = async () => {
     if (!drill) return
-    const number = Number(value.replace(/[%,\s]/g, ''))
-    if (value.trim() === '' || !Number.isFinite(number)) {
-      setError('An answer is a number.')
+    const number = parseDecimal(value, '%')
+    if (number === null) {
+      setError('An answer is a number, like 2.5 or 2,5.')
       return
     }
     setBusy(true)

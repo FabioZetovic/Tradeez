@@ -110,6 +110,7 @@ export interface ResultView {
   maeTicks: number
   mfeTicks: number
   gapExit: boolean
+  /** The net result, costs paid, in multiples of the planned risk (DEC-076). */
   rMultiple: number
   resolution: string
   engineVersion: string
@@ -167,7 +168,7 @@ export interface Calibration {
 /** The trades whose results have been revealed, added up. A running trade counts for nothing. */
 export interface ScoreView {
   closedTrades: number
-  /** Trades that made ticks before commission. */
+  /** Trades that made money once every cost was paid (DEC-076). */
   wins: number
   losses: number
   totalR: number

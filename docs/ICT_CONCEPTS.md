@@ -180,8 +180,8 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-80 | Stop placement | 9 | R / J | 📝 | — | — |
 | ICT-81 | Targets and partials | 9 | R / J | 📝 | — | — |
 | ICT-82 | Trade management | 9 | J | ✅ partly (a drill: hold, breakeven or half off, graded by real price — DEC-071) | `manage-1.0.0` | — |
-| ICT-83 | Risk rules and drawdown | 9 | D | ✅ partly (a risk limit per trade, checked on the scorecard, DEC-067; risk drills against the clock, DEC-070) | `scorecard-1.0.0` | — |
-| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067; the review — DEC-068; statistics by model, killzone, weekday — DEC-069) | `scorecard-1.0.0`, `calibration-1.0.0` | — |
+| ICT-83 | Risk rules and drawdown | 9 | D | ✅ partly (a risk limit per trade, checked on the scorecard, DEC-067; risk drills against the clock, DEC-070) | `scorecard-1.1.0` | — |
+| ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067; the review — DEC-068; statistics by model, killzone, weekday — DEC-069) | `scorecard-1.1.0`, `calibration-1.0.0` | — |
 
 ---
 

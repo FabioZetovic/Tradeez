@@ -72,11 +72,20 @@ public class ChartDrawingController {
 	static final int MAX_TEXT = 80;
 
 	/**
-	 * A style is a colour, a width and a fill. Unbounded, it was any JSON of any size, stored per drawing up to
-	 * {@link #MAX_DRAWINGS_PER_CHART} per chart — room for one account to fill the database (BUG-072).
+	 * A style is a colour, a fill and a line width, each in the form the chart draws (BUG-084). Unbounded, it was any
+	 * JSON of any size (BUG-072); counted, it was still any value — markup included — stored for a renderer to trust.
 	 */
-	static final int MAX_STYLE_ENTRIES = 8;
-	static final int MAX_STYLE_CHARS = 512;
+	private static final java.util.regex.Pattern COLOUR = java.util.regex.Pattern.compile(
+		"#[0-9a-fA-F]{3,8}|rgba?\\(\\s*\\d{1,3}\\s*,\\s*\\d{1,3}\\s*,\\s*\\d{1,3}\\s*(,\\s*(0|1|0?\\.\\d{1,3})\\s*)?\\)");
+	static final double MAX_LINE_WIDTH = 8;
+
+	/**
+	 * Where a drawing's anchors may lie (BUG-084): from 2000 to 2100, UTC epoch seconds, and within a billion ticks of
+	 * zero. Any 64-bit number was stored before.
+	 */
+	static final long EARLIEST_TIME = 946_684_800L;
+	static final long LATEST_TIME = 4_102_444_800L;
+	static final long MAX_PRICE_TICKS = 1_000_000_000L;
 
 	private final ChartDrawingRepository drawings;
 	private final MarketDataService marketData;
@@ -149,16 +158,24 @@ public class ChartDrawingController {
 		if (text == null && "label".equals(body.kind())) {
 			throw new IllegalArgumentException("A label needs some text.");
 		}
+		for (AnchorDto anchor : body.anchors()) {
+			// Both sides spelled out: Math.abs(Long.MIN_VALUE) is still negative.
+			if (anchor.time() < EARLIEST_TIME || anchor.time() > LATEST_TIME
+					|| anchor.priceTicks() > MAX_PRICE_TICKS || anchor.priceTicks() < -MAX_PRICE_TICKS) {
+				throw new IllegalArgumentException("A drawing's points lie between the years 2000 and 2100, within "
+					+ MAX_PRICE_TICKS + " ticks of zero.");
+			}
+		}
+		Map<String, Object> style = body.style() == null ? Map.of() : body.style();
+		if (!validStyle(style)) {
+			throw new IllegalArgumentException("A drawing's style is a colour and a fill (#rrggbb or rgba(…)) and a line "
+				+ "width up to " + (int) MAX_LINE_WIDTH + ", and nothing else.");
+		}
 
 		Instrument instrument = marketData.requireInstrument(symbol);
 		List<Map<String, Object>> anchors = body.anchors().stream()
 			.map(a -> Map.<String, Object>of("time", a.time(), "priceTicks", a.priceTicks()))
 			.toList();
-		Map<String, Object> style = body.style() == null ? Map.of() : body.style();
-		if (style.size() > MAX_STYLE_ENTRIES || style.toString().length() > MAX_STYLE_CHARS) {
-			throw new IllegalArgumentException("A drawing's style is a few colours and widths: at most "
-				+ MAX_STYLE_ENTRIES + " entries and " + MAX_STYLE_CHARS + " characters.");
-		}
 
 		var existing = drawings.findByIdAndUserId(id, principal.id());
 
@@ -206,6 +223,23 @@ public class ChartDrawingController {
 		// is. Retries after a dropped response must not fail.
 		drawings.deleteByIdAndUserId(id, principal.id());
 		return ResponseEntity.noContent().build();
+	}
+
+	/** Only the keys the chart reads, each in the form it draws. */
+	static boolean validStyle(Map<String, Object> style) {
+		for (Map.Entry<String, Object> entry : style.entrySet()) {
+			Object value = entry.getValue();
+			boolean ok = switch (entry.getKey()) {
+				case "color", "fill" -> value instanceof String colour && COLOUR.matcher(colour).matches();
+				case "lineWidth" -> value instanceof Number width && width.doubleValue() > 0
+					&& width.doubleValue() <= MAX_LINE_WIDTH;
+				default -> false;
+			};
+			if (!ok) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private static DrawingDto toDto(ChartDrawing drawing) {

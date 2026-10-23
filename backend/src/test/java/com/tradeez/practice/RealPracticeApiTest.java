@@ -178,11 +178,15 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	@DisplayName("the moment can be asked for by ICT killzone and weekday")
 	void filters() throws Exception {
 		for (int i = 0; i < 5; i++) {
-			Instant real = realStart(created("{\"killzone\":\"LONDON\",\"weekday\":\"TUESDAY\"}"))
-				.atZone(NEW_YORK).toInstant();
+			JsonNode session = created("{\"killzone\":\"LONDON\",\"weekday\":\"TUESDAY\"}");
+			Instant real = realStart(session).atZone(NEW_YORK).toInstant();
 			LocalTime t = real.atZone(NEW_YORK).toLocalTime();
 			assertThat(real.atZone(NEW_YORK).getDayOfWeek()).isEqualTo(DayOfWeek.TUESDAY);
 			assertThat(t).isBetween(LocalTime.of(2, 0), LocalTime.of(4, 59));
+			// Ended, or the next would have to keep clear of its replay (BUG-086) — and three weeks hold two Tuesdays
+			// a session can start on.
+			mockMvc.perform(post("/api/practice/sessions/" + session.at("/state/id").asString() + "/end").cookie(alice)
+				.with(csrf())).andExpect(status().isOk());
 		}
 		LocalTime nyAm = realStart(created("{\"killzone\":\"new-york-am\"}"))
 			.atZone(NEW_YORK).toLocalTime();
@@ -430,5 +434,35 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 			.containsExactly(candle(com.tradeez.marketdata.Timeframe.D1.bucketStart(cursor), next));
 		assertThat(next.atZone(ZoneId.of("America/New_York")).toLocalTime()).isEqualTo(LocalTime.of(18, 0));
 		assertThat(next).isEqualTo(com.tradeez.marketdata.Timeframe.D1.bucketStart(cursor).plusSeconds(86_400));
+	}
+
+	@Test
+	@DisplayName("BUG-087: R is in the trade's own market's money — ES at $12.50 a tick, not NQ's $5")
+	void rInItsOwnMoney() throws Exception {
+		com.tradeez.ThreeWeeksOfEs.insert(marketData, barStore);
+		try {
+			mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/practice/settings")
+					.cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+					.content("{\"feesCents\":4000,\"marketSlippageTicks\":0,\"stopSlippageTicks\":1,\"limitThroughTicks\":0}"))
+				.andExpect(status().isOk());
+			JsonNode session = created("{\"instrument\":\"ES\",\"timeframe\":\"5m\"}");
+			String id = session.at("/state/id").asString();
+			assertThat(session.at("/state/tickValueCents").asLong()).isEqualTo(1_250);
+			JsonNode bars = session.get("bars");
+			long reference = bars.get(bars.size() - 1).get("close").asLong();
+			mockMvc.perform(post("/api/practice/sessions/" + id + "/plan").cookie(alice).with(csrf())
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"direction\":\"LONG\",\"stopTicks\":%d,\"targetTicks\":%d,\"contracts\":1}"
+						.formatted(reference - 400, reference + 800)))
+				.andExpect(status().isOk());
+			JsonNode result = read(mockMvc.perform(post("/api/practice/sessions/" + id + "/close").cookie(alice)
+					.with(csrf())).andExpect(status().isOk())).at("/state/trades/0/result");
+			// In and out at one price: the $40 of fees is all, against 400 ticks at $12.50 — $5,000 risked.
+			assertThat(result.get("pnlTicks").asLong()).isZero();
+			assertThat(result.get("netPnlCents").asLong()).isEqualTo(-4_000);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(-0.01);
+		} finally {
+			com.tradeez.ThreeWeeksOfEs.remove(marketData, jdbc);
+		}
 	}
 }

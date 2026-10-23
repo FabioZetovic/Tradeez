@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.UUID;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -36,6 +37,7 @@ import com.tradeez.drills.DrillKind;
 import com.tradeez.evidence.EvidenceService;
 import com.tradeez.evidence.EvidenceText;
 import com.tradeez.marketdata.Bar;
+import com.tradeez.marketdata.HiddenStretches;
 import com.tradeez.marketdata.Instrument;
 import com.tradeez.marketdata.MarketDataService;
 import com.tradeez.marketdata.Timeframe;
@@ -97,17 +99,19 @@ public class LessonService {
 	private final SetupScanner scanner;
 	private final MarketDataService marketData;
 	private final EvidenceService evidence;
+	private final HiddenStretches hiddenStretches;
 
 	public LessonService(ConceptRegistry concepts, DetectorRegistry detectors, SetupScanner scanner,
-			MarketDataService marketData, EvidenceService evidence) {
+			MarketDataService marketData, EvidenceService evidence, HiddenStretches hiddenStretches) {
 		this.concepts = concepts;
 		this.detectors = detectors;
 		this.scanner = scanner;
 		this.marketData = marketData;
 		this.evidence = evidence;
+		this.hiddenStretches = hiddenStretches;
 	}
 
-	public LessonResponse lesson(String id, String timeframeCode) {
+	public LessonResponse lesson(UUID userId, String id, String timeframeCode) {
 		Map<String, Concept> byId = concepts.concepts().stream()
 			.collect(Collectors.toMap(Concept::id, Function.identity()));
 		Concept concept = byId.get(id);
@@ -137,7 +141,7 @@ public class LessonService {
 			if (coverage == null) {
 				note = "No real NQ history has been imported, so there are no examples to show.";
 			} else {
-				examples = examples(rules, nq, timeframe, coverage);
+				examples = examples(rules, nq, timeframe, coverage, hiddenStretches.of(userId));
 				note = examples.isEmpty() ? "None turned up this time. Ask again for another look."
 					: examples.size() < EXAMPLES ? "Only " + examples.size() + " turned up this time." : null;
 			}
@@ -165,7 +169,8 @@ public class LessonService {
 	 * Up to {@value #EXAMPLES} hits, each from its own random stretch of the imported history, the
 	 * concept's rules taken in turn. Every search's hits are stored, like any scan's (DEC-026).
 	 */
-	private List<Example> examples(List<Detector> rules, Instrument nq, Timeframe timeframe, Instant[] coverage) {
+	private List<Example> examples(List<Detector> rules, Instrument nq, Timeframe timeframe, Instant[] coverage,
+			List<HiddenStretches.Stretch> hidden) {
 		long step = timeframe.seconds();
 		Instant earliest = coverage[0].plus(REACH);
 		Instant latest = coverage[1].minus(SEARCH);
@@ -173,7 +178,8 @@ public class LessonService {
 			return List.of();
 		}
 		List<Example> found = new ArrayList<>();
-		List<Instant[]> shown = new ArrayList<>();
+		// An example never overlaps another, nor a stretch the learner is still graded by (BUG-085, BUG-086).
+		List<Instant[]> shown = new ArrayList<>(hidden.stream().map(s -> new Instant[] { s.from(), s.to() }).toList());
 		for (int search = 0; search < MAX_SEARCHES && found.size() < EXAMPLES; search++) {
 			Detector rule = rules.get(search % rules.size());
 			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());

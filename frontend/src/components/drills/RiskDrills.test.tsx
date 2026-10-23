@@ -115,13 +115,30 @@ describe('risk drills, against the clock (T26)', () => {
     expect(screen.getByTestId('risk-record')).toHaveTextContent('Losing streak: 1 of 3 right so far.')
   })
 
+  it('BUG-089: reads a decimal comma as the decimal point — 14,92 is fourteen point nine two, not 1,492', async () => {
+    const calls = serve({
+      '/api/drills/risk:STREAK': STREAK,
+      '/api/drills/risk/r2/answer': {
+        ...STREAK,
+        result: { given: 14.92, answer: 14.92, correct: true, seconds: 20, inTime: true, working: ['Down 14.92%.'], answered: 1, right: 1 },
+      },
+    })
+    const user = userEvent.setup()
+    render(<RiskDrills />)
+    await user.click(screen.getByRole('button', { name: 'Losing streak' }))
+    await user.click(screen.getByRole('button', { name: 'Ask a question' }))
+    await user.type(await screen.findByLabelText('Your answer (%)'), '14,92 %{Enter}')
+    await screen.findByTestId('risk-result')
+    expect(calls[1].body).toEqual({ value: 14.92 })
+  })
+
   it('refuses an answer that is not a number, and keeps the question open', async () => {
     const calls = serve({ '/api/drills/risk:CONTRACTS': ASKED })
     const user = userEvent.setup()
     render(<RiskDrills />)
     await user.click(screen.getByRole('button', { name: 'Ask a question' }))
     await user.type(await screen.findByLabelText('Your answer (contracts)'), 'two{Enter}')
-    expect(screen.getByRole('alert')).toHaveTextContent('An answer is a number.')
+    expect(screen.getByRole('alert')).toHaveTextContent('An answer is a number, like 2.5 or 2,5.')
     expect(calls).toHaveLength(1)
     await user.clear(screen.getByLabelText('Your answer (contracts)'))
     await user.click(screen.getByRole('button', { name: 'Answer' }))

@@ -43,8 +43,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		if (SecurityContextHolder.getContext().getAuthentication() == null) {
 			readCookie(request, CookieService.ACCESS_TOKEN_COOKIE)
-				.flatMap(jwtService::readSubject)
-				.flatMap(users::findById)
+				.flatMap(jwtService::read)
+				// BUG-077: a token issued before "sign out everywhere" or a password change is over, whatever its expiry.
+				.flatMap(token -> users.findById(token.userId())
+					.filter(u -> u.getTokenGeneration() == token.generation()))
 				.ifPresent(user -> {
 					var authentication = new UsernamePasswordAuthenticationToken(
 						new AuthenticatedUser(user.getId(), user.getEmail()),

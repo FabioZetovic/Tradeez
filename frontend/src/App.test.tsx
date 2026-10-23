@@ -38,6 +38,7 @@ const SERIES = {
   bars: [
     { time: DATA_TO - 300, open: 80_000, high: 80_010, low: 79_990, close: 80_006, volume: 10 },
   ],
+  hidden: [],
 }
 
 /** The 'to' of every bars request made so far, in order. */
@@ -274,6 +275,28 @@ describe('App — signed in', () => {
     render(<App adapterFactory={() => adapter} />)
     await waitFor(() => expect(adapter.bars).toHaveLength(1))
     expect(screen.getByTestId('timezone-toggle').textContent).toBe('EST')
+  })
+
+  it('says why candles are held back, and what brings them back (BUG-085, BUG-086)', async () => {
+    const stretch = { from: DATA_TO - 7200, to: DATA_TO - 3600 }
+    const cases = [
+      { hidden: [{ ...stretch, why: 'PRACTICE' }], says: /practice session you are in.*End the session in Practice/ },
+      { hidden: [{ ...stretch, why: 'DRILL' }], says: /drill you have not answered yet.*Answer it/ },
+      {
+        hidden: [{ ...stretch, why: 'PRACTICE' }, { ...stretch, why: 'DRILL' }],
+        says: /End the session in Practice and answer the drill/,
+      },
+    ]
+    for (const { hidden, says } of cases) {
+      mockApi({ ...signedIn, '/api/market/instruments/NQ/bars': { body: { ...SERIES, hidden } } })
+      const { unmount } = render(<App adapterFactory={() => new FakeChartAdapter()} />)
+      expect(await screen.findByTestId('hidden-stretches')).toHaveTextContent(says)
+      unmount()
+    }
+    mockApi(signedIn)
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByTestId('last-price')).toBeInTheDocument()
+    expect(screen.queryByTestId('hidden-stretches')).toBeNull()
   })
 
   it('says so, and loads nothing, when no history has been imported', async () => {

@@ -1904,6 +1904,18 @@ its model and lose, or break it and win, and a learner needs to see both. Beside
 common "daily bias" reading of the last two days — yesterday closed above the day before's high, so the
 reading looks for higher prices — as a suggestion with its reasons, never a verdict.
 
+**Hunting bugs, then fixing every one.** Fabio asked for every bug that could be found to be written down first
+and left alone — thinking like an attacker for the server and like a trader for the screens — and then fixed.
+Eighteen turned up. Some were holes in the security: writing one letter of the sign-in address in code
+(`log%69n`) slipped past the limit on password guesses; ten wrong guesses from anyone locked the real owner
+out; "sign out everywhere" left a stolen pass working for the rest of its fifteen minutes; and every refusal came
+back looking like an expired session. Some were about honesty in the numbers: a trade that lost money once its
+fees were paid was counted as a win, and the risk limit was checked without the costs the app itself charges. One
+went to the heart of the method: the Chart tab could show the future of the replay being practised, or of the drill
+being answered — so whatever the learner is still being graded on is now held back from the chart, which says why
+and what brings it back. And one a Croatian jury would meet at once: "1,5" was read as fifteen. Each fix has a test
+that fails without it; one test that failed once and never again is written down as such, not forgotten.
+
 **A small lesson about secrets.** Fabio pasted the new data key into the chat. It was not written into
 the project: a key that has appeared in a conversation transcript is treated as exposed, so he was
 asked to generate a fresh one and place it in the project's private settings file himself. The app
@@ -1922,8 +1934,8 @@ the detector framework, imbalances and gaps, any timeframe in practice, market s
 the drill engine, lesson cards, the upgrade to the newest versions, drafts and closing at market,
 prediction drills, the bug hunt, the learning state, 4-hour and daily candles, blocks, ranges, time, the security pass,
 evidence, ICT plans, the scorecard, the review, journal statistics, risk and management drills, trading costs, SMT
-divergence, partial targets, the guide, two charts for SMT): backend 223 → 679, frontend 148 → 377, V9 to V26,
-DEC-044 to DEC-075.*
+divergence, partial targets, the guide, two charts for SMT, the bug hunt and its fixes): backend 223 → 706,
+frontend 148 → 390, V9 to V27, DEC-044 to DEC-077.*
 
 ---
 

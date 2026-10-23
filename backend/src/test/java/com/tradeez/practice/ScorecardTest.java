@@ -21,7 +21,7 @@ import com.tradeez.practice.PracticeDtos.ScoreLineView;
 import com.tradeez.practice.PracticeDtos.ScorecardView;
 
 /**
- * scorecard-1.0.0 (T23, DEC-067): each line its own statement, a verdict only on the learner's own rules, and
+ * scorecard-1.1.0 (T23, DEC-067, BUG-088): each line its own statement, a verdict only on the learner's own rules, and
  * nothing added up. NQ throughout: a quarter-point tick worth $5.
  */
 class ScorecardTest {
@@ -68,7 +68,7 @@ class ScorecardTest {
 		ScorecardView card = Scorecard.score(plan(Direction.LONG, 50_000L, TradingModel.SILVER_BULLET, "BULLISH", 80_060L,
 			"BEARISH", "NEW_YORK_AM", 70), result("TARGET", 80_000, 8, 80, 2.0), TICK, TICK_VALUE);
 
-		assertThat(card.version()).isEqualTo("scorecard-1.0.0");
+		assertThat(card.version()).isEqualTo("scorecard-1.1.0");
 		assertThat(card.outcome()).extracting(ScoreLineView::id).containsExactly("adverse", "favourable", "costs", "draw");
 		Map<String, ScoreLineView> outcome = lines(card.outcome());
 		assertThat(outcome.get("adverse").text()).isEqualTo("0.20R against you (8 ticks).");
@@ -80,7 +80,8 @@ class ScorecardTest {
 		assertThat(card.process()).extracting(ScoreLineView::id)
 			.containsExactly("risk", "plan", "model", "bias", "reading", "killzone", "reward", "execution", "confidence");
 		Map<String, ScoreLineView> process = lines(card.process());
-		assertThat(process.get("risk").text()).isEqualTo("Risked $200.00, within your $500.00 limit.");
+		assertThat(process.get("risk").text())
+			.isEqualTo("Risked $200.00; $207.50 at the stop with slippage and fees, within your $500.00 limit.");
 		assertThat(process.get("risk").verdict()).isEqualTo("KEPT");
 		assertThat(process.get("plan").text())
 			.isEqualTo("4 of 4 stated: a model, a bias, a draw on liquidity and a confidence.");
@@ -132,26 +133,45 @@ class ScorecardTest {
 	@Test
 	@DisplayName("the risk limit: kept at exactly the limit, broken a cent over it, stated without one")
 	void riskLimit() {
+		// 40 ticks to the stop at $5, and slip-1t/comm-250c's costs: no market slippage in, a tick out, $2.50 a round
+		// trip — $207.50 lost at the stop (BUG-088).
 		ResultView stop = result("STOP", 80_000, 41, 3, -1.03);
-		ScoreLineView at = lines(Scorecard.score(plan(Direction.LONG, 20_000L, null, null, null, null, null, null), stop, TICK,
+		ScoreLineView at = lines(Scorecard.score(plan(Direction.LONG, 20_750L, null, null, null, null, null, null), stop, TICK,
 			TICK_VALUE).process()).get("risk");
 		assertThat(at.verdict()).isEqualTo("KEPT");
-		assertThat(at.text()).isEqualTo("Risked $200.00, within your $200.00 limit.");
+		assertThat(at.text()).isEqualTo("Risked $200.00; $207.50 at the stop with slippage and fees, within your $207.50 limit.");
 
-		ScoreLineView over = lines(Scorecard.score(plan(Direction.LONG, 19_999L, null, null, null, null, null, null), stop, TICK,
+		ScoreLineView over = lines(Scorecard.score(plan(Direction.LONG, 20_749L, null, null, null, null, null, null), stop, TICK,
 			TICK_VALUE).process()).get("risk");
 		assertThat(over.verdict()).isEqualTo("BROKEN");
-		assertThat(over.text()).isEqualTo("Risked $200.00, $0.01 over your $199.99 limit.");
+		assertThat(over.text()).isEqualTo("Risked $200.00; $207.50 at the stop with slippage and fees, $0.01 over your $207.49 limit.");
 
-		// Every contract counts: three of them risk $600.
+		// BUG-088: a limit the price risk keeps is broken by what the stop costs.
+		ScoreLineView priceOnly = lines(Scorecard.score(plan(Direction.LONG, 20_000L, null, null, null, null, null, null), stop,
+			TICK, TICK_VALUE).process()).get("risk");
+		assertThat(priceOnly.verdict()).isEqualTo("BROKEN");
+		assertThat(priceOnly.text())
+			.isEqualTo("Risked $200.00; $207.50 at the stop with slippage and fees, $7.50 over your $200.00 limit.");
+
+		// Every contract counts: three of them risk $600, and lose $622.50 at the stop.
 		PlanView three = new PlanView(Direction.LONG, 79_960, 80_080, 3, 80_000, 0, 2.0, null, null, null, null, null, null, null,
 			50_000L, null, null, null);
 		ScoreLineView contracts = lines(Scorecard.score(three, stop, TICK, TICK_VALUE).process()).get("risk");
-		assertThat(contracts.text()).isEqualTo("Risked $600.00, $100.00 over your $500.00 limit.");
+		assertThat(contracts.text())
+			.isEqualTo("Risked $600.00; $622.50 at the stop with slippage and fees, $122.50 over your $500.00 limit.");
 
 		ScoreLineView none = lines(Scorecard.score(bare(Direction.LONG), stop, TICK, TICK_VALUE).process()).get("risk");
 		assertThat(none.verdict()).isNull();
-		assertThat(none.text()).isEqualTo("Risked $200.00. No limit was set: set one before a session to have it checked.");
+		assertThat(none.text()).isEqualTo("Risked $200.00; $207.50 at the stop with slippage and fees. No limit was set: set "
+			+ "one before a session to have it checked.");
+
+		// A fill model this version cannot read: the price risk alone is judged, and nothing is made up.
+		ResultView unread = new ResultView("STOP", null, 0, 80_000, 0, 80_000, 0, 0, 250, 41, 3, false, -1.03, "M1",
+			"fill-1.2.0", "a model from later", null);
+		ScoreLineView alone = lines(Scorecard.score(plan(Direction.LONG, 20_000L, null, null, null, null, null, null), unread,
+			TICK, TICK_VALUE).process()).get("risk");
+		assertThat(alone.verdict()).isEqualTo("KEPT");
+		assertThat(alone.text()).isEqualTo("Risked $200.00, within your $200.00 limit.");
 	}
 
 	@Test
