@@ -1,0 +1,62 @@
+[
+  {
+    "file": "01-sign-in.png",
+    "title": "Sign in"
+  },
+  {
+    "file": "02-sign-up.png",
+    "title": "Create an account"
+  },
+  {
+    "file": "03-chart-first-visit.png",
+    "title": "Chart tab, first visit: the \"How Tradeez works\" guide"
+  },
+  {
+    "file": "04-chart.png",
+    "title": "Chart tab: NQ, 5-minute, the newest data"
+  },
+  {
+    "file": "05-chart-layers.png",
+    "title": "Chart tab: clock, setups and ES beside switched on"
+  },
+  {
+    "file": "06-chart-layers-fold.png",
+    "title": "Chart tab with layers: what fits on one 1920x1080 screen"
+  },
+  {
+    "file": "07-learn.png",
+    "title": "Learn: the curriculum and a concept card"
+  },
+  {
+    "file": "08-learn-fvg.png",
+    "title": "Learn: the fair value gap card, with real NQ examples"
+  },
+  {
+    "file": "09-practice.png",
+    "title": "Practice: start a session, costs, statistics and the journal"
+  },
+  {
+    "file": "10-practice-session-trade.png",
+    "title": "Practice session: the replay with a finished trade and its scorecard"
+  },
+  {
+    "file": "11-practice-session-draft.png",
+    "title": "Practice session: a trade being drafted — the plan panel"
+  },
+  {
+    "file": "12-drills.png",
+    "title": "Drills: pattern drills and risk drills"
+  },
+  {
+    "file": "13-drills-fvg.png",
+    "title": "Drills: a fair value gap drill being answered"
+  },
+  {
+    "file": "14-drills-risk.png",
+    "title": "Drills: a risk question against the clock"
+  },
+  {
+    "file": "15-account-menu.png",
+    "title": "The account menu"
+  }
+]

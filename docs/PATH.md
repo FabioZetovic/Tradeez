@@ -172,6 +172,11 @@ practice on real NQ (017, merged) · T5 replay with several trades (017, merged)
 
 ### M6 — The redesign, Fabio, 2026-10-23
 
+> **The plan is `docs/REDESIGN.md` — read it before any M6 work, and follow it.** It holds Fabio's words
+> verbatim, the agreed decisions R-1 … R-20, Lovable measured screen by screen (images in
+> `docs/redesign/lovable/`, the app before in `docs/redesign/before/`), and every task's steps, files, backend,
+> tests and done checklist. This section is only the summary.
+
 Fabio: "it is time that we change the damn design of the app, it looks extremely unpolished and vibe coded".
 Reference: his Lovable mock-up, <https://github.com/FabioZetovic/futures-flow-studio> (anything may be taken from
 it) — its layout, Home, tiles and chart-with-layers, **not** its lime colours. The before-screens:

@@ -1,0 +1,110 @@
+[
+  {
+    "file": "01-sign-in.jpg",
+    "title": "Sign in"
+  },
+  {
+    "file": "02-sign-up.jpg",
+    "title": "Sign up"
+  },
+  {
+    "file": "03-home.jpg",
+    "title": "Home — the page after sign-in"
+  },
+  {
+    "file": "04-account-menu.jpg",
+    "title": "The account menu, open"
+  },
+  {
+    "file": "05-footer-read-more.jpg",
+    "title": "The footer with \"Read more\" open"
+  },
+  {
+    "file": "06-learn.jpg",
+    "title": "Learn — the curriculum"
+  },
+  {
+    "file": "07-learn-lesson-rule.jpg",
+    "title": "A lesson (the \"next\" one) — Rule tab"
+  },
+  {
+    "file": "08-learn-lesson-examples.jpg",
+    "title": "A lesson — Examples tab"
+  },
+  {
+    "file": "09-learn-lesson-stats.jpg",
+    "title": "A lesson — Stats tab"
+  },
+  {
+    "file": "10-learn-lesson-locked.jpg",
+    "title": "A \"later\" (locked) lesson opened directly"
+  },
+  {
+    "file": "11-drills.jpg",
+    "title": "Drills — sections of cards"
+  },
+  {
+    "file": "12-drill-pattern.jpg",
+    "title": "A pattern drill, before marking"
+  },
+  {
+    "file": "13-drill-pattern-marked.jpg",
+    "title": "A pattern drill, three candles marked"
+  },
+  {
+    "file": "14-drill-pattern-checked.jpg",
+    "title": "A pattern drill, checked: right in green, wrong in red"
+  },
+  {
+    "file": "15-drill-risk.jpg",
+    "title": "A risk drill with its countdown"
+  },
+  {
+    "file": "16-drill-risk-answered.jpg",
+    "title": "A risk drill, answered wrong — the working shown"
+  },
+  {
+    "file": "17-practice.jpg",
+    "title": "Practice — start, stats tiles, journal"
+  },
+  {
+    "file": "18-practice-tile-open.jpg",
+    "title": "Practice — a stats tile expanded"
+  },
+  {
+    "file": "19-session-plan.jpg",
+    "title": "Practice session — the plan panel"
+  },
+  {
+    "file": "20-session-plan-short.jpg",
+    "title": "Practice session — the plan flipped to short"
+  },
+  {
+    "file": "21-session-placed.jpg",
+    "title": "Practice session — the trade placed, replayed an hour on"
+  },
+  {
+    "file": "22-session-scorecard.jpg",
+    "title": "Practice session — the scorecard"
+  },
+  {
+    "file": "23-chart-layers-open.jpg",
+    "title": "Chart — the layers drawer open (its default)"
+  },
+  {
+    "file": "24-chart-layers-search.jpg",
+    "title": "Chart — searching the layers"
+  },
+  {
+    "file": "25-chart-preset.jpg",
+    "title": "Chart — the \"Silver Bullet\" preset, its layers as chips"
+  },
+  {
+    "file": "26-chart-es-beside.jpg",
+    "title": "Chart — ES beside"
+  },
+  {
+    "file": "27-chart-layers-closed.jpg",
+    "title": "Chart — the drawer closed: the chart at full width"
+  }
+]
