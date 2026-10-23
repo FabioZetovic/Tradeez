@@ -49,18 +49,6 @@ the cause is to be found when ES returns as a full instrument (T47).
 
 ---
 
-### BUG-095 🟠 The chart's overlays lag behind the candles when it is moved or resized
-
-**Status:** reported by Fabio (2026-10-23); the cause is known from the code. **Affects:** `ClockOverlay`,
-`SetupOverlay`, `DrawingOverlay`
-
-The clock, setups and drawings are drawn on a canvas of their own, redrawn when the chart reports that its view
-changed — after the chart has painted. Panning or zooming, they trail the candles, and the chart feels broken.
-
-**Fix (T37):** draw them as Lightweight Charts primitives, in the chart's own paint step.
-
----
-
 ### BUG-093 🟡 The SMT lesson's test failed once: ES's first candle an hour before NQ's
 
 **Status:** seen once, not reproduced (2026-10-22). **Affects:** `SmtDrillApiTest.lesson`, perhaps `LessonService.around`
@@ -442,6 +430,44 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-096 🟠 Undo and delete saved the drawings as they were before
+
+**Status:** found by Claude (2026-10-23) while checking T37 in a browser: two drawings undone, one still on the server.
+**Affects:** `useDrawings`, the drawing toolbar and shortcuts on the Chart tab and in practice. Older than T37 —
+`master` does the same.
+
+The toolbar's undo, redo and delete dispatch and then call `commit()` in the same handler. `commit()` diffed the
+server against a ref of the drawings that is updated only after React renders, so it saved the state from before the
+change: each undo saved the step before it, and a deleted drawing stayed on the server until the next change — and
+came back on reload.
+
+**✅ FIXED — Session 018 (2026-10-23), `feat/t37-overlays`.** `useDrawings`' `dispatch` works the change out at
+once — the reducer is pure — and puts it where `commit()` reads. The tests had dispatched and committed in separate
+renders, which is why they never saw it. Two tests, red before the fix; the live check now ends with nothing left.
+**Lesson:** a ref kept in step by an effect is a render behind inside an event handler.
+
+### BUG-095 🟠 The chart's overlays lag behind the candles when it is moved or resized
+
+**Status:** reported by Fabio (2026-10-23); the cause is known from the code. **Affects:** `ClockOverlay`,
+`SetupOverlay`, `DrawingOverlay`
+
+The clock, setups and drawings are drawn on a canvas of their own, redrawn when the chart reports that its view
+changed — after the chart has painted. Panning or zooming, they trail the candles, and the chart feels broken.
+
+**Fix (T37):** draw them as Lightweight Charts primitives, in the chart's own paint step.
+
+**✅ FIXED — Session 018 (2026-10-23), T37, `feat/t37-overlays`.** Every overlay is painted by the chart now: the
+adapter's `addLayer` wraps a paint function as a series primitive (DEC-004 kept — nothing else imports the library),
+and `useChartLayer` asks for a repaint when the layer's data changes. The clock and a lesson example's band sit under
+the candles, setups over them, drawings and a drill's marks over everything; the drawing canvas only takes the pointer.
+Checked in a browser at 1920, photographed mid-pan and straight after a zoom: shading, setups and drawings on their
+candles in every frame (`docs/redesign/after/t37/`).
+Two slips caught on the way, worth knowing: a layer attached after a chart's first paint waits for the next one, and a
+chart that never moves — a lesson's example — never had one, so the layer asks for a paint when it is attached; and a
+`<canvas>` is not stretched by `inset-0` (it keeps its own 300 × 150), so the pointer canvas, no longer sized by the
+old hook, needs `size-full`. Adapter tests (attach, re-attach after a remount, detach, the paint requests), the
+layers' tests with a recording context; 17 mutations, all caught.
 
 ### BUG-092 🟡 The chart beside can be panned on its own and drift out of line
 
