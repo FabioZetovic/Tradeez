@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { ChartAdapter, ChartMountOptions, DomainBar, TimeRange } from '@/lib/chart/types'
+import type { ChartAdapter, ChartLayer, ChartMountOptions, DomainBar, TimeRange } from '@/lib/chart/types'
 import type { Projection } from '@/lib/drawing/types'
 
 /**
@@ -57,6 +57,29 @@ export class FakeChartAdapter implements ChartAdapter {
   }))
 
   getPaneSize = vi.fn(() => ({ width: 800, height: 400 }))
+
+  /** The layers painted with the chart (T37), and how often each asked to be repainted. */
+  layers: ChartLayer[] = []
+  redraws = 0
+
+  addLayer = vi.fn((layer: ChartLayer) => {
+    this.layers.push(layer)
+    return {
+      redraw: () => {
+        this.redraws += 1
+      },
+      remove: () => {
+        this.layers = this.layers.filter((l) => l !== layer)
+      },
+    }
+  })
+
+  /** Paints every layer, bottom first, as the chart would, onto a context a test records. */
+  paintLayers(ctx: CanvasRenderingContext2D) {
+    const order = { bottom: 0, normal: 1, top: 2 }
+    const pane = this.getPaneSize()
+    for (const layer of [...this.layers].sort((a, b) => order[a.zOrder] - order[b.zOrder])) layer.paint(ctx, pane)
+  }
 
   viewportListeners: Array<() => void> = []
 

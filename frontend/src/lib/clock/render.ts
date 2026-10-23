@@ -8,16 +8,14 @@ import { killzoneColor, lineLayer, windowLayer, type ClockLayerKey } from './lay
 import { THEME } from '../theme'
 
 /**
- * Paints the New York clock onto its overlay canvas: windows as shading, prices as lines.
+ * Paints the New York clock with the chart (T37): windows as shading, prices as lines.
  *
  * A plain function of (context, layer, bars, projection) like the drawing renderer, so it can be
- * tested with a recording context. The clock sits under the drawings and over the candles, faintly:
- * it is context for reading price, not something to read instead of it.
+ * tested with a recording context. The clock sits under the candles: it is context for reading price, not
+ * something to read instead of it.
  */
 
 export interface ClockRenderOptions {
-  width: number
-  height: number
   /** The plotting area; nothing is painted over the price or time scale. */
   pane: { width: number; height: number }
   shown: ReadonlySet<ClockLayerKey>
@@ -39,7 +37,6 @@ export function renderClock(
   projection: Projection,
   options: ClockRenderOptions,
 ): void {
-  ctx.clearRect(0, 0, options.width, options.height)
   if (!layer || bars.length === 0) return
 
   const { pane, shown } = options

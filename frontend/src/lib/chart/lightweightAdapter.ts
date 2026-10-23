@@ -4,10 +4,14 @@ import {
   TickMarkType,
   type CandlestickData,
   type IChartApi,
+  type IPrimitivePaneRenderer,
+  type IPrimitivePaneView,
   type ISeriesApi,
+  type ISeriesPrimitive,
+  type SeriesAttachedParameter,
   type Time,
 } from 'lightweight-charts'
-import type { ChartAdapter, ChartMountOptions, DomainBar, TimeRange } from './types'
+import type { ChartAdapter, ChartLayer, ChartMountOptions, DomainBar, LayerHandle, TimeRange } from './types'
 import type { Projection } from '../drawing/types'
 import { logicalAt, timeAtLogical } from './logical'
 import { decimalsFor, ticksToPrice } from './priceFormat'
@@ -31,10 +35,49 @@ const TICK_KIND: Record<TickMarkType, TickKind> = {
   [TickMarkType.TimeWithSeconds]: 'seconds',
 }
 
+/**
+ * One of our layers as the library's series primitive: painted by the chart, in the pane's CSS pixels, in the same
+ * frame as the candles.
+ */
+class LayerPrimitive implements ISeriesPrimitive<Time> {
+  private requestUpdate: (() => void) | null = null
+  private readonly views: readonly IPrimitivePaneView[]
+
+  constructor(layer: ChartLayer) {
+    const renderer: IPrimitivePaneRenderer = {
+      draw: (target) =>
+        target.useMediaCoordinateSpace(({ context, mediaSize }) => {
+          context.save()
+          layer.paint(context, mediaSize)
+          context.restore()
+        }),
+    }
+    this.views = [{ zOrder: () => layer.zOrder, renderer: () => renderer }]
+  }
+
+  attached({ requestUpdate }: SeriesAttachedParameter<Time>) {
+    this.requestUpdate = requestUpdate
+  }
+
+  detached() {
+    this.requestUpdate = null
+  }
+
+  paneViews() {
+    return this.views
+  }
+
+  redraw() {
+    this.requestUpdate?.()
+  }
+}
+
 export class LightweightChartAdapter implements ChartAdapter {
   private chart: IChartApi | null = null
   private series: ISeriesApi<'Candlestick'> | null = null
   private tickSize = 0.25
+  /** Every layer added, attached again to each new series a remount makes. */
+  private readonly layers = new Set<LayerPrimitive>()
 
   mount(container: HTMLElement, options: ChartMountOptions): void {
     this.destroy()
@@ -94,6 +137,20 @@ export class LightweightChartAdapter implements ChartAdapter {
         minMove: options.tickSize,
       },
     })
+    for (const layer of this.layers) this.series.attachPrimitive(layer)
+  }
+
+  addLayer(layer: ChartLayer): LayerHandle {
+    const primitive = new LayerPrimitive(layer)
+    this.layers.add(primitive)
+    this.series?.attachPrimitive(primitive)
+    return {
+      redraw: () => primitive.redraw(),
+      remove: () => {
+        this.layers.delete(primitive)
+        this.series?.detachPrimitive(primitive)
+      },
+    }
   }
 
   setBars(bars: DomainBar[]): void {

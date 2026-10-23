@@ -52,8 +52,6 @@ const LAYER: ClockLayer = {
 function render(shown: ClockLayerKey[]) {
   const { ctx, calls } = recorder()
   renderClock(ctx, LAYER, BARS, projection, {
-    width: 300,
-    height: 200,
     pane: { width: 240, height: 170 },
     shown: new Set(shown),
     step: STEP,
@@ -83,8 +81,6 @@ describe('painting the clock', () => {
     }
     const { ctx, calls } = recorder()
     renderClock(ctx, taken, BARS, projection, {
-      width: 300,
-      height: 200,
       pane: { width: 240, height: 170 },
       shown: new Set(['previousDay']),
       step: STEP,
@@ -120,8 +116,6 @@ describe('painting the clock', () => {
     const paint = (shown: ClockLayerKey[]) => {
       const { ctx, calls } = recorder()
       renderClock(ctx, ipda, BARS, projection, {
-        width: 300,
-        height: 200,
         pane: { width: 240, height: 170 },
         shown: new Set(shown),
         step: STEP,
@@ -149,8 +143,6 @@ describe('painting the clock', () => {
     }
     const { ctx, calls } = recorder()
     renderClock(ctx, crowded, BARS, projection, {
-      width: 300,
-      height: 200,
       pane: { width: 240, height: 170 },
       shown: new Set(['opens', 'previousDay']),
       step: STEP,
@@ -169,17 +161,15 @@ describe('painting the clock', () => {
     expect(calls.find((c) => c.op === 'clip')).toBeDefined()
   })
 
-  it('clears and stops when there is no layer', () => {
+  it('paints nothing — and clears nothing, the candles share the canvas — when there is no layer', () => {
     const { ctx, calls } = recorder()
     renderClock(ctx, null, BARS, projection, {
-      width: 300,
-      height: 200,
       pane: { width: 240, height: 170 },
       shown: new Set(['killzones']),
       step: STEP,
       tickSize: 0.25,
     })
-    expect(calls.map((c) => c.op)).toEqual(['clearRect'])
+    expect(calls).toEqual([])
   })
 
   it('colours a session level like its killzone', () => {
