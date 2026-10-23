@@ -1104,7 +1104,8 @@ describe('Practice — the New York clock (T7)', () => {
     renderPractice()
     await startSession(user)
     await waitFor(() => expect(asked).toBe(1))
-    expect(screen.getByRole('group', { name: 'New York clock' })).toBeInTheDocument()
+    // Its parts are switched in the layers menu (T38); the default ones are on as chips.
+    expect(screen.getByRole('list', { name: 'Layers on' })).toHaveTextContent('Killzones')
 
     // The cursor reaches the change: asked again. Past it, with a later change, not again.
     await user.click(screen.getByRole('button', { name: /next bar/i }))
@@ -1207,13 +1208,15 @@ describe('Practice — detected setups (T9)', () => {
     renderPractice()
     await startSession(user)
 
-    // Off by default: a learner finds a gap before being shown one.
-    const fvg = await screen.findByRole('button', { name: 'FVG' })
-    expect(fvg).toHaveAttribute('aria-pressed', 'false')
-    expect(fvg.getAttribute('title')).toMatch(/Fair value gap .*ICT-20.*fvg-1\.0\.0/)
+    // Off by default: a learner finds a gap before being shown one. Switched in the layers menu (T38).
+    await user.click(screen.getByRole('button', { name: /Layers/ }))
+    const fvg = await screen.findByRole('switch', { name: 'FVG' })
+    expect(fvg).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByText('FVG', { selector: 'span' }).getAttribute('title')).toMatch(/Fair value gap .*ICT-20.*fvg-1\.0\.0/)
     expect(setupCalls()).toHaveLength(0)
 
     await user.click(fvg)
+    await user.keyboard('{Escape}')
     await waitFor(() => expect(setupCalls()).toHaveLength(1))
     expect(setupCalls()[0].url).toBe(`/api/practice/sessions/${ID}/setups?detectors=FVG&timeframe=5m`)
 
@@ -1237,8 +1240,8 @@ describe('Practice — detected setups (T9)', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(setupCalls()).toHaveLength(2)
 
-    // Switched off, the replay moves on without asking.
-    await user.click(screen.getByRole('button', { name: 'FVG' }))
+    // Switched off — by its chip's × — the replay moves on without asking.
+    await user.click(screen.getByRole('button', { name: 'Remove FVG' }))
     await user.click(screen.getByRole('button', { name: /next bar/i }))
     await waitFor(() => expect(cursor).toBe(CURSOR + 900))
     expect(setupCalls()).toHaveLength(2)

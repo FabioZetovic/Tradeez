@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { drawsClock } from '../clock/layers'
 import {
+  previousSessionClose,
   chartWindow,
   clampEnd,
   JUMPS,
@@ -74,5 +75,26 @@ describe('moving around real history (T3)', () => {
   it('offers the jumps the curriculum talks about, newest first', () => {
     expect(JUMPS.map((j) => j.label)).toEqual(['Latest', '1W', '1M', '3M', '1Y', '2Y'])
     expect(JUMPS[0].days).toBe(0)
+  })
+})
+
+describe('the previous session close, for the price change (T38)', () => {
+  const at = (iso: string, close: number) => ({ time: Date.parse(iso) / 1000, close })
+  // Thursday 1 Oct 2026 and Friday 2 Oct (EDT, UTC-4); the session closes at 17:00 New York = 21:00 UTC.
+  const bars = [
+    at('2026-10-01T20:55:00Z', 100), // Thursday's last candle before the close
+    at('2026-10-01T22:00:00Z', 101), // Thursday evening: Friday's session
+    at('2026-10-02T14:00:00Z', 105),
+    at('2026-10-02T20:55:00Z', 110), // Friday's last candle
+  ]
+
+  it("is the day before's close during the day, and the same day's once the evening session begins", () => {
+    expect(previousSessionClose(bars, Date.parse('2026-10-02T14:00:00Z') / 1000)).toBe(100)
+    expect(previousSessionClose(bars, Date.parse('2026-10-01T22:00:00Z') / 1000)).toBe(100)
+  })
+
+  it("is Friday's over the weekend, and null when the window does not reach it", () => {
+    expect(previousSessionClose(bars, Date.parse('2026-10-05T13:30:00Z') / 1000)).toBe(110) // Monday
+    expect(previousSessionClose(bars.slice(1), Date.parse('2026-10-02T14:00:00Z') / 1000)).toBeNull()
   })
 })

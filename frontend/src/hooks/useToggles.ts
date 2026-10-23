@@ -33,7 +33,10 @@ export function useToggles<K extends string>(config: ToggleConfig<K>) {
     })
   }, [])
 
-  return { shown, toggle }
+  /** Exactly these on, the rest off: a preset, or clearing all. */
+  const set = useCallback((keys: Iterable<K>) => setShown(new Set(keys)), [])
+
+  return { shown, toggle, set }
 }
 
 function load<K extends string>({ storageKey, defaults, isKnown }: ToggleConfig<K>): ReadonlySet<K> {

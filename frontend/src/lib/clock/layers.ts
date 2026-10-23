@@ -31,13 +31,8 @@ export function drawsClock(timeframe: string): boolean {
   return timeframe !== '1d'
 }
 
-/** What a first look shows: the day's shape and the prices most often read off it. */
-export const DEFAULT_CLOCK_LAYERS: readonly ClockLayerKey[] = [
-  'days',
-  'killzones',
-  'opens',
-  'previousDay',
-]
+/** What a first look shows (T38, Lovable's): the killzones and the prices most often read off the clock. */
+export const DEFAULT_CLOCK_LAYERS: readonly ClockLayerKey[] = ['killzones', 'opens', 'previousDay']
 
 export function windowLayer(window: ClockWindow): ClockLayerKey {
   switch (window.kind) {

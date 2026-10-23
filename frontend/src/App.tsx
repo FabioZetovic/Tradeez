@@ -5,7 +5,7 @@ import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
 import { AppShell, Logo } from '@/components/shell/AppShell'
 import { Guide } from '@/components/Guide'
-import { ChartWorkspace } from '@/components/ChartWorkspace'
+import { ChartPage } from '@/components/chart/ChartPage'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
 import { LearnView } from '@/components/learn/LearnView'
@@ -75,7 +75,7 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/" element={<Navigate to="/chart" replace />} />
         <Route path="/sign-in" element={<Navigate to={back} replace />} />
         <Route path="/sign-up" element={<Navigate to={back} replace />} />
-        <Route path="/chart" element={<ChartWorkspace adapterFactory={adapterFactory} />} />
+        <Route path="/chart" element={<ChartPage adapterFactory={adapterFactory} />} />
         <Route
           path="/learn"
           element={

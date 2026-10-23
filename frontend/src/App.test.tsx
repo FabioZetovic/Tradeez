@@ -216,20 +216,69 @@ describe('App — signed in', () => {
     expect(adapter.layers.find((l) => l.zOrder === 'bottom')).toBeDefined()
   })
 
-  it('shows the day, the killzones, the opens and PDH/PDL at first, and remembers a change', async () => {
+  it('shows the killzones, the opens and PDH/PDL at first, and remembers a change (T38)', async () => {
     localStorage.removeItem('tradeez.clockLayers')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    const clock = await screen.findByRole('group', { name: 'New York clock' })
-    const pressed = (name: string) => screen.getByRole('button', { name }).getAttribute('aria-pressed')
+    const chips = await screen.findByRole('list', { name: 'Layers on' })
+    expect([...chips.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['Killzones', 'Opens', 'PDH/PDL'])
 
-    expect(pressed('Killzones')).toBe('true')
-    expect(pressed('PDH/PDL')).toBe('true')
-    expect(pressed('Macros')).toBe('false')
-    expect(clock).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Macros' }))
-    expect(pressed('Macros')).toBe('true')
+    await userEvent.click(screen.getByRole('button', { name: /Layers/ }))
+    const checked = (name: string) => screen.getByRole('switch', { name }).getAttribute('aria-checked')
+    expect(checked('Killzones')).toBe('true')
+    expect(checked('Days')).toBe('false')
+    await userEvent.click(screen.getByRole('switch', { name: 'Macros' }))
+    expect(checked('Macros')).toBe('true')
+    expect(chips).toHaveTextContent('Macros')
     expect(JSON.parse(localStorage.getItem('tradeez.clockLayers') ?? '[]')).toContain('macros')
+  })
+
+  it('charts NQ alone: no market to choose and none beside it (T38, R-1, R-2)', async () => {
+    // ES listed first, with its own tick value: the page must take NQ's.
+    mockApi({ ...signedIn, '/api/market/instruments': { body: [{ ...NQ, symbol: 'ES', tickValueCents: 1250 }, NQ] } })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('heading', { name: 'NQ' })).toBeInTheDocument()
+    expect(await screen.findByText('0.25 = $5.00')).toBeInTheDocument()
+    await waitFor(() => expect(requests('/bars').length).toBeGreaterThan(0))
+    expect(screen.queryByLabelText('Instrument')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Beside')).not.toBeInTheDocument()
+    expect(requests('/bars').every((url) => url.pathname.includes('/NQ/'))).toBe(true)
+  })
+
+  it('never asks the chart for SMT, even when an older version remembered it on (R-2)', async () => {
+    localStorage.setItem('tradeez.setupLayers', JSON.stringify(['SMT', 'FVG']))
+    mockApi({
+      ...signedIn,
+      '/api/concepts': {
+        body: {
+          levels: [],
+          concepts: ['FVG', 'SMT'].map((detector) => ({
+            concept: { id: detector, name: detector, summary: '' },
+            detectors: [{ detector, version: '1.0.0' }],
+          })),
+        },
+      },
+      '/api/charts/NQ/setups': { body: { rules: [], setups: [], rolls: [] } },
+    })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await waitFor(() => expect(requests('/setups')).toHaveLength(1))
+    expect(requests('/setups')[0].searchParams.get('detectors')).toBe('FVG')
+    localStorage.removeItem('tradeez.setupLayers')
+  })
+
+  it("shows the move since the previous session's close, signed and coloured", async () => {
+    // Friday 2 Oct 2026: the close before is Thursday's last candle before 17:00 New York (21:00 UTC).
+    const thursday = Date.parse('2026-10-01T20:55:00Z') / 1000
+    const friday = Date.parse('2026-10-02T14:00:00Z') / 1000
+    const bar = (time: number, close: number) => ({ time, open: close, high: close, low: close, close, volume: 1 })
+    mockApi({
+      ...signedIn,
+      '/api/market/instruments/NQ/bars': { body: { ...SERIES, bars: [bar(thursday, 80_000), bar(friday, 79_960)] } },
+    })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    const change = await screen.findByTestId('price-change')
+    // 40 ticks down = 10.00 points, of 20,000.00.
+    expect(change).toHaveTextContent('−10.00 (−0.05%)')
+    expect(change).toHaveClass('text-down')
   })
 
   it('labels real data with its source and shows no simulated-data banner (INVARIANT 7)', async () => {
@@ -424,8 +473,11 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(await screen.findByTestId('price-chart')).toBeInTheDocument()
     expect(window.location.pathname).toBe('/chart')
 
+    // The Chart tab fills the window with a narrow gutter (T38); reading pages keep their margins.
+    expect(screen.getByRole('main')).toHaveClass('p-3')
     await userEvent.click(screen.getByRole('link', { name: 'Learn' }))
     expect(window.location.pathname).toBe('/learn')
+    expect(screen.getByRole('main')).toHaveClass('py-8')
     expect(current('Learn')).toBe('page')
     expect(current('Chart')).toBeNull()
   })
@@ -507,46 +559,5 @@ describe('App — the guide and the disclaimer (T29, T36)', () => {
     expect(footer).toHaveTextContent('never reach a market; simulated results do not guarantee live results')
     await userEvent.click(within(footer).getByRole('button', { name: 'Less' }))
     expect(footer).not.toHaveTextContent('never reach a market')
-  })
-})
-
-describe('App — another market beside the chart (DEC-075)', () => {
-  const ES = { ...NQ, symbol: 'ES', displayName: 'E-mini S&P 500 futures' }
-  const ES_SERIES = { ...SERIES, instrument: 'ES', bars: [{ ...SERIES.bars[0], open: 23_000, close: 23_002 }] }
-
-  beforeEach(() =>
-    mockApi({
-      '/api/market/instruments/ES/bars': { body: ES_SERIES },
-      ...signedIn,
-      '/api/market/instruments': { body: [ES, NQ] },
-    }),
-  )
-
-  it('draws ES under NQ over the same window, and none when the same market is chosen', async () => {
-    const adapters: FakeChartAdapter[] = []
-    render(
-      <App
-        adapterFactory={() => {
-          const adapter = new FakeChartAdapter()
-          adapters.push(adapter)
-          return adapter
-        }}
-      />,
-    )
-    const beside = await screen.findByLabelText('Beside')
-    await waitFor(() => expect(requests('/NQ/bars')).toHaveLength(1))
-    expect(screen.queryByRole('figure', { name: 'ES over the same minutes' })).not.toBeInTheDocument()
-
-    await userEvent.selectOptions(beside, 'ES')
-    expect(await screen.findByRole('figure', { name: 'ES over the same minutes' })).toBeInTheDocument()
-    const [nq] = requests('/NQ/bars')
-    const [es] = requests('/ES/bars')
-    expect(es.searchParams.get('from')).toBe(nq.searchParams.get('from'))
-    expect(es.searchParams.get('to')).toBe(nq.searchParams.get('to'))
-    await waitFor(() => expect(adapters.some((a) => a.bars[0]?.open === 23_000)).toBe(true))
-
-    // Charting ES itself, ES is not offered beside it.
-    await userEvent.selectOptions(screen.getByLabelText('Instrument'), 'ES')
-    expect(screen.queryByRole('figure', { name: 'ES over the same minutes' })).not.toBeInTheDocument()
   })
 })

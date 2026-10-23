@@ -220,3 +220,42 @@ export function Glass({
     </AnimatePresence>
   )
 }
+
+/** On or off (T38): a sliding switch, `role="switch"`, the accent when on. Its label is the caller's. */
+export function Switch({
+  checked,
+  onChange,
+  disabled = false,
+  ...props
+}: {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  disabled?: boolean
+  'aria-label'?: string
+  'aria-labelledby'?: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cx(
+        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors',
+        FOCUS_RING,
+        'disabled:cursor-not-allowed disabled:opacity-40',
+        checked ? 'bg-accent' : 'bg-sunken ring-1 ring-line ring-inset',
+      )}
+      {...props}
+    >
+      <span
+        aria-hidden
+        className={cx(
+          'size-4 rounded-full bg-white shadow transition-transform',
+          checked ? 'translate-x-[1.125rem]' : 'translate-x-0.5',
+        )}
+      />
+    </button>
+  )
+}
