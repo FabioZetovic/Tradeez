@@ -14,8 +14,9 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 
 ### What works today
 
-- **A guide on the first visit** (T29): what Learn, Drills, Practice and Chart are each for, in that order, and what
-  the app is not. "How it works" in the header brings it back. English only (Q-08).
+- **A guide** (T29, at `/help` since T36): what Learn, Drills, Practice and Chart are each for, in that order, and
+  what the app is not. "How it works" in the account menu opens it. Every screen has its own address. English only
+  (Q-08).
 - **Accounts:** register and sign in. Sessions use HttpOnly cookies with rotating refresh tokens.
   Passwords follow `password-1.0.0` (DEC-064): 12 characters to 72 bytes, not a common password, not
   your own name or email, and not found in a known breach (Have I Been Pwned, k-anonymous — the password

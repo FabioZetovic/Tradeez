@@ -138,6 +138,7 @@ Every working session, by either LLM, follows the same three steps:
 |---|---|---|
 | Frontend | React 19 + TypeScript 6, built with Vite 8 | |
 | Charting | TradingView Lightweight Charts v5 (Apache 2.0) | Custom drawing layer on top |
+| UI | Tailwind CSS 4, React Router 8, `motion`, `lucide-react`, Space Grotesk + JetBrains Mono | DEC-044, DEC-078 (the redesign, `docs/REDESIGN.md`) |
 | Backend | Java 21 + Spring Boot 3.5.16 | **Not Boot 4** — see DEC-036 |
 | Database | PostgreSQL 17 (Docker locally) | See DEC-001 |
 | Migrations | Flyway | |
@@ -1936,6 +1937,21 @@ prediction drills, the bug hunt, the learning state, 4-hour and daily candles, b
 evidence, ICT plans, the scorecard, the review, journal statistics, risk and management drills, trading costs, SMT
 divergence, partial targets, the guide, two charts for SMT, the bug hunt and its fixes): backend 223 → 706,
 frontend 148 → 390, V9 to V27, DEC-044 to DEC-077.*
+
+### Session 018 — 2026-10-23 — The Redesign Begins
+
+Fabio: *"it is time that we change the damn design of the app, it looks extremely unpolished and vibe coded."* After
+a long conversation and a look at a design he had Lovable draw, the redesign was written down in full as
+`docs/REDESIGN.md` (rules R-1 to R-20, tasks T36–T49), so it survives any loss of context.
+
+**T36 — theme and shell** (`feat/t36-shell`, DEC-078). One accent colour, `#7C6CFF`, in one token, shared with the
+chart's canvases through `lib/theme.ts`; Space Grotesk and JetBrains Mono in place of Inter; every screen now has an
+address (React Router), so the back button works and a lesson can link to its drill. A new frame around every
+screen: Lovable's header (logo, sections, an account menu with the initials — change password, how it works, sign
+out, sign out everywhere), a short disclaimer line in the footer with "Read more", and a centred sign-in card. The
+first-visit pop-up over the chart is gone; the guide is the `/help` page. Screens' insides are unchanged, restyled
+only through the shared kit; T37–T45 rebuild them. Screenshots at 1920 and 1366: `docs/redesign/after/t36/`.
+Mutations: 14, all caught. Frontend 390 → 398.
 
 ---
 
