@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PracticeView } from './PracticeView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
+import { recorder } from '@/test/canvasRecorder'
 import type {
   PracticeState,
   ResultView,
@@ -252,9 +253,24 @@ function happyServer(overrides: Partial<Record<'plan', { status: number; body: u
   }
 }
 
+/** Every chart the last render made: setups are layers painted by them (T37), not elements on the page. */
+let charts: FakeChartAdapter[] = []
+
 function renderPractice() {
-  return render(<PracticeView adapterFactory={() => new FakeChartAdapter()} />)
+  charts = []
+  return render(
+    <PracticeView
+      adapterFactory={() => {
+        const chart = new FakeChartAdapter()
+        charts.push(chart)
+        return chart
+      }}
+    />,
+  )
 }
+
+/** How many setup layers the charts paint: the rules drawn on them, the review's own among them. */
+const setupLayers = () => charts.flatMap((chart) => chart.layers).filter((layer) => layer.zOrder === 'normal').length
 
 async function startSession(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: /start a session/i }))
@@ -519,25 +535,25 @@ describe('Practice — a replay', () => {
     await lockLong(user)
     await user.click(screen.getByRole('button', { name: /skip to result/i }))
     await screen.findByTestId('result-outcome')
-    const overlays = screen.getAllByTestId('setup-overlay').length
+    const overlays = setupLayers()
 
     await user.click(screen.getByRole('button', { name: 'Read the review' }))
     expect(await screen.findByTestId('review-exit')).toHaveTextContent('scored as the stop at 19989.75')
     expect(calls.some((c) => c.method === 'GET' && c.url === `/api/practice/sessions/${ID}/trades/1/review`)).toBe(true)
     await user.click(screen.getByRole('button', { name: 'Show its rules on the chart' }))
-    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays + 1)
+    expect(setupLayers()).toBe(overlays + 1)
     await user.click(screen.getByRole('button', { name: 'Hide its rules on the chart' }))
-    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays)
+    expect(setupLayers()).toBe(overlays)
 
     // Drawn again, then another trade ends: its review is its own, and trade 1's hits come off the chart.
     await user.click(screen.getByRole('button', { name: 'Show its rules on the chart' }))
     await lockLong(user)
     await user.click(screen.getByRole('button', { name: /skip to result/i }))
     await waitFor(() => expect(screen.getByTestId('result-outcome')).toHaveTextContent('Trade 2'))
-    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays)
+    expect(setupLayers()).toBe(overlays)
     expect(screen.getByRole('region', { name: 'Review' })).toHaveTextContent('Trade 2, as it happened')
     await user.click(screen.getByRole('button', { name: 'Show trade 1' }))
-    expect(screen.getAllByTestId('setup-overlay')).toHaveLength(overlays)
+    expect(setupLayers()).toBe(overlays)
     expect(screen.getByRole('button', { name: 'Read the review' })).toBeInTheDocument()
   })
 
@@ -1200,8 +1216,14 @@ describe('Practice — detected setups (T9)', () => {
     await user.click(fvg)
     await waitFor(() => expect(setupCalls()).toHaveLength(1))
     expect(setupCalls()[0].url).toBe(`/api/practice/sessions/${ID}/setups?detectors=FVG&timeframe=5m`)
-    expect(screen.getByTestId('setup-overlay')).toBeInTheDocument()
 
+    // Painted with the chart (T37): nothing until an answer arrives, then the setups layer reaches the renderer.
+    const painted = () => {
+      const { ctx, calls } = recorder()
+      for (const layer of charts[0].layers) if (layer.zOrder === 'normal') layer.paint(ctx, { width: 800, height: 400 })
+      return calls.filter((c) => c.op === 'rect' && String(c.args) === '0,0,800,400').length
+    }
+    expect(painted()).toBe(0)
     // Two bars while the first answer is still out: no second request yet...
     await user.click(screen.getByRole('button', { name: /next bar/i }))
     await user.click(screen.getByRole('button', { name: /next bar/i }))
@@ -1209,6 +1231,7 @@ describe('Practice — detected setups (T9)', () => {
     expect(setupCalls()).toHaveLength(1)
     // ...and once it comes, exactly one more, for where the replay is now.
     await act(async () => answers[0](LAYER))
+    await waitFor(() => expect(painted()).toBe(1))
     await waitFor(() => expect(setupCalls()).toHaveLength(2))
     await act(async () => answers[1](LAYER))
     await new Promise((resolve) => setTimeout(resolve, 50))

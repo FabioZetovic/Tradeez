@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback } from 'react'
 import type { SetupLayer } from '@/lib/api/setups'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
+import type { Projection } from '@/lib/drawing/types'
 import { timeframeSeconds } from '@/lib/chart/dateNavigation'
 import { renderSetups } from '@/lib/setups/render'
-import { useOverlayCanvas } from '@/hooks/useOverlayCanvas'
+import { useChartLayer } from '@/hooks/useChartLayer'
 
 interface SetupOverlayProps {
   adapter: ChartAdapter | null
@@ -14,36 +15,15 @@ interface SetupOverlayProps {
 }
 
 /**
- * Detected setups over the clock and under the drawings (T9, S-3): a canvas that never takes the
- * pointer, so panning, zooming and drawing all pass straight through it.
+ * Detected setups (T9, S-3), painted by the chart over its candles and under the drawings (T37): they move with the
+ * candles in the same frame, and never take the pointer.
  */
 export function SetupOverlay({ adapter, layer, bars, timeframe, shown }: SetupOverlayProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    const projection = adapter?.getProjection()
-    const pane = adapter?.getPaneSize()
-    const ctx = canvas?.getContext('2d')
-    if (!canvas || !projection || !pane || !ctx) return
-    renderSetups(ctx, layer, bars, projection, {
-      width: canvas.width,
-      height: canvas.height,
-      pane,
-      shown,
-      step: timeframeSeconds(timeframe),
-    })
-  }, [adapter, layer, bars, timeframe, shown])
-
-  useOverlayCanvas(canvasRef, adapter, draw)
-  useEffect(draw, [draw])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      data-testid="setup-overlay"
-      className="pointer-events-none absolute inset-0 z-[1]"
-    />
+  const paint = useCallback(
+    (ctx: CanvasRenderingContext2D, projection: Projection, pane: { width: number; height: number }) =>
+      renderSetups(ctx, layer, bars, projection, { pane, shown, step: timeframeSeconds(timeframe) }),
+    [layer, bars, timeframe, shown],
   )
+  useChartLayer(adapter, 'normal', paint)
+  return null
 }

@@ -5,7 +5,7 @@ import type { Projection } from '../drawing/types'
 import { toShapes, type SetupShape } from './shapes'
 
 /**
- * Paints detected setups onto their overlay canvas (T9, S-3): a zone as a box with its midline dashed
+ * Paints detected setups with the chart, over its candles (T9, S-3, T37): a zone as a box with its midline dashed
  * through it — a gap's consequent encroachment, a block's mean threshold — a level as a line, a point
  * as a mark. Where each one starts
  * and ends is decided in {@link toShapes}; this only paints.
@@ -14,8 +14,6 @@ import { toShapes, type SetupShape } from './shapes'
  */
 
 export interface SetupRenderOptions {
-  width: number
-  height: number
   /** The plotting area; nothing is painted over the price or time scale. */
   pane: { width: number; height: number }
   /** Detector ids switched on. */
@@ -42,7 +40,6 @@ export function renderSetups(
   projection: Projection,
   options: SetupRenderOptions,
 ): void {
-  ctx.clearRect(0, 0, options.width, options.height)
   if (!layer || bars.length === 0) return
 
   const { pane, step } = options
