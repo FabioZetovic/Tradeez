@@ -1,6 +1,6 @@
 import { THEME } from '@/lib/theme'
 import { render } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { DrillOverlay } from './DrillOverlay'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
 import { recorder } from '@/test/canvasRecorder'
@@ -35,24 +35,22 @@ const QUESTION: QuestionView = {
   ],
 }
 
-let painted: ReturnType<typeof recorder>
+type Calls = ReturnType<typeof recorder>['calls']
 
-beforeEach(() => {
-  painted = recorder()
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(painted.ctx as never)
-})
-afterEach(() => vi.restoreAllMocks())
-
-function paint(props: Partial<Parameters<typeof DrillOverlay>[0]> = {}) {
+/** Renders the overlay and paints its layer as the chart would (T37), recording what is drawn. */
+function paint(props: Partial<Parameters<typeof DrillOverlay>[0]> = {}): Calls {
+  const adapter = new FakeChartAdapter()
   render(
     <div>
-      <DrillOverlay adapter={new FakeChartAdapter()} bars={BARS} marks={[]} {...props} />
+      <DrillOverlay adapter={adapter} bars={BARS} marks={[]} {...props} />
     </div>,
   )
-  return painted.calls
+  const { ctx, calls } = recorder()
+  adapter.paintLayers(ctx)
+  return calls
 }
 
-const texts = (calls: typeof painted.calls) => calls.filter((c) => c.op === 'fillText').map((c) => c.args[0])
+const texts = (calls: Calls) => calls.filter((c) => c.op === 'fillText').map((c) => c.args[0])
 
 describe('the drill overlay', () => {
   it('draws both targets of a prediction with their names, and the context with its own', () => {
@@ -103,6 +101,8 @@ describe('the drill overlay', () => {
     expect(texts(calls)).toContain('chart ended')
     const momentLine = calls.find((c) => c.op === 'moveTo' && c.args[0] === MOMENT - 1000 && c.args[1] === 0)
     expect(momentLine).toBeDefined()
+    // Down the whole plotting area, which the chart gives its layers (T37): the fake's is 400 high.
+    expect(calls.find((c) => c.op === 'lineTo' && c.args[0] === MOMENT - 1000)?.args[1]).toBe(400)
     // The ring sits on the sell-side, at the deciding candle.
     expect(calls.some((c) => c.op === 'arc' && c.args[0] === decided - 1000 && c.args[1] === 520)).toBe(true)
   })

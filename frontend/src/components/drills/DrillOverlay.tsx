@@ -3,7 +3,7 @@ import type { ContextView, QuestionView, ResultView, SetupView, SubjectView, Tar
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import type { Projection } from '@/lib/drawing/types'
 import { pickCandle } from '@/lib/drills/marks'
-import { useOverlayCanvas } from '@/hooks/useOverlayCanvas'
+import { useChartLayer } from '@/hooks/useChartLayer'
 import { THEME } from '@/lib/theme'
 
 interface DrillOverlayProps {
@@ -35,22 +35,19 @@ const FILL: Record<SetupView['direction'], string> = {
 }
 
 /**
- * Marks, the subject, a prediction's targets and the answer, painted over the drill's chart.
+ * Marks, the subject, a prediction's targets and the answer, painted by the drill's chart over everything, in the
+ * same frame as its candles (T37).
  *
- * The canvas never takes the pointer. Clicks are read from the chart frame they bubble up to, and a
- * click that travelled is ignored — so the learner can still pan and zoom the chart they are
- * searching, which a pointer-capturing overlay would prevent.
+ * Nothing here takes the pointer. Clicks are read from the chart frame they bubble up to, and a click that travelled
+ * is ignored — so the learner can still pan and zoom the chart they are searching, which a pointer-capturing overlay
+ * would prevent.
  */
 export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, question, moment }: DrillOverlayProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  // Where clicks are measured from: the chart frame's top-left, as the projection is.
+  const areaRef = useRef<HTMLDivElement>(null)
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    const projection = adapter?.getProjection()
-    const ctx = canvas?.getContext('2d')
-    if (!canvas || !projection || !ctx) return
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  const paint = useCallback(
+    (ctx: CanvasRenderingContext2D, projection: Projection, pane: { width: number; height: number }) => {
     const byTime = new Map(bars.map((b) => [b.time, b]))
 
     // The answer, once there is one, each hit in its own shape. Identification: found ones outlined
@@ -63,10 +60,10 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, 
     // A prediction: the targets stay drawn after the answer, so the future can be read against them.
     if (question) {
       const lastX = bars.length > 0 ? projection.timeToX(bars[bars.length - 1].time) : null
-      const right = lastX === null ? canvas.width : lastX + 10
+      const right = lastX === null ? pane.width : lastX + 10
       for (const item of question.context) drawContext(ctx, projection, item, right, moment)
       for (const target of question.targets) drawTarget(ctx, projection, target, right)
-      if (result && moment !== undefined) drawMoment(ctx, projection, moment, canvas.height)
+      if (result && moment !== undefined) drawMoment(ctx, projection, moment, pane.height)
       const answered = question.targets.find((t) => t.value === result?.answer)
       if (answered && result?.outcomeTime !== undefined) drawDecided(ctx, projection, answered, result.outcomeTime)
     }
@@ -97,15 +94,15 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, 
       }
       ctx.restore()
     }
-  }, [adapter, bars, marks, subject, result, question, moment])
-
-  useOverlayCanvas(canvasRef, adapter, draw)
-  useEffect(draw, [draw])
+    },
+    [bars, marks, subject, result, question, moment],
+  )
+  useChartLayer(adapter, 'top', paint)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const frame = canvas?.parentElement
-    if (!canvas || !frame || result || !onToggle) return
+    const area = areaRef.current
+    const frame = area?.parentElement
+    if (!area || !frame || result || !onToggle) return
 
     let down: { x: number; y: number } | null = null
     const onDown = (event: PointerEvent) => {
@@ -119,7 +116,7 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, 
       }
       const projection = adapter?.getProjection()
       if (!projection) return
-      const rect = canvas.getBoundingClientRect()
+      const rect = area.getBoundingClientRect()
       const time = pickCandle(event.clientX - rect.left, projection, bars)
       if (time !== null) onToggle(time)
     }
@@ -133,8 +130,9 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, 
   }, [adapter, bars, onToggle, result])
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
+      ref={areaRef}
+      aria-hidden="true"
       className="absolute inset-0 z-[2]"
       data-testid="drill-overlay"
       style={{ pointerEvents: 'none', cursor: result || !onToggle ? 'default' : 'pointer' }}

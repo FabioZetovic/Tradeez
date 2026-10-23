@@ -57,6 +57,9 @@ class LayerPrimitive implements ISeriesPrimitive<Time> {
 
   attached({ requestUpdate }: SeriesAttachedParameter<Time>) {
     this.requestUpdate = requestUpdate
+    // Attaching does not repaint: on a chart already drawn, and that nothing moves — a lesson's example — the layer
+    // would wait for a paint that never comes.
+    requestUpdate()
   }
 
   detached() {

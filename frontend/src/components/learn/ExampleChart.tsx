@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { PriceChart } from '../PriceChart'
 import { AdapterOut, CompanionChart } from '../CompanionChart'
 import { SetupOverlay } from '../SetupOverlay'
 import type { Example } from '@/lib/api/lessons'
 import type { Setup } from '@/lib/api/setups'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
+import type { Projection } from '@/lib/drawing/types'
 import { timeframeSeconds } from '@/lib/chart/dateNavigation'
 import { timeToX } from '@/lib/chart/timeToX'
-import { useOverlayCanvas } from '@/hooks/useOverlayCanvas'
+import { useChartLayer } from '@/hooks/useChartLayer'
 import { formatSessionDate, formatSessionTime } from '@/lib/chart/timeAxis'
 
 interface ExampleChartProps {
@@ -78,6 +79,9 @@ export function ExampleChart({ example, tickSize, exchangeTimezone, adapterFacto
   )
 }
 
+/** The accent, faintly (DEC-078). */
+const HIT_BAND = 'rgba(124, 108, 255, 0.1)'
+
 /**
  * A faint band behind the hit's candles, from its start (or the chart's left edge) to the candle it is
  * known by: a small gap on a forty-candle chart is otherwise easy to miss.
@@ -93,31 +97,19 @@ function HitBand({
   setup: Setup
   timeframe: string
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    const projection = adapter?.getProjection()
-    const ctx = canvas?.getContext('2d')
-    if (!canvas || !projection || !ctx || bars.length === 0) return
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    const step = timeframeSeconds(timeframe)
-    const left = timeToX(Math.max(setup.start, bars[0].time), bars, step, projection)
-    const right = timeToX(setup.end + step, bars, step, projection)
-    if (left === null || right === null) return
-    ctx.fillStyle = 'rgba(88, 166, 255, 0.1)'
-    ctx.fillRect(left, 0, Math.max(right - left, 2), canvas.height)
-  }, [adapter, bars, setup, timeframe])
-
-  useOverlayCanvas(canvasRef, adapter, draw)
-  useEffect(draw, [draw])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      data-testid="example-band"
-      className="pointer-events-none absolute inset-0 z-[1]"
-    />
+  const paint = useCallback(
+    (ctx: CanvasRenderingContext2D, projection: Projection, pane: { width: number; height: number }) => {
+      if (bars.length === 0) return
+      const step = timeframeSeconds(timeframe)
+      const left = timeToX(Math.max(setup.start, bars[0].time), bars, step, projection)
+      const right = timeToX(setup.end + step, bars, step, projection)
+      if (left === null || right === null) return
+      ctx.fillStyle = HIT_BAND
+      ctx.fillRect(left, 0, Math.max(right - left, 2), pane.height)
+    },
+    [bars, setup, timeframe],
   )
+  // Under the candles, painted by the chart in the same frame (T37).
+  useChartLayer(adapter, 'bottom', paint)
+  return null
 }
