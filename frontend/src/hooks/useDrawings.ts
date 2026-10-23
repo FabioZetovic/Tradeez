@@ -5,6 +5,7 @@ import {
   canUndo as canUndoOf,
   drawingReducer,
   initialDrawingState,
+  type DrawingAction,
 } from '@/lib/drawing/store'
 
 /**
@@ -79,6 +80,16 @@ export function useDrawings(symbol: string) {
     symbolRef.current = symbol
     stateRef.current = state
   })
+
+  /**
+   * BUG-096 — also brings the drawings commit() reads up to date at once, in the event handler: the toolbar's undo
+   * and delete commit straight after dispatching, before React renders, and saved the drawings as they were before.
+   * The reducer is pure, so working the change out here gives exactly the state React will render.
+   */
+  const dispatchNow = useCallback((action: DrawingAction) => {
+    stateRef.current = drawingReducer(stateRef.current, action)
+    dispatch(action)
+  }, [])
 
   /**
    * Pushes local changes to the server.
@@ -161,7 +172,7 @@ export function useDrawings(symbol: string) {
 
   return {
     state,
-    dispatch,
+    dispatch: dispatchNow,
     commit,
     retry,
     // A failed save is the more urgent message: it is about work being lost from now on.

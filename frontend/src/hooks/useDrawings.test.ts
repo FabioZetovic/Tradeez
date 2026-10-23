@@ -130,3 +130,42 @@ describe('useDrawings — BUG-023: failures are reported, not swallowed', () => 
     expect(result.current.syncError).toMatch(/could not be loaded/)
   })
 })
+
+describe('useDrawings — BUG-096: a commit straight after a change saves that change', () => {
+  // The toolbar's undo and delete dispatch and commit in one handler, before React renders. The commit read the
+  // drawings as they were before: an undone or deleted drawing stayed on the server, and came back on reload.
+  it('deletes on the server a drawing removed in the same handler', async () => {
+    vi.mocked(listDrawings).mockResolvedValue([line('gone')])
+    const { result } = renderHook(() => useDrawings('DEMO-NQ'))
+    await waitFor(() => expect(result.current.state.drawings).toHaveLength(1))
+
+    await act(async () => {
+      result.current.dispatch({ type: 'remove', id: 'gone' })
+      await result.current.commit()
+    })
+    expect(deleteDrawing).toHaveBeenCalledWith('DEMO-NQ', 'gone')
+  })
+
+  it('undoes on the server what undo undid, step by step', async () => {
+    const { result } = renderHook(() => useDrawings('DEMO-NQ'))
+    await waitFor(() => expect(listDrawings).toHaveBeenCalled())
+    for (const id of ['first', 'second']) {
+      await act(async () => {
+        result.current.dispatch({ type: 'add', drawing: line(id) })
+        await result.current.commit()
+      })
+    }
+    expect(vi.mocked(saveDrawing).mock.calls.map(([, d]) => d.id)).toEqual(['first', 'second'])
+
+    await act(async () => {
+      result.current.dispatch({ type: 'undo' })
+      await result.current.commit()
+    })
+    expect(vi.mocked(deleteDrawing).mock.calls).toEqual([['DEMO-NQ', 'second']])
+    await act(async () => {
+      result.current.dispatch({ type: 'undo' })
+      await result.current.commit()
+    })
+    expect(vi.mocked(deleteDrawing).mock.calls).toEqual([['DEMO-NQ', 'second'], ['DEMO-NQ', 'first']])
+  })
+})
