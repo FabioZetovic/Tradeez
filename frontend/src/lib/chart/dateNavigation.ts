@@ -113,13 +113,20 @@ export function newYorkDate(epoch: number): string {
 }
 
 /**
- * The close of the trading session before the one `time` is in (T38's price change): the last candle before 17:00
- * New York of the day before — or of the same day, once the evening session has begun. Over a weekend that is
- * Friday's last candle. Null when the window does not reach back that far.
+ * Where the trading session `time` is in began: 17:00 New York of the day before — or of the same day, once the
+ * evening session has begun. Over a weekend, Sunday's 17:00: nothing trades between it and Friday's close.
+ */
+export function sessionStart(time: number): number {
+  const today = sessionEndOn(newYorkDate(time))
+  return time >= today ? today : sessionEndOn(newYorkDate(today - DAY))
+}
+
+/**
+ * The close of the trading session before the one `time` is in (T38's price change): the last candle before it
+ * began — Friday's last over a weekend. Null when the window does not reach back that far.
  */
 export function previousSessionClose(bars: ReadonlyArray<{ time: number; close: number }>, time: number): number | null {
-  const today = sessionEndOn(newYorkDate(time))
-  const boundary = time >= today ? today : sessionEndOn(newYorkDate(today - DAY))
+  const boundary = sessionStart(time)
   for (let i = bars.length - 1; i >= 0; i--) if (bars[i].time < boundary) return bars[i].close
   return null
 }

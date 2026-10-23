@@ -259,3 +259,44 @@ export function Switch({
     </button>
   )
 }
+
+/** How far along, as a thin bar in the accent (T39). `value` is 0 to 1. */
+export function ProgressBar({ value, label }: { value: number; label: string }) {
+  const percent = Math.round(Math.min(1, Math.max(0, value)) * 100)
+  return (
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      className="h-1 w-full overflow-hidden rounded-full bg-sunken"
+    >
+      <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${percent}%` }} />
+    </div>
+  )
+}
+
+/** A progress ring (T39): `value` 0 to 1, or none — an empty ring, nothing measured yet. */
+export function Ring({ value, size = 36, label }: { value?: number; size?: number; label: string }) {
+  const stroke = 3
+  const r = (size - stroke) / 2
+  const circumference = 2 * Math.PI * r
+  const shown = value === undefined ? 0 : Math.min(1, Math.max(0, value))
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={label} className="shrink-0 -rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-sunken" />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - shown)}
+        className="stroke-accent"
+      />
+    </svg>
+  )
+}

@@ -5,6 +5,7 @@ import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
 import { AppShell, Logo } from '@/components/shell/AppShell'
 import { Guide } from '@/components/Guide'
+import { HomePage } from '@/components/home/HomePage'
 import { ChartPage } from '@/components/chart/ChartPage'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
@@ -29,7 +30,6 @@ export default function App({ adapterFactory }: { adapterFactory?: AdapterFactor
 function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
   const { state, login, register, logout, logoutEverywhere, changePassword } = useSession()
   const location = useLocation()
-  const navigate = useNavigate()
 
   if (state.status === 'loading') {
     return (
@@ -71,23 +71,32 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
       onLogoutEverywhere={logoutEverywhere}
     >
       <Routes>
-        {/* Home is T39; until then the chart greets a sign-in, as it always has. */}
-        <Route path="/" element={<Navigate to="/chart" replace />} />
+        {/* Home greets every sign-in (R-6). */}
+        <Route path="/" element={<HomePage user={state.user} adapterFactory={adapterFactory} />} />
         <Route path="/sign-in" element={<Navigate to={back} replace />} />
         <Route path="/sign-up" element={<Navigate to={back} replace />} />
         <Route path="/chart" element={<ChartPage adapterFactory={adapterFactory} />} />
-        <Route
-          path="/learn"
-          element={
-            <LearnView onPractise={(kind) => void navigate(`/drills/${kind}`)} adapterFactory={adapterFactory} />
-          }
-        />
+        <Route path="/learn/:conceptId?" element={<Learn adapterFactory={adapterFactory} />} />
         <Route path="/drills/:kind?" element={<Drills adapterFactory={adapterFactory} />} />
         <Route path="/practice" element={<PracticeView adapterFactory={adapterFactory} />} />
         <Route path="/help" element={<Guide />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
+  )
+}
+
+/** A lesson by its address (T39); its "Practise it" opens /drills/<kind> on that drill. */
+function Learn({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
+  const { conceptId } = useParams()
+  const navigate = useNavigate()
+  return (
+    <LearnView
+      key={conceptId}
+      initialConcept={conceptId}
+      onPractise={(kind) => void navigate(`/drills/${kind}`)}
+      adapterFactory={adapterFactory}
+    />
   )
 }
 

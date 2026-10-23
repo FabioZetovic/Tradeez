@@ -7,8 +7,9 @@ import { cx } from '@/lib/styles'
 import { AccountMenu } from './AccountMenu'
 import type { User } from '@/lib/api/auth'
 
-/** The sections, in the order they build on one another. Home and News join with their tasks (T39, T40). */
+/** Home, then the sections in the order they build on one another. News joins with its task (T40). */
 const NAV = [
+  { to: '/', label: 'Home' },
   { to: '/learn', label: 'Learn' },
   { to: '/drills', label: 'Drills' },
   { to: '/practice', label: 'Practice' },

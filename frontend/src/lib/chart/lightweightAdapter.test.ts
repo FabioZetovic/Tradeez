@@ -193,3 +193,21 @@ describe('layers painted by the chart (T37, BUG-095)', () => {
     expect(requestUpdate).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('a still chart (T39, R-12)', () => {
+  it('neither scrolls nor zooms; an ordinary chart does both', () => {
+    const mount = (still?: boolean) => {
+      new LightweightChartAdapter().mount(document.createElement('div'), {
+        tickSize: 0.25,
+        exchangeTimezone: 'America/Chicago',
+        axisTimezone: 'exchange',
+        still,
+      })
+      return created.at(-1)!.options
+    }
+    expect(mount(true)).toMatchObject({ handleScroll: false, handleScale: false })
+    const ordinary = mount()
+    expect(ordinary.handleScroll).toBeUndefined()
+    expect(ordinary.handleScale).toBeUndefined()
+  })
+})
