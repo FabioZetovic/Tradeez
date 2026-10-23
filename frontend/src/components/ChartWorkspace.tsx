@@ -309,7 +309,7 @@ export function ChartWorkspace({ adapterFactory }: ChartWorkspaceProps) {
                     onClick={() => setEnd(latest ? null : dataTo - jump.days * DAY)}
                     className={cx(
                       'h-7 cursor-pointer rounded px-2.5 text-xs font-medium transition-colors',
-                      latest && end === null ? 'bg-brand/20 text-brand' : 'text-subtle hover:text-ink',
+                      latest && end === null ? 'bg-accent/20 text-accent' : 'text-subtle hover:text-ink',
                     )}
                   >
                     {jump.label}

@@ -1,3 +1,4 @@
+import { THEME } from '../theme'
 /**
  * The drawing model.
  *
@@ -84,13 +85,13 @@ export const ANCHOR_COUNT: Record<DrawingKind, number> = {
 }
 
 export const DEFAULT_STYLES: Record<DrawingKind, DrawingStyle> = {
-  'horizontal-line': { color: '#58a6ff', lineWidth: 1 },
-  'trend-line': { color: '#58a6ff', lineWidth: 2 },
-  rectangle: { color: '#d29922', lineWidth: 1, fill: 'rgba(210, 153, 34, 0.12)' },
-  position: { color: '#8b949e', lineWidth: 1 },
-  fibonacci: { color: '#8b949e', lineWidth: 1 },
+  'horizontal-line': { color: THEME.accent, lineWidth: 1 },
+  'trend-line': { color: THEME.accent, lineWidth: 2 },
+  rectangle: { color: THEME.warn, lineWidth: 1, fill: 'rgba(210, 153, 34, 0.12)' },
+  position: { color: THEME.subtle, lineWidth: 1 },
+  fibonacci: { color: THEME.subtle, lineWidth: 1 },
   zone: { color: '#39c5cf', lineWidth: 1, fill: 'rgba(57, 197, 207, 0.12)' },
-  label: { color: '#e6edf3', lineWidth: 1 },
+  label: { color: THEME.ink, lineWidth: 1 },
 }
 
 /** Kinds whose words can be edited by double-clicking them. */

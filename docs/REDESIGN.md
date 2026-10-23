@@ -50,7 +50,7 @@
 
 | Task | Name | Blocked by | State | Branch / merge | Notes |
 |---|---|---|---|---|---|
-| T36 | Theme and shell | — | ⬜ | | |
+| T36 | Theme and shell | — | 🟢 built, waiting for "merge" | `feat/t36-shell` | DEC-078. Router (/chart /learn /drills/:kind? /practice /help /sign-in /sign-up; / → /chart until T39), AppShell + AccountMenu (shell/), footer short line + Read more, sign-in card, /help page, kit restyled + PageHeader + Glass (the rest of the kit with T39+, see §10). Screenshots docs/redesign/after/t36/. 398 tests, 14/14 mutants |
 | T37 | Chart overlays in the paint step (BUG-095) | — | ⬜ | | |
 | T38 | Chart tab | T36, T37 | ⬜ | | |
 | T39 | Home | T36 (news card: T40) | ⬜ | | |
@@ -995,4 +995,10 @@ due, open), `suggested`, `due`.
 | Date | Task | Decision | By |
 |---|---|---|---|
 | 2026-10-23 | all | The plan above (R-1 … R-20) | Fabio + Claude |
+| 2026-10-23 | T36 | DEC-078: React Router (declarative), the accent `#7C6CFF` in one token, Space Grotesk + JetBrains Mono, `motion`, `lucide-react` | Claude |
+| 2026-10-23 | T36 | `/` goes to the chart until Home exists (T39); Home and News join the nav with their tasks, so no link leads nowhere | Claude |
+| 2026-10-23 | T36 | The kit grows as screens use it (knip forbids unused exports): T36 adds PageHeader and Glass; StatTile, Ring, ProgressBar, Switch, Badge, NextStep, Table come with T39+ | Claude |
+| 2026-10-23 | T36 | The footer's short line keeps DEC-015's three points; "Read more" opens the full text | Claude |
+| 2026-10-23 | T36 | The header is as wide as the page under it (full width on chart pages, 1280 on reading pages), not Lovable's fixed 1600, so the logo lines up with the content | Claude |
+| 2026-10-23 | T36 | Hex colours, not the plan's oklch values: the canvases need the same values in `lib/theme.ts` | Claude |
 

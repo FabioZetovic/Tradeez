@@ -1,0 +1,92 @@
+[
+  {
+    "file": "1920-sign-in.png",
+    "width": 1920,
+    "title": "Sign in"
+  },
+  {
+    "file": "1920-sign-up.png",
+    "width": 1920,
+    "title": "Create an account"
+  },
+  {
+    "file": "1920-chart.png",
+    "width": 1920,
+    "title": "Chart"
+  },
+  {
+    "file": "1920-learn.png",
+    "width": 1920,
+    "title": "Learn"
+  },
+  {
+    "file": "1920-drills.png",
+    "width": 1920,
+    "title": "Drills"
+  },
+  {
+    "file": "1920-practice.png",
+    "width": 1920,
+    "title": "Practice"
+  },
+  {
+    "file": "1920-help.png",
+    "width": 1920,
+    "title": "How it works (/help)"
+  },
+  {
+    "file": "1920-account-menu.png",
+    "width": 1920,
+    "title": "The account menu"
+  },
+  {
+    "file": "1920-footer.png",
+    "width": 1920,
+    "title": "The footer, Read more open"
+  },
+  {
+    "file": "1366-sign-in.png",
+    "width": 1366,
+    "title": "Sign in"
+  },
+  {
+    "file": "1366-sign-up.png",
+    "width": 1366,
+    "title": "Create an account"
+  },
+  {
+    "file": "1366-chart.png",
+    "width": 1366,
+    "title": "Chart"
+  },
+  {
+    "file": "1366-learn.png",
+    "width": 1366,
+    "title": "Learn"
+  },
+  {
+    "file": "1366-drills.png",
+    "width": 1366,
+    "title": "Drills"
+  },
+  {
+    "file": "1366-practice.png",
+    "width": 1366,
+    "title": "Practice"
+  },
+  {
+    "file": "1366-help.png",
+    "width": 1366,
+    "title": "How it works (/help)"
+  },
+  {
+    "file": "1366-account-menu.png",
+    "width": 1366,
+    "title": "The account menu"
+  },
+  {
+    "file": "1366-footer.png",
+    "width": 1366,
+    "title": "The footer, Read more open"
+  }
+]

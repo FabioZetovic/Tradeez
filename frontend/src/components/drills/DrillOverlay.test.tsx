@@ -1,3 +1,4 @@
+import { THEME } from '@/lib/theme'
 import { render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DrillOverlay } from './DrillOverlay'
@@ -82,16 +83,16 @@ describe('the drill overlay', () => {
     const lines = calls.filter((c) => c.op === 'lineTo')
     expect(lines.map((c) => [c.args[1], c.stroke])).toEqual(
       expect.arrayContaining([
-        [476, '#3fb950'],
-        [508, '#f85149'],
-        [500, '#e6edf3'],
+        [476, THEME.up],
+        [508, THEME.down],
+        [500, THEME.ink],
       ]),
     )
     // Each from the entry's candle to the last candle and on: past where the chart stopped.
     expect(lines.filter((c) => c.args[1] === 476).every((c) => (c.args[0] as number) > MOMENT - 1000)).toBe(true)
     expect(texts(calls)).toEqual(expect.arrayContaining(['Target 20006.00', 'Long from 20000.00', 'Stop 19998.00']))
     const label = calls.find((c) => c.op === 'fillText' && c.args[0] === 'Stop 19998.00')
-    expect(label?.fill).toBe('#f85149')
+    expect(label?.fill).toBe(THEME.down)
   })
 
   it('once answered, marks where the chart ended and rings the candle that decided it', () => {

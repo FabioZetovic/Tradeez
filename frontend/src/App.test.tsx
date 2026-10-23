@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -90,6 +90,8 @@ function requests(path: string): URL[] {
     .filter((url) => url.pathname.endsWith(path))
 }
 
+// Every test starts at the root, as a fresh visit does.
+beforeEach(() => window.history.replaceState(null, '', '/'))
 afterEach(() => vi.restoreAllMocks())
 
 describe('App — signed out', () => {
@@ -125,7 +127,7 @@ describe('App — signed out', () => {
     render(<App />)
     await screen.findByRole('heading', { name: /sign in/i })
 
-    await userEvent.click(screen.getByRole('button', { name: /create an account instead/i }))
+    await userEvent.click(screen.getByRole('link', { name: /create an account instead/i }))
 
     expect(await screen.findByLabelText(/display name/i)).toBeInTheDocument()
   })
@@ -139,7 +141,7 @@ describe('App — signed out', () => {
       },
     })
     render(<App />)
-    await userEvent.click(await screen.findByRole('button', { name: /create an account instead/i }))
+    await userEvent.click(await screen.findByRole('link', { name: /create an account instead/i }))
     await userEvent.type(screen.getByLabelText(/display name/i), 'Marta')
     await userEvent.type(screen.getByLabelText(/email/i), 'marta@example.com')
     const password = screen.getByLabelText(/^password$/i)
@@ -365,6 +367,7 @@ describe('App — signed in', () => {
     })
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Fabio' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Change password' }))
     await userEvent.type(screen.getByLabelText('Current password'), 'a-perfectly-fine-passphrase')
     await userEvent.type(screen.getByLabelText('New password'), 'blue lanterns over the harbour')
     await userEvent.click(screen.getByRole('button', { name: 'Change password' }))
@@ -379,55 +382,124 @@ describe('App — signed in', () => {
       newPassword: 'blue lanterns over the harbour',
     })
 
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
     await userEvent.click(screen.getByRole('button', { name: 'Sign out of every device' }))
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
     expect(requests('/api/auth/logout-all')).toHaveLength(1)
   })
 })
 
-describe('App — the guide and the disclaimer (T29)', () => {
-  beforeEach(() => {
-    mockApi(signedIn)
-    localStorage.removeItem('tradeez.guideSeen')
+describe('App — addresses and the shell (T36, DEC-078)', () => {
+  beforeEach(() => mockApi(signedIn))
+
+  const at = (path: string) => window.history.replaceState(null, '', path)
+  const current = (name: string) => screen.getByRole('link', { name }).getAttribute('aria-current')
+
+  it('opens every section at its own address, and marks it in the header', async () => {
+    const screens = [
+      { path: '/chart', nav: 'Chart', shows: () => screen.findByTestId('price-chart') },
+      { path: '/learn', nav: 'Learn', shows: () => screen.findByRole('region', { name: 'Curriculum' }) },
+      { path: '/drills', nav: 'Drills', shows: () => screen.findByRole('region', { name: 'Drills' }) },
+      { path: '/practice', nav: 'Practice', shows: () => screen.findByRole('region', { name: 'New session' }) },
+    ]
+    for (const { path, nav, shows } of screens) {
+      at(path)
+      const { unmount } = render(<App adapterFactory={() => new FakeChartAdapter()} />)
+      expect(await shows()).toBeInTheDocument()
+      expect(current(nav)).toBe('page')
+      unmount()
+    }
   })
 
-  it('greets a first visit with what each tab is for and what the app is not, until it is closed', async () => {
-    const { unmount } = render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    const guide = await screen.findByRole('region', { name: 'How Tradeez works' })
-    expect(guide).toHaveTextContent('nothing you do here reaches a market')
-    expect(screen.getByTestId('guide-not')).toHaveTextContent("taught as ICT's claims")
-    expect(screen.queryByRole('button', { name: 'How it works' })).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
-    expect(screen.queryByRole('region', { name: 'How Tradeez works' })).not.toBeInTheDocument()
-    unmount()
-
-    // Closed once, it stays closed — and comes back when asked for.
+  it('the header switches sections, and the root and unknown addresses land on the chart', async () => {
+    at('/no-such-page')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByText('Fabio')
-    expect(screen.queryByRole('region', { name: 'How Tradeez works' })).not.toBeInTheDocument()
+    expect(await screen.findByTestId('price-chart')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/chart')
+
+    await userEvent.click(screen.getByRole('link', { name: 'Learn' }))
+    expect(window.location.pathname).toBe('/learn')
+    expect(current('Learn')).toBe('page')
+    expect(current('Chart')).toBeNull()
+  })
+
+  it('signed out, any address leads to sign-in and back to that address after', async () => {
+    mockApi({ ...signedIn, '/api/me': { status: 401, body: {} }, '/api/auth/refresh': { status: 401, body: {} } })
+    at('/practice')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/sign-in')
+
+    mockApi({ ...signedIn, '/api/auth/login': { body: USER } })
+    await userEvent.type(screen.getByLabelText(/email/i), 'fabio@example.com')
+    await userEvent.type(screen.getByLabelText(/password/i), 'whatever-i-typed')
+    await userEvent.click(screen.getByRole('button', { name: /^sign in$/i }))
+    expect(await screen.findByRole('region', { name: 'New session' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/practice')
+  })
+
+  it('/sign-up is the registration form, with a way back to sign-in', async () => {
+    mockApi(signedOut)
+    at('/sign-up')
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Create an account' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: 'Sign in instead' }))
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
+  it('a drill address opens that drill', async () => {
+    const kind = (id: string, title: string) => ({ kind: id, mode: 'CLASSIFY', title, conceptId: 'ICT-06', detector: 'X', ruleVersion: 'x-1.0.0', instructions: '' })
+    mockApi({ ...signedIn, '/api/drills/kinds': { body: [kind('FIRST_DRILL', 'First'), kind('SECOND_DRILL', 'Second')] } })
+    at('/drills/SECOND_DRILL')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await screen.findByRole('option', { name: 'Second' })
+    expect(screen.getByLabelText('Drill')).toHaveValue('SECOND_DRILL')
+    expect(current('Drills')).toBe('page')
+  })
+})
+
+describe('App — the guide and the disclaimer (T29, T36)', () => {
+  beforeEach(() => mockApi(signedIn))
+
+  it('greets a sign-in with the chart, not a pop-up; the guide is at /help, from the account menu', async () => {
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await screen.findByTestId('price-chart')
+    expect(screen.queryByRole('heading', { name: 'How Tradeez works' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fabio' }))
     await userEvent.click(screen.getByRole('button', { name: 'How it works' }))
-    expect(screen.getByRole('region', { name: 'How Tradeez works' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/help')
+    expect(screen.getByRole('heading', { name: 'How Tradeez works' })).toBeInTheDocument()
+    expect(screen.getByText(/nothing you do here reaches a market/)).toBeInTheDocument()
+    expect(screen.getByTestId('guide-not')).toHaveTextContent("taught as ICT's claims")
   })
 
   it('starts with Learn, or opens any step it names', async () => {
-    render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByRole('region', { name: 'How Tradeez works' })
-    await userEvent.click(screen.getByRole('button', { name: 'Start with Learn' }))
-    expect(screen.getByRole('tab', { name: 'Learn' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByRole('region', { name: 'How Tradeez works' })).not.toBeInTheDocument()
+    window.history.replaceState(null, '', '/help')
+    const { unmount } = render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await userEvent.click(await screen.findByRole('link', { name: /Start with Learn/ }))
+    expect(screen.getByRole('link', { name: 'Learn' })).toHaveAttribute('aria-current', 'page')
+    unmount()
 
-    await userEvent.click(screen.getByRole('button', { name: 'How it works' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Practice' }))
-    expect(screen.getByRole('tab', { name: 'Practice' })).toHaveAttribute('aria-selected', 'true')
+    window.history.replaceState(null, '', '/help')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    const steps = await screen.findByRole('list')
+    await userEvent.click(within(steps).getByRole('link', { name: 'Practice' }))
+    expect(window.location.pathname).toBe('/practice')
   })
 
-  it("states DEC-015's three points on every screen: not advice, simulated, and losses beyond the deposit", async () => {
+  it("states DEC-015's three points on every screen, and the full wording behind Read more", async () => {
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
     const footer = await screen.findByRole('contentinfo')
     expect(footer).toHaveTextContent('not financial advice')
-    expect(footer).toHaveTextContent('never reach a market')
+    expect(footer).toHaveTextContent('simulated on past data')
     expect(footer).toHaveTextContent('losses can exceed the money deposited')
+    expect(footer).not.toHaveTextContent('never reach a market')
+
+    await userEvent.click(within(footer).getByRole('button', { name: 'Read more' }))
+    expect(footer).toHaveTextContent('never reach a market; simulated results do not guarantee live results')
+    await userEvent.click(within(footer).getByRole('button', { name: 'Less' }))
+    expect(footer).not.toHaveTextContent('never reach a market')
   })
 })
 

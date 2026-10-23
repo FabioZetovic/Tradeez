@@ -170,7 +170,33 @@ exists in these docs or the transcripts Claude can read — it is recorded here.
 - **No conflicting utilities.** Two classes for the same property are resolved by stylesheet order,
   not class order, so a button's resting and active looks are separate complete sets, and a
   `className` passed in is for layout only.
-- Font: Inter (variable), bundled from npm — no external font request.
+- Font: Inter (variable), bundled from npm — no external font request. (Replaced by DEC-078.)
+
+**DEC-078 — Addresses for every screen, one accent colour, Lovable's type and motion** · `IMPLEMENTED` · Fabio +
+Claude, 2026-10-23, T36 (docs/REDESIGN.md R-3, R-6) — refines DEC-044
+
+Fabio: *"pick a theme color and save it somewhere and give that color to every 'theme colored' part of the app."*
+
+- **React Router** (`react-router` 8, declarative `BrowserRouter` + `Routes`). Sections had been switched by
+  `useState`: no back button, no link into a lesson or a drill. Now `/chart`, `/learn`, `/drills/:kind?`,
+  `/practice`, `/help`, `/sign-in`, `/sign-up`; `/` and unknown addresses go to the chart until Home (T39).
+  Signed out, every address leads to `/sign-in`, which returns to it after. The declarative router, not
+  `createBrowserRouter`: no loaders are wanted, and the screens take the chart adapter as a prop. **Not chosen:**
+  TanStack Router (Lovable's) — code generation for no gain here. The built site needs the host's fallback to
+  `index.html` (T31).
+- **One accent, `#7C6CFF`,** in `--color-accent` (`index.css`) and `THEME.accent` (`lib/theme.ts`, for the canvases);
+  `styles.test.ts` keeps the two palettes equal and the old GitHub hex out. Every "theme coloured" part uses it.
+- **Space Grotesk** (text) and **JetBrains Mono** (every number, the `num` utility), bundled from npm; Inter removed.
+- **`motion`** for page, menu and panel transitions, calmed by `MotionConfig reducedMotion="user"`; the tests skip
+  animations (`MotionGlobalConfig.skipAnimations`). **`lucide-react`** for icons.
+- **The kit grows only as screens use it** (lean code): T36 restyled Button, Segmented, Panel, Chip, Notice and added
+  PageHeader and Glass (the glass popover: Escape and outside click close it). StatTile, Ring, ProgressBar, Switch,
+  Badge, NextStep and Table arrive with the first screen that needs them (T39 onwards).
+- **The disclaimer** (DEC-015): the footer's short line keeps all three points in view — not advice, simulated on past
+  data, losses beyond the deposit — and "Read more" opens the full wording.
+
+**Reconsider if** a screen needs data loading before render (the data router's loaders), or Fabio wants the accent
+chosen by the learner.
 
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its

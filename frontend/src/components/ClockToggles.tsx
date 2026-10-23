@@ -33,7 +33,7 @@ export function ClockToggles({
             onClick={() => onToggle(layer.key)}
             className={cx(
               'h-7 cursor-pointer rounded px-2 text-xs font-medium transition-colors',
-              on ? 'bg-brand/20 text-brand' : 'text-subtle hover:text-ink',
+              on ? 'bg-accent/20 text-accent' : 'text-subtle hover:text-ink',
             )}
           >
             {layer.label}

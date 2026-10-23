@@ -9,14 +9,14 @@ export function cx(...classes: Array<string | false | null | undefined>): string
 }
 
 /** A panel's title. */
-export const panelTitle = 'mb-3 text-base font-semibold text-ink'
+export const panelTitle = 'mb-3 text-lg font-semibold tracking-tight text-ink'
 
 /** Text inputs and selects. */
 export const fieldClass =
-  'h-9 rounded-md border border-line bg-canvas px-3 text-sm text-ink tabular-nums focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30'
+  'h-10 rounded-lg border border-line bg-canvas/60 px-3.5 text-sm text-ink tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30'
 
 /** A label stacked above its control. */
-export const labelClass = 'flex flex-col gap-1.5 text-xs font-medium text-subtle'
+export const labelClass = 'flex flex-col gap-1.5 text-sm font-medium text-ink'
 
 /** A definition list of label/value pairs. */
 export const keyValueClass =

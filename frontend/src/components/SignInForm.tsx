@@ -1,10 +1,13 @@
 import { useId, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { errorMessage } from '@/lib/api/auth'
 import { PasswordRules } from './PasswordRules'
 import { Button } from './ui'
 import { errorClass, fieldClass, labelClass } from '@/lib/styles'
 
 interface SignInFormProps {
+  /** Which page this is: /sign-in or /sign-up (T36). */
+  mode: 'login' | 'register'
   onLogin: (email: string, password: string) => Promise<void>
   onRegister: (email: string, password: string, displayName: string) => Promise<void>
 }
@@ -16,8 +19,7 @@ interface SignInFormProps {
  * page cannot read (DEC-032), so this component's only job is to collect credentials and let the
  * session hook ask the server who is signed in.
  */
-export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -48,8 +50,13 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
   }
 
   return (
-    <section className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-2xl shadow-black/40">
-      <h2 className="mb-5 text-lg font-semibold text-ink">{isRegister ? 'Create an account' : 'Sign in'}</h2>
+    <section className="w-full rounded-card border border-line bg-surface p-7 shadow-panel">
+      <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
+        {isRegister ? 'Create an account' : 'Sign in'}
+      </h2>
+      <p className="mt-1 mb-6 text-sm text-subtle">
+        {isRegister ? 'Practise ICT on two years of real NQ.' : 'Welcome back. Carry on where you left off.'}
+      </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {isRegister && (
@@ -105,16 +112,12 @@ export function SignInForm({ onLogin, onRegister }: SignInFormProps) {
         </Button>
       </form>
 
-      <Button
-        variant="link"
-        className="mt-4 w-full"
-        onClick={() => {
-          setMode(isRegister ? 'login' : 'register')
-          setError(null)
-        }}
+      <Link
+        to={isRegister ? '/sign-in' : '/sign-up'}
+        className="mt-5 block text-center text-sm text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent"
       >
-        {isRegister ? 'I already have an account' : 'Create an account instead'}
-      </Button>
+        {isRegister ? 'Sign in instead' : 'Create an account instead'}
+      </Link>
     </section>
   )
 }

@@ -4,6 +4,7 @@ import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import type { Projection } from '@/lib/drawing/types'
 import { pickCandle } from '@/lib/drills/marks'
 import { useOverlayCanvas } from '@/hooks/useOverlayCanvas'
+import { THEME } from '@/lib/theme'
 
 interface DrillOverlayProps {
   adapter: ChartAdapter | null
@@ -24,9 +25,9 @@ interface DrillOverlayProps {
 /** A click that moved further than this was a pan, not a mark. */
 const DRAG_TOLERANCE_PX = 5
 
-const ACCENT = '#58a6ff'
-const TEXT = '#e6edf3'
-const MUTED = '#8b949e'
+const ACCENT = THEME.accent
+const TEXT = THEME.ink
+const MUTED = THEME.subtle
 const FILL: Record<SetupView['direction'], string> = {
   BULLISH: 'rgba(63, 185, 80, 0.22)',
   BEARISH: 'rgba(248, 81, 73, 0.22)',
@@ -80,7 +81,7 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, 
       ctx.save()
       if (extra.has(time)) {
         // Marked, but not in the answer key.
-        ctx.strokeStyle = '#f85149'
+        ctx.strokeStyle = THEME.down
         ctx.lineWidth = 2
         ctx.beginPath()
         ctx.moveTo(x - 5, y - 19)
@@ -152,7 +153,7 @@ function drawSetup(ctx: CanvasRenderingContext2D, projection: Projection, setup:
 
   ctx.save()
   ctx.fillStyle = FILL[setup.direction]
-  ctx.strokeStyle = setup.found === false ? '#d29922' : '#e6edf3'
+  ctx.strokeStyle = setup.found === false ? THEME.warn : THEME.ink
   ctx.lineWidth = 1.5
   ctx.setLineDash(setup.found === false ? [5, 4] : [])
   if (setup.shape === 'ZONE') {
@@ -271,13 +272,13 @@ function drawContext(
   ctx.save()
   if (item.what.startsWith('TRADE_')) {
     // A management drill's trade: drawn across the whole chart, so the future after the answer reads against it.
-    ctx.strokeStyle = item.what === 'TRADE_TARGET' ? '#3fb950' : item.what === 'TRADE_STOP' ? '#f85149' : TEXT
+    ctx.strokeStyle = item.what === 'TRADE_TARGET' ? THEME.up : item.what === 'TRADE_STOP' ? THEME.down : TEXT
     ctx.lineWidth = 1.5
     ctx.beginPath()
     ctx.moveTo(x, yLow)
     ctx.lineTo(right, yLow)
     ctx.stroke()
-    label(ctx, item.label, right, yLow - 5, item.what === 'TRADE_TARGET' ? '#3fb950' : item.what === 'TRADE_STOP' ? '#f85149' : TEXT)
+    label(ctx, item.label, right, yLow - 5, item.what === 'TRADE_TARGET' ? THEME.up : item.what === 'TRADE_STOP' ? THEME.down : TEXT)
   } else if (item.shape === 'ZONE') {
     ctx.fillStyle = item.what === 'IRL_BULLISH_GAP' ? 'rgba(63, 185, 80, 0.10)' : 'rgba(248, 81, 73, 0.10)'
     ctx.fillRect(x, Math.min(yLow, yHigh), right - x, Math.max(Math.abs(yLow - yHigh), 1))
@@ -320,7 +321,7 @@ function drawDecided(ctx: CanvasRenderingContext2D, projection: Projection, targ
   const y = projection.priceToY(target.side === 'ABOVE' ? target.lowTicks : target.highTicks)
   if (x === null || y === null) return
   ctx.save()
-  ctx.strokeStyle = '#d29922'
+  ctx.strokeStyle = THEME.warn
   ctx.fillStyle = 'rgba(210, 153, 34, 0.25)'
   ctx.lineWidth = 2
   ring(ctx, x, y, 8)

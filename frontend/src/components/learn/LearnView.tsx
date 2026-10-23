@@ -121,7 +121,7 @@ export function LearnView({ onPractise, adapterFactory }: LearnViewProps) {
                       onClick={() => open(concept.id)}
                       className={cx(
                         'flex w-full cursor-pointer items-baseline gap-2 rounded-md px-2 py-1 text-left text-sm',
-                        concept.id === selected ? 'bg-brand/15 text-ink' : 'text-subtle hover:bg-raised hover:text-ink',
+                        concept.id === selected ? 'bg-accent/15 text-ink' : 'text-subtle hover:bg-raised hover:text-ink',
                       )}
                     >
                       {/* The space gives the button its name, "ICT-20 Fair value gap", not "ICT-20Fair…". */}

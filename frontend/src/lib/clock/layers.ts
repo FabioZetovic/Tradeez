@@ -1,4 +1,5 @@
 import type { ClockLine, ClockWindow } from '../api/clock'
+import { KILLZONE_COLORS, THEME } from '../theme'
 
 /**
  * The parts of the New York clock a learner can switch on and off (T7). One switch per idea, in the
@@ -66,16 +67,8 @@ export function lineLayer(line: ClockLine): ClockLayerKey {
   }
 }
 
-/** Each killzone keeps one colour wherever it appears: its shading, its strip, its high and low. */
-const KILLZONE_COLORS: Record<string, string> = {
-  Asia: '#a371f7',
-  London: '#58a6ff',
-  'NY AM': '#d29922',
-  'NY PM': '#39c5cf',
-}
-
 /** A killzone's colour, from its name or from a level named after it ("London H"). */
 export function killzoneColor(label: string): string {
   const name = Object.keys(KILLZONE_COLORS).find((k) => label === k || label.startsWith(`${k} `))
-  return name ? KILLZONE_COLORS[name] : '#8b949e'
+  return name ? KILLZONE_COLORS[name as keyof typeof KILLZONE_COLORS] : THEME.subtle
 }

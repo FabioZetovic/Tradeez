@@ -388,7 +388,7 @@ export function DrawingOverlay({
           maxLength={MAX_TEXT}
           defaultValue={edited.text ?? ''}
           placeholder={edited.kind === 'label' ? 'Label' : 'Name (optional)'}
-          className="absolute z-[3] h-7 w-56 rounded border border-brand bg-canvas px-2 text-xs text-ink shadow focus:outline-none"
+          className="absolute z-[3] h-7 w-56 rounded border border-accent bg-canvas px-2 text-xs text-ink shadow focus:outline-none"
           style={{ left: editorAt.x + 8, top: editorAt.y - 14 }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') finishEditing(e.currentTarget.value)

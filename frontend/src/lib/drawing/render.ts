@@ -10,6 +10,7 @@ import {
   OTE,
 } from './ict'
 import type { Drawing, Projection } from './types'
+import { THEME } from '../theme'
 
 /**
  * Paints drawings onto the overlay canvas.
@@ -156,9 +157,9 @@ function drawPosition(
   ctx.fillRect(left, Math.min(entry.y, stop.y), w, Math.abs(stop.y - entry.y))
 
   const levels: Array<[number, string]> = [
-    [entry.y, '#e6edf3'],
-    [stop.y, '#f85149'],
-    [target.y, '#3fb950'],
+    [entry.y, THEME.ink],
+    [stop.y, THEME.down],
+    [target.y, THEME.up],
   ]
   for (const [y, color] of levels) {
     ctx.strokeStyle = color
@@ -169,7 +170,7 @@ function drawPosition(
   }
   const partial = drawing.partialTicks === undefined ? null : projection.priceToY(drawing.partialTicks)
   if (partial !== null) {
-    ctx.strokeStyle = '#3fb950'
+    ctx.strokeStyle = THEME.up
     ctx.setLineDash([4, 3])
     ctx.beginPath()
     ctx.moveTo(left, partial)
@@ -188,7 +189,7 @@ function drawPosition(
       : `${metrics.direction} · ${metrics.ratio.toFixed(2)}R · ` +
         `risk $${(riskCents / 100).toFixed(2)} · reward $${(rewardCents / 100).toFixed(2)}`
 
-  ctx.fillStyle = '#e6edf3'
+  ctx.fillStyle = THEME.ink
   ctx.font = '11px system-ui, sans-serif'
   ctx.fillText(label, left + 6, Math.min(entry.y, stop.y, target.y) - 6)
 }
@@ -258,11 +259,11 @@ function drawFibonacci(
 const FIB_LABEL_PRIORITY = [0.705, 0.5, 1, 0, -1, -2, 0.62, 0.79, -0.27, -0.62]
 
 function fibStyle(ratio: number): { color: string; dash: number[]; width: number } {
-  if (ratio < 0) return { color: '#3fb950', dash: [6, 3], width: 1 } // targets
-  if (ratio === OTE.sweetSpot) return { color: '#58a6ff', dash: [], width: 2 }
-  if (ratio >= OTE.from && ratio <= OTE.to) return { color: '#58a6ff', dash: [], width: 1 }
-  if (ratio === 0.5) return { color: '#e6edf3', dash: [4, 4], width: 1 } // equilibrium
-  return { color: '#8b949e', dash: [], width: 1 } // 0 and 1, the leg's ends
+  if (ratio < 0) return { color: THEME.up, dash: [6, 3], width: 1 } // targets
+  if (ratio === OTE.sweetSpot) return { color: THEME.accent, dash: [], width: 2 }
+  if (ratio >= OTE.from && ratio <= OTE.to) return { color: THEME.accent, dash: [], width: 1 }
+  if (ratio === 0.5) return { color: THEME.ink, dash: [4, 4], width: 1 } // equilibrium
+  return { color: THEME.subtle, dash: [], width: 1 } // 0 and 1, the leg's ends
 }
 
 /**
@@ -336,8 +337,8 @@ function drawHandles(
   projection: Projection,
 ): void {
   ctx.save()
-  ctx.fillStyle = '#0d1117'
-  ctx.strokeStyle = '#58a6ff'
+  ctx.fillStyle = THEME.canvas
+  ctx.strokeStyle = THEME.accent
   ctx.lineWidth = 1.5
 
   for (const anchor of drawing.anchors) {

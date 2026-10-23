@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — the redesign planned as M6 (T36–T49, 2026-10-23); next, T36 theme and shell. BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: nothing — the redesign (M6, T36–T49, docs/REDESIGN.md). T36 theme and shell built on feat/t36-shell (2026-10-23, DEC-078), waiting for Fabio's "merge"; next, T37 overlays in the chart's paint step. BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task

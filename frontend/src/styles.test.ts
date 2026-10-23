@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { THEME } from './lib/theme'
 
 // Read from disk: the test config sets `css: false`, which turns every CSS import into an empty
 // string. (`import.meta.url` is an http URL under jsdom, hence `__dirname`.)
@@ -21,12 +22,19 @@ describe('index.css', () => {
     expect(indexCss).not.toMatch(/prefers-color-scheme/)
   })
 
-  it('defines the palette the chart shares (lightweightAdapter.ts uses the same values)', () => {
-    expect(indexCss).toMatch(/--color-ink:\s*#e6edf3/)
-    expect(indexCss).toMatch(/--color-subtle:\s*#8b949e/)
-    expect(indexCss).toMatch(/--color-line:\s*#30363d/)
-    expect(indexCss).toMatch(/--color-up:\s*#3fb950/)
-    expect(indexCss).toMatch(/--color-down:\s*#f85149/)
+  it("T36: the tokens and the canvases' palette (lib/theme.ts) are the same colours", () => {
+    const tokens: Record<string, string> = {
+      canvas: 'canvas', surface: 'surface', raised: 'raised', sunken: 'sunken', line: 'line', ink: 'ink',
+      subtle: 'subtle', accent: 'accent', up: 'up', down: 'down', warn: 'warn', newsHigh: 'news-high',
+      newsMedium: 'news-medium',
+    }
+    for (const [key, token] of Object.entries(tokens)) {
+      expect(indexCss, token).toMatch(new RegExp(`--color-${token}:\\s*${THEME[key as keyof typeof THEME]}`, 'i'))
+    }
+  })
+
+  it('T36: none of the old GitHub palette is left', () => {
+    for (const old of ['#0d1117', '#161b22', '#58a6ff', '#30363d']) expect(indexCss).not.toContain(old)
   })
 
   it('BUG-037: carries nothing from the Vite starter template', () => {
