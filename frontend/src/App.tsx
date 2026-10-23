@@ -100,7 +100,7 @@ export default function App({ adapterFactory }: { adapterFactory?: () => ChartAd
                 className={cx(
                   'relative cursor-pointer px-3 text-sm font-medium transition-colors',
                   section === id
-                    ? 'text-ink after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-brand'
+                    ? 'text-ink after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent'
                     : 'text-subtle hover:text-ink',
                 )}
               >
