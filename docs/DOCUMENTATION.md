@@ -1976,6 +1976,15 @@ buttons into one glass panel opened by the Layers button: a search, four presets
 of market went (NQ only; ES is read beside it in the SMT lesson and drill). Practice's session screen uses the same menu.
 At 1920 and 1366 the page fits the window without scrolling. Mutations: 18, all caught. Frontend 404 → 412.
 
+**T39 — Home** (`feat/t39-home`). Fabio: *"I really like their Home page, and i like that the chart is not movable"*.
+The page after sign-in now greets the learner by name and shows where they stand, from their own data only: concepts
+complete in Learn, pattern drills on solid concepts, the practice sessions and trades so far; the lesson suggested next;
+the concepts due for review with each one's recent accuracy; the practice total in R, net of costs; and the latest NQ
+session with its killzones, as a still picture that opens the Chart tab. Fabio agreed the progress measures first; Lovable's
+were invented percentages. A brand-new account sees what to do instead of zeros dressed as progress. Lessons now have
+addresses, so "Continue lesson" opens the right one. Mutations: 16 — 15 caught, one revealed a redundant line, removed.
+Frontend 412 → 421.
+
 ---
 
 ## For the presentation: the disclaimer slide
