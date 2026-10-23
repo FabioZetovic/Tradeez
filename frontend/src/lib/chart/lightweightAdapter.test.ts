@@ -19,6 +19,8 @@ vi.mock('lightweight-charts', async (importOriginal) => {
     data: vi.fn(() => []),
     priceToCoordinate: vi.fn(),
     coordinateToPrice: vi.fn(),
+    attachPrimitive: vi.fn(),
+    detachPrimitive: vi.fn(),
   }
   const timeScale = {
     fitContent: vi.fn(),
@@ -132,5 +134,62 @@ describe('the stretch of time on screen (DEC-075)', () => {
     adapter.setVisibleTimeRange({ from: -300, to: 1200 })
     expect(timeScale.setVisibleLogicalRange).toHaveBeenLastCalledWith({ from: -1, to: 4 })
     vi.mocked(series.data).mockReturnValue([])
+  })
+})
+
+describe('layers painted by the chart (T37, BUG-095)', () => {
+  const mount = (adapter: LightweightChartAdapter) =>
+    adapter.mount(document.createElement('div'), { tickSize: 0.25, exchangeTimezone: 'America/Chicago', axisTimezone: 'exchange' })
+
+  async function lastSeries() {
+    const { createChart } = await import('lightweight-charts')
+    const chart = vi.mocked(createChart).mock.results.at(-1)!.value
+    return vi.mocked(chart.addSeries).mock.results.at(-1)!.value
+  }
+
+  it('attaches a layer to the candles, again after a remount, and no more once removed', async () => {
+    const adapter = new LightweightChartAdapter()
+    const paint = vi.fn()
+    const handle = adapter.addLayer({ zOrder: 'bottom', paint }) // before the chart exists
+    mount(adapter)
+    const series = await lastSeries()
+    expect(series.attachPrimitive).toHaveBeenCalledTimes(1)
+    const primitive = series.attachPrimitive.mock.calls[0][0]
+
+    // Painted in the pane's CSS pixels, in the chart's paint, at the z-order asked for.
+    const [view] = primitive.paneViews()
+    expect(view.zOrder()).toBe('bottom')
+    const context = { save: vi.fn(), restore: vi.fn() }
+    view.renderer().draw({ useMediaCoordinateSpace: (f: (scope: unknown) => void) => f({ context, mediaSize: { width: 640, height: 300 } }) })
+    expect(paint).toHaveBeenCalledWith(context, { width: 640, height: 300 })
+
+    series.attachPrimitive.mockClear()
+    mount(adapter)
+    expect(series.attachPrimitive).toHaveBeenCalledWith(primitive)
+
+    handle.remove()
+    expect(series.detachPrimitive).toHaveBeenCalledWith(primitive)
+    series.attachPrimitive.mockClear()
+    mount(adapter)
+    expect(series.attachPrimitive).not.toHaveBeenCalled()
+  })
+
+  it('asks for a paint when attached, and when the layer asks to be redrawn', async () => {
+    // A lesson's example never moves: a layer attached after its first paint was never painted at all.
+    const adapter = new LightweightChartAdapter()
+    mount(adapter)
+    const series = await lastSeries()
+    series.attachPrimitive.mockClear()
+    const handle = adapter.addLayer({ zOrder: 'top', paint: () => {} })
+    const primitive = series.attachPrimitive.mock.calls[0][0]
+    const requestUpdate = vi.fn()
+
+    primitive.attached({ requestUpdate })
+    expect(requestUpdate).toHaveBeenCalledTimes(1)
+    handle.redraw()
+    expect(requestUpdate).toHaveBeenCalledTimes(2)
+    primitive.detached()
+    handle.redraw()
+    expect(requestUpdate).toHaveBeenCalledTimes(2)
   })
 })

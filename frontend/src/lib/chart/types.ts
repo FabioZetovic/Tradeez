@@ -93,10 +93,14 @@ export interface ChartAdapter {
   getPaneSize(): { width: number; height: number } | null
 
   /**
-   * Fires whenever the visible range changes — pan, zoom, or a resize.
-   *
-   * The overlay is a separate canvas, so nothing redraws it automatically; without this the
-   * drawings would stay put while the candles moved underneath them.
+   * Paints a layer inside the chart's own paint, in the same frame as the candles (T37, BUG-095): a layer on a
+   * canvas of its own, redrawn once the chart had moved, trailed it by a frame or more. Kept across a remount.
+   */
+  addLayer(layer: ChartLayer): LayerHandle
+
+  /**
+   * Fires whenever the visible range changes — pan, zoom, or a resize. For things that are not painted: another
+   * chart following this one, an editor placed over a drawing.
    *
    * @returns an unsubscribe function
    */
@@ -110,6 +114,20 @@ export interface ChartAdapter {
 
   /** Shows this stretch of time; ignored before there are candles. */
   setVisibleTimeRange(range: TimeRange): void
+}
+
+/** Something painted on the chart, over its plotting area (T37). */
+export interface ChartLayer {
+  /** 'bottom' under the candles, 'normal' over them, 'top' over everything else. */
+  zOrder: 'bottom' | 'normal' | 'top'
+  /** Paints in CSS pixels, from the plotting area's top-left corner; never clears — the candles are on it too. */
+  paint(ctx: CanvasRenderingContext2D, pane: { width: number; height: number }): void
+}
+
+export interface LayerHandle {
+  /** Asks for a repaint: the layer's data changed, not the chart. */
+  redraw(): void
+  remove(): void
 }
 
 /** Another market's candles over the same minutes as the chart they are shown under (DEC-075). */

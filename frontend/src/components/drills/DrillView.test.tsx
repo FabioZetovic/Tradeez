@@ -371,9 +371,9 @@ async function startDrill(kind?: string) {
   if (kind) await user.selectOptions(screen.getByLabelText('Drill'), kind)
   await user.click(screen.getByRole('button', { name: /start a drill/i }))
   await screen.findByTestId('drill-overlay')
-  // The chart hands the overlay its adapter in a second render. Wait until the overlay has drawn
-  // with it; a person cannot click before that either.
-  await waitFor(() => expect(adapters[0]?.getProjection).toHaveBeenCalled())
+  // The chart hands the overlay its adapter in a second render. Wait until the overlay has its layer on that chart
+  // (T37); a person cannot click before the chart is drawn either.
+  await waitFor(() => expect(adapters[0]?.layers.some((layer) => layer.zOrder === 'top')).toBe(true))
   return user
 }
 

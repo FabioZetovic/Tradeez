@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
+import type { Projection } from '@/lib/drawing/types'
 import { hitTest, project, translateAnchors } from '@/lib/drawing/geometry'
 import { renderDrawings } from '@/lib/drawing/render'
 import { snapAnchor, type SnapMode } from '@/lib/drawing/snap'
-import { useOverlayCanvas } from '@/hooks/useOverlayCanvas'
+import { useChartLayer } from '@/hooks/useChartLayer'
 import type { DrawingAction, DrawingState } from '@/lib/drawing/store'
 import {
   ANCHOR_COUNT,
@@ -51,11 +52,11 @@ function isUnstretched(drawing: Drawing): boolean {
 }
 
 /**
- * The interactive drawing surface: a transparent canvas sitting on top of the chart.
+ * The interactive drawing surface: the drawings are painted by the chart, over everything, in the same frame as the
+ * candles (T37); a transparent canvas on top of the chart takes the pointer only to draw or to move a drawing.
  *
- * An overlay rather than a chart plugin. The plugin API would tie every tool to Lightweight Charts
- * and make DEC-004's escape hatch theoretical — this way the whole layer needs only the four
- * projection functions, and swapping renderers means reimplementing those and nothing else.
+ * Both go through the adapter (DEC-004) — a layer to paint and the four projection functions — so nothing here knows
+ * Lightweight Charts, and swapping renderers means reimplementing those and nothing else.
  */
 export function DrawingOverlay({
   adapter,
@@ -94,28 +95,14 @@ export function DrawingOverlay({
     gestureRef.current = gesture
   })
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    const projection = adapter?.getProjection()
-    if (!canvas || !projection) return
+  const { drawings, selectedId } = state
+  const paint = useCallback(
+    (ctx: CanvasRenderingContext2D, projection: Projection, pane: { width: number; height: number }) =>
+      renderDrawings(ctx, drawings, projection, { width: pane.width, selectedId, tickValueCents, tickSize }),
+    [drawings, selectedId, tickValueCents, tickSize],
+  )
+  useChartLayer(adapter, 'top', paint)
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    renderDrawings(ctx, stateRef.current.drawings, projection, {
-      width: canvas.width,
-      height: canvas.height,
-      selectedId: stateRef.current.selectedId,
-      tickValueCents,
-      tickSize,
-    })
-  }, [adapter, tickValueCents, tickSize])
-
-  // Sized with its container and repainted as the chart moves. A canvas that drifted out of the
-  // chart's coordinate space would make every hit test subtly wrong.
-  useOverlayCanvas(canvasRef, adapter, draw)
-
-  useEffect(draw, [draw, state])
 
   // Whether the canvas should accept pointer events at all.
   //
@@ -144,7 +131,7 @@ export function DrawingOverlay({
         stateRef.current.drawings,
         stateRef.current.selectedId,
         projection,
-        canvas.width,
+        adapter?.getPaneSize()?.width ?? 0,
       )
       setPointerOverDrawing(hit.type !== 'none')
     }
@@ -202,7 +189,7 @@ export function DrawingOverlay({
       return
     }
 
-    const hit = hitTest(point, state.drawings, state.selectedId, projection, canvas.width)
+    const hit = hitTest(point, state.drawings, state.selectedId, projection, adapter?.getPaneSize()?.width ?? 0)
 
     switch (hit.type) {
       case 'handle': {
@@ -364,7 +351,8 @@ export function DrawingOverlay({
     <>
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 z-[2]"
+        // A canvas is sized by its own width and height (300 × 150 by default), not by inset-0: the size is explicit.
+        className="absolute inset-0 z-[2] size-full"
         data-testid="drawing-overlay"
         data-interactive={interactive}
         style={{

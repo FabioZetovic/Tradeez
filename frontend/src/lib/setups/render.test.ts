@@ -40,8 +40,6 @@ function render(setups: Setup[], shown: string[] = ['FVG']) {
   const layer: SetupLayer = { rules: [], setups, rolls: [] }
   const { ctx, calls } = recorder()
   renderSetups(ctx, layer, BARS, projection, {
-    width: 300,
-    height: 300,
     pane: { width: 240, height: 250 },
     shown: new Set(shown),
     step: STEP,

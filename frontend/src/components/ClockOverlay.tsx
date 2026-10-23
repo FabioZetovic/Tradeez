@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback } from 'react'
 import type { ClockLayer } from '@/lib/api/clock'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import type { ClockLayerKey } from '@/lib/clock/layers'
+import type { Projection } from '@/lib/drawing/types'
 import { renderClock } from '@/lib/clock/render'
 import { timeframeSeconds } from '@/lib/chart/dateNavigation'
-import { useOverlayCanvas } from '@/hooks/useOverlayCanvas'
+import { useChartLayer } from '@/hooks/useChartLayer'
 
 interface ClockOverlayProps {
   adapter: ChartAdapter | null
@@ -16,37 +17,15 @@ interface ClockOverlayProps {
 }
 
 /**
- * The New York clock under the drawings (T7): a canvas that never takes the pointer, so panning,
- * zooming and drawing all pass straight through it.
+ * The New York clock (T7), painted by the chart under its candles (T37): it moves with them in the same frame, and
+ * never takes the pointer.
  */
 export function ClockOverlay({ adapter, layer, bars, timeframe, tickSize, shown }: ClockOverlayProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    const projection = adapter?.getProjection()
-    const pane = adapter?.getPaneSize()
-    const ctx = canvas?.getContext('2d')
-    if (!canvas || !projection || !pane || !ctx) return
-    renderClock(ctx, layer, bars, projection, {
-      width: canvas.width,
-      height: canvas.height,
-      pane,
-      shown,
-      step: timeframeSeconds(timeframe),
-      tickSize,
-    })
-  }, [adapter, layer, bars, timeframe, tickSize, shown])
-
-  useOverlayCanvas(canvasRef, adapter, draw)
-  useEffect(draw, [draw])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      data-testid="clock-overlay"
-      className="pointer-events-none absolute inset-0 z-[1]"
-    />
+  const paint = useCallback(
+    (ctx: CanvasRenderingContext2D, projection: Projection, pane: { width: number; height: number }) =>
+      renderClock(ctx, layer, bars, projection, { pane, shown, step: timeframeSeconds(timeframe), tickSize }),
+    [layer, bars, timeframe, tickSize, shown],
   )
+  useChartLayer(adapter, 'bottom', paint)
+  return null
 }

@@ -51,7 +51,7 @@
 | Task | Name | Blocked by | State | Branch / merge | Notes |
 |---|---|---|---|---|---|
 | T36 | Theme and shell | — | 🟢 built, waiting for "merge" | `feat/t36-shell` | DEC-078. Router (/chart /learn /drills/:kind? /practice /help /sign-in /sign-up; / → /chart until T39), AppShell + AccountMenu (shell/), footer short line + Read more, sign-in card, /help page, kit restyled + PageHeader + Glass (the rest of the kit with T39+, see §10). Screenshots docs/redesign/after/t36/. 398 tests, 14/14 mutants |
-| T37 | Chart overlays in the paint step (BUG-095) | — | ⬜ | | |
+| T37 | Chart overlays in the paint step (BUG-095) | — | 🟢 built, waiting for "merge" | `feat/t37-overlays` (from `feat/t36-shell`) | BUG-095 fixed: `ChartAdapter.addLayer` (a series primitive) + `useChartLayer`; clock and example band under the candles, setups over, drawings and drill marks on top; `useOverlayCanvas` deleted. BUG-096 (undo/delete saved one step late, older than T37) found and fixed. Screenshots docs/redesign/after/t37/. 404 tests, 17/17 mutants |
 | T38 | Chart tab | T36, T37 | ⬜ | | |
 | T39 | Home | T36 (news card: T40) | ⬜ | | |
 | T40 | News | T36 | ⬜ | | feed terms checked first |
@@ -1001,4 +1001,8 @@ due, open), `suggested`, `due`.
 | 2026-10-23 | T36 | The footer's short line keeps DEC-015's three points; "Read more" opens the full text | Claude |
 | 2026-10-23 | T36 | The header is as wide as the page under it (full width on chart pages, 1280 on reading pages), not Lovable's fixed 1600, so the logo lines up with the content | Claude |
 | 2026-10-23 | T36 | Hex colours, not the plan's oklch values: the canvases need the same values in `lib/theme.ts` | Claude |
+| 2026-10-23 | T37 | One adapter method, `addLayer({ zOrder, paint })`, not the plan's `attachPrimitive`/`detachPrimitive` pair: the handle's `redraw` and `remove` are all a layer needs, and nothing outside the adapter sees the library's primitive types (DEC-004) | Claude |
+| 2026-10-23 | T37 | The New York clock goes under the candles with its lines (one layer, as the plan says for shading); setups stay over the candles as before | Claude |
+| 2026-10-23 | T37 | Lag is checked by photographing the chart mid-drag and straight after a wheel zoom (headless Chrome), not by a video | Claude |
+| 2026-10-23 | T37 | A live drill was not started for the check: it is recorded on the test account and hides its candles from the Chart tab until answered (DEC-077). The drill layer is the same plumbing, covered by its tests | Claude |
 

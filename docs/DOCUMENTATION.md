@@ -1953,6 +1953,16 @@ first-visit pop-up over the chart is gone; the guide is the `/help` page. Screen
 only through the shared kit; T37–T45 rebuild them. Screenshots at 1920 and 1366: `docs/redesign/after/t36/`.
 Mutations: 14, all caught. Frontend 390 → 398.
 
+**T37 — overlays in the chart's paint** (`feat/t37-overlays`, BUG-095). Fabio: *"the indicators on chart are hovering
+items, when you resize or move the chart, the indicators lag behind a lot."* The clock, the rules' setups, the drawings,
+a drill's marks and a lesson example's band each had a canvas of their own, repainted once the chart said it had moved —
+a frame or more after its candles. Now the chart paints them itself, as layers in its own paint (a Lightweight Charts
+series primitive behind one adapter method, so DEC-004 holds). Photographed mid-drag and straight after a zoom, they
+keep to their candles. Two slips were caught in the browser, not by the tests: a layer added to a chart that never
+moves was never painted, and the drawing canvas, no longer sized by the old hook, shrank to a canvas's default 300 × 150.
+Checking the drawings live also found **BUG-096**, older than the redesign: undo and delete saved the drawings as they
+were one step before, so a deleted drawing came back on reload. Fixed. Mutations: 17, all caught. Frontend 398 → 404.
+
 ---
 
 ## For the presentation: the disclaimer slide

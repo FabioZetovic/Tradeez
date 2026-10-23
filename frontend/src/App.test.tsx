@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
+import { recorder } from '@/test/canvasRecorder'
 
 const USER = {
   id: 'u1',
@@ -206,7 +207,13 @@ describe('App — signed in', () => {
     const [clock] = requests('/clock')
     expect(clock.searchParams.get('from')).toBe(bars.searchParams.get('from'))
     expect(clock.searchParams.get('to')).toBe(bars.searchParams.get('to'))
-    expect(await screen.findByTestId('clock-overlay')).toBeInTheDocument()
+    // Painted by the chart under its candles (T37): once the clock arrives, the layer paints it, kept to the pane.
+    await waitFor(() => {
+      const { ctx, calls } = recorder()
+      adapter.paintLayers(ctx)
+      expect(calls.find((c) => c.op === 'rect')?.args).toEqual([0, 0, 800, 400])
+    })
+    expect(adapter.layers.find((l) => l.zOrder === 'bottom')).toBeDefined()
   })
 
   it('shows the day, the killzones, the opens and PDH/PDL at first, and remembers a change', async () => {
