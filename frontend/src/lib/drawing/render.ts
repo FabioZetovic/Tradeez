@@ -21,8 +21,8 @@ import { THEME } from '../theme'
  */
 
 export interface RenderOptions {
+  /** The plotting area's width: lines that run to the right edge stop at it. */
   width: number
-  height: number
   selectedId: string | null
   /** Used to label the position tool in currency rather than ticks. */
   tickValueCents: number
@@ -36,8 +36,6 @@ export function renderDrawings(
   projection: Projection,
   options: RenderOptions,
 ): void {
-  ctx.clearRect(0, 0, options.width, options.height)
-
   for (const drawing of drawings) {
     const selected = drawing.id === options.selectedId
     ctx.save()

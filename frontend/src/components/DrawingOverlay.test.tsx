@@ -3,6 +3,7 @@ import { useReducer } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { DrawingOverlay } from './DrawingOverlay'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
+import { recorder } from '@/test/canvasRecorder'
 import { drawingReducer, initialDrawingState, type DrawingState } from '@/lib/drawing/store'
 import { DEFAULT_STYLES, type Drawing, type DrawingKind } from '@/lib/drawing/types'
 import type { DomainBar } from '@/lib/chart/types'
@@ -10,10 +11,9 @@ import type { DomainBar } from '@/lib/chart/types'
 /**
  * The overlay, driven through real pointer events.
  *
- * jsdom has no canvas implementation, so `getContext` returns null and nothing paints — which is
- * fine, because what matters here is the *interaction*: which gesture starts, what lands in state,
- * and whether the canvas lets pointer events through to the chart underneath. Painting is verified
- * in a browser.
+ * The chart paints the drawings (T37); here a recording context stands in for its canvas. What matters most is the
+ * *interaction*: which gesture starts, what lands in state, and whether the canvas lets pointer events through to
+ * the chart underneath. How it looks is verified in a browser.
  */
 
 const bars: DomainBar[] = [
@@ -69,8 +69,6 @@ function Harness({
 function stubRect(canvas: HTMLElement) {
   canvas.getBoundingClientRect = () =>
     ({ left: 0, top: 0, width: 800, height: 400, right: 800, bottom: 400, x: 0, y: 0 }) as DOMRect
-  Object.defineProperty(canvas, 'width', { value: 800, configurable: true })
-  Object.defineProperty(canvas, 'height', { value: 400, configurable: true })
   // Not implemented in jsdom; the overlay calls both on every gesture.
   ;(canvas as HTMLCanvasElement).setPointerCapture = vi.fn()
   ;(canvas as HTMLCanvasElement).releasePointerCapture = vi.fn()
@@ -254,14 +252,30 @@ describe('DrawingOverlay', () => {
     expect(onToolFinished).toHaveBeenCalled()
   })
 
-  it('subscribes to viewport changes so drawings follow the chart when it pans', () => {
-    // The overlay is a separate canvas; nothing repaints it automatically. Without this the lines
-    // would hang still while the candles moved underneath them.
+  it('is painted by the chart over everything, and repainted when the drawings change (T37, BUG-095)', () => {
+    // On a canvas of its own, repainted after the chart moved, the drawings trailed the candles by a frame or more.
     const adapter = new FakeChartAdapter()
-    render(<Harness adapter={adapter} onState={() => {}} />)
+    render(<Harness adapter={adapter} activeTool="horizontal-line" onState={() => {}} />)
+    expect(adapter.layers.map((layer) => layer.zOrder)).toEqual(['top'])
+    const before = adapter.redraws
+    const canvas = screen.getByTestId('drawing-overlay')
+    stubRect(canvas)
 
-    expect(adapter.onViewportChange).toHaveBeenCalled()
-    expect(() => adapter.emitViewportChange()).not.toThrow()
+    pointer(canvas, 'pointerdown', 400, 450)
+
+    expect(adapter.redraws).toBeGreaterThan(before)
+    const { ctx, calls } = recorder()
+    adapter.paintLayers(ctx)
+    // Across the plotting area, 800 wide, at the price clicked; nothing cleared — the candles are on the same canvas.
+    expect(calls.filter((c) => c.op === 'lineTo').map((c) => c.args)).toEqual([[800, 450]])
+    expect(calls.some((c) => c.op === 'clearRect')).toBe(false)
+  })
+
+  it('covers the whole chart to take the pointer, sized explicitly (T37)', () => {
+    // Nothing sets its pixel size now that it paints nothing, and a canvas is not stretched by inset-0: it stayed
+    // 300 × 150 in the corner, and a drag anywhere else panned the chart instead of drawing.
+    render(<Harness adapter={new FakeChartAdapter()} onState={() => {}} />)
+    expect(screen.getByTestId('drawing-overlay')).toHaveClass('size-full')
   })
 })
 
