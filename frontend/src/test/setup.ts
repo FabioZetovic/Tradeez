@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest'
+import { MotionGlobalConfig } from 'motion'
+
+// Animations finish at once: a test asserts where the page ends up, not how it got there (T36).
+MotionGlobalConfig.skipAnimations = true
 
 /**
  * jsdom implements neither ResizeObserver nor the canvas 2D context.
@@ -29,3 +33,6 @@ if (typeof HTMLCanvasElement !== 'undefined') {
   // always false, the stub never installed, and every overlay test printed that line.
   HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
 }
+
+// jsdom defines scrollTo as a method that only logs "Not implemented" (as with getContext, BUG-030): a quiet one.
+window.scrollTo = (() => {}) as typeof window.scrollTo

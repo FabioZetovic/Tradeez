@@ -1,163 +1,112 @@
-import { useState } from 'react'
+import type { ReactNode } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
+import { MotionConfig } from 'motion/react'
 import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
-import { AccountMenu } from '@/components/AccountMenu'
+import { AppShell, Logo } from '@/components/shell/AppShell'
 import { Guide } from '@/components/Guide'
 import { ChartWorkspace } from '@/components/ChartWorkspace'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
 import { LearnView } from '@/components/learn/LearnView'
-import { Button, Notice } from '@/components/ui'
-import { cx } from '@/lib/styles'
+import { Notice } from '@/components/ui'
+import { DISCLAIMER } from '@/lib/disclaimer'
 import type { ChartAdapter } from '@/lib/chart/types'
 
-type Section = 'chart' | 'learn' | 'practice' | 'drills'
+type AdapterFactory = () => ChartAdapter
 
-const SECTIONS: Array<{ id: Section; label: string }> = [
-  { id: 'chart', label: 'Chart' },
-  { id: 'learn', label: 'Learn' },
-  { id: 'practice', label: 'Practice' },
-  { id: 'drills', label: 'Drills' },
-]
-
-/** DEC-015: visible on every screen — the CFTC's three points with it (T29). */
-const DISCLAIMER =
-  'Educational software, not financial advice. Practice trades are simulated on past market data and never reach a ' +
-  'market; simulated results do not guarantee live results. Futures are leveraged: most retail day traders lose ' +
-  'money, and losses can exceed the money deposited.'
-
-/** The guide's "seen" mark, per browser: closing it is a convenience, not a record (T29). */
-const GUIDE_KEY = 'tradeez.guideSeen'
-
-function guideSeen(): boolean {
-  try {
-    return localStorage.getItem(GUIDE_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function markGuideSeen() {
-  try {
-    localStorage.setItem(GUIDE_KEY, '1')
-  } catch {
-    // Storage refused (a private window): the guide simply shows again next time.
-  }
-}
-
-export default function App({ adapterFactory }: { adapterFactory?: () => ChartAdapter } = {}) {
-  const { state, login, register, logout, logoutEverywhere, changePassword } = useSession()
-  const [section, setSection] = useState<Section>('chart')
-  const [guide, setGuide] = useState(() => !guideSeen())
-  const closeGuide = () => {
-    markGuideSeen()
-    setGuide(false)
-  }
-  // A lesson's "Practise it" opens the Drills tab on that drill.
-  const [drillKind, setDrillKind] = useState<string | undefined>()
-  const practise = (kind: string) => {
-    setDrillKind(kind)
-    setSection('drills')
-  }
-
-  if (state.status !== 'signedIn') {
-    return (
-      <div className="flex min-h-svh flex-col items-center justify-center gap-8 px-4 py-12">
-        <Brand large />
-        {state.status === 'loading' ? (
-          <p role="status" className="text-sm text-subtle">
-            Loading…
-          </p>
-        ) : (
-          <>
-            {state.expired && (
-              <Notice role="status" className="max-w-md" data-testid="session-expired">
-                You were signed out. Sign in again to carry on — your practice sessions and drawings
-                are saved.
-              </Notice>
-            )}
-            <SignInForm onLogin={login} onRegister={register} />
-          </>
-        )}
-        <p className="max-w-md text-center text-xs text-subtle">{DISCLAIMER}</p>
-      </div>
-    )
-  }
-
+/** Addresses for every screen (DEC-078); motion is calmed when the OS asks for less. */
+export default function App({ adapterFactory }: { adapterFactory?: AdapterFactory } = {}) {
   return (
-    <div className="flex min-h-svh flex-col">
-      <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-screen-2xl items-center gap-8 px-6">
-          <Brand />
-          <nav role="tablist" aria-label="Sections" className="flex h-full items-stretch gap-1">
-            {SECTIONS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={section === id}
-                onClick={() => setSection(id)}
-                className={cx(
-                  'relative cursor-pointer px-3 text-sm font-medium transition-colors',
-                  section === id
-                    ? 'text-ink after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent'
-                    : 'text-subtle hover:text-ink',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-2 text-sm text-subtle">
-            {!guide && (
-              <Button variant="ghost" size="sm" onClick={() => setGuide(true)}>
-                How it works
-              </Button>
-            )}
-            <AccountMenu user={state.user} onChangePassword={changePassword} onLogoutEverywhere={logoutEverywhere} />
-            <Button variant="ghost" size="sm" onClick={logout}>
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* BUG-032: w-full and min-w-0 give the page a definite width, so the chart — which holds the
-          pixel width it last measured — can never push it wider than the window. */}
-      <main className="mx-auto w-full min-w-0 max-w-screen-2xl flex-1 px-6 py-5">
-        {guide && (
-          <Guide
-            onClose={closeGuide}
-            onOpen={(to) => {
-              closeGuide()
-              setSection(to)
-            }}
-          />
-        )}
-        {section === 'chart' && <ChartWorkspace adapterFactory={adapterFactory} />}
-        {section === 'learn' && <LearnView onPractise={practise} adapterFactory={adapterFactory} />}
-        {section === 'practice' && <PracticeView adapterFactory={adapterFactory} />}
-        {section === 'drills' && (
-          <DrillView key={drillKind} initialKind={drillKind} adapterFactory={adapterFactory} />
-        )}
-      </main>
-
-      <footer className="border-t border-line">
-        <p className="mx-auto max-w-screen-2xl px-6 py-4 text-xs text-subtle">{DISCLAIMER}</p>
-      </footer>
-    </div>
+    <BrowserRouter>
+      <MotionConfig reducedMotion="user">
+        <Screens adapterFactory={adapterFactory} />
+      </MotionConfig>
+    </BrowserRouter>
   )
 }
 
-function Brand({ large = false }: { large?: boolean }) {
+function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
+  const { state, login, register, logout, logoutEverywhere, changePassword } = useSession()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  if (state.status === 'loading') {
+    return (
+      <AuthPage>
+        <p role="status" className="text-center text-sm text-subtle">
+          Loading…
+        </p>
+      </AuthPage>
+    )
+  }
+
+  if (state.status !== 'signedIn') {
+    // Signed out, every address leads to sign-in — which remembers where it was, to return there after.
+    const signIn = (mode: 'login' | 'register') => (
+      <AuthPage>
+        {state.expired && (
+          <Notice role="status" className="mb-6" data-testid="session-expired">
+            You were signed out. Sign in again to carry on — your practice sessions and drawings are saved.
+          </Notice>
+        )}
+        <SignInForm mode={mode} onLogin={login} onRegister={register} />
+      </AuthPage>
+    )
+    return (
+      <Routes>
+        <Route path="/sign-in" element={signIn('login')} />
+        <Route path="/sign-up" element={signIn('register')} />
+        <Route path="*" element={<Navigate to="/sign-in" replace state={{ from: location.pathname }} />} />
+      </Routes>
+    )
+  }
+
+  const back = (location.state as { from?: string } | null)?.from ?? '/'
   return (
-    <div className={cx('flex items-center', large ? 'flex-col gap-3 text-center' : 'gap-2.5')}>
-      <img src="/favicon.svg" alt="" className={large ? 'size-12' : 'size-7'} />
-      <div>
-        <h1 className={cx('font-semibold tracking-tight text-ink', large ? 'text-3xl' : 'text-base leading-5')}>
-          Tradeez
-        </h1>
-        <p className={cx('text-subtle', large ? 'mt-1 text-sm' : 'text-xs leading-4')}>ICT practice on NQ futures</p>
+    <AppShell
+      user={state.user}
+      onChangePassword={changePassword}
+      onLogout={logout}
+      onLogoutEverywhere={logoutEverywhere}
+    >
+      <Routes>
+        {/* Home is T39; until then the chart greets a sign-in, as it always has. */}
+        <Route path="/" element={<Navigate to="/chart" replace />} />
+        <Route path="/sign-in" element={<Navigate to={back} replace />} />
+        <Route path="/sign-up" element={<Navigate to={back} replace />} />
+        <Route path="/chart" element={<ChartWorkspace adapterFactory={adapterFactory} />} />
+        <Route
+          path="/learn"
+          element={
+            <LearnView onPractise={(kind) => void navigate(`/drills/${kind}`)} adapterFactory={adapterFactory} />
+          }
+        />
+        <Route path="/drills/:kind?" element={<Drills adapterFactory={adapterFactory} />} />
+        <Route path="/practice" element={<PracticeView adapterFactory={adapterFactory} />} />
+        <Route path="/help" element={<Guide />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AppShell>
+  )
+}
+
+/** A lesson's "Practise it" opens /drills/<kind> on that drill. */
+function Drills({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
+  const { kind } = useParams()
+  return <DrillView key={kind} initialKind={kind} adapterFactory={adapterFactory} />
+}
+
+/** Sign-in, sign-up and loading: Lovable's centred card under the logo, the disclaimer below (T36). */
+function AuthPage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-svh flex-col items-center justify-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex justify-center">
+          <Logo large />
+        </div>
+        {children}
+        <p className="mt-8 text-center text-xs text-subtle">{DISCLAIMER}</p>
       </div>
     </div>
   )

@@ -1,69 +1,71 @@
-import { Button, Panel } from './ui'
-import { panelTitle } from '@/lib/styles'
+import { Link } from 'react-router'
+import { ArrowRight } from 'lucide-react'
+import { PageHeader, Panel } from './ui'
 
-/** Where a step of the guide leads. */
-type GuideSection = 'chart' | 'learn' | 'practice' | 'drills'
-
-const STEPS: Array<{ section: GuideSection; name: string; text: string }> = [
+const STEPS = [
   {
-    section: 'learn',
+    to: '/learn',
     name: 'Learn',
     text: 'Each ICT concept as a rule, in words, with real examples and how often the rule found it in two years of NQ.',
   },
   {
-    section: 'drills',
+    to: '/drills',
     name: 'Drills',
     text: 'Find and name a pattern on a real chart, graded against the rule — and predict what came next.',
   },
   {
-    section: 'practice',
+    to: '/practice',
     name: 'Practice',
     text:
       'A real day replayed bar by bar, the future hidden. Plan a trade with a stop and a target, then read its ' +
       'scorecard: what it did and how it was made, kept apart.',
   },
   {
-    section: 'chart',
+    to: '/chart',
     name: 'Chart',
     text: 'The whole history, with every rule and ICT drawing tool to switch on.',
   },
-]
+] as const
 
 /**
- * How Tradeez works, for a first visit (T29): what each tab is for, in the order they build on one another, and what
- * the app is not. Shown until it is closed, and again from "How it works" in the header.
+ * How Tradeez works (T29), the /help page since T36: what each section is for, in the order they build on one
+ * another, and what the app is not. Opened from "How it works" in the account menu.
  */
-export function Guide({ onClose, onOpen }: { onClose: () => void; onOpen: (section: GuideSection) => void }) {
+export function Guide() {
   return (
-    <Panel aria-label="How Tradeez works" className="mb-5">
-      <h2 className={panelTitle}>How Tradeez works</h2>
-      <p className="mb-4 max-w-3xl text-sm text-subtle">
-        Tradeez teaches ICT&apos;s method on two years of real NQ futures history. You practise on the past: nothing
-        you do here reaches a market.
-      </p>
-      <ol className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <>
+      <PageHeader
+        eyebrow="How it works"
+        title="How Tradeez works"
+        description="Tradeez teaches ICT's method on two years of real NQ futures history. You practise on the past: nothing you do here reaches a market."
+      />
+      <ol className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {STEPS.map((step, i) => (
-          <li key={step.section} className="flex flex-col gap-2 rounded-md border border-line/70 p-4">
-            <span className="text-xs font-semibold tracking-wide text-subtle uppercase">Step {i + 1}</span>
-            <Button variant="link" className="self-start font-semibold" onClick={() => onOpen(step.section)}>
-              {step.name}
-            </Button>
-            <p className="text-sm text-subtle">{step.text}</p>
+          <li key={step.to}>
+            <Panel className="flex h-full flex-col gap-2">
+              <span className="num text-xs font-semibold tracking-widest text-accent uppercase">Step {i + 1}</span>
+              <Link
+                to={step.to}
+                className="text-lg font-semibold tracking-tight text-ink hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                {step.name}
+              </Link>
+              <p className="text-sm text-subtle">{step.text}</p>
+            </Panel>
           </li>
         ))}
       </ol>
-      <p className="mb-4 max-w-3xl text-sm text-subtle" data-testid="guide-not">
+      <p className="mb-6 max-w-3xl text-sm text-subtle" data-testid="guide-not">
         What it is not: ICT&apos;s ideas are taught as ICT&apos;s claims. The rules say what they found in the data, not
         that the method works, and nothing here is advice.
       </p>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="primary" onClick={() => onOpen('learn')}>
-          Start with Learn
-        </Button>
-        <Button variant="ghost" onClick={onClose}>
-          Close
-        </Button>
-      </div>
-    </Panel>
+      <Link
+        to="/learn"
+        className="inline-flex h-11 items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-accent-ink transition-all hover:shadow-glow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        Start with Learn
+        <ArrowRight aria-hidden className="size-4" />
+      </Link>
+    </>
   )
 }
