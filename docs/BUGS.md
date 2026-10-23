@@ -40,6 +40,27 @@ a hosting decision, not a code fix.
 
 ---
 
+### BUG-094 🟠 Switching the Chart tab to ES shows no chart
+
+**Status:** reported by Fabio (2026-10-23), not yet reproduced by Claude. **Affects:** `ChartWorkspace`, ES
+
+Choosing ES as the instrument on the Chart tab leaves the chart empty. ES leaves the Chart tab in T38 (NQ first);
+the cause is to be found when ES returns as a full instrument (T47).
+
+---
+
+### BUG-095 🟠 The chart's overlays lag behind the candles when it is moved or resized
+
+**Status:** reported by Fabio (2026-10-23); the cause is known from the code. **Affects:** `ClockOverlay`,
+`SetupOverlay`, `DrawingOverlay`
+
+The clock, setups and drawings are drawn on a canvas of their own, redrawn when the chart reports that its view
+changed — after the chart has painted. Panning or zooming, they trail the candles, and the chart feels broken.
+
+**Fix (T37):** draw them as Lightweight Charts primitives, in the chart's own paint step.
+
+---
+
 ### BUG-093 🟡 The SMT lesson's test failed once: ES's first candle an hour before NQ's
 
 **Status:** seen once, not reproduced (2026-10-22). **Affects:** `SmtDrillApiTest.lesson`, perhaps `LessonService.around`

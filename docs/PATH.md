@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — `fix/bug-hunt` merged 2026-10-23; next, the redesign (Fabio gathering references; `feat/design` holds the before-screens). BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: nothing — the redesign planned as M6 (T36–T49, 2026-10-23); next, T36 theme and shell. BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -169,6 +169,58 @@ end-to-end first, then thicken. Nothing here is "build a whole layer."
 2b auth (008) · 3 data slice (009) · 4 chart (010) · 5 drawings, DEC-037 (012) · 6 practice slice
 (014) · 6b bug batch (015) · 7 first drill, `fvg-1.0.0` (016) · T1–T4 and T6: real NQ, Tailwind,
 practice on real NQ (017, merged) · T5 replay with several trades (017, merged) · T7 New York clock layer (017, merged) · T8 ICT drawing tools (017, merged) · T9 detector framework (017, merged) · T10 imbalances and gaps (017, merged) · T34 any timeframe in practice (017, merged) · T11 market structure (017, merged) · T12 liquidity (017, merged) · T13 drill engine (017, merged) · T14 lesson cards (017, merged) · DEC-056 newest versions everywhere (017, merged) · practice fix, DEC-057 (017, merged) · T15 prediction drills, DEC-058 (017, merged) · bug hunt and TP/SL tests, BUG-057–060 (017, merged) · T16 learning state, DEC-059 (017, merged) · T35 session-aligned 4h and daily candles, DEC-060 (017, merged) · T17 blocks, DEC-061 (017, merged) · T18 ranges, DEC-062 (017, merged) · T19 time models and profiles, DEC-063 (017, merged) · second bug hunt and security pass, DEC-064 (017, merged) · T21 evidence views, DEC-065 (017, on feat/evidence) · T22 ICT plans and model checklists, DEC-066 (017, on feat/plans) · T23 scorecard and calibration, DEC-067 (017, on feat/scorecard) · T24 review, DEC-068 (017, on feat/review) · T25 journal statistics, DEC-069 (017, on feat/stats).
+
+### M6 — The redesign, Fabio, 2026-10-23
+
+Fabio: "it is time that we change the damn design of the app, it looks extremely unpolished and vibe coded".
+Reference: his Lovable mock-up, <https://github.com/FabioZetovic/futures-flow-studio> (anything may be taken from
+it) — its layout, Home, tiles and chart-with-layers, **not** its lime colours. The before-screens:
+`ui-screens/tradeez-ui-2026-10-23.pdf` on `feat/design`. About eight months to the jury.
+
+**Agreed (his answers, 2026-10-23):**
+- **NQ first, perfect; ES later** as a full instrument (some trade ES only). Until then ES appears only in the
+  SMT lesson and drill.
+- **Theme:** one accent token, indigo-violet `#7C6CFF` for now, changeable in one place; dark; animated
+  (`motion` library). Up and down stay green and red.
+- **Home** is the page after sign-in, like Lovable's; a public landing page before sign-in comes later. The
+  "How it works" guide stays as a help page as well.
+- **News:** Forex Factory's own weekly feed (`nfs.faireconomy.media/ff_calendar_thisweek.json`, terms to be
+  checked first), upcoming events only, high (red) and medium (orange) impact. Today's and tomorrow's on Home,
+  the week on a News page. In a replay only "high-impact USD news at 08:30", never the event's name — which
+  needs past events, so it waits for a historical calendar.
+- **Chart:** full screen, NQ only; the 45 toggles grouped by topic behind a glass menu opened by click; the
+  drawing toolbar stays a slim bar on the left; overlays drawn in the chart's own paint step (BUG-095).
+- **Learn:** rebuilt, grouped by topic, a lesson locked until the drill before it is passed, progress shown, one
+  template per lesson (what it is, how to spot it, how it is traded, real NQ examples, practise it), the words
+  rewritten in plain trader language with `ICT_CONCEPTS.md` updated and Fabio reviewing. Level 0 goes. Every
+  page without a real example or a drill is listed first and decided together: kept with a drill, merged, an
+  open reference card, or removed.
+- **Practice:** no timeframe or weekday at the start; the session time and the risk limit stay; the fees and
+  slippage settings go — one standard cost on every trade, "costs paid" shown; Lovable's stats tiles. The
+  session: a full-screen chart, a side panel to plan the trade (risk in $, R:R, entry, stop, target) with the
+  replay controls under it.
+- **Drills:** no timeframe choice (the app picks); grouped into sections as cards.
+- **Last of all:** an AI assistant that answers questions about the chart.
+
+| # | Task | Blocked by | Notes |
+|---|---|---|---|
+| T36 | **Theme and shell** | — | Tokens (the accent in one place), Lovable's fonts, `motion`, the top bar (Home, Learn, Drills, Practice, Chart, News), page headers, cards, tiles, the glass surface; layouts built to reflow so T46 fits |
+| T37 | **Chart overlays in the paint step** | — | Clock, setups, drawings as Lightweight Charts primitives; BUG-095 |
+| T38 | **Chart tab** | T36, T37 | Full screen, NQ only, the grouped glass layers menu, the slim drawing bar |
+| T39 | **Home** | T36 | Lovable's: steps with progress, up next, due for review, practice so far, a fixed NQ chart, today's high-impact news |
+| T40 | **News** | T36 | The Forex Factory weekly feed, fetched and cached by the backend; the News page |
+| T41 | **Practice home** | T36 | No timeframe, weekday or cost settings; one standard cost; stats tiles; the journal |
+| T42 | **Practice session** | T37, T38 | Full-screen chart, the plan and replay panel, scorecard and review restyled |
+| T43 | **Drills** | T36 | Sections of cards, no timeframe choice, the drill screens restyled |
+| T44 | **Learn audit** | — | Every concept page: rule, real examples, drill — the list for Fabio to decide on. Can start any time |
+| T45 | **Learn rebuild** | T36, T44 | Topics, locks, progress, the lesson template, the words rewritten |
+| T46 | **Phones and tablets** | T36–T45 | Every screen below 1366px |
+| T47 | **ES as a full instrument** | NQ done | Charts, practice, drills on ES; BUG-094 |
+| T48 | **Public landing page** | T36 | Before sign-in |
+| T49 | **AI chart assistant** | everything else | Last |
+
+**Order:** T36 → T37 → T38 → T39 → T40 → T41 → T42 → T43 → T45, with T44 early (it needs Fabio's time),
+then T46, T47, T48, T49. Each task its own branch, merged when Fabio says "merge".
 
 ### Fabio's request, 2026-10-17 — every bug, missing tests, security hardening
 
