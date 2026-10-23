@@ -52,7 +52,7 @@
 |---|---|---|---|---|---|
 | T36 | Theme and shell | — | ✅ merged 2026-10-23 | `feat/t36-shell` | DEC-078. Router (/chart /learn /drills/:kind? /practice /help /sign-in /sign-up; / → /chart until T39), AppShell + AccountMenu (shell/), footer short line + Read more, sign-in card, /help page, kit restyled + PageHeader + Glass (the rest of the kit with T39+, see §10). Screenshots docs/redesign/after/t36/. 398 tests, 14/14 mutants |
 | T37 | Chart overlays in the paint step (BUG-095) | — | ✅ merged 2026-10-23 | `feat/t37-overlays` (from `feat/t36-shell`) | BUG-095 fixed: `ChartAdapter.addLayer` (a series primitive) + `useChartLayer`; clock and example band under the candles, setups over, drawings and drill marks on top; `useOverlayCanvas` deleted. BUG-096 (undo/delete saved one step late, older than T37) found and fixed. Screenshots docs/redesign/after/t37/. 404 tests, 17/17 mutants |
-| T38 | Chart tab | T36, T37 | ⬜ | | |
+| T38 | Chart tab | T36, T37 | 🟢 built, waiting for "merge" | `feat/t38-chart` | `components/chart/ChartPage.tsx` + `LayersMenu.tsx` (glass, search, presets, 5 groups, 40 layers, chips), `useChartLayers` (practice uses it too), drawing bar on lucide icons, price change since the previous session close, no instrument/beside/SMT. Screenshots docs/redesign/after/t38/. 412 tests, 18/18 mutants |
 | T39 | Home | T36 (news card: T40) | ⬜ | | |
 | T40 | News | T36 | ⬜ | | feed terms checked first |
 | T41 | Practice home | T36 | ⬜ | | |
@@ -1005,4 +1005,9 @@ due, open), `suggested`, `due`.
 | 2026-10-23 | T37 | The New York clock goes under the candles with its lines (one layer, as the plan says for shading); setups stay over the candles as before | Claude |
 | 2026-10-23 | T37 | Lag is checked by photographing the chart mid-drag and straight after a wheel zoom (headless Chrome), not by a video | Claude |
 | 2026-10-23 | T37 | A live drill was not started for the check: it is recorded on the test account and hides its candles from the Chart tab until answered (DEC-077). The drill layer is the same plumbing, covered by its tests | Claude |
+| 2026-10-23 | T38 | The price change is measured from the previous session's close (the last candle before 17:00 New York the day before, or the same day once the evening session has begun; Friday's over a weekend) — a real value, shown only when the window reaches it | Claude |
+| 2026-10-23 | T38 | Practice's session screen uses the same layers menu now, so `ClockToggles` and `SetupToggles` could be deleted as planned (T42 restyles the rest of that screen) | Claude |
+| 2026-10-23 | T38 | SMT is left out of the layer list everywhere a single market is charted, and a choice of it remembered from before is never sent | Claude |
+| 2026-10-23 | T38 | `Switch` joined the kit with its first user, the layers menu | Claude |
+| 2026-10-23 | T38 | The Chart tab's `main` has a 12 px gutter (Lovable's `p-3`); the chart card fills the rest of the window's height | Claude |
 

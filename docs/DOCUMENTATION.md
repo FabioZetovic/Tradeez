@@ -1967,6 +1967,15 @@ were one step before, so a deleted drawing came back on reload. Fixed. Mutations
 `master` with `--no-ff` (06a7459, 18399e5); master's tree is exactly the T37 branch's, which passed its fresh-clone check
 (frontend 404, lint, typecheck, knip, build, `npm audit` 0; backend unchanged).
 
+**T38 — the Chart tab** (`feat/t38-chart`). Fabio: *"all of the tools above are awful to look at … They need to be
+grouped into sections"* and *"a dropdown little expander that will be like liquid glass … open it on click"*. Real NQ now
+fills the window: a slim bar of drawing tools on the left; the chart card with NQ, its price and the move since the
+previous session's close, the timeframes, the jumps back, the date and the time zone; under them the layers that are on,
+as chips with a ×; a status line. The forty layers — the New York clock's parts and the rules — moved from two rows of
+buttons into one glass panel opened by the Layers button: a search, four presets and five groups of switches. The choice
+of market went (NQ only; ES is read beside it in the SMT lesson and drill). Practice's session screen uses the same menu.
+At 1920 and 1366 the page fits the window without scrolling. Mutations: 18, all caught. Frontend 404 → 412.
+
 ---
 
 ## For the presentation: the disclaimer slide
