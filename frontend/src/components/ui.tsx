@@ -11,24 +11,24 @@ import { cx } from '@/lib/styles'
 type ButtonVariant = 'default' | 'primary' | 'buy' | 'sell' | 'ghost' | 'link'
 type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 
-// Two utilities for the same property (text-subtle and text-brand, say) are not resolved by their
+// Two utilities for the same property (text-subtle and text-accent, say) are not resolved by their
 // order in the class list but by their order in the generated stylesheet. So a button's resting and
 // active looks are separate, complete sets — never one layered on the other.
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  default: 'border border-line bg-raised text-ink hover:border-brand/60',
-  primary: 'bg-brand font-semibold text-canvas hover:bg-brand/85',
+  default: 'border border-line bg-raised text-ink hover:border-accent/60',
+  primary: 'bg-accent font-semibold text-accent-ink hover:bg-accent/85',
   buy: 'border border-up/60 font-semibold text-up hover:bg-up/10',
   sell: 'border border-down/60 font-semibold text-down hover:bg-down/10',
   ghost: 'text-subtle hover:bg-raised hover:text-ink',
-  link: 'text-brand underline-offset-4 hover:underline',
+  link: 'text-accent underline-offset-4 hover:underline',
 }
 
 const BUTTON_ACTIVE: Record<ButtonVariant, string> = {
-  default: 'border border-brand/70 bg-brand/15 text-brand',
+  default: 'border border-accent/70 bg-accent/15 text-accent',
   primary: BUTTON_VARIANTS.primary,
   buy: BUTTON_VARIANTS.buy,
   sell: BUTTON_VARIANTS.sell,
-  ghost: 'bg-brand/15 text-brand',
+  ghost: 'bg-accent/15 text-accent',
   link: BUTTON_VARIANTS.link,
 }
 
@@ -58,7 +58,7 @@ export function Button({
       type={type}
       className={cx(
         'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         'disabled:cursor-not-allowed disabled:opacity-40',
         variant === 'link' ? 'text-sm' : BUTTON_SIZES[size],
         active ? BUTTON_ACTIVE[variant] : BUTTON_VARIANTS[variant],
@@ -91,7 +91,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(option)}
           className={cx(
             'h-7 cursor-pointer rounded px-2.5 text-xs font-medium tabular-nums transition-colors',
-            option === value ? 'bg-brand/20 text-brand' : 'text-subtle hover:text-ink',
+            option === value ? 'bg-accent/20 text-accent' : 'text-subtle hover:text-ink',
           )}
         >
           {option}

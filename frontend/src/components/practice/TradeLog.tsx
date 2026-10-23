@@ -94,7 +94,7 @@ export function TradeLog({
                         type="button"
                         aria-pressed={trade.number === selected}
                         aria-label={`Show trade ${trade.number}`}
-                        className="cursor-pointer font-medium text-brand hover:underline"
+                        className="cursor-pointer font-medium text-accent hover:underline"
                         onClick={(e) => {
                           e.stopPropagation()
                           onSelect(trade.number)

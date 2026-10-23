@@ -50,7 +50,7 @@
 
 | Task | Name | Blocked by | State | Branch / merge | Notes |
 |---|---|---|---|---|---|
-| T36 | Theme and shell | — | ⬜ | | |
+| T36 | Theme and shell | — | 🟡 in progress | `feat/t36-shell` | done: tokens (index.css + lib/theme.ts, test keeps them equal), Space Grotesk + JetBrains Mono, brand→accent, canvases on the palette, packages installed (react-router, motion, lucide-react). Next: step 1 router + step 7 shell, then the kit (step 6) |
 | T37 | Chart overlays in the paint step (BUG-095) | — | ⬜ | | |
 | T38 | Chart tab | T36, T37 | ⬜ | | |
 | T39 | Home | T36 (news card: T40) | ⬜ | | |

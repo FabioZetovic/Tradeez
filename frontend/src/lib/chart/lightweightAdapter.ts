@@ -12,6 +12,7 @@ import type { Projection } from '../drawing/types'
 import { logicalAt, timeAtLogical } from './logical'
 import { decimalsFor, ticksToPrice } from './priceFormat'
 import { createTickMarkFormatter, createTimeFormatter, type TickKind } from './timeAxis'
+import { THEME } from '../theme'
 
 /**
  * {@link ChartAdapter} backed by TradingView Lightweight Charts v5 (Apache 2.0).
@@ -44,7 +45,7 @@ export class LightweightChartAdapter implements ChartAdapter {
       autoSize: true,
       layout: {
         background: { color: 'transparent' },
-        textColor: '#8b949e',
+        textColor: THEME.subtle,
         attributionLogo: false,
       },
       grid: {
@@ -56,9 +57,9 @@ export class LightweightChartAdapter implements ChartAdapter {
         handleScroll: false,
         handleScale: { mouseWheel: false, pinch: false, axisPressedMouseMove: { time: false, price: true } },
       }),
-      rightPriceScale: { borderColor: '#30363d' },
+      rightPriceScale: { borderColor: THEME.line },
       timeScale: {
-        borderColor: '#30363d',
+        borderColor: THEME.line,
         timeVisible: true,
         secondsVisible: false,
         // Empty space after the last bar. The position tool draws its zones to the right of the
@@ -79,12 +80,12 @@ export class LightweightChartAdapter implements ChartAdapter {
     })
 
     this.series = this.chart.addSeries(CandlestickSeries, {
-      upColor: '#3fb950',
-      downColor: '#f85149',
-      borderUpColor: '#3fb950',
-      borderDownColor: '#f85149',
-      wickUpColor: '#3fb950',
-      wickDownColor: '#f85149',
+      upColor: THEME.up,
+      downColor: THEME.down,
+      borderUpColor: THEME.up,
+      borderDownColor: THEME.down,
+      wickUpColor: THEME.up,
+      wickDownColor: THEME.down,
       priceFormat: {
         type: 'price',
         precision: decimalsFor(options.tickSize),

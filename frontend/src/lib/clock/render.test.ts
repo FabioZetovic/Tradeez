@@ -71,7 +71,7 @@ describe('painting the clock', () => {
       [-5, 0, 20, 170],
       [-5, 0, 20, 14],
     ])
-    expect(fills[0].fill).toContain('rgba(88, 166, 255')
+    expect(fills[0].fill).toContain('rgba(110, 168, 254')
     expect(calls.find((c) => c.op === 'fillText')?.args[0]).toBe('London')
   })
 

@@ -5,6 +5,7 @@ import { timeToX } from '../chart/timeToX'
 import { formatPrice } from '../chart/priceFormat'
 import type { Projection } from '../drawing/types'
 import { killzoneColor, lineLayer, windowLayer, type ClockLayerKey } from './layers'
+import { THEME } from '../theme'
 
 /**
  * Paints the New York clock onto its overlay canvas: windows as shading, prices as lines.
@@ -123,7 +124,7 @@ function drawWindow(
       ctx.lineTo(Math.round(x0) + 0.5, pane.height)
       ctx.stroke()
       ctx.setLineDash([])
-      label(ctx, window.label, x0 + 4, pane.height - 8, width, '#8b949e')
+      label(ctx, window.label, x0 + 4, pane.height - 8, width, THEME.subtle)
       return
     case 'KILLZONE': {
       const color = killzoneColor(window.label)
@@ -131,7 +132,7 @@ function drawWindow(
       ctx.fillRect(x0, 0, width, pane.height)
       ctx.fillStyle = withAlpha(color, 0.35)
       ctx.fillRect(x0, 0, width, STRIP)
-      label(ctx, window.label, x0 + 3, STRIP / 2, width, '#e6edf3')
+      label(ctx, window.label, x0 + 3, STRIP / 2, width, THEME.ink)
       return
     }
     case 'SILVER_BULLET':

@@ -1,23 +1,34 @@
 @import 'tailwindcss';
 
 /*
- * Tradeez design tokens (DEC-044). Every colour the UI uses is one of these, and the chart uses the
- * same values (lib/chart/lightweightAdapter.ts), so the canvas and the page around it never disagree.
- * Utilities follow from the names: bg-surface, border-line, text-subtle, text-up, bg-brand/15 …
+ * Tradeez design tokens (DEC-044, T36 / DEC-078). Every colour the UI uses is one of these. The canvases — the
+ * chart, its overlays — read the same values from lib/theme.ts; styles.test.ts keeps the two identical.
+ * `accent` is the one theme colour (docs/REDESIGN.md R-3): change it here and in lib/theme.ts.
+ * Utilities follow from the names: bg-surface, border-line, text-subtle, text-up, bg-accent/15 …
  */
 @theme {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Space Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
-  --color-canvas: #0d1117; /* page background */
-  --color-surface: #161b22; /* panels, the chart */
-  --color-raised: #1c2128; /* controls, hover */
-  --color-line: #30363d; /* borders, chart grid */
-  --color-ink: #e6edf3; /* text */
-  --color-subtle: #8b949e; /* secondary text, chart axis labels */
-  --color-brand: #58a6ff; /* actions, focus, selection */
-  --color-up: #3fb950; /* up candles, long, wins */
-  --color-down: #f85149; /* down candles, short, losses, errors */
-  --color-warn: #d29922; /* simulated-data notices, assumptions */
+  --color-canvas: #0e1014; /* page background */
+  --color-surface: #15181d; /* cards, panels, the chart */
+  --color-raised: #1d2127; /* hover, menus, inputs */
+  --color-sunken: #22262d; /* segmented tracks, summary boxes */
+  --color-line: #262a31; /* borders, the chart's grid */
+  --color-ink: #f0f2f5; /* text */
+  --color-subtle: #979ca6; /* secondary text, axis labels */
+  --color-accent: #7c6cff; /* THE theme colour: actions, focus, selection, progress */
+  --color-accent-ink: #ffffff; /* text on the accent */
+  --color-up: #34d399; /* up candles, long, wins */
+  --color-down: #f05462; /* down candles, short, losses, errors */
+  --color-warn: #f0a73a; /* levels, assumptions, notices */
+  --color-news-high: #e5484d; /* Forex Factory's red folder */
+  --color-news-medium: #f5a524; /* Forex Factory's orange folder */
+
+  --radius-card: 1.125rem;
+  --shadow-panel: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 20px 40px -24px rgb(0 0 0 / 0.6);
+  --shadow-glow: 0 0 0 1px rgb(124 108 255 / 0.4), 0 10px 30px -10px rgb(124 108 255 / 0.45);
 }
 
 @layer base {
@@ -29,5 +40,22 @@
 
   body {
     @apply bg-canvas font-sans text-ink antialiased;
+    /* A soft glow of the accent from the top left (Lovable's), fixed while the page scrolls. */
+    background-image: radial-gradient(60% 50% at 20% 0%, rgb(124 108 255 / 0.12), transparent 70%);
+    background-attachment: fixed;
   }
+}
+
+/* Every number — prices, R, money, times, codes — in the mono face, digits aligned. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The glass surface (R-10): the layers menu, popovers over the chart. */
+@utility glass {
+  background-color: rgb(21 24 29 / 0.6);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-panel);
 }
