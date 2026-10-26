@@ -1,6 +1,8 @@
+import { StrictMode } from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router'
 import { DrillView } from './DrillView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
 import type { DrillKindView, DrillResponse, ResultView } from '@/lib/api/drills'
@@ -354,22 +356,26 @@ function clickCandle(index: number) {
   fireEvent.click(frame, { clientX: BARS[index].time - 1000, clientY: 100 })
 }
 
-async function startDrill(kind?: string) {
+/** The drill's screen, as its card opens it (T43). */
+function renderDrill(kind: string, adapters: FakeChartAdapter[] = []) {
+  return render(
+    <MemoryRouter>
+      <DrillView
+        kind={kind}
+        adapterFactory={() => {
+          const adapter = new FakeChartAdapter()
+          adapters.push(adapter)
+          return adapter
+        }}
+      />
+    </MemoryRouter>,
+  )
+}
+
+async function startDrill(kind = 'FVG_IDENTIFICATION') {
   const user = userEvent.setup()
   const adapters: FakeChartAdapter[] = []
-  render(
-    <DrillView
-      adapterFactory={() => {
-        const adapter = new FakeChartAdapter()
-        adapters.push(adapter)
-        return adapter
-      }}
-    />,
-  )
-  // The list of drills arrives first; nothing can start before it.
-  await screen.findByRole('option', { name: 'Fair value gaps' })
-  if (kind) await user.selectOptions(screen.getByLabelText('Drill'), kind)
-  await user.click(screen.getByRole('button', { name: /start a drill/i }))
+  renderDrill(kind, adapters)
   await screen.findByTestId('drill-overlay')
   // The chart hands the overlay its adapter in a second render. Wait until the overlay has its layer on that chart
   // (T37); a person cannot click before the chart is drawn either.
@@ -384,12 +390,19 @@ afterEach(() => vi.restoreAllMocks())
 describe('Drills — spot (identification)', () => {
   beforeEach(() => mockApi(server()))
 
-  it('offers every drill from the server, grouped by mode, and starts the one chosen on real NQ', async () => {
+  it('asks for its drill on arrival — once, on real NQ, leaving the timeframe to the server (T43)', async () => {
     await startDrill()
-    const groups = screen.getAllByRole('group')
-    expect(within(groups[0]).getByRole('option', { name: 'Fair value gaps' })).toBeInTheDocument()
-    expect(within(groups[1]).getByRole('option', { name: /change of character/ })).toBeInTheDocument()
-    expect(started()?.body).toEqual({ kind: 'FVG_IDENTIFICATION', instrument: 'NQ', timeframe: '5m' })
+    expect(started()?.body).toEqual({ kind: 'FVG_IDENTIFICATION', instrument: 'NQ' })
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/drills'))).toHaveLength(1)
+    expect(screen.getByTestId('drill-mode')).toHaveTextContent('Spot')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Fair value gaps')
+    // The timeframe the server drew, said.
+    expect(screen.getByTestId('drill-chart')).toHaveTextContent('NQ · 5m')
+    expect(screen.getByText(/Mark the middle candle of every fair value gap in this chart/)).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'All drills' })[0]).toHaveAttribute('href', '/drills')
+    // No list to choose from, no timeframe to pick.
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.queryByRole('button', { name: '1m' })).toBeNull()
   })
 
   it('names the versioned rule it is graded against (DEC-026)', async () => {
@@ -402,14 +415,14 @@ describe('Drills — spot (identification)', () => {
 
   it('marks candles by clicking them, and unmarks on a second click', async () => {
     await startDrill()
-    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 candles marked')
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 marked')
 
     clickCandle(5)
     clickCandle(20)
-    expect(screen.getByTestId('mark-count')).toHaveTextContent('2 candles marked')
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('2 marked')
 
     clickCandle(20)
-    expect(screen.getByTestId('mark-count')).toHaveTextContent('1 candle marked')
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('1 marked')
   })
 
   it('ignores a click that was really a drag of the chart', async () => {
@@ -418,7 +431,7 @@ describe('Drills — spot (identification)', () => {
     const x = BARS[5].time - 1000
     fireEvent.pointerDown(frame, { clientX: x - 40, clientY: 100 })
     fireEvent.click(frame, { clientX: x, clientY: 100 })
-    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 candles marked')
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 marked')
   })
 
   it("sends exactly the marked candles, then grades them and shows the server's explanations", async () => {
@@ -430,7 +443,7 @@ describe('Drills — spot (identification)', () => {
     const answer = calls.find((c) => c.url.endsWith('/answer'))
     expect(answer?.body).toEqual({ marks: [BARS[5].time, BARS[20].time] })
 
-    expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Found 1 of 2 · 1 extra mark')
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent('1/2 found · 1 extra')
     expect(screen.getByTestId('drill-grade')).toHaveTextContent('Recall 50% · precision 50%, against fvg-1.0.0.')
     const gaps = screen.getAllByTestId('drill-gap')
     expect(gaps).toHaveLength(2)
@@ -463,17 +476,22 @@ describe('Drills — spot (identification)', () => {
     await screen.findByTestId('drill-summary')
 
     expect(screen.queryByRole('button', { name: /check answer/i })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'All drills' })).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: /next drill/i }))
     await waitFor(() => expect(screen.queryByTestId('drill-summary')).not.toBeInTheDocument())
-    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 candles marked')
-    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/drills'))).toHaveLength(2)
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 marked')
+    const asked = calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/drills'))
+    expect(asked.map((c) => c.body)).toEqual([
+      { kind: 'FVG_IDENTIFICATION', instrument: 'NQ' },
+      { kind: 'FVG_IDENTIFICATION', instrument: 'NQ' },
+    ])
   })
 
   it('clears marks before checking', async () => {
     const user = await startDrill()
     clickCandle(3)
-    await user.click(screen.getByRole('button', { name: /clear marks/i }))
-    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 candles marked')
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('0 marked')
   })
 
   it('never shows the answer before it is given', async () => {
@@ -571,18 +589,7 @@ describe('Drills — predict', () => {
   it('answers with the target chosen, then shows the hidden candles and what decided it', async () => {
     const adapters: FakeChartAdapter[] = []
     const user = userEvent.setup()
-    render(
-      <DrillView
-        adapterFactory={() => {
-          const adapter = new FakeChartAdapter()
-          adapters.push(adapter)
-          return adapter
-        }}
-      />,
-    )
-    await screen.findByRole('option', { name: 'Which liquidity is taken first' })
-    await user.selectOptions(screen.getByLabelText('Drill'), 'LIQUIDITY_FIRST_PREDICTION')
-    await user.click(screen.getByRole('button', { name: /start a drill/i }))
+    renderDrill('LIQUIDITY_FIRST_PREDICTION', adapters)
     await waitFor(() => expect(adapters.at(-1)?.bars).toHaveLength(30))
 
     await user.click(screen.getByRole('button', { name: 'Buy-side at 20007.50' }))
@@ -625,31 +632,31 @@ describe('Drills — fixtures and refusals', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('already been answered')
   })
 
-  it('asks for the chosen timeframe', async () => {
+  it("asks for one drill, not two, when React's strict mode mounts the screen twice", async () => {
     mockApi(server())
-    const user = userEvent.setup()
-    render(<DrillView adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByRole('option', { name: 'Fair value gaps' })
-    await user.click(screen.getByRole('button', { name: '1m' }))
-    await user.click(screen.getByRole('button', { name: /start a drill/i }))
-    await waitFor(() => expect(started()?.body).toMatchObject({ timeframe: '1m' }))
+    render(
+      <StrictMode>
+        <MemoryRouter>
+          <DrillView kind="FVG_IDENTIFICATION" adapterFactory={() => new FakeChartAdapter()} />
+        </MemoryRouter>
+      </StrictMode>,
+    )
+    await screen.findByTestId('drill-overlay')
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/drills'))).toHaveLength(1)
   })
 
-  it('starts on the drill a lesson sent the learner to practise', async () => {
-    mockApi(server())
+  it('says so when no chart can be found, and tries again', async () => {
+    let fail = true
+    mockApi((call) => {
+      if (call.method === 'POST' && fail) return { status: 503, body: { message: 'No real NQ data is loaded.' } }
+      return server()(call)
+    })
     const user = userEvent.setup()
-    render(<DrillView initialKind="BOS_CHOCH_CLASSIFICATION" adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByRole('option', { name: 'Fair value gaps' })
-    expect(screen.getByLabelText('Drill')).toHaveValue('BOS_CHOCH_CLASSIFICATION')
-    await user.click(screen.getByRole('button', { name: /start a drill/i }))
-    await waitFor(() => expect(started()?.body).toMatchObject({ kind: 'BOS_CHOCH_CLASSIFICATION' }))
-  })
-
-  it('says so when the list of drills cannot be loaded', async () => {
-    mockApi(() => ({ status: 500, body: { message: 'down' } }))
-    render(<DrillView adapterFactory={() => new FakeChartAdapter()} />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the list of drills')
-    expect(screen.getByRole('button', { name: /start a drill/i })).toBeDisabled()
+    renderDrill('FVG_IDENTIFICATION')
+    expect(await screen.findByRole('alert')).toHaveTextContent('No real NQ data is loaded.')
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByTestId('drill-overlay')).toBeInTheDocument()
   })
 })
 
@@ -667,19 +674,8 @@ describe('Drills — SMT, two charts (DEC-075)', () => {
 
   it("draws ES under NQ over the same minutes, keeps it on the drill chart's stretch, and takes marks on NQ only", async () => {
     mockApi(server({ drill: SMT }))
-    const user = userEvent.setup()
     const adapters: FakeChartAdapter[] = []
-    render(
-      <DrillView
-        adapterFactory={() => {
-          const adapter = new FakeChartAdapter()
-          adapters.push(adapter)
-          return adapter
-        }}
-      />,
-    )
-    await screen.findByRole('option', { name: 'Fair value gaps' })
-    await user.click(screen.getByRole('button', { name: /start a drill/i }))
+    renderDrill('SMT_IDENTIFICATION', adapters)
     expect(await screen.findByRole('figure', { name: 'ES over the same minutes' })).toBeInTheDocument()
     await waitFor(() => expect(adapters).toHaveLength(2))
     await waitFor(() => expect(adapters[1].bars).toEqual(ES_BARS))

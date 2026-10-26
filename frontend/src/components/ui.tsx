@@ -1,6 +1,7 @@
 import { useEffect, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, type RefObject } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronDown } from 'lucide-react'
+import { Link } from 'react-router'
+import { ArrowRight, ChevronDown } from 'lucide-react'
 import { cx } from '@/lib/styles'
 
 /**
@@ -140,10 +141,11 @@ export function PageHeader({
   )
 }
 
-type ChipTone = 'neutral' | 'good' | 'caution'
+type ChipTone = 'neutral' | 'accent' | 'good' | 'caution'
 
 const CHIP_TONES: Record<ChipTone, string> = {
   neutral: 'border-line text-subtle',
+  accent: 'border-accent/40 text-accent',
   good: 'border-up/50 text-up',
   caution: 'border-warn/50 text-warn',
 }
@@ -338,5 +340,26 @@ export function StatTile({
       <span className={cx('num mt-3 text-3xl font-semibold', TILE_TONES[tone])}>{value}</span>
       {open && <span className="mt-3 text-sm text-subtle">{detail}</span>}
     </button>
+  )
+}
+
+/** The step after this page (Lovable's "Next step →"): a card linking on, its arrow sliding on hover. */
+export function NextStep({ to, title, line }: { to: string; title: string; line: string }) {
+  return (
+    <Link
+      to={to}
+      className={cx(
+        'group mt-10 flex items-center justify-between gap-4 rounded-card border border-line bg-surface p-5 shadow-panel',
+        'transition-colors hover:border-accent/40 hover:bg-raised',
+        FOCUS_RING,
+      )}
+    >
+      <span>
+        <span className="block text-xs font-semibold tracking-widest text-accent uppercase">Next step</span>
+        <span className="mt-1 block font-display text-xl font-bold tracking-tight text-ink">{title}</span>
+        <span className="mt-1 block text-sm text-subtle">{line}</span>
+      </span>
+      <ArrowRight aria-hidden className="size-5 shrink-0 text-accent transition-transform group-hover:translate-x-1" />
+    </Link>
   )
 }

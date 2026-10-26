@@ -12,7 +12,7 @@ import type { Companion, DomainBar } from '../chart/types'
  * IDENTIFY: mark every instance (mode A). CLASSIFY: name the marked structure (mode B). PREDICT: say
  * which of two targets price reaches first after the chart stops (mode C, DEC-058).
  */
-type DrillMode = 'IDENTIFY' | 'CLASSIFY' | 'PREDICT' | 'MANAGE'
+export type DrillMode = 'IDENTIFY' | 'CLASSIFY' | 'PREDICT' | 'MANAGE'
 
 export interface DrillKindView {
   kind: string
@@ -164,9 +164,9 @@ export interface DrillResponse {
 
 /** Risk drills, mode F (risk-1.0.0, T26): position size, a losing streak, recovery. */
 export const RISK_KINDS = [
-  { value: 'CONTRACTS', label: 'Position size' },
-  { value: 'STREAK', label: 'Losing streak' },
-  { value: 'RECOVERY', label: 'Recovery' },
+  { value: 'CONTRACTS', slug: 'position-size', label: 'Position size', line: 'An account, a risk and a stop: how many contracts?' },
+  { value: 'STREAK', slug: 'losing-streak', label: 'Losing streak', line: 'The same share risked loss after loss: how deep does it go?' },
+  { value: 'RECOVERY', slug: 'recovery', label: 'Recovery', line: 'An account down so much: what gain brings it back?' },
 ] as const
 
 export type RiskKind = (typeof RISK_KINDS)[number]['value']
@@ -194,6 +194,16 @@ export interface RiskDrill {
   }
 }
 
+/** A kind of risk question with its clock and the learner's record at it (T43). */
+export interface RiskKindView {
+  kind: RiskKind
+  limitSeconds: number
+  answered: number
+  right: number
+}
+
+export const listRiskKinds = () => apiFetch<RiskKindView[]>('/api/drills/risk/kinds')
+
 export const startRiskDrill = (kind: RiskKind) =>
   apiFetch<RiskDrill>('/api/drills/risk', { method: 'POST', body: JSON.stringify({ kind }) })
 
@@ -203,11 +213,10 @@ export const answerRiskDrill = (id: string, value: number) =>
     body: JSON.stringify({ value }),
   })
 
-export const DRILL_TIMEFRAMES = ['1m', '5m', '15m'] as const
-
 export const listDrillKinds = () => apiFetch<DrillKindView[]>('/api/drills/kinds')
 
-export const startDrill = (body: { kind?: string; instrument?: string; timeframe?: string }) =>
+/** No timeframe: the server draws one of 1m, 5m and 15m (T43) — "the time on a chart doesnt matter". */
+export const startDrill = (body: { kind: string; instrument?: string }) =>
   apiFetch<DrillResponse>('/api/drills', { method: 'POST', body: JSON.stringify(body) })
 
 export const answerDrill = (id: string, answer: { marks: number[] } | { choice: string }) =>

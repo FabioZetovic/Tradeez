@@ -103,7 +103,8 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
   the rule's own numbers; and a button to the drill that practises it. Your progress on it (DEC-059):
   solid after ten graded attempts at 80% or more over the last twenty, reviews spaced as Anki spaces
   them, cards marked read, and the next step suggested — the ladder suggests, it never locks.
-- **Drills** on real NQ, graded against the rule (DEC-054). *Spot*: mark every fair value gap, swing
+- **Drills** on real NQ, graded against the rule (DEC-054): cards by topic, each with its record, one click to a
+  chart on a timeframe drawn at random (T43). *Spot*: mark every fair value gap, swing
   high, swing low, volume imbalance, displacement, pair of equal highs/lows or sweep in 30 candles.
   *Name*: one structure is drawn — is it a higher or lower high, a BOS or a CHoCH, a sweep or a run?
   The answer is the versioned rule's, named on screen and withheld until you answer; each hit is

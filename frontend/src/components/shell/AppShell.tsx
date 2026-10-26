@@ -19,9 +19,10 @@ const NAV = [
 
 /**
  * Pages built around a chart take the whole width; reading pages keep a 1280 px column (docs/REDESIGN.md T36). Practice's
- * home is a reading page since T41; its session screen takes the width again with its own address (T42).
+ * home is a reading page since T41; its session screen takes the width again with its own address (T42). So with Drills
+ * (T43): the cards read in the column, a drill's chart takes the width.
  */
-const WIDE = ['/chart', '/drills']
+const wides = (pathname: string) => pathname === '/chart' || /^\/drills\/[^/]+/.test(pathname)
 
 /** The Chart tab and a practice session fill the window to the edges, with Lovable's narrow gutter (T38, T42). */
 const fills = (pathname: string) => pathname === '/chart' || /^\/practice\/[^/]+/.test(pathname)
@@ -39,7 +40,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
   const { pathname } = useLocation()
   const section = '/' + (pathname.split('/')[1] ?? '')
   const full = fills(pathname)
-  const wide = full || WIDE.includes(section)
+  const wide = full || wides(pathname)
 
   return (
     <div className="flex min-h-svh flex-col">

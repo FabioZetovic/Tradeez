@@ -24,8 +24,19 @@ public final class RiskQuestion {
 
 	public static final String VERSION = "risk-1.0.0";
 
+	/** Each with its clock: a streak takes a power in the head, so more time. */
 	public enum Kind {
-		CONTRACTS, STREAK, RECOVERY
+		CONTRACTS(30), STREAK(45), RECOVERY(30);
+
+		private final int limitSeconds;
+
+		Kind(int limitSeconds) {
+			this.limitSeconds = limitSeconds;
+		}
+
+		public int limitSeconds() {
+			return limitSeconds;
+		}
 	}
 
 	/**
@@ -93,7 +104,7 @@ public final class RiskQuestion {
 		}
 		return new Question(Kind.CONTRACTS, givens, "An account of " + money(account * 100L) + ", risking " + percent(risk)
 			+ " of it on this trade. The stop is " + stopTicks + " ticks away, on " + product + " (" + money(tickCents)
-			+ " a tick). How many contracts? Leave commission and slippage out.", "contracts", contracts, 0, 30, working);
+			+ " a tick). How many contracts? Leave commission and slippage out.", "contracts", contracts, 0, Kind.CONTRACTS.limitSeconds(), working);
 	}
 
 	static Question streak(RandomGenerator random) {
@@ -114,7 +125,7 @@ public final class RiskQuestion {
 				+ String.format(Locale.ROOT, "%.2f%%", Math.min(100, risk * losses))
 				+ ": a risk that shrinks with the account keeps the hole shallower.");
 		return new Question(Kind.STREAK, givens, "Risking " + percent(risk) + " of what the account holds on every trade, "
-			+ "how far down is it after " + losses + " losses in a row? Answer in percent.", "%", round2(down), 0.5, 45, working);
+			+ "how far down is it after " + losses + " losses in a row? Answer in percent.", "%", round2(down), 0.5, Kind.STREAK.limitSeconds(), working);
 	}
 
 	static Question recovery(RandomGenerator random) {
@@ -132,7 +143,7 @@ public final class RiskQuestion {
 				+ String.format(Locale.ROOT, "%.2f%%", gain) + ".",
 			"The deeper the hole, the faster this grows: 50% down needs 100% up.");
 		return new Question(Kind.RECOVERY, givens, "An account is down " + drawdown + "% from its peak. What gain brings it "
-			+ "back? Answer in percent.", "%", round2(gain), 1, 30, working);
+			+ "back? Answer in percent.", "%", round2(gain), 1, Kind.RECOVERY.limitSeconds(), working);
 	}
 
 	/** Right when within the tolerance of the answer; the last digit of a decimal does not decide it. */

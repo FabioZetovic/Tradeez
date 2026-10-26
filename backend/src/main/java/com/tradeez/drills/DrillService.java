@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -96,6 +97,7 @@ public class DrillService {
 	static final Set<Timeframe> REAL_TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M5, Timeframe.M15);
 	static final Set<Timeframe> SIMULATED_TIMEFRAMES = EnumSet.of(Timeframe.M5, Timeframe.M15);
 	static final String DEFAULT_INSTRUMENT = "NQ";
+	/** A simulated fixture's timeframe when none is asked for; a real drill's is drawn at random (T43). */
 	static final Timeframe DEFAULT_TIMEFRAME = Timeframe.M5;
 	static final DrillKind DEFAULT_KIND = DrillKind.FVG_IDENTIFICATION;
 	static final int MAX_ATTEMPTS = 80;
@@ -176,8 +178,8 @@ public class DrillService {
 	public DrillResponse create(UUID userId, String kindCode, String symbol, String timeframeCode) {
 		DrillKind kind = blank(kindCode) ? DEFAULT_KIND : DrillKind.parse(kindCode);
 		Instrument instrument = marketData.requireInstrument(blank(symbol) ? DEFAULT_INSTRUMENT : symbol);
-		Timeframe timeframe = blank(timeframeCode) ? DEFAULT_TIMEFRAME : Timeframe.fromCode(timeframeCode);
 		boolean simulated = instrument.getDataClass() == DataClass.SIMULATED;
+		Timeframe timeframe = timeframe(timeframeCode, simulated, random);
 		if (simulated) {
 			if (kind != DrillKind.FVG_IDENTIFICATION) {
 				throw new IllegalArgumentException("On simulated data only the FVG drill runs, as a developer "
@@ -737,6 +739,22 @@ public class DrillService {
 			throw new IllegalArgumentException("Drills run on " + allowed.stream().map(Timeframe::code).toList()
 				+ " charts here.");
 		}
+	}
+
+	/**
+	 * The timeframe a drill is set on (T43): the one asked for, or — on real data — one of {@link #REAL_TIMEFRAMES} at
+	 * random. Fabio: "the time on a chart doesnt matter" · "it can be random". A simulated fixture keeps
+	 * {@link #DEFAULT_TIMEFRAME}.
+	 */
+	static Timeframe timeframe(String code, boolean simulated, RandomGenerator random) {
+		if (!blank(code)) {
+			return Timeframe.fromCode(code);
+		}
+		if (simulated) {
+			return DEFAULT_TIMEFRAME;
+		}
+		List<Timeframe> real = List.copyOf(REAL_TIMEFRAMES);
+		return real.get(random.nextInt(real.size()));
 	}
 
 	private static boolean blank(String value) {

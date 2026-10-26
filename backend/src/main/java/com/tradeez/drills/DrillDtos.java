@@ -48,6 +48,14 @@ public final class DrillDtos {
 		@Schema(description = "Absent until answered") RiskResultView result) {
 	}
 
+	@Schema(description = "A kind of risk question, its clock, and this learner's record at it (T43)")
+	public record RiskKindView(
+		@Schema(description = "CONTRACTS, STREAK or RECOVERY") String kind,
+		int limitSeconds,
+		@Schema(description = "Questions of this kind answered") int answered,
+		int right) {
+	}
+
 	public record RiskResultView(
 		double given,
 		double answer,
@@ -63,7 +71,7 @@ public final class DrillDtos {
 	public record CreateDrillRequest(
 		@Schema(description = "One of GET /api/drills/kinds. Defaults to FVG_IDENTIFICATION") String kind,
 		@Schema(description = "Defaults to NQ (real data). DEMO-NQ is a developer fixture") String instrument,
-		@Schema(description = "1m, 5m or 15m on real data. Defaults to 5m") String timeframe) {
+		@Schema(description = "1m, 5m or 15m on real data. Left out, one of them at random (T43)") String timeframe) {
 	}
 
 	@Schema(description = "Marks for an identification drill, or a choice for a classification drill")

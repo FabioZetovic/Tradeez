@@ -57,7 +57,7 @@
 | T40 | News | T36 | ✅ merged 2026-10-26 | `feat/t40-news` | DEC-079: our own calendar — FRED release dates (8 releases) + the Fed's FOMC list, refreshed every 6 h, stale/FOMC warnings, FRED notice; News page `/news`, Home "News today", nav. Forex Factory ruled out by its terms. Screenshots docs/redesign/after/t40/ |
 | T41 | Practice home | T36 | ✅ merged 2026-10-26 | `feat/t41-practice` | DEC-080: costs fixed at the standard (refused if sent, V29), start = session time + Start, four StatTiles (total, win rate, held to plan, costs paid), open sessions, per-trade journal (`GET /api/practice/trades`), more statistics behind a disclosure. Screenshots docs/redesign/after/t41/ |
 | T42 | Practice session | T37, T38, T41 | ✅ merged 2026-10-26 | `feat/t42-session` | `/practice/:sessionId` full screen: drawing bar, chart card (top bar, layers, chart, Trades strip), 22rem trading column (score, plan, open trade, scorecard, review, replay sticky at its foot); practice layers its own and all off by default. Screenshots docs/redesign/after/t42/ |
-| T43 | Drills | T36 | ⬜ | | locks from T45 added later |
+| T43 | Drills | T36 | 🟢 built, waiting for "merge" | `feat/t43-drills` | `/drills` cards by topic (mode badge, time hint, the real record), `/drills/:kind` one click to a drill (eyebrow, title, task, chart, answer bar, result, Next drill), `/drills/risk/:slug` Lovable's risk card; no kind dropdown, no timeframe — the server draws 1m/5m/15m; `GET /api/drills/risk/kinds` for the risk records. Locks from T45 added later. Screenshots docs/redesign/after/t43/ |
 | T44 | Learn audit (with Fabio) | Fabio's time | ⬜ | | list → his decisions |
 | T45 | Learn rebuild | T36, T44 | ⬜ | | |
 | T46 | Phones and tablets | T36–T45 | ⬜ | | |
@@ -1031,4 +1031,11 @@ due, open), `suggested`, `due`.
 | 2026-10-26 | T42 | The session screen is the existing `PracticeSession` rearranged, not a new `SessionPage`: every behaviour test carried over unchanged but for the layout | Claude |
 | 2026-10-26 | T42 | The replay sits sticky at the column's foot, so it stays in reach however long the scorecard above it | Claude |
 | 2026-10-26 | T42 | The plan panel, the scorecard and the review keep their own look for now; restyling their insides (Lovable's big R, the numbers box) is left for a polish pass | Claude |
+| 2026-10-26 | T43 | A card's record is its concept's (S-2): two drills on one concept (swing highs and lows, ICT-01; sweeps and sweep-or-run, ICT-13) show the same record | Claude |
+| 2026-10-26 | T43 | A prediction's or a managed trade's card shows "{n} answered" (`practised`), not an accuracy: those are practice, never a rating (DEC-059) | Claude |
+| 2026-10-26 | T43 | The risk cards' clock and record come from a new `GET /api/drills/risk/kinds`; each kind's clock moved onto `RiskQuestion.Kind` so the card and the question cannot disagree | Claude |
+| 2026-10-26 | T43 | The drill screen shows the timeframe the server drew ("NQ · 15m") beside the title: chosen at random, still said | Claude |
+| 2026-10-26 | T43 | Risk addresses read `/drills/risk/position-size`, `losing-streak`, `recovery`; an unknown one goes back to the cards | Claude |
+| 2026-10-26 | T43 | The cards read in the 1280 column; a drill's screen takes the width for its chart. A kind no topic names still gets a card under "More drills", so every drill stays reachable until T44/T45 regroup them | Claude |
+| 2026-10-26 | T43 | `NextStep` joins the kit (first used here) | Claude |
 

@@ -2031,6 +2031,17 @@ tests). Frontend 432 → 436.
 **2026-10-26 — T42 merged.** Fabio: "merge it and continue with T43". `--no-ff` merge d4a21aa; master's tree is exactly the
 branch's, which passed its fresh-clone check (frontend 436, lint, typecheck, knip, build, `npm audit` 0; backend unchanged).
 
+**T43 — Drills** (`feat/t43-drills`). Fabio: *"the time on a chart doesnt matter"* · *"it can be random"* · *"group
+them into sections and display them in a nice smooth interactive way. I like the lovables drills tab a lot."* The
+Drills page is now cards in sections by topic — gaps, structure, liquidity, SMT, trade management, risk — each card
+with what kind of exercise it is (spot, name, predict, manage, sums), a time hint, and the learner's real record. One
+click opens the drill: a screen of its own with the task, the chart across the width, the answer under it, and after
+the answer the explanation, "Next drill" and the way back. The dropdown and the timeframe choice are gone; the server
+picks 1, 5 or 15 minutes at random, and the screen says which. The risk sums got their own screen with a countdown
+that turns red under ten seconds, and a small new endpoint gives their cards each clock and record. Mutations: 15
+frontend and 7 backend, all caught (two after new tests: a screen must ask for one drill, or one question, even
+when React mounts it twice). Frontend 436 → 443; backend gains the random timeframe's and the risk record's tests.
+
 ---
 
 ## For the presentation: the disclaimer slide

@@ -1,53 +1,50 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router'
+import { ArrowLeft } from 'lucide-react'
 import { PriceChart } from '../PriceChart'
 import { AdapterOut, CompanionChart } from '../CompanionChart'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
 import { DrillOverlay } from './DrillOverlay'
+import { MODE_NAMES } from '@/lib/drills/modes'
 import { ApiError } from '@/lib/api/client'
-import {
-  answerDrill,
-  DRILL_TIMEFRAMES,
-  listDrillKinds,
-  startDrill,
-  type DrillKindView,
-  type DrillResponse,
-  type ResultView,
-  type TargetView,
-} from '@/lib/api/drills'
+import { answerDrill, startDrill, type DrillResponse, type ResultView, type TargetView } from '@/lib/api/drills'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { toggleMark } from '@/lib/drills/marks'
-import { Button, Chip, Notice, Panel, Segmented } from '../ui'
-import { RiskDrills } from './RiskDrills'
-import { errorClass, fieldClass, panelTitle } from '@/lib/styles'
+import { Button, Chip, Notice, Panel } from '../ui'
+import { errorClass, panelTitle } from '@/lib/styles'
 
 interface DrillViewProps {
-  /** The drill to offer first: the one a lesson card sent the learner to practise. */
-  initialKind?: string
+  /** The drill, from its card or a lesson's "Practise it". */
+  kind: string
   adapterFactory?: () => ChartAdapter
 }
 
-const MODE_GROUPS = [
-  { mode: 'IDENTIFY', label: 'Spot — mark every one' },
-  { mode: 'CLASSIFY', label: 'Name — say what the marked one is' },
-  { mode: 'PREDICT', label: 'Predict — say what price reaches first' },
-  { mode: 'MANAGE', label: 'Manage — an open trade, three choices' },
-] as const
+/** "← All drills": back to the cards. */
+export function AllDrills({ className }: { className?: string }) {
+  return (
+    <Link
+      to="/drills"
+      className={`inline-flex items-center gap-1.5 text-sm font-medium text-subtle hover:text-ink ${className ?? ''}`}
+    >
+      <ArrowLeft aria-hidden className="size-4" />
+      All drills
+    </Link>
+  )
+}
 
 /**
- * The Drills tab (DEC-023, DEC-054): short, single-concept exercises, done by the dozen, on real NQ.
+ * One drill's screen (DEC-023, DEC-054, T43): short, single-concept exercises, done by the dozen, on real NQ. The card
+ * that opened it is the one click: the chart is asked for at once, on a timeframe the server draws.
  *
- * Three kinds. Spot (mode A): mark every instance of a pattern in a stretch of chart. Name (mode B):
- * one structure is drawn — say what the rule calls it. Both are graded against the versioned rule
- * named on screen, and each hit is explained from the rule's own numbers. Predict (mode C, DEC-058):
- * the chart stops and two targets are drawn — say which price reaches first; the candles after the
- * moment arrive only with the answer, and grade it. On simulated data the one drill left is a
- * developer fixture (DEC-034), and the screen says so before anything else.
+ * Spot (mode A): mark every instance of a pattern in a stretch of chart. Name (mode B): one structure is drawn — say what
+ * the rule calls it. Both are graded against the versioned rule named on screen, and each hit is explained from the
+ * rule's own numbers. Predict (mode C, DEC-058): the chart stops and two targets are drawn — say which price reaches
+ * first; the candles after the moment arrive only with the answer, and grade it. Manage (T26): an open trade, three
+ * choices. On simulated data the one drill left is a developer fixture (DEC-034), and the screen says so before anything
+ * else.
  */
-export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
-  const [kinds, setKinds] = useState<DrillKindView[]>([])
-  const [kind, setKind] = useState(initialKind ?? 'FVG_IDENTIFICATION')
-  const [timeframe, setTimeframe] = useState<string>('5m')
+export function DrillView({ kind, adapterFactory }: DrillViewProps) {
   const [drill, setDrill] = useState<DrillResponse | null>(null)
   const [marks, setMarks] = useState<number[]>([])
   const [busy, setBusy] = useState(false)
@@ -66,13 +63,7 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
     return last + (last - drill.bars[drill.bars.length - 2].time)
   }, [drill])
 
-  useEffect(() => {
-    listDrillKinds()
-      .then(setKinds)
-      .catch(() => setError('Could not load the list of drills. Reload to try again.'))
-  }, [])
-
-  const run = async (work: () => Promise<void>) => {
+  const run = useCallback(async (work: () => Promise<void>) => {
     setBusy(true)
     setError(null)
     try {
@@ -83,14 +74,25 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
     } finally {
       setBusy(false)
     }
-  }
+  }, [])
 
-  const start = () =>
-    run(async () => {
-      const next = await startDrill({ kind, instrument: 'NQ', timeframe })
-      setDrill(next)
-      setMarks([])
-    })
+  const start = useCallback(
+    () =>
+      run(async () => {
+        const next = await startDrill({ kind, instrument: 'NQ' })
+        setDrill(next)
+        setMarks([])
+      }),
+    [run, kind],
+  )
+
+  // The card was the click: ask once on arrival — a strict-mode second mount must not ask for a second drill.
+  const asked = useRef(false)
+  useEffect(() => {
+    if (asked.current) return
+    asked.current = true
+    void start()
+  }, [start])
 
   const check = () =>
     run(async () => {
@@ -114,57 +116,42 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
   const future = predict || manage
 
   return (
-    <section className="flex flex-col gap-4">
-      <Panel aria-label="Drills">
-        <h2 className="mb-2 text-lg font-semibold">Drills</h2>
-        <p className="max-w-3xl text-sm text-subtle">
-          Short exercises on one idea at a time, on real NQ. <strong>Spot</strong>: mark every instance
-          of a pattern in a stretch of chart. <strong>Name</strong>: one structure is drawn — say what it
-          is. Each is graded against the versioned rule named on screen: the rule, not a claim that the
-          pattern works. <strong>Predict</strong>: the chart stops and two targets are drawn — say which
-          price reaches first. What real price did next decides.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-medium text-subtle">
-            Drill
-            <select
-              className={fieldClass}
-              value={kind}
-              disabled={kinds.length === 0}
-              onChange={(e) => setKind(e.target.value)}
-            >
-              {MODE_GROUPS.map((group) => (
-                <optgroup key={group.mode} label={group.label}>
-                  {kinds
-                    .filter((k) => k.mode === group.mode)
-                    .map((k) => (
-                      <option key={k.kind} value={k.kind}>
-                        {k.title}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <Segmented<string>
-            options={DRILL_TIMEFRAMES}
-            value={timeframe}
-            onChange={setTimeframe}
-            label="Drill timeframe"
-          />
-          <Button variant="primary" disabled={busy || kinds.length === 0} onClick={() => void start()}>
-            {busy && !drill ? 'Finding a chart…' : drill ? 'Next drill' : 'Start a drill'}
-          </Button>
-        </div>
-        {error && (
-          <p role="alert" className={`mt-3 ${errorClass}`}>
-            {error}
-          </p>
-        )}
-      </Panel>
+    <section aria-label="Drill" className="mx-auto flex max-w-[1600px] flex-col gap-4">
+      <AllDrills />
+      {!drill && (
+        <Panel aria-label="Finding a chart">
+          {busy && (
+            <p role="status" className="text-sm text-subtle">
+              Finding a chart…
+            </p>
+          )}
+          {error && (
+            <div className="flex flex-wrap items-center gap-3">
+              <p role="alert" className={errorClass}>
+                {error}
+              </p>
+              <Button disabled={busy} onClick={() => void start()}>
+                Try again
+              </Button>
+            </div>
+          )}
+        </Panel>
+      )}
 
       {drill && (
         <>
+          <header>
+            <p className="mb-2 text-xs font-semibold tracking-widest text-accent uppercase" data-testid="drill-mode">
+              {MODE_NAMES[drill.mode]}
+            </p>
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h1 className="font-display text-3xl font-bold tracking-tight text-ink">{drill.title}</h1>
+              <span className="num text-sm font-medium text-subtle" data-testid="drill-chart">
+                {drill.instrument} · {drill.timeframe}
+              </span>
+            </div>
+            <p className="mt-2 max-w-3xl text-base text-subtle">{drill.instructions}</p>
+          </header>
           <SimulatedDataBanner dataClass={drill.dataClass} />
           {drill.fixture && (
             <Notice role="note" data-testid="fixture-notice">
@@ -172,30 +159,7 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
             </Notice>
           )}
 
-          <Panel aria-label="Task">
-            <h3 className={`${panelTitle} flex flex-wrap items-center gap-2`}>
-              {drill.title} · {drill.instrument} · {drill.timeframe}
-              {drill.graded && (
-                <Chip data-testid="graded">
-                  {future ? `Graded by what price did · ${drill.question?.version}` : `Graded against ${drill.rule.version}`}
-                </Chip>
-              )}
-            </h3>
-            <p className="text-sm">{drill.instructions}</p>
-            <details className="mt-3 text-xs">
-              <summary className="cursor-pointer text-subtle">
-                The rule ({predict ? `${drill.question?.version}, on ${drill.rule.version}` : drill.rule.version})
-              </summary>
-              {predict && <p className="mt-2 max-w-4xl">{drill.question?.definition}</p>}
-              <p className="mt-2 max-w-4xl">{drill.rule.definition}</p>
-              <p className="mt-2 text-subtle">
-                {drill.rule.methodologySource}. Reproducible under this rule — not proof that a pattern
-                matters, or that the method it comes from is right.
-              </p>
-            </details>
-          </Panel>
-
-          <div className="flex min-w-0 items-start gap-2">
+          <div className="rounded-card border border-line bg-surface p-3 shadow-panel">
             <PriceChart
               // A prediction's answer is the whole story — the chart and what came after — so it is
               // framed afresh rather than scrolled along like a replay.
@@ -221,25 +185,42 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
                 </>
               )}
             />
+            {drill.companion && (
+              <CompanionChart
+                companion={drill.companion}
+                leader={leader}
+                exchangeTimezone={drill.exchangeTimezone}
+                axisTimezone="exchange"
+                adapterFactory={adapterFactory}
+              />
+            )}
           </div>
-          {drill.companion && (
-            <CompanionChart
-              companion={drill.companion}
-              leader={leader}
-              exchangeTimezone={drill.exchangeTimezone}
-              axisTimezone="exchange"
-              adapterFactory={adapterFactory}
-            />
-          )}
+
+          <details className="text-xs">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-subtle">
+              <span>The rule ({predict ? `${drill.question?.version}, on ${drill.rule.version}` : drill.rule.version})</span>
+              {drill.graded && (
+                <Chip data-testid="graded">
+                  {future ? `Graded by what price did · ${drill.question?.version}` : `Graded against ${drill.rule.version}`}
+                </Chip>
+              )}
+            </summary>
+            {predict && <p className="mt-2 max-w-4xl">{drill.question?.definition}</p>}
+            <p className="mt-2 max-w-4xl">{drill.rule.definition}</p>
+            <p className="mt-2 text-subtle">
+              {drill.rule.methodologySource}. Reproducible under this rule — not proof that a pattern
+              matters, or that the method it comes from is right.
+            </p>
+          </details>
 
           {!answered && identify && (
             <Panel aria-label="Answer">
               <div className="flex flex-wrap items-center gap-3">
-                <span data-testid="mark-count" className="text-sm text-subtle">
-                  {marks.length === 1 ? '1 candle marked' : `${marks.length} candles marked`}
+                <span data-testid="mark-count" className="num text-sm text-subtle">
+                  {marks.length} marked
                 </span>
                 <Button disabled={busy || marks.length === 0} onClick={() => setMarks([])}>
-                  Clear marks
+                  Clear
                 </Button>
                 <Button variant="primary" disabled={busy} onClick={() => void check()}>
                   Check answer
@@ -292,6 +273,12 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
             </Panel>
           )}
 
+          {error && (
+            <p role="alert" className={errorClass}>
+              {error}
+            </p>
+          )}
+
           {drill.result && (
             <Panel aria-label="Result">
               {identify ? (
@@ -303,12 +290,16 @@ export function DrillView({ initialKind, adapterFactory }: DrillViewProps) {
               ) : (
                 <NameResult drill={drill} result={drill.result} />
               )}
+              <div className="mt-5 flex flex-wrap items-center gap-4">
+                <Button variant="primary" disabled={busy} onClick={() => void start()}>
+                  {busy ? 'Finding a chart…' : 'Next drill'}
+                </Button>
+                <AllDrills />
+              </div>
             </Panel>
           )}
         </>
       )}
-
-      <RiskDrills />
     </section>
   )
 }
@@ -321,8 +312,8 @@ function SpotResult({ drill, result }: { drill: DrillResponse; result: ResultVie
   return (
     <>
       <h3 className={panelTitle} data-testid="drill-summary">
-        Found {found} of {found + missed}
-        {extra > 0 && ` · ${extra} extra ${extra === 1 ? 'mark' : 'marks'}`}
+        {found}/{found + missed} found
+        {extra > 0 && ` · ${extra} extra`}
       </h3>
       <p className="mb-3 text-xs text-subtle" data-testid="drill-grade">
         {drill.graded

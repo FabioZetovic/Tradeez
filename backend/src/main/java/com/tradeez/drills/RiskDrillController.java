@@ -1,5 +1,6 @@
 package com.tradeez.drills;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.tradeez.drills.DrillDtos.CreateRiskDrillRequest;
 import com.tradeez.drills.DrillDtos.RiskAnswerRequest;
 import com.tradeez.drills.DrillDtos.RiskDrillView;
+import com.tradeez.drills.DrillDtos.RiskKindView;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,6 +41,12 @@ public class RiskDrillController {
 	public RiskDrillView create(@AuthenticationPrincipal AuthenticatedUser principal,
 			@RequestBody(required = false) CreateRiskDrillRequest body) {
 		return risk.create(principal.id(), body == null ? null : body.kind());
+	}
+
+	@GetMapping("/kinds")
+	@Operation(summary = "The kinds of risk question", description = "Each with its clock and this learner's record at it.")
+	public List<RiskKindView> kinds(@AuthenticationPrincipal AuthenticatedUser principal) {
+		return risk.kinds(principal.id());
 	}
 
 	@GetMapping("/{id}")
