@@ -48,6 +48,7 @@ import com.tradeez.drills.Prediction.Outcome;
 import com.tradeez.drills.Prediction.Question;
 import com.tradeez.drills.Prediction.Target;
 import com.tradeez.marketdata.Bar;
+import com.tradeez.practice.ModelChecklist;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
 import com.tradeez.marketdata.HiddenStretches;
@@ -182,7 +183,8 @@ public class DrillService {
 		DrillKind kind = blank(kindCode) ? DEFAULT_KIND : DrillKind.parse(kindCode);
 		Instrument instrument = marketData.requireInstrument(blank(symbol) ? DEFAULT_INSTRUMENT : symbol);
 		boolean simulated = instrument.getDataClass() == DataClass.SIMULATED;
-		Timeframe timeframe = kind.wholeDay() ? Timeframe.M15 : timeframe(timeframeCode, simulated, random);
+		Timeframe timeframe = kind.wholeDay() ? Timeframe.M15
+			: kind.model() != null ? Timeframe.M5 : timeframe(timeframeCode, simulated, random);
 		if (simulated) {
 			if (kind != DrillKind.FVG_IDENTIFICATION) {
 				throw new IllegalArgumentException("On simulated data only the FVG drill runs, as a developer "
@@ -342,6 +344,14 @@ public class DrillService {
 			Instant from = kind.wholeDay()
 				? Instant.ofEpochSecond(second).atZone(NEW_YORK).toLocalDate().atStartOfDay(NEW_YORK).toInstant()
 				: Instant.ofEpochSecond(second - Math.floorMod(second, step));
+			if (kind.model() != null) {
+				// The chart ends at a moment in the model's hours, on the day drawn.
+				java.time.LocalTime[] hours = kind.endingHours().get(random.nextInt(kind.endingHours().size()));
+				long minutes = java.time.Duration.between(hours[0], hours[1]).toMinutes() / 5;
+				Instant end = Instant.ofEpochSecond(second).atZone(NEW_YORK).toLocalDate()
+					.atTime(hours[0].plusMinutes(5 * random.nextLong(minutes))).atZone(NEW_YORK).toInstant();
+				from = end.minusSeconds(length * step);
+			}
 			Instant to = from.plusSeconds(length * step);
 			if (HiddenStretches.touches(avoid, from, to) || !SessionCalendar.isOpenThroughout(from, to)
 					|| !marketData.rolls(instrument, from, to).isEmpty()) {
@@ -349,6 +359,26 @@ public class DrillService {
 			}
 			List<Bar> bars = marketData.internalBars(instrument, timeframe, from, to, SEED).bars();
 			if (bars.size() != length) {
+				continue;
+			}
+			if (kind.model() != null) {
+				Map<String, List<ModelChecklist.Hit>> byDetector = new java.util.LinkedHashMap<>();
+				List<Detector> rules = kind.model().detectors().stream().map(detectors::require).toList();
+				scanner.ensureScanned(rules, instrument, timeframe, SEED, from, to);
+				for (Detector rule : rules) {
+					byDetector.put(rule.id(), scanner.visible(rule, instrument, timeframe, SEED, from, to, to).stream()
+						.map(h -> new ModelChecklist.Hit(h.getDetector(), h.getKind(), h.getDirection(), h.getStartTime(),
+							h.getAnchorTime(), h.getEndTime(), h.getConfirmedAt(), h.getZoneLowTicks(), h.getZoneHighTicks(),
+							h.getEvidence()))
+						.toList());
+				}
+				Judgement.Asked asked = Judgement.model(kind.model(), bars, byDetector, to, timeframe, instrument.getTickSize());
+				if (asked != null && (wanted == null || wanted.equals(asked.answer()))) {
+					return new Judged(from, to, bars, asked);
+				}
+				if (asked != null && fallback == null) {
+					fallback = new Judged(from, to, bars, asked);
+				}
 				continue;
 			}
 			scanner.ensureScanned(detector, instrument, timeframe, SEED, from, to);

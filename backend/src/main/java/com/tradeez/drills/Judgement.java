@@ -12,6 +12,10 @@ import java.util.function.LongFunction;
 import com.tradeez.analysis.RuleText;
 import com.tradeez.drills.Prediction.Context;
 import com.tradeez.marketdata.Bar;
+import com.tradeez.marketdata.Timeframe;
+import com.tradeez.practice.FillEngine.Direction;
+import com.tradeez.practice.ModelChecklist;
+import com.tradeez.practice.TradingModel;
 
 /**
  * Mode J (T45, DEC-082): a question about the chart as it stands, answered by a rule the moment it is asked — premium
@@ -312,6 +316,70 @@ public final class Judgement {
 		return new Asked(STOP_VERSION, stopDefinition(), entry, options, context, letters.get(0), why);
 	}
 
+	// --- is the model's setup there (ICT-70, ICT-71) ------------------------------------------------------
+
+	static String modelDefinition(TradingModel model) {
+		return model.version() + ", the checklist practice uses (DEC-066), at the moment the chart ends, with a trade drawn "
+			+ "the way the model draws it: the stop beyond what the model puts it beyond, the target at the nearest resting "
+			+ "liquidity on the far side. A valid setup when every step of the checklist is met; otherwise not.";
+	}
+
+	/**
+	 * Is {@code model}'s setup there when the chart ends? The trade's side is the way the model's own trigger points —
+	 * the latest gap for the Silver Bullet, the latest shift for the 2022 model — and its stop and target are placed as
+	 * the model places them; the model's checklist decides. Null when there is no trigger to draw a trade from.
+	 *
+	 * @param hits the model's rules' hits known by the chart's end, by detector
+	 */
+	static Asked model(TradingModel model, List<Bar> bars, Map<String, List<ModelChecklist.Hit>> hits, Instant cursor,
+			Timeframe timeframe, BigDecimal tickSize) {
+		String trigger = model == TradingModel.SILVER_BULLET ? "FVG" : "MSS";
+		Optional<ModelChecklist.Hit> latest = hits.getOrDefault(trigger, List.of()).stream()
+			.filter(h -> "FVG".equals(trigger) ? "OPEN".equals(h.kind()) || h.kind() == null : true)
+			.max(Comparator.comparing(ModelChecklist.Hit::confirmedAt));
+		if (latest.isEmpty()) {
+			return null;
+		}
+		boolean up = "BULLISH".equals(latest.get().direction());
+		long reference = bars.getLast().closeTicks();
+		int way = up ? 1 : -1;
+		long stop = model == TradingModel.SILVER_BULLET
+			? (up ? latest.get().low() : latest.get().high()) - way
+			: ((Number) latest.get().evidence().get("sweptPrice")).longValue() - way;
+		if ((reference - stop) * way <= 0) {
+			return null;
+		}
+		long risk = Math.abs(reference - stop);
+		String side = up ? "BSL" : "SSL";
+		long target = hits.getOrDefault("LIQUIDITY", List.of()).stream()
+			.filter(l -> "RESTING".equals(l.kind()) && side.equals(l.evidence().get("side")))
+			.filter(l -> hits.get("LIQUIDITY").stream().noneMatch(t -> t.start().equals(l.start())
+				&& side.equals(t.evidence().get("side")) && !"RESTING".equals(t.kind())))
+			.map(l -> ((Number) l.evidence().get("price")).longValue())
+			.filter(p -> (p - reference) * way > 0)
+			.min(Comparator.comparingLong(p -> Math.abs(p - reference)))
+			.map(p -> p + way)
+			.orElse(reference + way * 3 * risk);
+		ModelChecklist.Checklist checklist = ModelChecklist.check(model, new ModelChecklist.Moment(cursor, timeframe,
+			up ? Direction.LONG : Direction.SHORT, reference, stop, target, tickSize, bars, hits));
+		boolean valid = checklist.items().stream().allMatch(ModelChecklist.Item::met);
+		LongFunction<String> price = prices(tickSize);
+		List<String> why = new java.util.ArrayList<>();
+		why.add("The trade drawn: " + (up ? "long" : "short") + " from " + price.apply(reference) + ", the stop at "
+			+ price.apply(stop) + ", the target at " + price.apply(target) + ".");
+		checklist.items().forEach(i -> why.add((i.met() ? "✓ " : "✗ ") + i.text()));
+		String name = model.title().replaceFirst("^The ", "");
+		why.add(valid ? "Every step met: a valid " + name + " setup."
+			: "Not every step is met, so this is not a valid " + name + " setup — whatever price does next.");
+		long from = bars.getFirst().openTime().getEpochSecond();
+		long entryAt = bars.getLast().openTime().getEpochSecond();
+		return new Asked(model.version(), modelDefinition(model), reference,
+			List.of(new Option("YES", "Yes — a valid setup"), new Option("NO", "No — a step is missing")),
+			List.of(new Context("TRADE_ENTRY", true, entryAt, reference, reference),
+				new Context("TRADE_STOP", true, entryAt, stop, stop), new Context("TRADE_TARGET", true, entryAt, target, target)),
+			valid ? "YES" : "NO", why);
+	}
+
 	private static long number(Hit hit, String key) {
 		return ((Number) hit.evidence().get(key)).longValue();
 	}
@@ -325,6 +393,8 @@ public final class Judgement {
 			case "LEG_END" -> "Leg end";
 			case "DAY_OPEN" -> "Midnight open";
 			case "TRADE_ENTRY" -> "Entry";
+			case "TRADE_STOP" -> "Stop";
+			case "TRADE_TARGET" -> "Target";
 			case "STOP_A" -> "A";
 			case "STOP_B" -> "B";
 			case "STOP_C" -> "C";

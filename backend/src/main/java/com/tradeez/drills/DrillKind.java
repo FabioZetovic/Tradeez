@@ -115,6 +115,18 @@ public enum DrillKind {
 			+ "and C. Where does the stop go?",
 		null),
 
+	/** T45: the Silver Bullet's checklist at the chart's end ({@link Judgement#model}); always on 5-minute candles. */
+	SILVER_BULLET_JUDGEMENT(Mode.JUDGE, "FVG", "ICT-71", "Silver Bullet setup", Set.of(), List.of(), 0, 0, 0,
+		"The chart ends inside or near a Silver Bullet hour, with a trade drawn the way the model draws it. Is this a "
+			+ "valid Silver Bullet setup — every step of the model met?",
+		null),
+
+	/** T45: the 2022 model's checklist at the chart's end ({@link Judgement#model}); always on 5-minute candles. */
+	MODEL_2022_JUDGEMENT(Mode.JUDGE, "MSS", "ICT-70", "2022 model setup", Set.of(), List.of(), 0, 0, 0,
+		"The chart ends inside or near a killzone, with a trade drawn the way the 2022 model draws it. Is this a valid "
+			+ "2022 model setup — every step of the model met?",
+		null),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),
@@ -259,6 +271,30 @@ public enum DrillKind {
 		return this == PO3_JUDGEMENT;
 	}
 
+	/** For J on a model: the model whose checklist decides; null otherwise. */
+	com.tradeez.practice.TradingModel model() {
+		return switch (this) {
+			case SILVER_BULLET_JUDGEMENT -> com.tradeez.practice.TradingModel.SILVER_BULLET;
+			case MODEL_2022_JUDGEMENT -> com.tradeez.practice.TradingModel.MODEL_2022;
+			default -> null;
+		};
+	}
+
+	/**
+	 * The New York times a model's chart may end at — the hours its checklist is about, with a little either side so a
+	 * moment outside them is asked too: the Silver Bullet's 10:00 hour, the London and New York morning killzones.
+	 */
+	List<java.time.LocalTime[]> endingHours() {
+		return switch (this) {
+			case SILVER_BULLET_JUDGEMENT -> List.<java.time.LocalTime[]>of(new java.time.LocalTime[] {
+				java.time.LocalTime.of(9, 45), java.time.LocalTime.of(11, 15) });
+			case MODEL_2022_JUDGEMENT -> List.of(
+				new java.time.LocalTime[] { java.time.LocalTime.of(1, 45), java.time.LocalTime.of(5, 15) },
+				new java.time.LocalTime[] { java.time.LocalTime.of(8, 15), java.time.LocalTime.of(11, 15) });
+			default -> List.of();
+		};
+	}
+
 	/** Candles shown: the mode's, or a whole day at 15 minutes. */
 	int windowBars() {
 		return wholeDay() ? 68 : mode.windowBars();
@@ -269,6 +305,7 @@ public enum DrillKind {
 		return switch (this) {
 			case OTE_JUDGEMENT -> List.of("INSIDE", "OUTSIDE");
 			case PO3_JUDGEMENT -> List.of("BULLISH", "BEARISH", "NEITHER");
+			case SILVER_BULLET_JUDGEMENT, MODEL_2022_JUDGEMENT -> List.of("YES", "NO");
 			default -> List.of();
 		};
 	}

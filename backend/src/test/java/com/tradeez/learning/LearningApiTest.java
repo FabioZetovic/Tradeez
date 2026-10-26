@@ -162,39 +162,39 @@ class LearningApiTest extends AbstractIntegrationTest {
 		assertThat(open(state, "ICT-44")).as("a reference card never locks").isTrue();
 		assertThat(concept(state, "ICT-01").get("topic").asString()).isEqualTo("Structure");
 		// Drilled where a drill exists — predictions, managed trades and the risk questions included.
-		assertThat(state.at("/summary/drilled").asInt()).isEqualTo(17);
+		assertThat(state.at("/summary/drilled").asInt()).isEqualTo(24);
 		assertThat(concept(state, "ICT-16").get("drilled").asBoolean()).isTrue();
 		assertThat(concept(state, "ICT-16").get("state").asString()).isEqualTo("NEW");
 		assertThat(concept(state, "ICT-83").get("drilled").asBoolean()).isTrue();
 		assertThat(concept(state, "ICT-23").get("drilled").asBoolean()).isTrue();
-		assertThat(concept(state, "ICT-41").get("drilled").asBoolean()).as("its drill is not built yet").isFalse();
+		assertThat(concept(state, "ICT-61").get("drilled").asBoolean()).as("its drill is not built yet").isFalse();
 		// Merged and removed concepts are not pages of Learn.
 		assertThat(state.get("concepts").valueStream().map(c -> c.get("id").asString()))
 			.doesNotContain("F-1", "ICT-05", "ICT-29");
 	}
 
 	@Test
-	@DisplayName("a card or a lesson without its drill yet is done once read, and opens the next; a read is kept once")
+	@DisplayName("a reference card is done once read; reading a drilled lesson does not pass it; a read is kept once")
 	void reads() throws Exception {
 		JsonNode card = read(markRead(alice, "ICT-44").andExpect(status().isOk()));
 		assertThat(concept(card, "ICT-44").get("state").asString()).isEqualTo("DONE");
 		assertThat(topic(card, "Premium & discount").get("complete").asInt()).isEqualTo(1);
 
 		JsonNode after = read(markRead(alice, "ICT-10").andExpect(status().isOk()));
-		assertThat(concept(after, "ICT-10").get("state").asString()).isEqualTo("DONE");
-		assertThat(open(after, "ICT-13")).isTrue();
-		assertThat(after.get("suggested").asString()).as("the topic started").isEqualTo("ICT-13");
+		assertThat(concept(after, "ICT-10").get("state").asString()).as("its drill passes it, not reading").isEqualTo("NEW");
+		assertThat(concept(after, "ICT-10").has("readAt")).isTrue();
+		assertThat(open(after, "ICT-13")).isFalse();
 
-		long readAt = concept(after, "ICT-10").get("readAt").asLong();
-		markRead(alice, "ICT-10").andExpect(status().isOk());
-		assertThat(concept(state(alice), "ICT-10").get("readAt").asLong()).as("reading again changes nothing").isEqualTo(readAt);
-		assertThatThrownBy(() -> jdbc.update("UPDATE concept_read SET read_at = now() WHERE concept_id = 'ICT-10'"))
+		long readAt = concept(after, "ICT-44").get("readAt").asLong();
+		markRead(alice, "ICT-44").andExpect(status().isOk());
+		assertThat(concept(state(alice), "ICT-44").get("readAt").asLong()).as("reading again changes nothing").isEqualTo(readAt);
+		assertThatThrownBy(() -> jdbc.update("UPDATE concept_read SET read_at = now() WHERE concept_id = 'ICT-44'"))
 			.hasMessageContaining("immutable");
 		markRead(alice, "ICT-99").andExpect(status().isNotFound());
 		markRead(alice, "F-1").andExpect(status().isNotFound()); // removed
 		markRead(alice, "ICT-05").andExpect(status().isNotFound()); // merged into ICT-06
-		// Bob's locks are his own.
-		assertThat(open(state(bob), "ICT-13")).isFalse();
+		// Bob's record is his own.
+		assertThat(concept(state(bob), "ICT-44").get("state").asString()).isEqualTo("UNREAD");
 	}
 
 	@Test
