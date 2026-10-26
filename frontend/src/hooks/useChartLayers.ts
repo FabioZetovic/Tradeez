@@ -31,29 +31,34 @@ const LABELS: Record<string, string> = {
   JUDAS: 'Judas',
 }
 
-const CLOCK_TOGGLES: ToggleConfig<ClockLayerKey> = {
-  storageKey: 'tradeez.clockLayers',
-  defaults: DEFAULT_CLOCK_LAYERS,
-  isKnown: (key): key is ClockLayerKey => CLOCK_LAYERS.some((layer) => layer.key === key),
-}
+const isClockKey = (key: string): key is ClockLayerKey => CLOCK_LAYERS.some((layer) => layer.key === key)
 
-/** Every rule starts off: a learner should find a gap before being shown one. */
-const SETUP_TOGGLES: ToggleConfig<string> = {
-  storageKey: 'tradeez.setupLayers',
-  defaults: [],
-  isKnown: (key): key is string => key.length > 0,
-}
+/**
+ * The Chart tab and a practice replay each keep their own choice (T42). The Chart tab opens on the killzones, the
+ * opens and PDH/PDL; practice on nothing at all — Fabio: "45 indicators, chart is flashing" — so a learner reads the
+ * candles first. Every rule starts off everywhere: a learner should find a gap before being shown one.
+ */
+const TOGGLES = {
+  chart: {
+    clock: { storageKey: 'tradeez.clockLayers', defaults: DEFAULT_CLOCK_LAYERS, isKnown: isClockKey },
+    setups: { storageKey: 'tradeez.setupLayers', defaults: [], isKnown: (key): key is string => key.length > 0 },
+  },
+  practice: {
+    clock: { storageKey: 'tradeez.practice.clockLayers', defaults: [], isKnown: isClockKey },
+    setups: { storageKey: 'tradeez.practice.setupLayers', defaults: [], isKnown: (key): key is string => key.length > 0 },
+  },
+} satisfies Record<string, { clock: ToggleConfig<ClockLayerKey>; setups: ToggleConfig<string> }>
 
 /**
  * The chart's layers (T38): the New York clock's parts (T7) and one rule per detector the server runs (T9), named
- * and explained from the curriculum (S-2) — which are on, and of the rules, the ones to ask the server for. One
- * choice for the Chart tab and practice alike, remembered in this browser. A failure to read the curriculum offers
+ * and explained from the curriculum (S-2) — which are on, and of the rules, the ones to ask the server for —
+ * remembered in this browser for the Chart tab and for practice apart (T42). A failure to read the curriculum offers
  * the clock alone; the chart itself is unaffected.
  */
-export function useChartLayers() {
+export function useChartLayers(scope: keyof typeof TOGGLES = 'chart') {
   const [rules, setRules] = useState<Array<{ id: string; label: string; title: string }>>([])
-  const clock = useToggles(CLOCK_TOGGLES)
-  const setups = useToggles(SETUP_TOGGLES)
+  const clock = useToggles(TOGGLES[scope].clock)
+  const setups = useToggles(TOGGLES[scope].setups)
 
   useEffect(() => {
     let cancelled = false

@@ -521,6 +521,13 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(current('News')).toBe('page')
   })
 
+  it('a practice session has its own address, and fills the window (T42)', async () => {
+    at('/practice/a-session')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await waitFor(() => expect(current('Practice')).toBe('page'))
+    expect(screen.getByRole('main')).toHaveClass('p-3')
+  })
+
   it('a lesson address opens that lesson (T39)', async () => {
     at('/learn/ICT-20')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)

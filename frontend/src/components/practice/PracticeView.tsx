@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { Play } from 'lucide-react'
 import { PracticeSession } from './PracticeSession'
 import { StatisticsPanel } from './StatisticsPanel'
@@ -50,8 +51,12 @@ interface PracticeViewProps {
  * plan, watch what happens, and keep a record you cannot edit afterwards.
  */
 export function PracticeView({ adapterFactory }: PracticeViewProps) {
-  const [openId, setOpenId] = useState<string | null>(null)
-  const [created, setCreated] = useState<SessionResponse | undefined>(undefined)
+  // A session has its own address (T42): /practice/<id>. One just made is handed over with its first answer, so it is
+  // not asked for twice.
+  const openId = useParams().sessionId ?? null
+  const created = (useLocation().state as { created?: SessionResponse } | null)?.created
+  const navigate = useNavigate()
+  const setOpenId = (id: string) => void navigate(`/practice/${id}`)
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
   const [trades, setTrades] = useState<JournalTrade[] | null>(null)
   const [calibration, setCalibration] = useState<Calibration | null>(null)
@@ -100,8 +105,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     setError(null)
     try {
       const session = await createSession({ instrument: 'NQ', ...(killzone && { killzone }) })
-      setCreated(session)
-      setOpenId(session.state.id)
+      void navigate(`/practice/${session.state.id}`, { state: { created: session } })
     } catch (e) {
       const body = e instanceof ApiError ? (e.body as { message?: string } | null) : null
       setError(body?.message ?? 'Could not start a session.')
@@ -119,10 +123,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         adapterFactory={adapterFactory}
         riskLimitCents={settings?.riskLimitCents}
         costs={settings}
-        onBack={() => {
-          setOpenId(null)
-          setCreated(undefined)
-        }}
+        onBack={() => void navigate('/practice')}
       />
     )
   }

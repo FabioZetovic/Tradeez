@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { PracticeView } from './PracticeView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
 import { recorder } from '@/test/canvasRecorder'
@@ -260,9 +261,20 @@ function happyServer(overrides: Partial<Record<'plan', { status: number; body: u
 /** Every chart the last render made: setups are layers painted by them (T37), not elements on the page. */
 let charts: FakeChartAdapter[] = []
 
-function renderPractice() {
-  charts = []
+/** The Practice tab at its address (T42): a session opens at /practice/<id>. */
+function atPractice(view: React.ReactElement, path = '/practice') {
   return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/practice/:sessionId?" element={view} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+function renderPractice(path?: string) {
+  charts = []
+  return atPractice(
     <PracticeView
       adapterFactory={() => {
         const chart = new FakeChartAdapter()
@@ -270,6 +282,7 @@ function renderPractice() {
         return chart
       }}
     />,
+    path,
   )
 }
 
@@ -1071,8 +1084,9 @@ describe('Practice — the New York clock (T7)', () => {
     renderPractice()
     await startSession(user)
     await waitFor(() => expect(asked).toBe(1))
-    // Its parts are switched in the layers menu (T38); the default ones are on as chips.
-    expect(screen.getByRole('list', { name: 'Layers on' })).toHaveTextContent('Killzones')
+    // In practice no layer is on at first (T42): the candles first, the clock when asked for — and it is fetched all
+    // the same, so switching a part on draws at once.
+    expect(screen.queryByRole('list', { name: 'Layers on' })).toBeNull()
 
     // The cursor reaches the change: asked again. Past it, with a later change, not again.
     await user.click(screen.getByRole('button', { name: /next bar/i }))
@@ -1100,7 +1114,7 @@ describe('Practice — any timeframe (T34)', () => {
       return server(call)
     })
     let adapter = new FakeChartAdapter()
-    render(<PracticeView adapterFactory={() => (adapter = new FakeChartAdapter())} />)
+    atPractice(<PracticeView adapterFactory={() => (adapter = new FakeChartAdapter())} />)
     const user = userEvent.setup()
     await startSession(user)
 
@@ -1543,7 +1557,7 @@ describe('Practice — real NQ behind a hidden date (T4, DEC-025)', () => {
   it('shows New York wall-clock time and keeps the date hidden', async () => {
     const adapter = new FakeChartAdapter()
     const user = userEvent.setup()
-    render(<PracticeView adapterFactory={() => adapter} />)
+    atPractice(<PracticeView adapterFactory={() => adapter} />)
     await startSession(user)
 
     expect(screen.getByTestId('practice-cursor')).toHaveTextContent('Mon 09:35 NY')
@@ -1572,5 +1586,50 @@ describe('Practice — real NQ behind a hidden date (T4, DEC-025)', () => {
     expect(screen.queryByTestId('date-hidden')).not.toBeInTheDocument()
     expect(screen.queryByTestId('result-seed')).not.toBeInTheDocument()
     expect(screen.getByTestId('provenance')).toHaveTextContent(/Real NQ history from massive/)
+  })
+})
+
+describe('Practice — the session screen (T42)', () => {
+  it('opens a session at its own address, with no layer on, and goes back to the Practice tab', async () => {
+    localStorage.removeItem('tradeez.practice.clockLayers')
+    mockApi((call) =>
+      is(call, 'GET', `/api/practice/sessions/${ID}`)
+        ? { body: { state: { ...ANALYSING, trades: [] }, bars: BARS } }
+        : happyServer()(call),
+    )
+    const user = userEvent.setup()
+    renderPractice(`/practice/${ID}`)
+    expect(await screen.findByRole('complementary', { name: 'Trading' })).toBeInTheDocument()
+    expect(screen.getByTestId('practice-status')).toHaveTextContent('Flat')
+    expect(screen.queryByRole('list', { name: 'Layers on' })).toBeNull()
+    // The trading column holds the plan, the replay at its foot.
+    const column = screen.getByRole('complementary', { name: 'Trading' })
+    expect(within(column).getByRole('button', { name: /plan long/i })).toBeInTheDocument()
+    expect(within(column).getByRole('region', { name: 'Replay' })).toBeInTheDocument()
+    expect(within(column).getByTestId('session-score')).toHaveTextContent('0 trades')
+
+    await user.click(screen.getByRole('button', { name: /^practice$/i }))
+    expect(await screen.findByRole('region', { name: 'New session' })).toBeInTheDocument()
+  })
+
+  it("heads the trading column with the session's score: its closed trades, R and money", async () => {
+    mockApi((call) =>
+      is(call, 'GET', `/api/practice/sessions/${ID}`)
+        ? { body: { state: { ...ANALYSING, trades: [CLOSED], score: AFTER_ONE }, bars: BARS } }
+        : happyServer()(call),
+    )
+    renderPractice(`/practice/${ID}`)
+    const score = await screen.findByTestId('session-score')
+    expect(score).toHaveTextContent('1 trade · −1.04R · −$242.50')
+    expect(within(score).getByText('−1.04R')).toHaveClass('text-down')
+  })
+
+  it('starts a session at its address without asking for it twice', async () => {
+    mockApi(happyServer())
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    expect(screen.getByRole('complementary', { name: 'Trading' })).toBeInTheDocument()
+    expect(calls.filter((c) => is(c, 'GET', `/api/practice/sessions/${ID}`))).toHaveLength(0)
   })
 })

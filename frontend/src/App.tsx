@@ -79,7 +79,7 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/chart" element={<ChartPage adapterFactory={adapterFactory} />} />
         <Route path="/learn/:conceptId?" element={<Learn adapterFactory={adapterFactory} />} />
         <Route path="/drills/:kind?" element={<Drills adapterFactory={adapterFactory} />} />
-        <Route path="/practice" element={<PracticeView adapterFactory={adapterFactory} />} />
+        <Route path="/practice/:sessionId?" element={<PracticeView adapterFactory={adapterFactory} />} />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/help" element={<Guide />} />
         <Route path="*" element={<Navigate to="/" replace />} />
