@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — the redesign (M6, T36–T49, docs/REDESIGN.md). T36 theme and shell (feat/t36-shell, DEC-078) and T37 overlays in the chart's paint step (feat/t37-overlays, built on it; BUG-095 and BUG-096 fixed) built and merged 2026-10-23 (master 18399e5). T38 the Chart tab (feat/t38-chart) and T39 Home (feat/t39-home, built on it) built, waiting for Fabio's "merge"; next, T40 News (the feed's terms checked first). BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: nothing — the redesign (M6, T36–T49, docs/REDESIGN.md). T36 theme and shell (feat/t36-shell, DEC-078) and T37 overlays in the chart's paint step (feat/t37-overlays, built on it; BUG-095 and BUG-096 fixed) built and merged 2026-10-23 (master 18399e5). T38 the Chart tab and T39 Home merged 2026-10-26 (master d0b84bd). Next, T40 News — from the official US release schedules, not Forex Factory, whose terms forbid republishing its calendar (Fabio, 2026-10-26). BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task

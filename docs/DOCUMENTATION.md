@@ -1985,6 +1985,9 @@ were invented percentages. A brand-new account sees what to do instead of zeros 
 addresses, so "Continue lesson" opens the right one. Mutations: 16 — 15 caught, one revealed a redundant line, removed.
 Frontend 412 → 421.
 
+**2026-10-26 — T38 and T39 merged.** Fabio: "Merge t38 and t39". `--no-ff` merges c6b9009 and d0b84bd; master's tree is
+exactly the T39 branch's, which passed its fresh-clone check (frontend 421, lint, typecheck, knip, build, `npm audit` 0).
+
 ---
 
 ## For the presentation: the disclaimer slide
