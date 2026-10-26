@@ -2018,6 +2018,16 @@ caught. Backend 719 → 723, frontend 430 → 432.
 passed its fresh-clone check without a `.env` (backend 723, no `[ERROR]`; frontend 432, lint, typecheck, knip, build,
 `npm audit` 0).
 
+**T42 — the practice session screen** (`feat/t42-session`). Fabio: *"chart is fullscreen, you have a sidebar that lets you
+plan a trade, then gives you info about the trade … under that section i think we could put our replay section"*, and
+of the old one: *"45 indicators, chart is flashing … chart is absolutely too small"*. A session now has its own address
+and fills the window: the drawing bar on the left, the chart as large as the space allows, and a trading column on the
+right — the session's score, the plan or the open trade, the last trade's scorecard and review, and the replay controls
+held at the column's foot. The trades are a strip under the chart. Practice keeps its own choice of layers, and starts
+with none. Checking it in the browser caught one layout fault: an element hidden for screen readers escaped the column's
+scrolling and made the whole page scroll — fixed by positioning the column. Mutations: 7, all caught (two after new
+tests). Frontend 432 → 436.
+
 ---
 
 ## For the presentation: the disclaimer slide

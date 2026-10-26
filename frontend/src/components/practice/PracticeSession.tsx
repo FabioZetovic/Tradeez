@@ -32,6 +32,7 @@ import {
 } from '@/lib/drawing/store'
 import type { SnapMode } from '@/lib/drawing/snap'
 import type { Drawing, DrawingKind } from '@/lib/drawing/types'
+import { ArrowLeft, Pause, Play, StepForward } from 'lucide-react'
 import { Button, Chip, Panel, Segmented } from '../ui'
 import { errorClass, keyValueClass, panelTitle } from '@/lib/styles'
 import {
@@ -42,6 +43,8 @@ import {
   pinEntry,
   PLAN_DRAWING_ID,
   planFromDrawing,
+  formatCents,
+  formatR,
   STATUS_LABEL,
   TRADE_DRAWING_PREFIX,
   type PartialDraft,
@@ -117,7 +120,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   // again only once the replay gets there, not on every bar. A failure costs only the overlay.
   const [clock, setClock] = useState<ClockLayer | null>(null)
   // One choice of layers for the Chart tab and practice (T38).
-  const layers = useChartLayers()
+  const layers = useChartLayers('practice')
   const { clockShown, setupsShown, setupsOn } = layers
   const cursor = state?.cursor
   const clockStale =
@@ -250,7 +253,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
     return (
       <section className="flex flex-col items-start gap-3">
         <Button variant="link" onClick={onBack}>
-          ← Journal
+          ← Practice
         </Button>
         {error ? (
           <p role="alert" className={errorClass}>
@@ -302,178 +305,144 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   const drawnReview = reviewLayer?.layer ?? null
   const confirmingEnd = endAskedAt === trades.length
 
+  const score = state.score
   return (
-    <section className="flex flex-col gap-4">
-      <SimulatedDataBanner dataClass={state.dataClass} />
+    <section aria-label="Practice session" className="flex h-[calc(100svh-8.25rem)] min-h-[36rem] gap-3">
+      <DrawingToolbar
+        activeTool={activeTool}
+        onSelectTool={setActiveTool}
+        snapMode={snapMode}
+        onToggleSnap={() => setSnapMode(snapMode === 'magnet' ? 'off' : 'magnet')}
+        canUndo={canUndo(drawingState)}
+        canRedo={canRedo(drawingState)}
+        onUndo={() => dispatch({ type: 'undo' })}
+        onRedo={() => dispatch({ type: 'redo' })}
+        hasSelection={drawingState.selectedId !== null}
+        onDelete={deleteSelected}
+      />
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
-        <Button variant="link" onClick={onBack}>
-          ← Journal
-        </Button>
-        <strong>{state.instrument}</strong>
-        <Segmented<string>
-          options={TIMEFRAMES}
-          value={view}
-          onChange={(next) => {
-            if (next !== view) void switchTimeframe(next)
-          }}
-          label="Chart timeframe"
-        />
-        <Chip tone={STATUS_TONE[state.status]} data-testid="practice-status">
-          {STATUS_LABEL[state.status]}
-        </Chip>
-        <span className="text-subtle" data-testid="practice-cursor">
-          {formatSessionTime(state.cursor, state.exchangeTimezone, state.timeBasis)}
-        </span>
-        {/* DEC-025: on real data the date is the answer; it is revealed when the session ends. */}
-        {state.timeBasis === 'NEW_YORK_WALL_CLOCK' && state.status !== 'COMPLETE' && (
-          <Chip data-testid="date-hidden" title="The date is revealed when the session ends">
-            date hidden
-          </Chip>
-        )}
-        {lastBar && (
-          <span className="ml-auto text-xl font-semibold tabular-nums" data-testid="last-price">
-            {formatPrice(lastBar.close, state.tickSize)}
+      <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-card border border-line bg-surface p-3 shadow-panel">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft aria-hidden className="size-4" />
+            Practice
+          </Button>
+          <h1 className="font-display text-xl font-bold tracking-tight text-ink">{state.instrument}</h1>
+          <Segmented<string>
+            options={TIMEFRAMES}
+            value={view}
+            onChange={(next) => {
+              if (next !== view) void switchTimeframe(next)
+            }}
+            label="Chart timeframe"
+          />
+          <span className="num text-sm text-subtle" data-testid="practice-cursor">
+            {formatSessionTime(state.cursor, state.exchangeTimezone, state.timeBasis)}
           </span>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <LayersMenu layers={layers} clockAvailable={drawsClock(view)} />
+          {/* DEC-025: on real data the date is the answer; it is revealed when the session ends. */}
+          {state.timeBasis === 'NEW_YORK_WALL_CLOCK' && state.status !== 'COMPLETE' && (
+            <Chip data-testid="date-hidden" title="The date is revealed when the session ends">
+              date hidden
+            </Chip>
+          )}
+          <Chip tone={STATUS_TONE[state.status]} data-testid="practice-status">
+            {STATUS_LABEL[state.status]}
+          </Chip>
+          {lastBar && (
+            <span className="num text-lg font-semibold text-ink" data-testid="last-price">
+              {formatPrice(lastBar.close, state.tickSize)}
+            </span>
+          )}
+          <div className="ml-auto">
+            <LayersMenu layers={layers} clockAvailable={drawsClock(view)} />
+          </div>
+        </div>
         <LayerChips layers={layers} clockAvailable={drawsClock(view)} />
-      </div>
+        <SimulatedDataBanner dataClass={state.dataClass} />
 
-      <div className="flex min-w-0 items-start gap-2">
-        <DrawingToolbar
-          activeTool={activeTool}
-          onSelectTool={setActiveTool}
-          snapMode={snapMode}
-          onToggleSnap={() => setSnapMode(snapMode === 'magnet' ? 'off' : 'magnet')}
-          canUndo={canUndo(drawingState)}
-          canRedo={canRedo(drawingState)}
-          onUndo={() => dispatch({ type: 'undo' })}
-          onRedo={() => dispatch({ type: 'redo' })}
-          hasSelection={drawingState.selectedId !== null}
-          onDelete={deleteSelected}
-        />
-        <PriceChart
-          bars={bars}
-          tickSize={state.tickSize}
-          exchangeTimezone={state.exchangeTimezone}
-          axisTimezone={state.timeBasis === 'NEW_YORK_WALL_CLOCK' ? 'wall-clock' : 'exchange'}
-          daily={view === '1d'}
-          adapterFactory={adapterFactory}
-          recentBars={RECENT_BARS}
-          overlay={(adapter) => (
-            <>
-              {drawsClock(view) && (
-                <ClockOverlay
+        <div className="flex min-h-0 flex-1 flex-col">
+          <PriceChart
+            heightClass="h-full"
+            bars={bars}
+            tickSize={state.tickSize}
+            exchangeTimezone={state.exchangeTimezone}
+            axisTimezone={state.timeBasis === 'NEW_YORK_WALL_CLOCK' ? 'wall-clock' : 'exchange'}
+            daily={view === '1d'}
+            adapterFactory={adapterFactory}
+            recentBars={RECENT_BARS}
+            overlay={(adapter) => (
+              <>
+                {drawsClock(view) && (
+                  <ClockOverlay
+                    adapter={adapter}
+                    layer={clock}
+                    bars={bars}
+                    timeframe={view}
+                    tickSize={state.tickSize}
+                    shown={clockShown}
+                  />
+                )}
+                <SetupOverlay
                   adapter={adapter}
-                  layer={clock}
+                  layer={setups?.layer ?? null}
                   bars={bars}
                   timeframe={view}
-                  tickSize={state.tickSize}
-                  shown={clockShown}
+                  shown={setupsShown}
                 />
-              )}
-              <SetupOverlay
-                adapter={adapter}
-                layer={setups?.layer ?? null}
-                bars={bars}
-                timeframe={view}
-                shown={setupsShown}
+                {drawnReview && (
+                  <SetupOverlay adapter={adapter} layer={drawnReview} bars={bars} timeframe={view} shown={reviewRules} />
+                )}
+                <DrawingOverlay
+                  adapter={adapter}
+                  state={shownState}
+                  dispatch={dispatch}
+                  activeTool={activeTool}
+                  onToolFinished={() => setActiveTool(null)}
+                  bars={bars}
+                  snapMode={snapMode}
+                  tickValueCents={state.tickValueCents}
+                  tickSize={state.tickSize}
+                  onCommit={() => {}}
+                />
+              </>
+            )}
+          />
+        </div>
+
+        {/* The session's trades, a strip under the chart: picking one shows it there (T42). */}
+        {(trades.length > 0 || status === 'COMPLETE') && (
+          <details className="group max-h-[40%] shrink-0 overflow-y-auto" open={status === 'COMPLETE'}>
+            <summary className="cursor-pointer text-sm font-semibold text-ink">Trades ({trades.length})</summary>
+            <div className="mt-2">
+              <TradeLog
+                state={state}
+                selected={shownTrade?.number}
+                onSelect={(number) => setPicked({ number, closedAt: closed.length })}
               />
-              {drawnReview && (
-                <SetupOverlay adapter={adapter} layer={drawnReview} bars={bars} timeframe={view} shown={reviewRules} />
-              )}
-              <DrawingOverlay
-                adapter={adapter}
-                state={shownState}
-                dispatch={dispatch}
-                activeTool={activeTool}
-                onToolFinished={() => setActiveTool(null)}
-                bars={bars}
-                snapMode={snapMode}
-                tickValueCents={state.tickValueCents}
-                tickSize={state.tickSize}
-                onCommit={() => {}}
-              />
-            </>
-          )}
-        />
+            </div>
+          </details>
+        )}
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] items-start gap-4">
-        <Panel aria-label="Replay">
-          <h3 className={panelTitle}>Replay</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={busy || playing} onClick={() => void advance(1)}>
-              Next bar
-            </Button>
-            <Button disabled={busy || playing} onClick={() => void advance(10)}>
-              Next 10
-            </Button>
-            {status !== 'COMPLETE' && (
-              <Button active={playing} aria-pressed={playing} onClick={() => setPlaying(!playing)}>
-                {playing ? 'Pause' : 'Play'}
-              </Button>
+      {/* The trading column (T42, R-18): the score, the plan or the trade, its result and review, and the replay at
+          its foot — everything a trade needs, beside a chart that keeps its size. */}
+      <aside aria-label="Trading" className="relative flex w-[22rem] shrink-0 flex-col gap-3 overflow-y-auto pr-1">
+        <section aria-label="Score" className="flex items-baseline justify-between rounded-card border border-line bg-surface px-4 py-3 shadow-panel">
+          <span className="text-xs font-semibold tracking-widest text-subtle uppercase">Session</span>
+          <span className="num text-sm text-subtle" data-testid="session-score">
+            {score.closedTrades} {score.closedTrades === 1 ? 'trade' : 'trades'}
+            {score.closedTrades > 0 && (
+              <>
+                {' · '}
+                <span className={score.totalR > 0 ? 'text-up' : score.totalR < 0 ? 'text-down' : ''}>
+                  {formatR(score.totalR)}
+                </span>
+                {' · '}
+                {formatCents(score.netPnlCents)}
+              </>
             )}
-            {status !== 'COMPLETE' && (
-              <Segmented<string>
-                options={SPEED_LABELS}
-                value={`${speed}×`}
-                onChange={(label) => setSpeed(Number(label.slice(0, -1)) as Speed)}
-                label="Replay speed, bars per second"
-              />
-            )}
-            {status === 'IN_TRADE' && (
-              <Button disabled={busy} onClick={() => void skip()}>
-                Skip to result
-              </Button>
-            )}
-          </div>
-
-          {status === 'ANALYSING' && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-              {confirmingEnd ? (
-                <>
-                  <span className="text-sm">
-                    End the session? No more trades{state.timeBasis === 'NEW_YORK_WALL_CLOCK' && ', and the date is revealed'}.
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={busy}
-                    onClick={() => {
-                      setEndAskedAt(null)
-                      void end()
-                    }}
-                  >
-                    End session
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEndAskedAt(null)}>
-                    Keep trading
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => setEndAskedAt(trades.length)}
-                >
-                  End session…
-                </Button>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <p role="alert" className={`mt-3 ${errorClass}`}>
-              {error}
-            </p>
-          )}
-        </Panel>
+          </span>
+        </section>
 
         {status === 'ANALYSING' && (
           <PlanPanel
@@ -522,7 +491,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
                   : 'at the next price'}
               </dd>
               <dt>Stop</dt>
-              <dd data-testid="trade-stop">
+              <dd data-testid="trade-stop" className="text-down">
                 {openTrade.plan.breakevenAfterPartial && openTrade.partial && openTrade.entry
                   ? `${formatPrice(openTrade.entry.ticks, state.tickSize)} — moved to the entry`
                   : formatPrice(openTrade.plan.stopTicks, state.tickSize)}
@@ -540,39 +509,105 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
                 </>
               )}
               <dt>Target</dt>
-              <dd>{formatPrice(openTrade.plan.targetTicks, state.tickSize)}</dd>
+              <dd className="text-up">{formatPrice(openTrade.plan.targetTicks, state.tickSize)}</dd>
               <dt>Reward : risk</dt>
               <dd>{openTrade.plan.plannedRewardRisk.toFixed(2)}</dd>
             </dl>
             <p className="mt-3 text-xs text-subtle">
               Step forward to watch it play out, or close it whenever you choose — at the next price.
             </p>
-            <Button className="mt-3" disabled={busy} onClick={() => void close()}>
+            <Button className="mt-3 w-full" variant="sell" disabled={busy} onClick={() => void close()}>
               Close at market
             </Button>
           </Panel>
         )}
-      </div>
 
-      {/* Its own row: the scorecard's two sides need the width (T23). */}
-      {shownTrade?.result && <ResultCard state={state} trade={shownTrade} result={shownTrade.result} />}
-      {shownTrade?.result && (
-        <TradeReview
-          key={shownTrade.number}
-          state={state}
-          number={shownTrade.number}
-          drawn={drawnReview !== null}
-          onDraw={(layer) => setReviewLayer(layer && { number: shownTrade.number, layer })}
-        />
-      )}
+        {shownTrade?.result && <ResultCard state={state} trade={shownTrade} result={shownTrade.result} />}
+        {shownTrade?.result && (
+          <TradeReview
+            key={shownTrade.number}
+            state={state}
+            number={shownTrade.number}
+            drawn={drawnReview !== null}
+            onDraw={(layer) => setReviewLayer(layer && { number: shownTrade.number, layer })}
+          />
+        )}
 
-      {(trades.length > 0 || status === 'COMPLETE') && (
-        <TradeLog
-          state={state}
-          selected={shownTrade?.number}
-          onSelect={(number) => setPicked({ number, closedAt: closed.length })}
-        />
-      )}
+        {/* Always in view at the column's foot, however long the scorecard above it (T42). */}
+        <Panel aria-label="Replay" className="sticky bottom-0 z-10 mt-auto">
+          <h3 className={panelTitle}>Replay</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button disabled={busy || playing} onClick={() => void advance(1)}>
+              <StepForward aria-hidden className="size-4" />
+              Next bar
+            </Button>
+            <Button disabled={busy || playing} onClick={() => void advance(10)}>
+              Next 10
+            </Button>
+            {status !== 'COMPLETE' && (
+              <Button active={playing} aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+                {playing ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}
+                {playing ? 'Pause' : 'Play'}
+              </Button>
+            )}
+            {status !== 'COMPLETE' && (
+              <Segmented<string>
+                options={SPEED_LABELS}
+                value={`${speed}×`}
+                onChange={(label) => setSpeed(Number(label.slice(0, -1)) as Speed)}
+                label="Replay speed, bars per second"
+              />
+            )}
+            {status === 'IN_TRADE' && (
+              <Button disabled={busy} onClick={() => void skip()}>
+                Skip to result
+              </Button>
+            )}
+          </div>
+
+          {status === 'ANALYSING' && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+              {confirmingEnd ? (
+                <>
+                  <span className="text-sm">
+                    End the session? No more trades{state.timeBasis === 'NEW_YORK_WALL_CLOCK' && ', and the date is revealed'}.
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={busy}
+                    onClick={() => {
+                      setEndAskedAt(null)
+                      void end()
+                    }}
+                  >
+                    End session
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEndAskedAt(null)}>
+                    Keep trading
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEndAskedAt(trades.length)}>
+                  End session…
+                </Button>
+              )}
+            </div>
+          )}
+
+          {status === 'COMPLETE' && (
+            <Button variant="link" className="mt-3" onClick={onBack}>
+              Back to Practice
+            </Button>
+          )}
+
+          {error && (
+            <p role="alert" className={`mt-3 ${errorClass}`}>
+              {error}
+            </p>
+          )}
+        </Panel>
+      </aside>
     </section>
   )
 }

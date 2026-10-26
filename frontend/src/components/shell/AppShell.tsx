@@ -23,8 +23,8 @@ const NAV = [
  */
 const WIDE = ['/chart', '/drills']
 
-/** The Chart tab fills the window to the edges, with Lovable's narrow gutter (T38). */
-const FULL = '/chart'
+/** The Chart tab and a practice session fill the window to the edges, with Lovable's narrow gutter (T38, T42). */
+const fills = (pathname: string) => pathname === '/chart' || /^\/practice\/[^/]+/.test(pathname)
 
 interface AppShellProps {
   user: User
@@ -38,7 +38,8 @@ interface AppShellProps {
 export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere, children }: AppShellProps) {
   const { pathname } = useLocation()
   const section = '/' + (pathname.split('/')[1] ?? '')
-  const wide = WIDE.includes(section)
+  const full = fills(pathname)
+  const wide = full || WIDE.includes(section)
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -81,7 +82,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
       <main
         className={cx(
           'mx-auto w-full min-w-0 flex-1',
-          section === FULL ? 'p-3' : 'px-6 py-8',
+          full ? 'p-3' : 'px-6 py-8',
           wide ? 'max-w-none' : 'max-w-[1280px]',
         )}
       >

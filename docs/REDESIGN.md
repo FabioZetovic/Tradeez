@@ -56,7 +56,7 @@
 | T39 | Home | T36 (news card: T40) | ✅ merged 2026-10-26 | `feat/t39-home` (from `feat/t38-chart`) | `components/home/HomePage.tsx` at `/`: greeting, four step cards with real progress (definitions agreed with Fabio), Up next, Due for review (rings), Practice so far, the latest NQ session still; lessons at `/learn/:conceptId`; News card waits for T40. Screenshots docs/redesign/after/t39/. 421 tests, 16 mutants |
 | T40 | News | T36 | ✅ merged 2026-10-26 | `feat/t40-news` | DEC-079: our own calendar — FRED release dates (8 releases) + the Fed's FOMC list, refreshed every 6 h, stale/FOMC warnings, FRED notice; News page `/news`, Home "News today", nav. Forex Factory ruled out by its terms. Screenshots docs/redesign/after/t40/ |
 | T41 | Practice home | T36 | ✅ merged 2026-10-26 | `feat/t41-practice` | DEC-080: costs fixed at the standard (refused if sent, V29), start = session time + Start, four StatTiles (total, win rate, held to plan, costs paid), open sessions, per-trade journal (`GET /api/practice/trades`), more statistics behind a disclosure. Screenshots docs/redesign/after/t41/ |
-| T42 | Practice session | T37, T38, T41 | ⬜ | | |
+| T42 | Practice session | T37, T38, T41 | 🟢 built, waiting for "merge" | `feat/t42-session` | `/practice/:sessionId` full screen: drawing bar, chart card (top bar, layers, chart, Trades strip), 22rem trading column (score, plan, open trade, scorecard, review, replay sticky at its foot); practice layers its own and all off by default. Screenshots docs/redesign/after/t42/ |
 | T43 | Drills | T36 | ⬜ | | locks from T45 added later |
 | T44 | Learn audit (with Fabio) | Fabio's time | ⬜ | | list → his decisions |
 | T45 | Learn rebuild | T36, T44 | ⬜ | | |
@@ -1027,4 +1027,8 @@ due, open), `suggested`, `due`.
 | 2026-10-26 | T41 | The costs are an app setting (`tradeez.practice.costs`), the standard by default: the worked-example tests keep their simpler costs through it, per test context | Claude |
 | 2026-10-26 | T41 | Held to plan = not closed by hand; a flat at the session's close counts as held | Claude |
 | 2026-10-26 | T41 | A journal row opens its session; opening it at that very trade, and `/practice/:id` addresses, come with T42's session screen | Claude |
+| 2026-10-26 | T42 | Practice keeps its own layers (`tradeez.practice.*`), all off at first; the Chart tab keeps its defaults | Claude |
+| 2026-10-26 | T42 | The session screen is the existing `PracticeSession` rearranged, not a new `SessionPage`: every behaviour test carried over unchanged but for the layout | Claude |
+| 2026-10-26 | T42 | The replay sits sticky at the column's foot, so it stays in reach however long the scorecard above it | Claude |
+| 2026-10-26 | T42 | The plan panel, the scorecard and the review keep their own look for now; restyling their insides (Lovable's big R, the numbers box) is left for a polish pass | Claude |
 
