@@ -1,54 +1,26 @@
-import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { motion } from 'motion/react'
-import { Briefcase, Calculator, ChartCandlestick, Clock, Droplets, GitCompareArrows, Shapes, Waypoints } from 'lucide-react'
+import { Clock, type LucideIcon } from 'lucide-react'
 import { listDrillKinds, listRiskKinds, RISK_KINDS, type DrillKindView, type RiskKindView } from '@/lib/api/drills'
 import { MODE_NAMES } from '@/lib/drills/modes'
 import { getLearning, type ConceptProgress } from '@/lib/api/learning'
+import { getCurriculum, type Curriculum } from '@/lib/api/concepts'
+import { topicIcon } from '@/lib/topics'
 import { cx, errorClass } from '@/lib/styles'
 import { Chip, NextStep, PageHeader } from '../ui'
 
 /**
- * The topics, in the order they build on one another, each holding its drills (docs/REDESIGN.md T43). A kind the server
- * lists and no topic names still gets a card, under "More drills": every drill stays reachable. T44/T45 may regroup them
- * to Learn's topics.
- */
-const TOPICS: Array<{ title: string; icon: ComponentType<{ className?: string }>; kinds: string[] }> = [
-  { title: 'Gaps & imbalances', icon: ChartCandlestick, kinds: ['FVG_IDENTIFICATION', 'VI_IDENTIFICATION'] },
-  {
-    title: 'Structure',
-    icon: Waypoints,
-    kinds: [
-      'SWING_HIGH_IDENTIFICATION',
-      'SWING_LOW_IDENTIFICATION',
-      'DISPLACEMENT_IDENTIFICATION',
-      'STRUCTURE_CLASSIFICATION',
-      'BOS_CHOCH_CLASSIFICATION',
-    ],
-  },
-  {
-    title: 'Liquidity',
-    icon: Droplets,
-    kinds: [
-      'EQHL_IDENTIFICATION',
-      'SWEEP_IDENTIFICATION',
-      'SWEEP_RUN_CLASSIFICATION',
-      'LIQUIDITY_FIRST_PREDICTION',
-      'ERL_IRL_PREDICTION',
-    ],
-  },
-  { title: 'SMT', icon: GitCompareArrows, kinds: ['SMT_IDENTIFICATION'] },
-  { title: 'Trade management', icon: Briefcase, kinds: ['OPEN_TRADE_MANAGEMENT'] },
-]
-
-/**
  * Drills (T43, Lovable's §5.5): sections of cards, one click to start. Each card carries the learner's real record — from
- * the curriculum's progress for a chart drill, from the server's tally for a risk one.
+ * the curriculum's progress for a chart drill, from the server's tally for a risk one. The sections are Learn's topics
+ * (T45), each drill under its lesson's; the risk questions go with Risk & management. A drill whose concept no topic
+ * holds still gets a card, under "More drills": every drill stays reachable.
  */
 export function DrillsPage() {
   const [kinds, setKinds] = useState<DrillKindView[] | null>(null)
   const [risk, setRisk] = useState<RiskKindView[]>([])
   const [concepts, setConcepts] = useState<Map<string, ConceptProgress>>(new Map())
+  const [curriculum, setCurriculum] = useState<Curriculum | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -62,16 +34,24 @@ export function DrillsPage() {
     getLearning()
       .then((learning) => setConcepts(new Map(learning.concepts.map((c) => [c.id, c]))))
       .catch(() => {})
+    getCurriculum()
+      .then(setCurriculum)
+      .catch(() => {})
   }, [])
 
-  const listed = new Set(TOPICS.flatMap((t) => t.kinds))
+  // Each topic's drills in the order its lessons are taught; then the drills of concepts no topic holds.
+  const order = new Map((curriculum?.topics ?? []).flatMap((t) => t.concepts).map((id, i) => [id, i]))
+  const topicOf = (conceptId: string) => curriculum?.topics.find((t) => t.concepts.includes(conceptId))?.title
   const sections = [
-    ...TOPICS.map((topic) => ({
-      ...topic,
-      drills: topic.kinds.flatMap((id) => kinds?.find((k) => k.kind === id) ?? []),
+    ...(curriculum?.topics ?? []).map((topic) => ({
+      title: topic.title,
+      drills: (kinds ?? [])
+        .filter((k) => topicOf(k.conceptId) === topic.title)
+        .sort((x, y) => (order.get(x.conceptId) ?? 0) - (order.get(y.conceptId) ?? 0)),
     })),
-    { title: 'More drills', icon: Shapes, drills: kinds?.filter((k) => !listed.has(k.kind)) ?? [] },
-  ].filter((section) => section.drills.length > 0)
+    { title: 'More drills', drills: (kinds ?? []).filter((k) => topicOf(k.conceptId) === undefined) },
+  ].filter((section) => section.drills.length > 0 || (kinds !== null && section.title === RISK_TOPIC))
+  if (kinds !== null && !sections.some((s) => s.title === RISK_TOPIC)) sections.push({ title: RISK_TOPIC, drills: [] })
 
   return (
     <section aria-label="Drills">
@@ -88,8 +68,8 @@ export function DrillsPage() {
       )}
 
       <div className="flex flex-col gap-10">
-        {sections.map(({ title, icon, drills }) => (
-          <Topic key={title} title={title} icon={icon}>
+        {sections.map(({ title, drills }) => (
+          <Topic key={title} title={title} icon={topicIcon(title)}>
             {drills.map((kind, i) => (
               <Card
                 key={kind.kind}
@@ -102,11 +82,8 @@ export function DrillsPage() {
                 record={record(concepts.get(kind.conceptId))}
               />
             ))}
-          </Topic>
-        ))}
-        {kinds !== null && (
-          <Topic title="Risk" icon={Calculator}>
-            {RISK_KINDS.map((kind, i) => {
+            {title === RISK_TOPIC &&
+              RISK_KINDS.map((kind, i) => {
               const tally = risk.find((r) => r.kind === kind.value)
               return (
                 <Card
@@ -122,7 +99,7 @@ export function DrillsPage() {
               )
             })}
           </Topic>
-        )}
+        ))}
       </div>
 
       <NextStep to="/practice" title="Put it together in Practice" line="Plan a trade on a replayed day." />
@@ -130,18 +107,18 @@ export function DrillsPage() {
   )
 }
 
+/** Where the risk questions live: with the lesson they practise, risk rules and drawdown (DEC-081). */
+const RISK_TOPIC = 'Risk & management'
+
 /**
- * A chart drill's record is its concept's (S-2): the graded tries and the recent accuracy for a rated one; for a
- * prediction or a managed trade, how many were answered — practice, never a rating (DEC-059).
+ * A chart drill's record is its lesson's (S-2, learning-1.1.0): every drill of the lesson answered, and the recent
+ * accuracy over them — what passing the lesson is measured on.
  */
 function record(concept?: ConceptProgress): string | undefined {
   if (!concept) return undefined
-  if (concept.rated) {
-    if (concept.attempts === 0) return 'Not tried yet'
-    const tries = `${concept.attempts} ${concept.attempts === 1 ? 'try' : 'tries'}`
-    return concept.recentAccuracy === undefined ? tries : `${tries} · ${Math.round(concept.recentAccuracy * 100)}% recently`
-  }
-  return concept.practised === 0 ? 'Not tried yet' : `${concept.practised} answered`
+  if (concept.attempts === 0) return 'Not tried yet'
+  const tries = `${concept.attempts} ${concept.attempts === 1 ? 'try' : 'tries'}`
+  return concept.recentAccuracy === undefined ? tries : `${tries} · ${Math.round(concept.recentAccuracy * 100)}% recently`
 }
 
 function Topic({
@@ -150,7 +127,7 @@ function Topic({
   children,
 }: {
   title: string
-  icon: ComponentType<{ className?: string }>
+  icon: LucideIcon
   children: ReactNode
 }) {
   const id = `topic-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`

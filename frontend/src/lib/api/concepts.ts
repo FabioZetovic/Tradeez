@@ -18,10 +18,18 @@ interface Concept {
   rules: string[]
   summary: string
   prerequisites: string[]
+  /** How Learn teaches it (DEC-081). */
+  kind: 'LESSON' | 'REFERENCE' | 'MERGED' | 'REMOVED'
+  /** Its topic; empty for a removed concept. */
+  topic: string
+  importance: 'high' | 'medium' | 'low'
+  /** For a merged concept, the lesson it is a section of; otherwise empty. */
+  into: string
 }
 
 export interface Curriculum {
-  levels: { level: number; theme: string; concepts: string; unlocksWhen: string }[]
+  /** Learn's topics, each with its lessons and reference cards in the order taught. */
+  topics: { title: string; concepts: string[] }[]
   concepts: { concept: Concept; detectors: Rule[] }[]
 }
 

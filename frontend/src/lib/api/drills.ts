@@ -12,7 +12,7 @@ import type { Companion, DomainBar } from '../chart/types'
  * IDENTIFY: mark every instance (mode A). CLASSIFY: name the marked structure (mode B). PREDICT: say
  * which of two targets price reaches first after the chart stops (mode C, DEC-058).
  */
-export type DrillMode = 'IDENTIFY' | 'CLASSIFY' | 'PREDICT' | 'MANAGE'
+export type DrillMode = 'IDENTIFY' | 'CLASSIFY' | 'PREDICT' | 'MANAGE' | 'JUDGE'
 
 export interface DrillKindView {
   kind: string
@@ -71,7 +71,8 @@ export interface TargetView {
 /** Drawn for context, not to be chosen: a gap inside the range, or the level just taken. */
 export interface ContextView {
   /** TRADE_*: a management drill's open trade (T26). */
-  what: 'IRL_BULLISH_GAP' | 'IRL_BEARISH_GAP' | 'TAKEN_BSL' | 'TAKEN_SSL' | 'TRADE_ENTRY' | 'TRADE_STOP' | 'TRADE_TARGET'
+  /** A judgement's lines (T45) too: RANGE_HIGH, LEG_START, DAY_OPEN, STOP_A… — drawn as labelled lines. */
+  what: string
   shape: 'LEVEL' | 'ZONE'
   fromTime: number
   lowTicks: number

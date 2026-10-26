@@ -191,8 +191,8 @@ class JudgementTest {
 			Map<String, String> labels = new java.util.HashMap<>();
 			asked.options().forEach(o -> labels.put(o.value(), o.label()));
 			assertThat(asked.values()).containsExactly("A", "B", "C");
-			assertThat(labels.get(asked.answer())).isEqualTo(asked.answer() + " — 234.75");
-			assertThat(labels.values()).containsExactlyInAnyOrder("A — 234.75", "B — 239.75", "C — 246.75")
+			assertThat(labels.get(asked.answer())).isEqualTo(asked.answer() + " · 234.75");
+			assertThat(labels.values()).containsExactlyInAnyOrder("A · 234.75", "B · 239.75", "C · 246.75")
 				.extracting(l -> l.substring(4)).containsExactlyInAnyOrder("234.75", "239.75", "246.75");
 			assertThat(asked.context()).extracting(Prediction.Context::what)
 				.containsExactly("TRADE_ENTRY", "STOP_A", "STOP_B", "STOP_C");

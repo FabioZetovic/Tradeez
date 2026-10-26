@@ -693,3 +693,56 @@ describe('Drills — SMT, two charts (DEC-075)', () => {
     expect(screen.queryByRole('figure', { name: /over the same minutes/ })).not.toBeInTheDocument()
   })
 })
+
+describe('Drills — judge (T45)', () => {
+  const JUDGE: DrillResponse = {
+    ...DRILL,
+    id: 'drill-pd',
+    kind: 'PREMIUM_DISCOUNT_JUDGEMENT',
+    mode: 'JUDGE',
+    title: 'Premium or discount',
+    conceptId: 'ICT-41',
+    markName: undefined,
+    rule: { ...DRILL.rule, detector: 'PD', version: 'pd-1.0.0' },
+    options: [
+      { value: 'PREMIUM', label: 'Premium' },
+      { value: 'DISCOUNT', label: 'Discount' },
+    ],
+    question: {
+      version: 'judge-pd-1.0.0',
+      definition: 'A dealing range, its equilibrium halfway.',
+      closeTicks: 80_005,
+      targets: [],
+      context: [
+        { what: 'RANGE_HIGH', shape: 'LEVEL', fromTime: T0, lowTicks: 80_040, highTicks: 80_040, label: 'Range high 20010.00' },
+        { what: 'RANGE_LOW', shape: 'LEVEL', fromTime: T0, lowTicks: 79_960, highTicks: 79_960, label: 'Range low 19990.00' },
+      ],
+    },
+  }
+  const judged = (choice: string): DrillResponse => ({
+    ...JUDGE,
+    choice,
+    result: {
+      answer: 'DISCOUNT',
+      correct: choice === 'DISCOUNT',
+      setups: [],
+      explanation: ['The range runs from 19990.00 to 20010.00; halfway, its equilibrium, is 20000.00.'],
+    },
+  })
+
+  it('offers the answers, answers with the one chosen, and gives the rule\'s answer with its reasons', async () => {
+    mockApi(server({ drill: JUDGE, answer: (body) => ({ body: judged(body.choice ?? '') }) }))
+    const user = await startDrill('PREMIUM_DISCOUNT_JUDGEMENT')
+    expect(screen.getByTestId('drill-mode')).toHaveTextContent('Judge')
+    expect(screen.getByTestId('graded')).toHaveTextContent('Graded against judge-pd-1.0.0')
+    expect(screen.queryByText(/The marked (high|low) is/)).toBeNull()
+    expect(screen.queryByTestId('mark-count')).toBeNull()
+    const answer = screen.getByRole('region', { name: 'Answer' })
+    expect(within(answer).getAllByRole('button').map((b) => b.textContent)).toEqual(['Premium', 'Discount'])
+    await user.click(within(answer).getByRole('button', { name: 'Premium' }))
+    expect(calls.find((c) => c.url.endsWith('/answer'))?.body).toEqual({ choice: 'PREMIUM' })
+    expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Not quite — Discount; you chose Premium')
+    expect(screen.getByText(/its equilibrium, is 20000.00/)).toBeInTheDocument()
+    expect(screen.getByTestId('drill-grade')).toHaveTextContent('Graded against judge-pd-1.0.0.')
+  })
+})

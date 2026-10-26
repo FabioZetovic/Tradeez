@@ -1,0 +1,57 @@
+[
+  {
+    "file": "1920-learn.png",
+    "width": 1920,
+    "title": "Learn at 1920: topics, progress, lessons done / next / locked, cards"
+  },
+  {
+    "file": "1366-learn.png",
+    "width": 1366,
+    "title": "Learn at 1366: topics, progress, lessons done / next / locked, cards"
+  },
+  {
+    "file": "1920-lesson.png",
+    "width": 1920,
+    "title": "A lesson in the template: what it is, how to spot it, how it is traded, examples, the rule folded, the data, practise it"
+  },
+  {
+    "file": "1920-lesson-locked-or-open.png",
+    "width": 1920,
+    "title": "Stop placement: locked until Risk rules is passed, or the lesson if it is open"
+  },
+  {
+    "file": "1920-drills.png",
+    "width": 1920,
+    "title": "Drills under Learn's topics, the risk questions with Risk & management"
+  },
+  {
+    "file": "1920-judge-premium-discount.png",
+    "width": 1920,
+    "title": "Judge drill: PREMIUM_DISCOUNT_JUDGEMENT"
+  },
+  {
+    "file": "1920-judge-premium-discount-result.png",
+    "width": 1920,
+    "title": "Judge drill answered: PREMIUM_DISCOUNT_JUDGEMENT"
+  },
+  {
+    "file": "1920-judge-stop-placement.png",
+    "width": 1920,
+    "title": "Judge drill: STOP_PLACEMENT_JUDGEMENT"
+  },
+  {
+    "file": "1920-judge-stop-placement-result.png",
+    "width": 1920,
+    "title": "Judge drill answered: STOP_PLACEMENT_JUDGEMENT"
+  },
+  {
+    "file": "1920-judge-silver-bullet.png",
+    "width": 1920,
+    "title": "Judge drill: SILVER_BULLET_JUDGEMENT"
+  },
+  {
+    "file": "1920-judge-silver-bullet-result.png",
+    "width": 1920,
+    "title": "Judge drill answered: SILVER_BULLET_JUDGEMENT"
+  }
+]

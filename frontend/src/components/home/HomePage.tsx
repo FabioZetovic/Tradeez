@@ -71,9 +71,9 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
     () => new Set(learning?.concepts.filter((c) => c.state === 'SOLID').map((c) => c.id) ?? []),
     [learning],
   )
-  // Pattern drills: graded against a rule. Predictions are practice, never a rating (DEC-059).
-  const pattern = kinds?.filter((k) => k.mode === 'IDENTIFY' || k.mode === 'CLASSIFY') ?? []
-  const drillsSolid = pattern.filter((k) => solid.has(k.conceptId)).length
+  // learning-1.1.0 (T45): every drill counts toward passing its lesson, so a drill is passed when its lesson is.
+  const drills = kinds ?? []
+  const drillsPassed = drills.filter((k) => solid.has(k.conceptId)).length
   const trades = sessions?.reduce((sum, s) => sum + s.trades, 0) ?? 0
 
   const suggested = learning?.suggested
@@ -93,17 +93,17 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
       </header>
 
       <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StepCard n={1} to="/learn" icon={<BookOpen />} title="Learn" line="Each ICT concept as a rule, with real NQ examples.">
+        <StepCard n={1} to="/learn" icon={<BookOpen />} title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
           {learning && (
             <Progress
               value={learning.summary.complete / Math.max(1, learning.summary.concepts)}
-              text={`${learning.summary.complete} of ${learning.summary.concepts} concepts complete`}
+              text={`${learning.summary.complete} of ${learning.summary.concepts} lessons complete`}
             />
           )}
         </StepCard>
         <StepCard n={2} to="/drills" icon={<Crosshair />} title="Drills" line="Spot and name patterns on real charts, graded by the rule.">
-          {learning && pattern.length > 0 && (
-            <Progress value={drillsSolid / pattern.length} text={`${drillsSolid} of ${pattern.length} drills solid`} />
+          {learning && drills.length > 0 && (
+            <Progress value={drillsPassed / drills.length} text={`${drillsPassed} of ${drills.length} drills passed`} />
           )}
         </StepCard>
         <StepCard n={3} to="/practice" icon={<Target />} title="Practice" line="A real day replayed bar by bar, the future hidden.">

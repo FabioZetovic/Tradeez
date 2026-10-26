@@ -1,0 +1,186 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import { motion } from 'motion/react'
+import { Check, Clock, Lock } from 'lucide-react'
+import { getCurriculum, type Curriculum } from '@/lib/api/concepts'
+import { getLearning, type ConceptProgress, type Learning } from '@/lib/api/learning'
+import { topicIcon } from '@/lib/topics'
+import { cx, errorClass } from '@/lib/styles'
+import { Chip, NextStep, PageHeader, Ring } from '../ui'
+
+/**
+ * Learn (T45, Lovable's §5.3, DEC-081): ICT's ideas grouped by topic, each topic a short path of lessons in the order
+ * they are best learnt, its reference cards with it. Fabio: "trader doesnt even know which one to start" — the first
+ * lesson of the recommended topic says "Start here"; "passing the drill unlocks the next session" — a locked lesson
+ * says which drill to pass.
+ */
+export function LearnPage() {
+  const [learning, setLearning] = useState<Learning | null>(null)
+  const [curriculum, setCurriculum] = useState<Curriculum | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getLearning()
+      .then(setLearning)
+      .catch(() => setError('Could not load your lessons. Reload to try again.'))
+    getCurriculum()
+      .then(setCurriculum)
+      .catch(() => setError('Could not load your lessons. Reload to try again.'))
+  }, [])
+
+  const name = (id: string) => curriculum?.concepts.find((c) => c.concept.id === id)?.concept.name ?? id
+  const progress = new Map(learning?.concepts.map((c) => [c.id, c]))
+  // A newcomer: nothing practised or read yet.
+  const fresh =
+    learning !== null &&
+    learning.summary.ratedAttempts + learning.summary.predictions === 0 &&
+    learning.concepts.every((c) => c.readAt === undefined)
+
+  return (
+    <section aria-label="Learn">
+      <PageHeader
+        eyebrow="Step 1"
+        title="Learn"
+        description="ICT's ideas grouped by topic — start with the first open lesson."
+        right={
+          learning && (
+            <div className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-panel">
+              <Ring
+                value={learning.summary.complete / Math.max(1, learning.summary.concepts)}
+                size={48}
+                label="Lessons complete"
+              />
+              <span className="num text-sm text-subtle" data-testid="learn-total">
+                <strong className="text-ink">{learning.summary.complete}</strong> / {learning.summary.concepts} lessons
+              </span>
+            </div>
+          )
+        }
+      />
+      {error && (
+        <p role="alert" className={errorClass}>
+          {error}
+        </p>
+      )}
+      {!learning && !error && (
+        <p role="status" className="text-sm text-subtle">
+          Loading your lessons…
+        </p>
+      )}
+
+      <div className="flex flex-col gap-10">
+        {learning?.topics.map((topic) => {
+          const Icon = topicIcon(topic.title)
+          const id = `topic-${topic.title.toLowerCase().replace(/[^a-z]+/g, '-')}`
+          return (
+            <section key={topic.title} aria-labelledby={id}>
+              <div className="mb-4 flex items-baseline justify-between gap-4">
+                <h2 id={id} className="flex items-center gap-2.5 font-display text-xl font-bold tracking-tight text-ink">
+                  <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-accent/15 text-accent">
+                    <Icon className="size-4" />
+                  </span>
+                  {topic.title}
+                </h2>
+                <span className="num text-xs text-subtle" data-testid="topic-progress">
+                  {topic.complete} of {topic.concepts.length}
+                </span>
+              </div>
+              <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {topic.concepts.map((conceptId, i) => {
+                  const p = progress.get(conceptId)
+                  if (!p) return null
+                  const before = topic.concepts
+                    .slice(0, i)
+                    .filter((c) => progress.get(c)?.kind === 'LESSON')
+                    .at(-1)
+                  return (
+                    <LessonTile
+                      key={conceptId}
+                      index={i}
+                      progress={p}
+                      name={name(conceptId)}
+                      next={learning.suggested === conceptId}
+                      startHere={fresh && learning.suggested === conceptId}
+                      lockedBy={before && name(before)}
+                    />
+                  )
+                })}
+              </ul>
+            </section>
+          )
+        })}
+      </div>
+
+      <NextStep to="/drills" title="Drill what you've learned" line="Spot and name the patterns on real NQ charts." />
+    </section>
+  )
+}
+
+/**
+ * One lesson or card (Lovable's): its ring, code and title, and its state — done, due for review, next (the whole tile
+ * glows), or locked, saying which drill opens it.
+ */
+function LessonTile({
+  index,
+  progress,
+  name,
+  next,
+  startHere,
+  lockedBy,
+}: {
+  index: number
+  progress: ConceptProgress
+  name: string
+  next: boolean
+  startHere: boolean
+  lockedBy?: string
+}) {
+  const done = progress.state === 'SOLID' || progress.state === 'DONE'
+  const locked = !progress.open
+  const card = progress.kind === 'REFERENCE'
+  const ring = done ? 1 : (progress.recentAccuracy ?? 0)
+  const why = locked && lockedBy ? `Pass the ${lockedBy} drill to unlock` : undefined
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut', delay: index * 0.03 }}
+    >
+      <Link
+        to={`/learn/${progress.id}`}
+        title={why}
+        data-testid="lesson-tile"
+        className={cx(
+          'flex h-full items-center gap-4 rounded-card border bg-surface p-4 shadow-panel transition-all duration-150',
+          'hover:-translate-y-0.5 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent',
+          next ? 'border-accent/60 shadow-glow' : 'border-line hover:border-accent/40',
+          locked && 'opacity-70',
+        )}
+      >
+        <Ring value={ring} size={40} label={done ? 'Complete' : `${Math.round(ring * 100)}% recently`} />
+        <span className="min-w-0 flex-1">
+          <span className="num block text-xs text-subtle">{progress.id}</span>
+          <span className="block font-semibold text-ink">{name}</span>
+          {why && <span className="mt-0.5 block text-xs text-subtle">{why}</span>}
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-1">
+          {startHere && <Chip tone="accent">Start here</Chip>}
+          {card && !done && <Chip>Card</Chip>}
+          {locked ? (
+            <Lock aria-label="Locked" className="size-4 text-subtle" />
+          ) : progress.due ? (
+            <Chip tone="caution">
+              <Clock aria-hidden className="mr-1 size-3" /> Review
+            </Chip>
+          ) : done ? (
+            <Chip tone="good" aria-label="Done">
+              <Check aria-hidden className="size-3.5" /> Done
+            </Chip>
+          ) : next && !startHere ? (
+            <Chip tone="accent">Next</Chip>
+          ) : null}
+        </span>
+      </Link>
+    </motion.li>
+  )
+}

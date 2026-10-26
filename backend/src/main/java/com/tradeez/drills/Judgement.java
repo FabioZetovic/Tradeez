@@ -297,7 +297,7 @@ public final class Judgement {
 		Map<String, Long> stops = Map.of(letters.get(0), right, letters.get(1), tight, letters.get(2), wick);
 		LongFunction<String> price = prices(tickSize);
 		List<Option> options = letters.stream().sorted()
-			.map(l -> new Option(l, l + " — " + price.apply(stops.get(l)))).toList();
+			.map(l -> new Option(l, l + " · " + price.apply(stops.get(l)))).toList();
 		long from = h.start().getEpochSecond();
 		List<Context> context = new java.util.ArrayList<>();
 		context.add(new Context("TRADE_ENTRY", true, taken.openTime().getEpochSecond(), entry, entry));

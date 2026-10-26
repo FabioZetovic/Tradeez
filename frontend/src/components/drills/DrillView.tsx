@@ -112,6 +112,8 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
   const identify = drill?.mode === 'IDENTIFY'
   const predict = drill?.mode === 'PREDICT'
   const manage = drill?.mode === 'MANAGE'
+  // A question about the chart as it stands, answered by a rule (T45): its lines drawn, its answers offered.
+  const judge = drill?.mode === 'JUDGE'
   // Both are answered by what price did after the chart stopped, and show it afterwards.
   const future = predict || manage
 
@@ -198,14 +200,15 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
 
           <details className="text-xs">
             <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-subtle">
-              <span>The rule ({predict ? `${drill.question?.version}, on ${drill.rule.version}` : drill.rule.version})</span>
+              <span>The rule ({predict ? `${drill.question?.version}, on ${drill.rule.version}` : judge ? drill.question?.version : drill.rule.version})</span>
               {drill.graded && (
                 <Chip data-testid="graded">
-                  {future ? `Graded by what price did · ${drill.question?.version}` : `Graded against ${drill.rule.version}`}
+                  {future ? `Graded by what price did · ${drill.question?.version}`
+                    : `Graded against ${judge ? drill.question?.version : drill.rule.version}`}
                 </Chip>
               )}
             </summary>
-            {predict && <p className="mt-2 max-w-4xl">{drill.question?.definition}</p>}
+            {(predict || judge) && <p className="mt-2 max-w-4xl">{drill.question?.definition}</p>}
             <p className="mt-2 max-w-4xl">{drill.rule.definition}</p>
             <p className="mt-2 text-subtle">
               {drill.rule.methodologySource}. Reproducible under this rule — not proof that a pattern
@@ -260,7 +263,19 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
             </Panel>
           )}
 
-          {!answered && !identify && !future && (
+          {!answered && judge && (
+            <Panel aria-label="Answer">
+              <div className="flex flex-wrap items-center gap-3">
+                {drill.options?.map((option) => (
+                  <Button key={option.value} disabled={busy} onClick={() => void choose(option.value)}>
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {!answered && !identify && !future && !judge && (
             <Panel aria-label="Answer">
               <p className="mb-3 text-sm text-subtle">The marked {drill.subject?.side === 'HIGH' ? 'high' : 'low'} is…</p>
               <div className="flex flex-wrap items-center gap-3">
@@ -287,6 +302,8 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
                 <PredictResult drill={drill} result={drill.result} />
               ) : manage ? (
                 <ManageResult drill={drill} result={drill.result} />
+              ) : judge ? (
+                <JudgeResult drill={drill} result={drill.result} />
               ) : (
                 <NameResult drill={drill} result={drill.result} />
               )}
@@ -419,6 +436,22 @@ function ManageResult({ drill, result }: { drill: DrillResponse; result: ResultV
       </h3>
       <p className="mb-3 text-xs text-subtle" data-testid="drill-grade">
         Graded by what real price did with each choice — the candles after the line are the ones that were hidden.
+      </p>
+      <Explanation lines={result.explanation ?? []} />
+    </>
+  )
+}
+
+/** A judgement's answer (T45): the rule's, against the learner's, and the reasons in prices. */
+function JudgeResult({ drill, result }: { drill: DrillResponse; result: ResultView }) {
+  const name = (value?: string) => drill.options?.find((o) => o.value === value)?.label ?? value
+  return (
+    <>
+      <h3 className={panelTitle} data-testid="drill-summary">
+        {result.correct ? `Right — ${name(result.answer)}` : `Not quite — ${name(result.answer)}; you chose ${name(drill.choice)}`}
+      </h3>
+      <p className="mb-3 text-xs text-subtle" data-testid="drill-grade">
+        Graded against {drill.question?.version}.
       </p>
       <Explanation lines={result.explanation ?? []} />
     </>
