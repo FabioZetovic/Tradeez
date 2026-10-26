@@ -17,6 +17,10 @@ engineering assistants, **Claude Code** and **ChatGPT Codex**.
 - **A guide** (T29, at `/help` since T36): what Learn, Drills, Practice and Chart are each for, in that order, and
   what the app is not. "How it works" in the account menu opens it. Every screen has its own address. English only
   (Q-08).
+- **News** (DEC-079): this week's and next week's US releases that move NQ — CPI, payrolls, the FOMC, GDP, PCE,
+  retail sales (high impact), PPI, jobless claims and JOLTS (medium) — from the agencies' schedules via FRED and the
+  Federal Reserve, refreshed every six hours. This product uses the FRED® API but is not endorsed or certified by the
+  Federal Reserve Bank of St. Louis.
 - **Accounts:** register and sign in. Sessions use HttpOnly cookies with rotating refresh tokens.
   Passwords follow `password-1.0.0` (DEC-064): 12 characters to 72 bytes, not a common password, not
   your own name or email, and not found in a known breach (Have I Been Pwned, k-anonymous — the password

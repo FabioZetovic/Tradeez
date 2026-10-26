@@ -123,7 +123,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — the redesign (M6, T36–T49, docs/REDESIGN.md). T36 theme and shell (feat/t36-shell, DEC-078) and T37 overlays in the chart's paint step (feat/t37-overlays, built on it; BUG-095 and BUG-096 fixed) built and merged 2026-10-23 (master 18399e5). T38 the Chart tab and T39 Home merged 2026-10-26 (master d0b84bd). Next, T40 News — from the official US release schedules, not Forex Factory, whose terms forbid republishing its calendar (Fabio, 2026-10-26). BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: nothing — the redesign (M6, T36–T49, docs/REDESIGN.md). T36 theme and shell (feat/t36-shell, DEC-078) and T37 overlays in the chart's paint step (feat/t37-overlays, built on it; BUG-095 and BUG-096 fixed) built and merged 2026-10-23 (master 18399e5). T38 the Chart tab and T39 Home merged 2026-10-26 (master d0b84bd). T40 News built on feat/t40-news (DEC-079: our own calendar from FRED and the Fed — Forex Factory's terms forbid republishing its calendar), waiting for Fabio's "merge"; next, T41 the Practice home. BUG-093 seen once and logged. Left after it: T31 (deployment, deferred by Fabio with BUG-073), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -324,7 +324,7 @@ I = `ICT_CONCEPTS.md`. Old R2–R5 map to T2, T3, T4 and T13.
 |---|---|---|---|---|
 | T29 | ~~**Disclaimers, onboarding, UI language**~~ | — | D-015, X, Q-08 | ✅ Session 017 (DEC-015 note), **merged 2026-10-21 as `9f332df`**: the footer and sign-in page state the CFTC's three points and that practice never reaches a market; a first-visit guide to the four tabs and what the app is not, reopened from "How it works"; the slide's text in DOCUMENTATION.md; English only, `lang="en"` (Q-08). |
 | T30 | ~~**BUG-035**~~ | — | BUGS.md | ✅ Already done in session 017, before the merge of `feat/real-nq-data`: the seven warnings fixed and `npm run lint` runs `oxlint --deny-warnings` (BUGS.md). The row was stale. |
-| T31 | **€0 deployment smoke test; jury data rights** | M0 | X, C §4.1, Q-09 | Was task 8. No purchase without Fabio. |
+| T31 | **€0 deployment smoke test; jury data rights** | M0 | X, C §4.1, Q-09 | Was task 8. No purchase without Fabio. A public deployment also needs a privacy policy: FRED's terms ask it of an app serving other users (DEC-079). |
 | T32 | **Deeper history and one-second bars** | Fabio's budget decision | D-040 | Databento importer is built; or a month of Massive's paid plan. **Skipped for now (Fabio, 2026-10-21): no budget; to be revisited at the end.** |
 | T33 | **Indicators (VWAP, ATR, EMA)** | T3 | X §4 | Low priority for ICT. |
 

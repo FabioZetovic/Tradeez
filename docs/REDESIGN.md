@@ -54,7 +54,7 @@
 | T37 | Chart overlays in the paint step (BUG-095) | — | ✅ merged 2026-10-23 | `feat/t37-overlays` (from `feat/t36-shell`) | BUG-095 fixed: `ChartAdapter.addLayer` (a series primitive) + `useChartLayer`; clock and example band under the candles, setups over, drawings and drill marks on top; `useOverlayCanvas` deleted. BUG-096 (undo/delete saved one step late, older than T37) found and fixed. Screenshots docs/redesign/after/t37/. 404 tests, 17/17 mutants |
 | T38 | Chart tab | T36, T37 | ✅ merged 2026-10-26 | `feat/t38-chart` | `components/chart/ChartPage.tsx` + `LayersMenu.tsx` (glass, search, presets, 5 groups, 40 layers, chips), `useChartLayers` (practice uses it too), drawing bar on lucide icons, price change since the previous session close, no instrument/beside/SMT. Screenshots docs/redesign/after/t38/. 412 tests, 18/18 mutants |
 | T39 | Home | T36 (news card: T40) | ✅ merged 2026-10-26 | `feat/t39-home` (from `feat/t38-chart`) | `components/home/HomePage.tsx` at `/`: greeting, four step cards with real progress (definitions agreed with Fabio), Up next, Due for review (rings), Practice so far, the latest NQ session still; lessons at `/learn/:conceptId`; News card waits for T40. Screenshots docs/redesign/after/t39/. 421 tests, 16 mutants |
-| T40 | News | T36 | ⬜ | | feed terms checked first |
+| T40 | News | T36 | 🟢 built, waiting for "merge" | `feat/t40-news` | DEC-079: our own calendar — FRED release dates (8 releases) + the Fed's FOMC list, refreshed every 6 h, stale/FOMC warnings, FRED notice; News page `/news`, Home "News today", nav. Forex Factory ruled out by its terms. Screenshots docs/redesign/after/t40/ |
 | T41 | Practice home | T36 | ⬜ | | |
 | T42 | Practice session | T37, T38, T41 | ⬜ | | |
 | T43 | Drills | T36 | ⬜ | | locks from T45 added later |
@@ -622,6 +622,10 @@ hour; the chart mounted with `interactive: false`; links go to the right routes.
 
 ### T40 — News
 
+> **Replanned 2026-10-26 (DEC-079).** Step 0 found that Forex Factory's terms forbid republishing its calendar.
+> Fabio chose our own calendar from the agencies' schedules (FRED and the Fed). What follows is the original plan,
+> kept for the record; DEC-079 says what was built.
+
 **Goal.** Forex Factory's calendar for the week, high and medium impact (R-8).
 
 **Fabio:** "Red and Orange folders are what traders follow and i want that in our website as well" · "i just
@@ -1015,4 +1019,8 @@ due, open), `suggested`, `due`.
 | 2026-10-23 | T39 | The Home chart is the latest session (from the previous 17:00 New York close), killzones only, with the change from that close; `still` is a mount option of its own (no scroll, no scale in time or price) | Claude |
 | 2026-10-23 | T39 | Numbers do not count up (§T36 step 4): left for the polish pass, not needed to read them | Claude |
 | 2026-10-23 | T39 | No summary endpoint: Home makes eight small requests, all already there; decide again if it is ever slow | Claude |
+| 2026-10-23 | T40 | Forex Factory's terms forbid republishing its calendar (step 0): stopped and asked | Claude |
+| 2026-10-26 | T40 | Our own calendar from the official schedules, via FRED (free key) and the Fed's FOMC list — DEC-079 | Fabio |
+| 2026-10-26 | T40 | Refreshed every six hours rather than yearly by hand, after Fabio asked about schedules that change ("shit changes in the market quick") | Fabio + Claude |
+| 2026-10-26 | T40 | Not rate-limited like the chart's reads: one indexed query over a few rows | Claude |
 

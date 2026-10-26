@@ -1988,6 +1988,16 @@ Frontend 412 → 421.
 **2026-10-26 — T38 and T39 merged.** Fabio: "Merge t38 and t39". `--no-ff` merges c6b9009 and d0b84bd; master's tree is
 exactly the T39 branch's, which passed its fresh-clone check (frontend 421, lint, typecheck, knip, build, `npm audit` 0).
 
+**T40 — News** (`feat/t40-news`, DEC-079). The plan was Forex Factory's weekly calendar; its terms, read first, forbid
+republishing it. Fabio chose to build our own from the official schedules and asked the right question: *"remind me of
+the flaw where we will need to update it once a year, shit changes in the market quick."* So nothing is typed in once a
+year: the backend asks FRED — the St. Louis Fed's free data service, which carries every agency's release calendar —
+for the dates of eight releases (CPI, payrolls, PPI, JOLTS, GDP, PCE, retail sales, jobless claims) every six hours,
+and keeps the FOMC's meeting dates from the Fed's own calendar. The first live run showed why it matters: the 2025
+shutdown's moved and cancelled releases were all there. The News page lists this week and next by New York day with
+red and orange folders, says when the schedule was last checked and warns when it may be out of date; Home shows today's
+and tomorrow's high-impact releases. Mutations: 14 backend and 13 frontend, all caught.
+
 ---
 
 ## For the presentation: the disclaimer slide

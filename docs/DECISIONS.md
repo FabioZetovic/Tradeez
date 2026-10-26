@@ -198,6 +198,39 @@ Fabio: *"pick a theme color and save it somewhere and give that color to every '
 **Reconsider if** a screen needs data loading before render (the data router's loaders), or Fabio wants the accent
 chosen by the learner.
 
+**DEC-079 — Our own economic calendar, from the agencies' schedules; not Forex Factory's** · `IMPLEMENTED` · Fabio +
+Claude, Session 018 (2026-10-26), T40 — refines R-8
+
+Fabio wanted Forex Factory's red and orange folders. Its Notices (read 2026-10-23) forbid it: the calendar data
+("FEED": events, impact ratings, times) may not be copied, republished or redistributed "in part or in whole" without
+written consent, and its services may not be reached except through its own interface — which the weekly JSON export
+would be. Fabio: build our own from the official sources; a request for consent stays possible later.
+
+- **Release dates from FRED** (St. Louis Fed, free key in `backend/.env` as `FRED_API_KEY`): CPI, Non-Farm Payrolls,
+  PPI and JOLTS (BLS), GDP and PCE (BEA), Retail Sales (Census Bureau), Initial Jobless Claims (Department of Labor) —
+  from 2024 on, the dates the agencies have announced included. **FOMC decisions** from the Fed's own meeting calendar,
+  kept in `FomcCalendar` (FRED's "FOMC Press Release" is dated every day, so it cannot say when a meeting is).
+- **Kept current without anyone typing:** refreshed on start and every six hours; each refresh replaces a release's
+  days with what its source says now, so a moved release moves here the same day. First live run: the 2025 shutdown's
+  delays (September CPI on 24 October 2025, no October jobs report, September payrolls on 20 November) were all there.
+- **Honest about its age:** the API and the News page say when the schedule was last checked, and that it may be out of
+  date once that is more than two days ago; a failed refresh keeps the last good days; an empty answer never wipes them.
+  The FOMC list is the one kept by hand (it reaches 8 December 2027; 2027 is tentative) — the page warns four months
+  before it runs out.
+- **Times** are each release's standing New York time (08:30; JOLTS 10:00; the FOMC 14:00), kept per release.
+- **Impact** is Tradeez's own: high for CPI, payrolls, the FOMC, GDP, PCE and retail sales; medium for PPI, jobless
+  claims and JOLTS. US releases only — the ones that move NQ.
+- **FRED's terms:** its notice ("This product uses the FRED® API but is not endorsed or certified by the Federal Reserve
+  Bank of St. Louis.") and a link to its terms wherever the calendar shows, and on the `/help` page with the sentence
+  that using the calendar is agreeing to them. A public deployment (T31) also needs a privacy policy, which FRED's terms
+  require of an app that serves other users. The key travels in FRED's URL — the only way FRED takes it — so that URL is
+  never logged or put in an error.
+
+**Not in this decision:** forecasts and actual figures (consensus forecasts are proprietary; actuals could come from FRED
+series later); news inside a practice replay (R-9) — the history is now there to build it on.
+
+**Reconsider if** Forex Factory gives written consent, or a release that moves NQ is missing.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and
