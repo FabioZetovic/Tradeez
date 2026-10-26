@@ -2012,7 +2012,11 @@ has ended. The full statistics and the calibration are a click away. On the serv
 costs; cost fields sent to the settings are refused with a clear message, and every stored trade keeps its own costs.
 Two existing database rules held firm during the work: results and plans cannot be edited once written, and a new
 session keeps clear of the open one's days (DEC-077) — the tests were written around both. Mutations: 15 frontend, all
-caught. Backend 719 → 723, frontend 430 → 431.
+caught. Backend 719 → 723, frontend 430 → 432.
+
+**2026-10-26 — T41 merged.** Fabio: "merge it when done". `--no-ff` merge c3ea45f; master's tree is exactly the branch's, which
+passed its fresh-clone check without a `.env` (backend 723, no `[ERROR]`; frontend 432, lint, typecheck, knip, build,
+`npm audit` 0).
 
 ---
 
