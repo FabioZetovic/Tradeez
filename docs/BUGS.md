@@ -47,6 +47,9 @@ a hosting decision, not a code fix.
 Choosing ES as the instrument on the Chart tab leaves the chart empty. ES leaves the Chart tab in T38 (NQ first);
 the cause is to be found when ES returns as a full instrument (T47).
 
+**2026-10-23, T38:** ES left the Chart tab (there is no instrument choice any more), so this cannot happen there now;
+left open for T47.
+
 ---
 
 ### BUG-093 🟡 The SMT lesson's test failed once: ES's first candle an hour before NQ's

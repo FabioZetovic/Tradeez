@@ -18,6 +18,9 @@ const NAV = [
 /** Pages built around a chart take the whole width; reading pages keep a 1280 px column (docs/REDESIGN.md T36). */
 const WIDE = ['/chart', '/practice', '/drills']
 
+/** The Chart tab fills the window to the edges, with Lovable's narrow gutter (T38). */
+const FULL = '/chart'
+
 interface AppShellProps {
   user: User
   onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>
@@ -70,7 +73,13 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
 
       {/* BUG-032: w-full and min-w-0 give the page a definite width, so the chart — which holds the
           pixel width it last measured — can never push it wider than the window. */}
-      <main className={cx('mx-auto w-full min-w-0 flex-1 px-6 py-8', wide ? 'max-w-none' : 'max-w-[1280px]')}>
+      <main
+        className={cx(
+          'mx-auto w-full min-w-0 flex-1',
+          section === FULL ? 'p-3' : 'px-6 py-8',
+          wide ? 'max-w-none' : 'max-w-[1280px]',
+        )}
+      >
         <motion.div
           key={section}
           initial={{ opacity: 0, y: 8 }}

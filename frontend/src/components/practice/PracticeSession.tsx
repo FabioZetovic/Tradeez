@@ -1,21 +1,19 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
-import { ClockToggles } from '../ClockToggles'
 import { DrawingOverlay } from '../DrawingOverlay'
 import { DrawingToolbar } from '../DrawingToolbar'
 import { SetupOverlay } from '../SetupOverlay'
-import { SetupToggles } from '../SetupToggles'
+import { LayerChips, LayersMenu } from '../chart/LayersMenu'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
 import { PlanPanel, type PlanCosts } from './PlanPanel'
 import { ResultCard } from './ResultCard'
 import { TradeReview } from './TradeReview'
 import { TradeLog } from './TradeLog'
 import { SPEEDS, usePracticeSession, type Speed } from '@/hooks/usePracticeSession'
-import { useClockLayers } from '@/hooks/useClockLayers'
+import { useChartLayers } from '@/hooks/useChartLayers'
 import { drawsClock } from '@/lib/clock/layers'
 import { useDrawingShortcuts } from '@/hooks/useDrawingShortcuts'
-import { useSetupLayers } from '@/hooks/useSetupLayers'
 import { usePlanContext } from '@/hooks/usePlanContext'
 import type { Direction, PlanIntent, PracticeState, SessionResponse } from '@/lib/api/practice'
 import { getPracticeClock, type ClockLayer } from '@/lib/api/clock'
@@ -118,7 +116,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   // The New York clock up to the cursor (T7). The server says when it can next change; it is asked
   // again only once the replay gets there, not on every bar. A failure costs only the overlay.
   const [clock, setClock] = useState<ClockLayer | null>(null)
-  const { shown: clockShown, toggle: toggleClock } = useClockLayers()
+  // One choice of layers for the Chart tab and practice (T38).
+  const layers = useChartLayers()
+  const { clockShown, setupsShown, setupsOn } = layers
   const cursor = state?.cursor
   const clockStale =
     cursor !== undefined &&
@@ -144,7 +144,6 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   const [setups, setSetups] = useState<{ cursor: number; key: string; layer: SetupLayer | null } | null>(
     null,
   )
-  const { rules: setupRules, shown: setupsShown, toggle: toggleSetup, on: setupsOn } = useSetupLayers()
   const [reviewLayer, setReviewLayer] = useState<{ number: number; layer: SetupLayer } | null>(null)
   const reviewRules = useMemo(
     () => new Set(reviewLayer?.layer.rules.map((r) => r.detector) ?? []),
@@ -339,9 +338,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
         )}
       </div>
 
-      <div className="flex flex-wrap items-start gap-2 self-start">
-        <ClockToggles shown={clockShown} onToggle={toggleClock} available={drawsClock(view)} />
-        <SetupToggles rules={setupRules} shown={setupsShown} onToggle={toggleSetup} />
+      <div className="flex flex-wrap items-center gap-2">
+        <LayersMenu layers={layers} clockAvailable={drawsClock(view)} />
+        <LayerChips layers={layers} clockAvailable={drawsClock(view)} />
       </div>
 
       <div className="flex min-w-0 items-start gap-2">

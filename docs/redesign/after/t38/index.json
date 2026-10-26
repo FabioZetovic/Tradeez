@@ -1,0 +1,8 @@
+[
+  { "file": "1920-chart.png", "width": 1920, "title": "Chart tab: NQ filling the window, the default layers on as chips" },
+  { "file": "1920-layers-menu.png", "width": 1920, "title": "The glass layers menu over the chart: search, presets, five groups of switches" },
+  { "file": "1920-preset.png", "width": 1920, "title": "The Killzones + FVG preset applied" },
+  { "file": "1366-chart.png", "width": 1366, "title": "Chart tab at 1366" },
+  { "file": "1366-layers-menu.png", "width": 1366, "title": "The layers menu at 1366" },
+  { "file": "1366-preset.png", "width": 1366, "title": "The Killzones + FVG preset at 1366" }
+]
