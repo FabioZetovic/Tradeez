@@ -1998,6 +1998,10 @@ shutdown's moved and cancelled releases were all there. The News page lists this
 red and orange folders, says when the schedule was last checked and warns when it may be out of date; Home shows today's
 and tomorrow's high-impact releases. Mutations: 14 backend and 13 frontend, all caught.
 
+**2026-10-26 — T40 merged.** Fabio: "merge it and continue with T41". `--no-ff` merge 3bbaf28; master's tree is exactly the
+branch's, which passed its fresh-clone check without a `.env` (backend 719, no `[ERROR]`; frontend 430, lint, typecheck,
+knip, build, `npm audit` 0).
+
 ---
 
 ## For the presentation: the disclaimer slide
