@@ -58,7 +58,7 @@
 | T41 | Practice home | T36 | ✅ merged 2026-10-26 | `feat/t41-practice` | DEC-080: costs fixed at the standard (refused if sent, V29), start = session time + Start, four StatTiles (total, win rate, held to plan, costs paid), open sessions, per-trade journal (`GET /api/practice/trades`), more statistics behind a disclosure. Screenshots docs/redesign/after/t41/ |
 | T42 | Practice session | T37, T38, T41 | ✅ merged 2026-10-26 | `feat/t42-session` | `/practice/:sessionId` full screen: drawing bar, chart card (top bar, layers, chart, Trades strip), 22rem trading column (score, plan, open trade, scorecard, review, replay sticky at its foot); practice layers its own and all off by default. Screenshots docs/redesign/after/t42/ |
 | T43 | Drills | T36 | 🟢 built, waiting for "merge" | `feat/t43-drills` | `/drills` cards by topic (mode badge, time hint, the real record), `/drills/:kind` one click to a drill (eyebrow, title, task, chart, answer bar, result, Next drill), `/drills/risk/:slug` Lovable's risk card; no kind dropdown, no timeframe — the server draws 1m/5m/15m; `GET /api/drills/risk/kinds` for the risk records. Locks from T45 added later. Screenshots docs/redesign/after/t43/ |
-| T44 | Learn audit (with Fabio) | Fabio's time | ⬜ | | list → his decisions |
+| T44 | Learn audit (with Fabio) | Fabio's time | 🟡 drafted, waiting for Fabio's decisions | `feat/t44-learn-audit` | docs/redesign/learn-audit.md: 72 rows from the API; proposed 13 keep + 12 keep-needs-a-drill + 8 reference cards, 26 merged, 13 removed; 9 topics |
 | T45 | Learn rebuild | T36, T44 | ⬜ | | |
 | T46 | Phones and tablets | T36–T45 | ⬜ | | |
 | T47 | ES as a full instrument (BUG-094) | NQ "perfect" | ⬜ | | |
