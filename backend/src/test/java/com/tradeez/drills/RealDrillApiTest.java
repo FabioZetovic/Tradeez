@@ -253,6 +253,38 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		}
 	}
 
+	@ParameterizedTest
+	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = ".*_JUDGEMENT")
+	@DisplayName("judgement (T45): graded by the rule's answer, given only with the result; nothing after the chart")
+	void judgement(DrillKind kind) throws Exception {
+		JsonNode drill = start(kind, "5m");
+		assertThat(drill.get("mode").asString()).isEqualTo("JUDGE");
+		assertThat(drill.get("graded").asBoolean()).isTrue();
+		assertThat(drill.get("options").size()).isBetween(2, 3);
+		assertThat(drill.at("/question/context")).isNotEmpty();
+		assertThat(drill.at("/question/targets")).isEmpty();
+		assertThat(drill.has("result") || drill.has("revealed")).isFalse();
+		String id = drill.get("id").asString();
+		String answer = jdbc.queryForObject("SELECT outcome FROM drill WHERE id = ?::uuid", String.class, id);
+		assertThat(drill.toString()).as("the answer stays on the server").doesNotContain("explanation");
+
+		JsonNode right = read(choose(id, answer).andExpect(status().isOk()));
+		assertThat(right.at("/result/correct").asBoolean()).isTrue();
+		assertThat(right.at("/result/answer").asString()).isEqualTo(answer);
+		assertThat(right.at("/result/explanation")).isNotEmpty();
+		assertThat(right.has("revealed")).isFalse();
+		choose(id, answer).andExpect(status().isConflict());
+
+		JsonNode second = start(kind, "5m");
+		String other = second.get("options").valueStream().map(o -> o.get("value").asString())
+			.filter(v -> !v.equals(jdbc.queryForObject("SELECT outcome FROM drill WHERE id = ?::uuid", String.class,
+				second.get("id").asString())))
+			.findFirst().orElseThrow();
+		assertThat(read(choose(second.get("id").asString(), other).andExpect(status().isOk())).at("/result/correct").asBoolean())
+			.isFalse();
+		choose(start(kind, "5m").get("id").asString(), "NOT_AN_OPTION").andExpect(status().isBadRequest());
+	}
+
 	@Test
 	@DisplayName("nearest liquidity (ICT-10): the key is the nearest resting buy-side above the last close and sell-side below it")
 	void nearestLiquidity() throws Exception {

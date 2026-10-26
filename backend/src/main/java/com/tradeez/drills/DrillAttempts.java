@@ -30,6 +30,7 @@ import tools.jackson.databind.ObjectMapper;
  *   <li>Naming (B): 1 for the rule's name, 0 for another.</li>
  *   <li>Predicting (C): 1 when the target chosen came first — practice, never rated.</li>
  *   <li>Managing (E, T26): 1 when the choice was among those that paid most — practice, never rated.</li>
+ *   <li>Judging (J, T45): 1 for the rule's answer, 0 for another.</li>
  *   <li>Risk questions (F, T26): 1 when right — practice, never rated; they count toward {@value RiskQuestion#CONCEPT}.</li>
  * </ul>
  *
@@ -79,9 +80,9 @@ public class DrillAttempts {
 			|| Arrays.stream(DrillKind.values()).anyMatch(k -> k.conceptId().equals(conceptId));
 	}
 
-	/** Graded against a rule: marking and naming. What the future decides is practice, never a rating. */
+	/** Graded against a rule: marking, naming and judging. What the future decides is practice, never a rating. */
 	private static boolean rated(DrillKind kind) {
-		return kind.mode() == Mode.IDENTIFY || kind.mode() == Mode.CLASSIFY;
+		return kind.mode() == Mode.IDENTIFY || kind.mode() == Mode.CLASSIFY || kind.mode() == Mode.JUDGE;
 	}
 
 	private double score(DrillKind kind, ResultSet rs) throws SQLException {
@@ -99,7 +100,7 @@ public class DrillAttempts {
 				yield all == 0 ? 1.0 : (double) found / all;
 			}
 			case CLASSIFY -> !kinds.isEmpty() && kinds.getFirst().equals(rs.getString(4)) ? 1.0 : 0.0;
-			case PREDICT -> rs.getString(4) != null && rs.getString(4).equals(rs.getString(6)) ? 1.0 : 0.0;
+			case PREDICT, JUDGE -> rs.getString(4) != null && rs.getString(4).equals(rs.getString(6)) ? 1.0 : 0.0;
 			case MANAGE -> Management.paidMost(rs.getString(6), rs.getString(4)) ? 1.0 : 0.0;
 		};
 	}

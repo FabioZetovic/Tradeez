@@ -212,6 +212,13 @@ public class DrillService {
 			return view(drill, instrument, managed.bars(), List.of());
 		}
 		Detector detector = detectors.require(kind.detector());
+		if (kind.mode() == Mode.JUDGE) {
+			Judged judged = findJudgement(kind, detector, instrument, timeframe, avoid);
+			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
+				timeframe.code(), instrument.getDataClass(), detector.id(), detector.ruleVersion(), judged.from(), judged.to(),
+				Set.of(), json.convertValue(judged.asked(), JSON_OBJECT), judged.asked().answer(), judged.to(), judged.to())));
+			return view(drill, instrument, judged.bars(), List.of());
+		}
 		if (kind.mode() == Mode.PREDICT) {
 			Asked asked = findPrediction(kind, detector, instrument, timeframe, avoid);
 			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
@@ -268,7 +275,11 @@ public class DrillService {
 			if (choice == null || marks != null) {
 				throw new IllegalArgumentException("This drill is answered by choosing a name: send a choice.");
 			}
-			List<String> options = kind.mode() == Mode.CLASSIFY ? kind.optionsFor(key.getFirst()) : kind.predictions();
+			List<String> options = switch (kind.mode()) {
+				case CLASSIFY -> kind.optionsFor(key.getFirst());
+				case JUDGE -> json.convertValue(seen.getQuestion(), Judgement.Asked.class).values();
+				default -> kind.predictions();
+			};
 			if (!options.contains(choice)) {
 				throw new IllegalArgumentException("Choose one of " + options + ".");
 			}
@@ -293,6 +304,58 @@ public class DrillService {
 	 * @param excused A: candles a mark on which counts neither way
 	 */
 	private record Window(Instant from, Instant to, List<Bar> bars, List<DetectedSetup> key, List<Long> excused) {
+	}
+
+	/** A judgement drill: the chart and what the rule asks of it, with its answer (T45). */
+	private record Judged(Instant from, Instant to, List<Bar> bars, Judgement.Asked asked) {
+	}
+
+	/**
+	 * A stretch of open market, unbroken by a roll, the hidden practice stretches or a missing candle, about which the
+	 * kind's rule can ask its question.
+	 */
+	private Judged findJudgement(DrillKind kind, Detector detector, Instrument instrument, Timeframe timeframe,
+			List<HiddenStretches.Stretch> avoid) {
+		int length = kind.mode().windowBars();
+		long step = timeframe.seconds();
+		Instant[] coverage = marketData.coverage(instrument);
+		if (coverage == null) {
+			throw new IllegalArgumentException("No real " + instrument.getSymbol()
+				+ " history has been imported yet, so there is nothing to drill on.");
+		}
+		Instant earliest = coverage[0].plus(HISTORY_MARGIN);
+		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(length));
+		if (!earliest.isBefore(latest)) {
+			throw new IllegalArgumentException("Too little real " + instrument.getSymbol()
+				+ " history has been imported to drill on.");
+		}
+		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
+			Instant from = Instant.ofEpochSecond(second - Math.floorMod(second, step));
+			Instant to = from.plusSeconds(length * step);
+			if (HiddenStretches.touches(avoid, from, to) || !SessionCalendar.isOpenThroughout(from, to)
+					|| !marketData.rolls(instrument, from, to).isEmpty()) {
+				continue;
+			}
+			List<Bar> bars = marketData.internalBars(instrument, timeframe, from, to, SEED).bars();
+			if (bars.size() != length) {
+				continue;
+			}
+			scanner.ensureScanned(detector, instrument, timeframe, SEED, from, to);
+			List<Judgement.Hit> hits = scanner.visible(detector, instrument, timeframe, SEED, from, to, to).stream()
+				.map(h -> new Judgement.Hit(h.getKind(), h.getDirection(), h.getStartTime(), h.getAnchorTime(),
+					h.getConfirmedAt(), h.getZoneLowTicks(), h.getZoneHighTicks(), h.getEvidence()))
+				.toList();
+			Judgement.Asked asked = switch (kind) {
+				case PREMIUM_DISCOUNT_JUDGEMENT ->
+					Judgement.premiumDiscount(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
+				default -> throw new IllegalStateException(kind + " is not a judgement");
+			};
+			if (asked != null) {
+				return new Judged(from, to, bars, asked);
+			}
+		}
+		throw new NoWindowFoundException();
 	}
 
 	/** A management drill: the chart up to the moment, the trade, and what each choice made (T26). */
@@ -629,6 +692,8 @@ public class DrillService {
 		boolean classify = kind.mode() == Mode.CLASSIFY;
 		boolean predict = kind.mode() == Mode.PREDICT;
 		boolean manage = kind.mode() == Mode.MANAGE;
+		boolean judge = kind.mode() == Mode.JUDGE;
+		Judgement.Asked judged = judge ? json.convertValue(drill.getQuestion(), Judgement.Asked.class) : null;
 		Management.Asked managed = manage ? json.convertValue(drill.getQuestion(), Management.Asked.class) : null;
 		DetectedSetup subject = classify ? key.getFirst() : null;
 		BigDecimal tickSize = instrument.getTickSize();
@@ -665,13 +730,17 @@ public class DrillService {
 					.map(v -> new OptionView(v, PredictionText.label(target(question, v), tickSize))).toList()
 				: manage ? kind.predictions().stream()
 					.map(v -> new OptionView(v, Management.label(Management.Choice.valueOf(v)))).toList()
+				: judge ? judged.options().stream().map(o -> new OptionView(o.value(), o.label())).toList()
 				: null,
-			predict ? questionView(kind, question, tickSize) : manage ? Management.questionView(managed.trade(), tickSize) : null,
+			predict ? questionView(kind, question, tickSize) : manage ? Management.questionView(managed.trade(), tickSize)
+				: judge ? judgementView(judged, tickSize) : null,
 			drill.isAnswered() ? drill.getMarks() : null,
 			drill.isAnswered() ? drill.getChoice() : null,
 			!drill.isAnswered() ? null
 				: predict ? predictionResult(drill, question, revealed, tickSize)
 				: manage ? managementResult(drill, managed, tickSize)
+				: judge ? new ResultView(null, null, null, null, null, drill.getOutcome(), drill.getOutcome().equals(drill.getChoice()),
+					List.of(), null, null, judged.explanation())
 				: result(drill, key, tickSize),
 			revealed == null ? null : bars(revealed),
 			companion == null ? null : new CompanionBars(companion.getSymbol(), companion.getTickSize(),
@@ -699,6 +768,13 @@ public class DrillService {
 				PredictionText.label(t, tickSize))).toList(),
 			q.context().stream().map(c -> new ContextView(c.what(), c.level() ? "LEVEL" : "ZONE", c.fromTime(),
 				c.lowTicks(), c.highTicks(), PredictionText.label(c, tickSize))).toList());
+	}
+
+	/** What a judgement draws: its lines, labelled, and no targets — the answers are the options. */
+	private static QuestionView judgementView(Judgement.Asked asked, BigDecimal tickSize) {
+		return new QuestionView(asked.version(), asked.definition(), asked.closeTicks(), List.of(),
+			asked.context().stream().map(c -> new ContextView(c.what(), c.level() ? "LEVEL" : "ZONE", c.fromTime(),
+				c.lowTicks(), c.highTicks(), Judgement.label(c, tickSize))).toList());
 	}
 
 	/**

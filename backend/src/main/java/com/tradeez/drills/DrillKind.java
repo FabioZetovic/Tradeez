@@ -91,6 +91,12 @@ public enum DrillKind {
 		"Mark every unicorn: a breaker that the fair value gap of its own displacement overlaps in price.",
 		"the candle of a unicorn's breaker"),
 
+	/** T45: where in its range the last close sits ({@link Judgement#premiumDiscount}). */
+	PREMIUM_DISCOUNT_JUDGEMENT(Mode.JUDGE, "PD", "ICT-41", "Premium or discount", Set.of(), List.of(), 1, 0, 0,
+		"A dealing range is drawn: its high and its low. Is the last close in premium — above the middle of the range — or "
+			+ "in discount, below it? Work the middle out yourself.",
+		null),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),
@@ -136,7 +142,9 @@ public enum DrillKind {
 		/** Mode C: say what price does next; the future decides. */
 		PREDICT,
 		/** Mode E: manage an open trade; the future decides (T26). */
-		MANAGE;
+		MANAGE,
+		/** Mode J: a question about the chart as it stands; a rule decides when it is asked (T45, {@link Judgement}). */
+		JUDGE;
 
 		/** Candles shown: a glance for A; for B and C, room for the context the answer depends on; for E, the trade's life. */
 		int windowBars() {
