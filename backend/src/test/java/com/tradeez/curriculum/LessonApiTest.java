@@ -107,6 +107,25 @@ class LessonApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("a lesson comes with its words (T45): summary, what it is, how to spot it, how it is traded; and its topic")
+	void words() throws Exception {
+		JsonNode ifvg = lesson("ICT-23");
+		assertThat(ifvg.get("kind").asString()).isEqualTo("LESSON");
+		assertThat(ifvg.get("topic").asString()).isEqualTo("Gaps & imbalances");
+		assertThat(ifvg.has("into")).isFalse();
+		assertThat(ifvg.at("/text/summary").asString()).startsWith("A fair value gap that failed");
+		assertThat(ifvg.at("/text/whatItIs").asString()).contains("inversion fair value gap");
+		assertThat(ifvg.at("/text/howToSpot")).hasSize(3);
+		assertThat(ifvg.at("/text/howToTrade").asString()).isNotBlank();
+		// A merged concept names the lesson it is a section of, and has no page of its own.
+		JsonNode mss = lesson("ICT-05");
+		assertThat(mss.get("kind").asString()).isEqualTo("MERGED");
+		assertThat(mss.get("into").asString()).isEqualTo("ICT-06");
+		assertThat(mss.has("text")).isFalse();
+		assertThat(lesson("ICT-80").at("/text/howToTrade").asString()).contains("Stop beyond the sweep");
+	}
+
+	@Test
 	@DisplayName("a card: the concept from the curriculum, its rule in words, its drill, and three real examples")
 	void card() throws Exception {
 		mockMvc.perform(get("/api/concepts/ICT-20/lesson")).andExpect(status().isUnauthorized());
