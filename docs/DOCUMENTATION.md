@@ -2042,6 +2042,10 @@ that turns red under ten seconds, and a small new endpoint gives their cards eac
 frontend and 7 backend, all caught (two after new tests: a screen must ask for one drill, or one question, even
 when React mounts it twice). Frontend 436 → 443; backend gains the random timeframe's and the risk record's tests.
 
+**2026-10-26 — T43 merged.** Fabio: "merge it and continue with T44". `--no-ff` merge 2366bca; the branch had passed its fresh-clone check (frontend 443, backend 726, lint, typecheck, knip, build, `npm audit` 0).
+
+**BUG-097 — drawing ahead of the last candle** (`fix/bug-097-draw-ahead`). Fabio, before T44: *"when trading on practice chart you cant use instruments in front of the last candle"*. The drawing tools turned a click into a time through the chart library, which knows the candles only, so the empty space after the newest candle — where a trader projects a gap or a target — took no drawing. They now go through the candles' positions, which carry on past the last one a candle at a time; the magnet leaves such a point alone. Three mutants, all caught; checked live with a rectangle drawn into the space ahead. Frontend 443 → 445.
+
 ---
 
 ## For the presentation: the disclaimer slide

@@ -413,6 +413,16 @@ describe('snap', () => {
     expect(result.anchor.priceTicks).toBe(80_049)
   })
 
+  it('BUG-097: leaves a point beyond the candles where it was put — never pulled back onto the last one', () => {
+    const ahead = snapAnchor({ time: 1600, priceTicks: 80_069 }, bars, 'magnet')
+    expect(ahead.snappedTo).toBeNull()
+    expect(ahead.anchor).toEqual({ time: 1600, priceTicks: 80_069 })
+    const before = snapAnchor({ time: 700, priceTicks: 80_049 }, bars, 'magnet')
+    expect(before.anchor).toEqual({ time: 700, priceTicks: 80_049 })
+    // On the last candle itself, the magnet still works.
+    expect(snapAnchor({ time: 1300, priceTicks: 80_069 }, bars, 'magnet').anchor).toEqual({ time: 1300, priceTicks: 80_070 })
+  })
+
   it('only considers the bar under the cursor', () => {
     // 80_090 is the *second* bar's high. Pointing at the first bar must not reach across to it.
     const result = snapAnchor({ time: 1000, priceTicks: 80_088 }, bars, 'magnet')

@@ -28,8 +28,9 @@ vi.mock('lightweight-charts', async (importOriginal) => {
     getVisibleLogicalRange: vi.fn(() => null as { from: number; to: number } | null),
     subscribeVisibleLogicalRangeChange: vi.fn(),
     unsubscribeVisibleLogicalRangeChange: vi.fn(),
-    timeToCoordinate: vi.fn(),
-    coordinateToTime: vi.fn(),
+    // Candle n at x = 100 + 10n, the empty space on either side included.
+    logicalToCoordinate: vi.fn((logical: number) => 100 + logical * 10),
+    coordinateToLogical: vi.fn((x: number) => (x - 100) / 10),
   }
   return {
     ...actual,
@@ -134,6 +135,32 @@ describe('the stretch of time on screen (DEC-075)', () => {
     adapter.setVisibleTimeRange({ from: -300, to: 1200 })
     expect(timeScale.setVisibleLogicalRange).toHaveBeenLastCalledWith({ from: -1, to: 4 })
     vi.mocked(series.data).mockReturnValue([])
+  })
+})
+
+describe('converting between time and the screen (BUG-097)', () => {
+  it("goes on past the last candle, a candle's step at a time, so a drawing can be put in the empty space ahead", async () => {
+    const { createChart } = await import('lightweight-charts')
+    const adapter = new LightweightChartAdapter()
+    adapter.mount(document.createElement('div'), { tickSize: 0.25, exchangeTimezone: 'America/Chicago', axisTimezone: 'exchange' })
+    const chart = vi.mocked(createChart).mock.results.at(-1)!.value
+    const series = vi.mocked(chart.addSeries).mock.results[0].value
+    // Five-minute candles with the weekend's gap between the third and the fourth.
+    vi.mocked(series.data).mockReturnValue([0, 300, 600, 90_000].map((time) => ({ time: time as never })))
+    const projection = adapter.getProjection()!
+
+    // On the candles: exactly where the chart draws them, gap or no gap; a click lands on the nearest one.
+    expect(projection.timeToX(600)).toBe(120)
+    expect(projection.timeToX(90_000)).toBe(130)
+    expect(projection.xToTime(126)).toBe(90_000)
+    expect(projection.xToTime(104)).toBe(0)
+    // Ahead of the last candle — where the replay has not got to — and behind the first.
+    expect(projection.xToTime(150)).toBe(90_600)
+    expect(projection.timeToX(90_600)).toBe(150)
+    expect(projection.xToTime(80)).toBe(-600)
+    vi.mocked(series.data).mockReturnValue([])
+    expect(adapter.getProjection()!.xToTime(150)).toBeNull()
+    expect(adapter.getProjection()!.timeToX(0)).toBeNull()
   })
 })
 
