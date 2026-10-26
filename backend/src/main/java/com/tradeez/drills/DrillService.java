@@ -361,6 +361,7 @@ public class DrillService {
 					Judgement.premiumDiscount(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
 				case OTE_JUDGEMENT -> Judgement.ote(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
 				case PO3_JUDGEMENT -> Judgement.po3(bars, hits, instrument.getTickSize());
+				case STOP_PLACEMENT_JUDGEMENT -> Judgement.stopPlacement(bars, hits, instrument.getTickSize(), random);
 				default -> throw new IllegalStateException(kind + " is not a judgement");
 			};
 			if (asked != null && (wanted == null || wanted.equals(asked.answer()))) {

@@ -168,4 +168,46 @@ class JudgementTest {
 			assertThat(Judgement.po3(day(10, 900, 50, 1200, 1150), List.of(), TICK)).as("the rule found nothing").isNull();
 		}
 	}
+
+	@Nested
+	@DisplayName("where the stop goes (ICT-80)")
+	class Stop {
+
+		/** A swing low at 960 (candle 20) swept by candle 36 down to 940 and closing back above; the last close 1000. */
+		private List<Bar> swept(long laterLow) {
+			List<Bar> bars = closingAt(1000);
+			bars.set(36, new Bar(at(36), 1000, 1005, 940, 990, 1));
+			bars.set(38, new Bar(at(38), 1000, 1005, laterLow, 1000, 1));
+			return bars;
+		}
+
+		private final List<Hit> sweep = List.of(new Hit("SWEEP", "BULLISH", at(20), at(36), at(37), 960, 960,
+			Map.of("side", "SSL", "price", 960L)));
+
+		@Test
+		@DisplayName("beyond the low that made the sweep is right; just under the entry and just under the old swing are not")
+		void beyond() {
+			Asked asked = Judgement.stopPlacement(swept(990), sweep, TICK, new java.util.Random(7));
+			Map<String, String> labels = new java.util.HashMap<>();
+			asked.options().forEach(o -> labels.put(o.value(), o.label()));
+			assertThat(asked.values()).containsExactly("A", "B", "C");
+			assertThat(labels.get(asked.answer())).isEqualTo(asked.answer() + " — 234.75");
+			assertThat(labels.values()).containsExactlyInAnyOrder("A — 234.75", "B — 239.75", "C — 246.75")
+				.extracting(l -> l.substring(4)).containsExactlyInAnyOrder("234.75", "239.75", "246.75");
+			assertThat(asked.context()).extracting(Prediction.Context::what)
+				.containsExactly("TRADE_ENTRY", "STOP_A", "STOP_B", "STOP_C");
+			assertThat(asked.explanation().getFirst())
+				.isEqualTo("Price swept the swing low at 240.00: it traded to 235.00 and closed back above it. The trade is long from 250.00.");
+			// The letters are drawn at random: another seed, another order, the same three stops.
+			assertThat(java.util.stream.IntStream.range(0, 20).mapToObj(n ->
+				Judgement.stopPlacement(swept(990), sweep, TICK, new java.util.Random(n)).answer()).distinct().count()).isGreaterThan(1);
+		}
+
+		@Test
+		@DisplayName("never asks once price has gone beyond the sweep's extreme, or without a recent sweep")
+		void refuses() {
+			assertThat(Judgement.stopPlacement(swept(930), sweep, TICK, new java.util.Random(1))).isNull();
+			assertThat(Judgement.stopPlacement(swept(990), List.of(), TICK, new java.util.Random(1))).isNull();
+		}
+	}
 }

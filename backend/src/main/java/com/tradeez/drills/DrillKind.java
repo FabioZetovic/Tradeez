@@ -109,6 +109,12 @@ public enum DrillKind {
 			+ "bearish one, or neither?",
 		null),
 
+	/** T45: where the stop goes after a sweep ({@link Judgement#stopPlacement}). */
+	STOP_PLACEMENT_JUDGEMENT(Mode.JUDGE, "SWEEP", "ICT-80", "Stop placement", Set.of(), List.of(), 0, 0, 0,
+		"Price has just swept a swing and a trade the other way is drawn at the last close. Three stops are drawn: A, B "
+			+ "and C. Where does the stop go?",
+		null),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),

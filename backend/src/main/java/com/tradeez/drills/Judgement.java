@@ -232,6 +232,86 @@ public final class Judgement {
 			List.of(new Context("DAY_OPEN", true, first.getEpochSecond(), open, open)), mine, why);
 	}
 
+	// --- where the stop goes (ICT-80) -------------------------------------------------------------------
+
+	static final String STOP_VERSION = "judge-stop-1.0.0";
+	/** How recent the sweep must be: its candle among the chart's last few. */
+	static final int STOP_RECENT_CANDLES = 6;
+	/** The least room between two stops offered, so each reads as its own place. */
+	static final long STOP_MIN_GAP_TICKS = 4;
+
+	static String stopDefinition() {
+		return STOP_VERSION + ". A sweep of sweep-1.0.0 in the chart's last " + STOP_RECENT_CANDLES + " candles, and a trade "
+			+ "the other way at the last close. The stop goes a tick beyond the low (or high) that made the sweep: if price "
+			+ "trades there, the sweep failed and the idea is wrong. Fabio's standard: \"Stops are placed on recent high and "
+			+ "lows after a liquidity sweep.\" Offered against it: a stop just past the entry, and one just past the old "
+			+ "swing, inside the sweep's own wick.";
+	}
+
+	/**
+	 * Where the stop goes: the latest sweep in the chart's last candles, nothing beyond its extreme since, and a trade
+	 * the other way at the last close; three stops offered as A, B and C in an order drawn at random. Null when there
+	 * is no such sweep, or the three would sit too close to tell apart.
+	 *
+	 * @param sweeps the sweep rule's hits known by the chart's end
+	 */
+	static Asked stopPlacement(List<Bar> bars, List<Hit> sweeps, BigDecimal tickSize, java.util.random.RandomGenerator random) {
+		Instant end = bars.getLast().openTime().plusSeconds(1);
+		Instant recent = bars.get(bars.size() - STOP_RECENT_CANDLES).openTime();
+		Optional<Hit> sweep = sweeps.stream()
+			.filter(h -> "SWEEP".equals(h.kind()) && !h.anchor().isBefore(recent) && h.confirmedAt().isBefore(end))
+			.max(Comparator.comparing(Hit::anchor));
+		if (sweep.isEmpty()) {
+			return null;
+		}
+		Hit h = sweep.get();
+		boolean lows = "SSL".equals(h.evidence().get("side"));
+		long swing = number(h, "price");
+		int at = 0;
+		while (!bars.get(at).openTime().equals(h.anchor())) {
+			at++;
+		}
+		Bar taken = bars.get(at);
+		long extreme = lows ? taken.lowTicks() : taken.highTicks();
+		for (int i = at + 1; i < bars.size(); i++) {
+			if (lows ? bars.get(i).lowTicks() < extreme : bars.get(i).highTicks() > extreme) {
+				return null;
+			}
+		}
+		long entry = bars.getLast().closeTicks();
+		int way = lows ? 1 : -1;
+		long right = extreme - way;
+		long wick = swing - way;
+		long tight = entry - way * Math.max(STOP_MIN_GAP_TICKS, Math.abs(entry - swing) / 3);
+		// In the trade's direction: right, then the swing's, then the tight one, then the entry, each apart.
+		if ((wick - right) * way < STOP_MIN_GAP_TICKS || (tight - wick) * way < STOP_MIN_GAP_TICKS
+				|| (entry - tight) * way < STOP_MIN_GAP_TICKS) {
+			return null;
+		}
+		List<String> letters = new java.util.ArrayList<>(List.of("A", "B", "C"));
+		java.util.Collections.shuffle(letters, java.util.Random.from(random));
+		Map<String, Long> stops = Map.of(letters.get(0), right, letters.get(1), tight, letters.get(2), wick);
+		LongFunction<String> price = prices(tickSize);
+		List<Option> options = letters.stream().sorted()
+			.map(l -> new Option(l, l + " — " + price.apply(stops.get(l)))).toList();
+		long from = h.start().getEpochSecond();
+		List<Context> context = new java.util.ArrayList<>();
+		context.add(new Context("TRADE_ENTRY", true, taken.openTime().getEpochSecond(), entry, entry));
+		letters.stream().sorted().forEach(l -> context.add(new Context("STOP_" + l, true, from, stops.get(l), stops.get(l))));
+		String side = lows ? "low" : "high";
+		String beyond = lows ? "below" : "above";
+		List<String> why = List.of(
+			"Price swept the swing " + side + " at " + price.apply(swing) + ": it traded to " + price.apply(extreme)
+				+ " and closed back " + (lows ? "above" : "below") + " it. The trade is " + (lows ? "long" : "short") + " from "
+				+ price.apply(entry) + ".",
+			letters.get(0) + ", " + price.apply(right) + ", is a tick " + beyond + " the " + side + " that made the sweep: "
+				+ "if price goes there, the sweep failed and the idea is wrong. That is where the stop goes.",
+			letters.get(1) + ", " + price.apply(tight) + ", sits just " + beyond + " the entry, inside ordinary noise.",
+			letters.get(2) + ", " + price.apply(wick) + ", sits just " + beyond + " the old swing — inside the sweep's own wick, "
+				+ "where price has already been once.");
+		return new Asked(STOP_VERSION, stopDefinition(), entry, options, context, letters.get(0), why);
+	}
+
 	private static long number(Hit hit, String key) {
 		return ((Number) hit.evidence().get(key)).longValue();
 	}
@@ -244,6 +324,10 @@ public final class Judgement {
 			case "LEG_START" -> "Leg start";
 			case "LEG_END" -> "Leg end";
 			case "DAY_OPEN" -> "Midnight open";
+			case "TRADE_ENTRY" -> "Entry";
+			case "STOP_A" -> "A";
+			case "STOP_B" -> "B";
+			case "STOP_C" -> "C";
 			default -> c.what().charAt(0) + c.what().substring(1).toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
 		};
 		return name + " " + RuleText.price(c.lowTicks(), tickSize);
