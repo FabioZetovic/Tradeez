@@ -35,6 +35,10 @@ export function snapAnchor(anchor: Anchor, bars: DomainBar[], mode: SnapMode): S
   if (mode === 'off' || bars.length === 0) {
     return { anchor, snappedTo: null }
   }
+  // Beyond the candles there is nothing to snap to: the magnet would pull the point back onto the last one (BUG-097).
+  if (anchor.time > bars[bars.length - 1].time || anchor.time < bars[0].time) {
+    return { anchor, snappedTo: null }
+  }
 
   const bar = nearestBar(anchor.time, bars)
   if (!bar) return { anchor, snappedTo: null }

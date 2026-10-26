@@ -445,6 +445,25 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-097 🟠 Nothing can be drawn ahead of the last candle
+
+**Status:** found by Fabio (2026-10-26) while trading in practice: "you cant use instruments in front of the last
+candle, so you can mark fvg for example only from past until now".
+**Affects:** every drawing tool, in practice and on the Chart tab — wherever the newest candle is on screen.
+
+The drawing layer turned the pointer into a time with the chart library's `coordinateToTime`, and a drawing's time
+back into a position with `timeToCoordinate`. Both know the candles only: the empty space right of the last one has
+no time in them, so a click there was "not on the chart", and a point already beyond it could not be drawn. In
+practice that empty space is exactly where the next move is planned — a gap's zone projected forward, a target.
+
+**✅ FIXED — 2026-10-26, `fix/bug-097-draw-ahead`.** The adapter's projection converts through the candles' logical
+positions (`logical.ts`, DEC-075), which run past either end a candle's step at a time; on the candles it lands
+exactly where it did before. The magnet leaves a point beyond the candles alone — it would have pulled it back onto
+the last candle. Tests: the projection ahead of and behind the candles, and the magnet; three mutants that bring the
+old behaviour back, all caught. Checked live: a rectangle dragged from the last candles into the empty space ahead.
+**Lesson:** a chart library's time conversions cover its data, not its canvas; the space around the data needs its
+own arithmetic.
+
 ### BUG-096 🟠 Undo and delete saved the drawings as they were before
 
 **Status:** found by Claude (2026-10-23) while checking T37 in a browser: two drawings undone, one still on the server.

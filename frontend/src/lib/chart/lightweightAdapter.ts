@@ -189,18 +189,23 @@ export class LightweightChartAdapter implements ChartAdapter {
 
     const timeScale = chart.timeScale()
     const tickSize = this.tickSize
+    const times = this.times()
 
     // Ticks are converted to a price on the way in and back on the way out, so the drawing layer
     // works purely in ticks (INVARIANT 3) while the chart works in prices.
+    //
+    // Time goes through the candles' logical positions (DEC-075), not the library's own time conversions: those know
+    // the candles only, so the empty space right of the last one had no time and nothing could be drawn there
+    // (BUG-097). Past either end a position is a candle's step further on. Inside the data a click still lands on a
+    // candle, as before.
     return {
-      // null means "outside the visible range" — the overlay treats that as not drawable rather
-      // than clamping, because a line pinned to the chart edge would claim a level it is not on.
-      timeToX: (time) => timeScale.timeToCoordinate(time as never) as number | null,
+      timeToX: (time) =>
+        times.length === 0 ? null : (timeScale.logicalToCoordinate(logicalAt(times, time) as never) as number | null),
       priceToY: (priceTicks) =>
         series.priceToCoordinate(ticksToPrice(priceTicks, tickSize)) as number | null,
       xToTime: (x) => {
-        const time = timeScale.coordinateToTime(x)
-        return typeof time === 'number' ? time : null
+        const logical = timeScale.coordinateToLogical(x)
+        return logical === null || times.length === 0 ? null : timeAtLogical(times, Math.round(logical))
       },
       yToPrice: (y) => {
         const price = series.coordinateToPrice(y)
