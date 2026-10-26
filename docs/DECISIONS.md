@@ -256,6 +256,25 @@ to remove the day section entirely"; the session time and the risk limit kept.
 **Reconsider if** Fabio wants learners to model their own broker again — then as a choice of named profiles, not free
 numbers.
 
+**DEC-081 — Learn shrinks from 72 pages to 33, in nine topics** · `AGREED` · Fabio + Claude, Session 018 (2026-10-26), T44
+
+Fabio asked that every Learn page without a real NQ example or a drill be listed and decided with him before anything is
+removed. Claude listed all 72 concepts in `docs/redesign/learn-audit.md` — the facts read from the API, a proposal and a
+reason per row — and Fabio decided each on a page made for it: **all 72 accepted as proposed**.
+
+- **25 lessons with a drill** (13 have one; 12 need one, the IFVG first) and **8 reference cards** that never lock.
+- **26 concepts merge** into another lesson as a section (MSS into BOS/CHoCH, PDH/PDL into BSL/SSL, CE and the FVG
+  lifecycle into the FVG, each model into its pattern's "How it is traded", the time concepts into one Time & sessions
+  card). **13 are removed** — Level 0 (its useful lines moved into lessons), and pages with nothing behind them or
+  covered elsewhere (news times by the News tab, journaling by Practice).
+- **Nine topics**, in the order a learner meets them: Structure, Liquidity, Gaps & imbalances, Premium & discount,
+  Blocks, Bias, Models, Risk & management, and Time & sessions as reference.
+
+T45 rebuilds Learn on this; the merged and removed concepts stay in `ICT_CONCEPTS.md` with their new home named, so the
+detectors, rules and chart layers that use their ids keep working.
+
+**Reconsider if** a drill cannot be built for a "needs a drill" lesson — it then becomes a reference card.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and

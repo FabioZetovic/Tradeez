@@ -2046,6 +2046,14 @@ when React mounts it twice). Frontend 436 → 443; backend gains the random time
 
 **BUG-097 — drawing ahead of the last candle** (`fix/bug-097-draw-ahead`). Fabio, before T44: *"when trading on practice chart you cant use instruments in front of the last candle"*. The drawing tools turned a click into a time through the chart library, which knows the candles only, so the empty space after the newest candle — where a trader projects a gap or a target — took no drawing. They now go through the candles' positions, which carry on past the last one a candle at a time; the magnet leaves such a point alone. Three mutants, all caught; checked live with a rectangle drawn into the space ahead. Frontend 443 → 445.
 
+**T44 — the Learn audit** (`feat/t44-learn-audit`). Fabio: *"I want you do remove every single page that doesnt have
+Real NQ example or a drill, of course before you do that you will list them to me and we will together check"*. Every
+one of the 72 concepts was listed with what it has today — a rule, real NQ examples, a drill, a clock layer — read from the
+app itself, and with a proposal: keep, keep and build its drill, a reference card, merge into another lesson, or remove.
+Fabio went through them on a page with an Accept and a Change button for each, and accepted every proposal (DEC-081):
+Learn goes from 72 pages to 25 lessons with drills and 8 reference cards, in nine topics, starting with market
+structure. The IFVG — "much much much more important" — gets the first new drill.
+
 ---
 
 ## For the presentation: the disclaimer slide
