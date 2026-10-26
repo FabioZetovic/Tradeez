@@ -11,6 +11,7 @@ import type {
   SessionResponse,
   SessionSummary,
   TradeView,
+  JournalTrade,
 } from '@/lib/api/practice'
 
 const ID = '11111111-2222-3333-4444-555555555555'
@@ -125,6 +126,8 @@ const NO_CALIBRATION = {
 const NO_STATISTICS = {
   version: 'journal-stats-1.0.0',
   overall: { label: 'All trades', trades: 0, wins: 0, losses: 0, totalR: 0, netPnlCents: 0, reading: 'No trades.' },
+  heldToPlan: 0,
+  costsPaidCents: 0,
   dimensions: [],
   notes: ["No finished trade yet: the figures appear as the replay shows each trade's exit."],
 }
@@ -181,6 +184,7 @@ function happyServer(overrides: Partial<Record<'plan', { status: number; body: u
     if (is(call, 'GET', '/api/practice/calibration')) return { body: NO_CALIBRATION }
     if (is(call, 'GET', '/api/practice/settings')) return { body: STANDARD }
     if (is(call, 'GET', '/api/practice/statistics')) return { body: NO_STATISTICS }
+    if (call.method === 'GET' && call.url.startsWith('/api/practice/trades')) return { body: [] }
     if (is(call, 'POST', '/api/practice/sessions')) {
       return { status: 201, body: { state: ANALYSING, bars: BARS } satisfies SessionResponse }
     }
@@ -273,7 +277,7 @@ function renderPractice() {
 const setupLayers = () => charts.flatMap((chart) => chart.layers).filter((layer) => layer.zOrder === 'normal').length
 
 async function startSession(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: /start a session/i }))
+  await user.click(await screen.findByRole('button', { name: /^start$/i }))
   await screen.findByTestId('price-chart')
 }
 
@@ -743,10 +747,8 @@ describe('Practice — the scorecard (T23)', () => {
     await waitFor(() => expect(field).toHaveValue(''))
     await user.type(field, '150{Enter}')
     await waitFor(() => expect(field).toHaveValue('150'))
-    // Saved all at once: the costs go with the limit, as they were.
-    const { fillModel: _, ...costs } = STANDARD
-    expect(puts()).toEqual([{ ...costs, riskLimitCents: 25_050 }, { ...costs, riskLimitCents: 125_000 }, costs,
-      { ...costs, riskLimitCents: 15_000 }])
+    // The limit alone: costs are not the learner's to set (DEC-080); cleared, it is sent as nothing.
+    expect(puts()).toEqual([{ riskLimitCents: 25_050 }, { riskLimitCents: 125_000 }, {}, { riskLimitCents: 15_000 }])
 
     // Forty ticks at $5: $200, over the $150 limit — said, not prevented.
     await startSession(user)
@@ -755,54 +757,19 @@ describe('Practice — the scorecard (T23)', () => {
     expect(screen.getByRole('button', { name: /place trade/i })).toBeEnabled()
   })
 
-  it('T27: shows the costs in force, and saves a change to one with the rest as they were', async () => {
-    let saved: Record<string, unknown> = { ...STANDARD, riskLimitCents: 30_000 }
-    const server = happyServer()
-    mockApi((call) => {
-      if (is(call, 'GET', '/api/practice/settings')) return { body: saved }
-      if (is(call, 'PUT', '/api/practice/settings')) {
-        saved = { ...(call.body as object), fillModel: 'whatever the server names it' }
-        return { body: saved }
-      }
-      return server(call)
-    })
+  it('T41: no costs to set anywhere; the draft reads the standard ones every trade pays', async () => {
+    mockApi(happyServer())
     const user = userEvent.setup()
     renderPractice()
-    const costs = await screen.findByRole('region', { name: 'Your costs' })
-    expect(within(costs).getByLabelText('Fees per round trip ($)')).toHaveValue('4.5')
-    expect(screen.getByTestId('costs-model')).toHaveTextContent('(mkt-1t/slip-1t/thru-1t/comm-450c)')
-    const stop = within(costs).getByRole('group', { name: 'Slippage at the stop, ticks' })
-    expect(within(stop).getByRole('button', { name: '1' })).toHaveAttribute('aria-pressed', 'true')
-
-    await user.click(within(stop).getByRole('button', { name: '2' }))
-    const puts = () => calls.filter((c) => is(c, 'PUT', '/api/practice/settings')).map((c) => c.body)
-    await waitFor(() => expect(puts()).toHaveLength(1))
-    expect(puts()[0]).toEqual({ riskLimitCents: 30_000, feesCents: 450, marketSlippageTicks: 1, stopSlippageTicks: 2, limitThroughTicks: 1 })
-
-    const fees = within(costs).getByLabelText('Fees per round trip ($)')
-    await user.clear(fees)
-    await user.type(fees, '3.25{Enter}')
-    await waitFor(() => expect(puts()).toHaveLength(2))
-    expect(puts()[1]).toMatchObject({ feesCents: 325, stopSlippageTicks: 2 })
-    // More than $50 a round trip is not a fee: nothing is sent, and the learner is told (BUG-089).
-    await user.clear(fees)
-    await user.type(fees, '75{Enter}')
-    expect(puts()).toHaveLength(2)
-    expect(screen.getByRole('alert')).toHaveTextContent('Fees are $0 to $50 a round trip, written like 4.50 or 4,50.')
-    // BUG-089: four dollars fifty, not $450 refused.
-    await user.clear(fees)
-    await user.type(fees, '3,25{Enter}')
-    await waitFor(() => expect(puts()).toHaveLength(3))
-    expect(puts()[2]).toMatchObject({ feesCents: 325 })
-
-    await user.click(within(costs).getByRole('button', { name: 'On the touch' }))
-    await waitFor(() => expect(puts()).toHaveLength(4))
-    expect(puts()[3]).toMatchObject({ limitThroughTicks: 0, feesCents: 325 })
-
-    // And the draft reads its costs: $3.25 fees, a tick in, up to two out — at most $18.25.
+    await screen.findByRole('region', { name: 'New session' })
+    expect(screen.queryByRole('region', { name: 'Your costs' })).toBeNull()
+    expect(screen.queryByLabelText(/fees/i)).toBeNull()
+    expect(screen.queryByRole('group', { name: /slippage/i })).toBeNull()
+    // $4.50 a round trip, a tick in and a tick at the stop: at most $14.50.
     await startSession(user)
     await user.click(screen.getByRole('button', { name: /plan long/i }))
-    expect(screen.getByTestId('plan-costs')).toHaveTextContent('$3.25 fees · slippage 1 tick in, up to 2 out — at most $18.25')
+    expect(screen.getByTestId('plan-costs')).toHaveTextContent('$4.50 fees')
+    expect(screen.getByTestId('plan-costs')).toHaveTextContent('at most $14.50')
   })
 
   it('sends how sure the learner is with the plan, and starts the next draft unsaid', async () => {
@@ -1302,44 +1269,150 @@ describe('Practice — refusals', () => {
 })
 
 describe('Practice — journal', () => {
-  it('scores each session by its closed trades only', async () => {
+  it('lists the open sessions, scored by their closed trades only, each to resume', async () => {
     const rows: SessionSummary[] = [
-      {
-        id: 'a',
-        instrument: 'DEMO-NQ',
-        timeframe: '5m',
-        status: 'IN_TRADE',
-        createdAt: CURSOR,
-        trades: 1,
-        score: NO_SCORE,
-      },
+      { id: 'a', instrument: 'NQ', timeframe: '5m', status: 'IN_TRADE', createdAt: CURSOR, trades: 1, score: NO_SCORE },
       {
         id: 'b',
         instrument: 'NQ',
-        timeframe: '1m',
-        status: 'COMPLETE',
+        timeframe: '5m',
+        status: 'ANALYSING',
         createdAt: CURSOR - 60,
         trades: 3,
         score: { closedTrades: 3, wins: 2, losses: 1, totalR: 3, netPnlCents: 79_250 },
       },
+      { id: 'c', instrument: 'NQ', timeframe: '5m', status: 'COMPLETE', createdAt: CURSOR - 120, trades: 2, score: NO_SCORE },
     ]
-    mockApi((call) =>
-      is(call, 'GET', '/api/practice/sessions') ? { body: rows } : { status: 404, body: {} },
-    )
+    mockApi((call) => (is(call, 'GET', '/api/practice/sessions') ? { body: rows } : { status: 404, body: {} }))
     renderPractice()
 
-    const [running, done] = await screen.findAllByTestId('journal-row')
+    // An ended session is not open: its trades are in the journal.
+    const [running, flat] = await screen.findAllByTestId('open-session')
+    expect(screen.getAllByTestId('open-session')).toHaveLength(2)
     expect(running).toHaveTextContent('In trade')
-    expect(running).not.toHaveTextContent('$')
-    // No R multiple and no win rate for a trade still running.
-    expect(running).not.toHaveTextContent(/\d\.\d\dR|%/)
-    expect(within(running).getByRole('button')).toHaveTextContent('Resume')
+    expect(running).toHaveTextContent('1 trade')
+    // No R for a trade still running.
+    expect(running).not.toHaveTextContent(/\d\.\d\dR/)
+    expect(flat).toHaveTextContent('Flat')
+    expect(flat).toHaveTextContent('+3.00R')
+    expect(within(flat).getByRole('button')).toHaveTextContent('Resume')
+  })
 
-    expect(done).toHaveTextContent('Ended')
-    expect(done).toHaveTextContent('67%')
-    expect(done).toHaveTextContent('+3.00R')
-    expect(done).toHaveTextContent('$792.50')
-    expect(within(done).getByRole('button')).toHaveTextContent('Review')
+  it('lists the five newest open sessions, and all of them when asked', async () => {
+    const rows: SessionSummary[] = Array.from({ length: 7 }, (_, i) => ({
+      id: `s${i}`,
+      instrument: 'NQ',
+      timeframe: '5m',
+      status: 'ANALYSING',
+      createdAt: CURSOR - i * 60,
+      trades: i,
+      score: NO_SCORE,
+    }))
+    mockApi((call) => (is(call, 'GET', '/api/practice/sessions') ? { body: rows } : { status: 404, body: {} }))
+    const user = userEvent.setup()
+    renderPractice()
+    await waitFor(() => expect(screen.getAllByTestId('open-session')).toHaveLength(5))
+    expect(screen.getAllByTestId('open-session')[0]).toHaveTextContent('0 trades')
+    await user.click(screen.getByRole('button', { name: 'Show all 7' }))
+    expect(screen.getAllByTestId('open-session')).toHaveLength(7)
+    await user.click(screen.getByRole('button', { name: 'Show fewer' }))
+    expect(screen.getAllByTestId('open-session')).toHaveLength(5)
+  })
+
+  it('one journal row per finished trade: the hidden clock while its session is open, the real date after', async () => {
+    const trade = (over: Partial<JournalTrade>): JournalTrade => ({
+      sessionId: ID,
+      number: 1,
+      at: Date.UTC(2000, 0, 11, 9, 5) / 1000, // Tuesday 09:05 on the fictional week
+      timeBasis: 'NEW_YORK_WALL_CLOCK',
+      instrument: 'NQ',
+      tickSize: 0.25,
+      direction: 'LONG',
+      entryTicks: 80_006,
+      outcome: 'TARGET',
+      r: 1.94,
+      netPnlCents: 38_650,
+      model: 'Silver Bullet',
+      ...over,
+    })
+    const trades = [
+      trade({}),
+      trade({
+        sessionId: 'old',
+        at: Date.UTC(2025, 2, 12, 13, 5) / 1000, // Wednesday 12 March 2025, 09:05 New York
+        timeBasis: 'UTC',
+        direction: 'SHORT',
+        outcome: 'CLOSED',
+        r: -0.4,
+        netPnlCents: -8_000,
+        model: undefined,
+      }),
+    ]
+    mockApi((call) =>
+      call.method === 'GET' && call.url.startsWith('/api/practice/trades') ? { body: trades } : { status: 404, body: {} },
+    )
+    renderPractice()
+    const [open, ended] = await screen.findAllByTestId('journal-row')
+    expect([...open.querySelectorAll('td')].map((td) => td.textContent)).toEqual([
+      'Tue 09:05 NY',
+      'Long',
+      '20001.50',
+      'Target hit',
+      '+1.94R',
+      '$386.50',
+      'Silver Bullet',
+    ])
+    expect(within(open).getByText('+1.94R')).toHaveClass('text-up')
+    expect(within(open).getByText('Long')).toHaveClass('text-up')
+    expect([...ended.querySelectorAll('td')].map((td) => td.textContent)).toEqual([
+      '12 Mar 2025 · Wed 09:05 EDT',
+      'Short',
+      '20001.50',
+      'Closed by hand',
+      '−0.40R',
+      '−$80.00',
+      '—',
+    ])
+    expect(within(ended).getByText('Short')).toHaveClass('text-down')
+  })
+
+  it("adds the practice up in four tiles, each opening the sentence that says what it means", async () => {
+    const server = happyServer()
+    mockApi((call) =>
+      is(call, 'GET', '/api/practice/statistics')
+        ? {
+            body: {
+              ...NO_STATISTICS,
+              overall: { label: 'All trades', trades: 4, wins: 3, losses: 1, winRate: 75, expectancyR: 1, totalR: 3.98, netPnlCents: 1, reading: 'Four trades: the range is wide.' },
+              heldToPlan: 3,
+              costsPaidCents: 1_900,
+              bestR: 2.1,
+              worstR: -1,
+            },
+          }
+        : server(call),
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    const tiles = await screen.findByTestId('practice-tiles')
+    const tile = (label: RegExp) => within(tiles).getByRole('button', { name: label })
+    expect(tile(/Total/)).toHaveTextContent('+3.98R')
+    expect(within(tile(/Total/)).getByText('+3.98R')).toHaveClass('text-up')
+    expect(tile(/Win rate/)).toHaveTextContent('75%')
+    expect(tile(/Held to plan/)).toHaveTextContent('3 / 4')
+    expect(tile(/Costs paid/)).toHaveTextContent('$19.00')
+
+    expect(tile(/Total/)).toHaveAttribute('aria-expanded', 'false')
+    expect(tile(/Total/)).not.toHaveTextContent('Average')
+    await user.click(tile(/Total/))
+    expect(tile(/Total/)).toHaveAttribute('aria-expanded', 'true')
+    expect(tile(/Total/)).toHaveTextContent('Average +1.00R per trade across 4 trades. Best +2.10R, worst −1.00R.')
+    await user.click(tile(/Win rate/))
+    expect(tile(/Win rate/)).toHaveTextContent('3 of 4 trades made money after costs. Four trades: the range is wide.')
+    await user.click(tile(/Held to plan/))
+    expect(tile(/Held to plan/)).toHaveTextContent('1 closed by hand before the stop or target.')
+    await user.click(tile(/Costs paid/))
+    expect(tile(/Costs paid/)).toHaveTextContent('$4.50 a round trip')
   })
 
   const journalRow = (status: SessionSummary['status']): SessionSummary => ({
@@ -1362,7 +1435,7 @@ describe('Practice — journal', () => {
     })
     const user = userEvent.setup()
     renderPractice()
-    await user.click(within(await screen.findByTestId('journal-row')).getByRole('button', { name: 'Resume' }))
+    await user.click(within(await screen.findByTestId('open-session')).getByRole('button', { name: 'Resume' }))
 
     expect(await screen.findByText(/Trade 1 · Long 1 — placed/)).toBeInTheDocument()
     expect(screen.getByTestId('practice-status')).toHaveTextContent('In trade')
@@ -1374,8 +1447,13 @@ describe('Practice — journal', () => {
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0)
   })
 
-  it('reviews an ended session: its result, and no way to trade on', async () => {
+  it('reviews an ended session from its trade in the journal: its result, and no way to trade on', async () => {
     mockApi((call) => {
+      if (call.method === 'GET' && call.url.startsWith('/api/practice/trades')) {
+        return {
+          body: [{ sessionId: ID, number: 1, at: CURSOR, timeBasis: 'UTC', instrument: 'NQ', tickSize: 0.25, direction: 'LONG', entryTicks: 80_006, outcome: 'AMBIGUOUS', r: -1, netPnlCents: -10_000 }],
+        }
+      }
       if (is(call, 'GET', '/api/practice/sessions')) return { body: [journalRow('COMPLETE')] }
       if (is(call, 'GET', `/api/practice/sessions/${ID}`)) {
         return {
@@ -1389,7 +1467,7 @@ describe('Practice — journal', () => {
     })
     const user = userEvent.setup()
     renderPractice()
-    await user.click(within(await screen.findByTestId('journal-row')).getByRole('button', { name: 'Review' }))
+    await user.click(await screen.findByTestId('journal-row'))
 
     await waitFor(() => expect(screen.getByTestId('practice-status')).toHaveTextContent('Ended'))
     expect(screen.getAllByTestId('trade-row')[0]).toHaveTextContent('Ambiguous')
@@ -1404,7 +1482,7 @@ describe('Practice — journal', () => {
     })
     const user = userEvent.setup()
     renderPractice()
-    await user.click(within(await screen.findByTestId('journal-row')).getByRole('button', { name: 'Resume' }))
+    await user.click(within(await screen.findByTestId('open-session')).getByRole('button', { name: 'Resume' }))
     expect(await screen.findByText('Could not load this session.')).toBeInTheDocument()
   })
 })
@@ -1445,41 +1523,21 @@ function realServer() {
 describe('Practice — real NQ behind a hidden date (T4, DEC-025)', () => {
   beforeEach(() => mockApi(realServer()))
 
-  it('asks for real NQ, with no filters unless some are chosen', async () => {
+  it('asks for real NQ, at any time unless a session time is chosen — no timeframe, no weekday (T41)', async () => {
     const user = userEvent.setup()
     renderPractice()
     await startSession(user)
-    expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({
-      instrument: 'NQ',
-      timeframe: '5m',
-    })
+    expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({ instrument: 'NQ' })
   })
 
-  it('asks for the ICT session and the weekday chosen', async () => {
+  it('asks for the ICT session chosen', async () => {
     const user = userEvent.setup()
     renderPractice()
-    await user.selectOptions(await screen.findByRole('combobox', { name: /^session/i }), 'LONDON')
-    await user.selectOptions(screen.getByRole('combobox', { name: /^day/i }), 'TUESDAY')
+    expect(screen.queryByRole('combobox', { name: /^day/i })).toBeNull()
+    expect(screen.queryByRole('group', { name: /timeframe/i })).toBeNull()
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Session time' }), 'LONDON')
     await startSession(user)
-    expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({
-      instrument: 'NQ',
-      timeframe: '5m',
-      killzone: 'LONDON',
-      weekday: 'TUESDAY',
-    })
-  })
-
-  it('BUG-067: never offers Asia on a Friday, when the market is shut', async () => {
-    const user = userEvent.setup()
-    renderPractice()
-    const session = await screen.findByRole('combobox', { name: /^session/i })
-    const day = screen.getByRole('combobox', { name: /^day/i })
-    await user.selectOptions(session, 'ASIA')
-    expect(screen.getByRole('option', { name: 'Friday' })).toBeDisabled()
-    expect(screen.getByRole('option', { name: 'Thursday' })).toBeEnabled()
-    await user.selectOptions(session, 'LONDON')
-    await user.selectOptions(day, 'FRIDAY')
-    expect(screen.getByRole('option', { name: /^Asia/ })).toBeDisabled()
+    expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({ instrument: 'NQ', killzone: 'LONDON' })
   })
 
   it('shows New York wall-clock time and keeps the date hidden', async () => {

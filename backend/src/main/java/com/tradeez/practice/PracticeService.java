@@ -53,6 +53,7 @@ import com.tradeez.practice.PlanContextService.PlanContext;
 import com.tradeez.practice.PracticeDtos.AdvanceResponse;
 import com.tradeez.practice.PracticeDtos.CalibrationView;
 import com.tradeez.practice.PracticeDtos.ChecklistItemView;
+import com.tradeez.practice.PracticeDtos.JournalTradeView;
 import com.tradeez.practice.PracticeDtos.ChecklistView;
 import com.tradeez.practice.PracticeDtos.ContextRequest;
 import com.tradeez.practice.PracticeDtos.PlanContextView;
@@ -177,6 +178,7 @@ public class PracticeService {
 	private final SetupService setupService;
 	private final PlanContextService contexts;
 	private final PracticeSettingsStore settings;
+	private final PracticeCosts costs;
 	private final TradeReviewService reviews;
 	private final HiddenStretches hiddenStretches;
 
@@ -199,7 +201,7 @@ public class PracticeService {
 	public PracticeService(PracticeSessionRepository sessions, TradePlanRepository plans,
 			PracticeResultRepository results, PracticeCloseRepository closes, InstrumentRepository instruments,
 			MarketDataService marketData, ClockService clocks, SetupService setupService, PlanContextService contexts,
-			PracticeSettingsStore settings, TradeReviewService reviews, PlatformTransactionManager transactionManager,
+			PracticeSettingsStore settings, PracticeCosts costs, TradeReviewService reviews, PlatformTransactionManager transactionManager,
 			HiddenStretches hiddenStretches) {
 		this.sessions = sessions;
 		this.plans = plans;
@@ -211,6 +213,7 @@ public class PracticeService {
 		this.setupService = setupService;
 		this.contexts = contexts;
 		this.settings = settings;
+		this.costs = costs;
 		this.reviews = reviews;
 		this.hiddenStretches = hiddenStretches;
 		this.writeTx = new TransactionTemplate(transactionManager);
@@ -420,8 +423,8 @@ public class PracticeService {
 		PlanContext context = contexts.at(session, instrument, request.direction(), reference, request.stopTicks(),
 			request.targetTicks(), request.model());
 
-		// T27: the learner's costs, as set now; the result keeps the model it was resolved with.
-		FillModel model = settings.fillModel(userId);
+		// T41 (DEC-080): every trade pays the standard costs; the result keeps the model it was resolved with.
+		FillModel model = costs.model();
 		Fill fill = FillEngine.resolve(new FillEngine.Plan(request.direction(), request.stopTicks(),
 			request.targetTicks(), request.contracts(), request.partial()), bars, model, resolution);
 
@@ -733,8 +736,38 @@ public class PracticeService {
 				plan.checklist() == null ? null : plan.checklist().met(),
 				plan.checklist() == null ? null : plan.checklist().total(),
 				(int) card.process().stream().filter(l -> Scorecard.KEPT.equals(l.verdict())).count(),
-				(int) card.process().stream().filter(l -> Scorecard.BROKEN.equals(l.verdict())).count());
+				(int) card.process().stream().filter(l -> Scorecard.BROKEN.equals(l.verdict())).count(),
+				trade.outcome() == Outcome.CLOSED,
+				Scorecard.costsCents(plan, resultView(trade, clock), instrument.getTickValueCents()));
 		}).toList());
+	}
+
+	/**
+	 * The journal (T41): the learner's finished trades across every session, newest placed first. A session still
+	 * open shows its own clock, the date hidden; a complete one has revealed its date and shows the real moment.
+	 */
+	@Transactional(readOnly = true)
+	public List<JournalTradeView> journal(UUID userId, int limit) {
+		Map<UUID, Instrument> byId = instruments.findAll().stream()
+			.collect(Collectors.toMap(Instrument::getId, Function.identity()));
+		return finished(userId).stream()
+			.sorted(Comparator.comparing((Finished f) -> f.trade().plan().getSubmittedCursor()).reversed())
+			.limit(limit)
+			.map(f -> {
+				Trade trade = f.trade();
+				PracticeSession session = f.session();
+				PracticeClock clock = session.getClock();
+				boolean revealed = session.getStatus() == PracticeSession.Status.COMPLETE || !clock.hidesDate();
+				Instant placed = trade.plan().getSubmittedCursor();
+				Instrument instrument = byId.get(session.getInstrumentId());
+				TradingModel model = trade.plan().getModel();
+				return new JournalTradeView(session.getId(), trade.plan().getSeq(),
+					revealed ? placed.getEpochSecond() : clock.show(placed),
+					revealed ? PracticeClock.UTC : PracticeClock.NEW_YORK_WALL_CLOCK, instrument.getSymbol(),
+					instrument.getTickSize(), trade.plan().getDirection(), trade.result().getEntryTicks(),
+					trade.outcome().name(), round2(trade.r()), trade.netPnlCents(), model == null ? null : model.title());
+			})
+			.toList();
 	}
 
 	/** A trade whose exit the replay has shown, and its session. */
@@ -786,20 +819,26 @@ public class PracticeService {
 	}
 
 	public SettingsView settings(UUID userId) {
-		return settingsView(settings.settings(userId));
+		return settingsView(settings.riskLimitCents(userId));
 	}
 
+	/**
+	 * Sets the risk limit, or unsets it. Costs sent too are refused, not ignored (T41, DEC-080): a client that thinks it
+	 * changed them must be told it did not.
+	 */
 	public SettingsView saveSettings(UUID userId, SettingsRequest request) {
-		PracticeSettingsStore.Settings saved = new PracticeSettingsStore.Settings(request.riskLimitCents(),
-			request.feesCents(), request.marketSlippageTicks(), request.stopSlippageTicks(), request.limitThroughTicks());
-		settings.save(userId, saved);
-		return settingsView(saved);
+		if (request.feesCents() != null || request.marketSlippageTicks() != null || request.stopSlippageTicks() != null
+				|| request.limitThroughTicks() != null) {
+			throw new IllegalArgumentException("Costs are fixed: every trade pays the standard fees and slippage.");
+		}
+		settings.saveRiskLimit(userId, request.riskLimitCents());
+		return settingsView(request.riskLimitCents());
 	}
 
-	/** The limit as set, and the costs as they apply: the standard ones where nothing is set. */
-	private static SettingsView settingsView(PracticeSettingsStore.Settings s) {
-		FillModel model = s.fillModel();
-		return new SettingsView(s.riskLimitCents(), model.commissionCentsPerContractRound(), model.marketSlippageTicks(),
+	/** The limit as set, and the costs every trade pays — to read, not to set. */
+	private SettingsView settingsView(Long riskLimitCents) {
+		FillModel model = costs.model();
+		return new SettingsView(riskLimitCents, model.commissionCentsPerContractRound(), model.marketSlippageTicks(),
 			model.stopSlippageTicks(), model.limitThroughTicks(), model.version());
 	}
 

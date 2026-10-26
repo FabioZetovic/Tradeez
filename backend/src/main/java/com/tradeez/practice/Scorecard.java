@@ -155,17 +155,15 @@ public final class Scorecard {
 	}
 
 	/**
-	 * What fees and slippage took (T27): the commission charged, and the ticks the fills slipped by the model the
-	 * result was resolved with — the entry at market, and the exit by how it was made.
+	 * The ticks a trade's fills slipped, all contracts together, by the model its result was resolved with — the entry
+	 * at market, and the exit by how it was made — or null when that model's name cannot be read.
 	 */
-	private static String costs(PlanView plan, ResultView result, long risk, long tickValueCents) {
+	private static Long slippedTicks(PlanView plan, ResultView result) {
 		FillModel model;
 		try {
 			model = FillModel.parse(result.fillModelVersion());
 		} catch (IllegalArgumentException e) {
-			// A name this version cannot read: the fees are stored, the slippage is not known.
-			return "Fees " + money(result.commissionCents()) + "; the slippage cannot be read from its fill model ("
-				+ result.fillModelVersion() + ").";
+			return null;
 		}
 		long exit = switch (result.outcome()) {
 			case "STOP", "AMBIGUOUS" -> model.stopSlippageTicks();
@@ -174,7 +172,29 @@ public final class Scorecard {
 		};
 		// The entry slipped for every contract, the exit only for those held to it: a partial is a limit (T28).
 		int held = plan.contracts() - (result.partial() == null ? 0 : result.partial().contracts());
-		long slipped = model.marketSlippageTicks() * plan.contracts() + exit * held;
+		return model.marketSlippageTicks() * plan.contracts() + exit * held;
+	}
+
+	/**
+	 * What fees and slippage cost a trade in money (T41's "Costs paid"), as its scorecard's costs line counts them;
+	 * the fees alone when the slippage cannot be read.
+	 */
+	static long costsCents(PlanView plan, ResultView result, long tickValueCents) {
+		Long slipped = slippedTicks(plan, result);
+		return result.commissionCents() + (slipped == null ? 0 : slipped * tickValueCents);
+	}
+
+	/**
+	 * What fees and slippage took (T27): the commission charged, and the ticks the fills slipped by the model the
+	 * result was resolved with — the entry at market, and the exit by how it was made.
+	 */
+	private static String costs(PlanView plan, ResultView result, long risk, long tickValueCents) {
+		Long slipped = slippedTicks(plan, result);
+		if (slipped == null) {
+			// A name this version cannot read: the fees are stored, the slippage is not known.
+			return "Fees " + money(result.commissionCents()) + "; the slippage cannot be read from its fill model ("
+				+ result.fillModelVersion() + ").";
+		}
 		long slipCents = slipped * tickValueCents;
 		long total = result.commissionCents() + slipCents;
 		if (total == 0) {

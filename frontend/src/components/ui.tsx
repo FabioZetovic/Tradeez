@@ -1,5 +1,6 @@
-import { useEffect, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, type RefObject } from 'react'
+import { useEffect, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, type RefObject } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { ChevronDown } from 'lucide-react'
 import { cx } from '@/lib/styles'
 
 /**
@@ -298,5 +299,44 @@ export function Ring({ value, size = 36, label }: { value?: number; size?: numbe
         className="stroke-accent"
       />
     </svg>
+  )
+}
+
+const TILE_TONES = { neutral: 'text-ink', up: 'text-up', down: 'text-down' } as const
+
+/**
+ * One figure, and on a click the sentence that says what it means (T41, Lovable's): the label with a chevron, the value
+ * in mono, the detail under it while open.
+ */
+export function StatTile({
+  label,
+  value,
+  tone = 'neutral',
+  detail,
+}: {
+  label: string
+  value: ReactNode
+  tone?: keyof typeof TILE_TONES
+  detail: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={() => setOpen((o) => !o)}
+      className={cx(
+        'flex cursor-pointer flex-col items-start rounded-card border border-line bg-surface p-5 text-left shadow-panel',
+        'transition-colors hover:border-accent/40',
+        FOCUS_RING,
+      )}
+    >
+      <span className="flex w-full items-center justify-between text-xs font-semibold tracking-widest text-subtle uppercase">
+        {label}
+        <ChevronDown aria-hidden className={cx('size-4 transition-transform', open && 'rotate-180')} />
+      </span>
+      <span className={cx('num mt-3 text-3xl font-semibold', TILE_TONES[tone])}>{value}</span>
+      {open && <span className="mt-3 text-sm text-subtle">{detail}</span>}
+    </button>
   )
 }

@@ -39,9 +39,12 @@ public final class JournalStatistics {
 	 * @param killzone    ASIA … NEW_YORK_PM, or null outside them
 	 * @param met         the checklist's checks met when placed, or null without a model
 	 * @param rulesKept   the learner's own rules kept on the scorecard (DEC-067)
+	 * @param closedByHand closed at market before the plan's own exit (DEC-057): not held to plan (T41)
+	 * @param costsCents  what fees and slippage took, as its scorecard counts them (T41)
 	 */
 	public record Sample(double r, long netPnlCents, String model, String killzone, DayOfWeek weekday,
-			Direction direction, Integer met, Integer total, int rulesKept, int rulesBroken) {
+			Direction direction, Integer met, Integer total, int rulesKept, int rulesBroken, boolean closedByHand,
+			long costsCents) {
 	}
 
 	private JournalStatistics() {
@@ -67,7 +70,11 @@ public final class JournalStatistics {
 		if (samples.isEmpty()) {
 			notes.add("No finished trade yet: the figures appear as the replay shows each trade's exit.");
 		}
-		return new StatisticsView(VERSION, group("All trades", samples), dimensions, notes);
+		int held = (int) samples.stream().filter(s -> !s.closedByHand()).count();
+		long costs = samples.stream().mapToLong(Sample::costsCents).sum();
+		Double best = samples.isEmpty() ? null : round2(samples.stream().mapToDouble(Sample::r).max().getAsDouble());
+		Double worst = samples.isEmpty() ? null : round2(samples.stream().mapToDouble(Sample::r).min().getAsDouble());
+		return new StatisticsView(VERSION, group("All trades", samples), held, costs, best, worst, dimensions, notes);
 	}
 
 	private static String checks(Sample s) {

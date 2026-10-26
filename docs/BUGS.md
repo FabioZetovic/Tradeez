@@ -85,6 +85,17 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ## Environment
 
+### ENV-014 🟠 A mutation run's restoring write failed on Windows and left a mutant in the source
+
+**Status:** verified (session 018, 2026-10-26) · **Affects:** the scratchpad mutation scripts, not the product
+
+Mid-run, Windows refused a write to `PracticeService.java` (`UNKNOWN`, errno -4094 — a transient lock, likely the
+build or an indexer holding the file). The script stopped with the second mutant written and the original never put
+back: `FillModel model = FillModel.BASIC;` sat where `costs.model()` belongs. Found by checking the file against
+`master` before anything was committed, and put back. The scripts now retry every write, read it back to confirm it,
+and the run compares the sources with a copy taken before it starts. **Lesson:** ENV-012 again by another road — a
+mutation run is not over until the sources are proven to be what they were.
+
 ### ENV-013 🟡 The edit scripts read "$$" in a replacement as "$"
 
 **Status:** verified (session 017, 2026-10-19)

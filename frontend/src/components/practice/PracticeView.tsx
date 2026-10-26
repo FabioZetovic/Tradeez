@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Play } from 'lucide-react'
 import { PracticeSession } from './PracticeSession'
 import { StatisticsPanel } from './StatisticsPanel'
 import { ApiError } from '@/lib/api/client'
@@ -8,58 +9,68 @@ import {
   getPracticeSettings,
   getStatistics,
   listSessions,
-  savePracticeSettings,
+  listTrades,
+  saveRiskLimit,
   KILLZONES,
-  PRACTICE_TIMEFRAMES,
-  WEEKDAYS,
   type Calibration,
+  type JournalTrade,
   type PracticeSettings,
-  type SettingsUpdate,
   type SessionResponse,
   type SessionSummary,
   type Statistics,
 } from '@/lib/api/practice'
 import type { ChartAdapter } from '@/lib/chart/types'
+import { formatPrice } from '@/lib/chart/priceFormat'
+import { formatSessionDate, formatSessionTime } from '@/lib/chart/timeAxis'
 import { parseDecimal } from '@/lib/decimal'
-import { formatCents, formatR, STATUS_LABEL } from '@/lib/practice/plan'
-import { Button, Panel, Segmented } from '../ui'
-import { errorClass, fieldClass, labelClass, panelTitle } from '@/lib/styles'
+import { formatCents, formatR, outcomeLabel, STATUS_LABEL } from '@/lib/practice/plan'
+import { Button, PageHeader, Panel, StatTile } from '../ui'
+import { cx, errorClass, fieldClass, panelTitle } from '@/lib/styles'
 
 const tableClass =
-  'w-full border-collapse text-sm tabular-nums [&_td]:border-b [&_td]:border-line/60 [&_td]:px-2 [&_td]:py-2 [&_th]:border-b [&_th]:border-line [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-subtle'
+  'w-full border-collapse text-sm tabular-nums [&_td]:border-b [&_td]:border-line/60 [&_td]:px-2 [&_td]:py-2.5 [&_th]:border-b [&_th]:border-line [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:font-medium [&_th]:tracking-wide [&_th]:text-subtle [&_th]:uppercase'
 
 /** A risk limit is $1 to $1,000,000 (V20). */
 const MAX_LIMIT_DOLLARS = 1_000_000
+
+/** Open sessions listed before "Show all". */
+const OPEN_SHOWN = 5
+
+const NEW_YORK = 'America/New_York'
 
 interface PracticeViewProps {
   adapterFactory?: () => ChartAdapter
 }
 
 /**
- * The Practice tab: a journal of past sessions, and the way into a new one.
+ * The Practice tab (T41, Lovable's): start a session with one choice — the session time — the four figures that sum
+ * the practice up, the open sessions, and the journal, one row per trade. The rest of the statistics behind a click.
  *
- * The loop it serves is the one the whole product is built around — look at a market you have not
- * seen, commit to a plan, watch what happens, and keep a record you cannot edit afterwards.
+ * The loop it serves is the one the whole product is built around — look at a market you have not seen, commit to a
+ * plan, watch what happens, and keep a record you cannot edit afterwards.
  */
 export function PracticeView({ adapterFactory }: PracticeViewProps) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [created, setCreated] = useState<SessionResponse | undefined>(undefined)
-  const [journal, setJournal] = useState<SessionSummary[] | null>(null)
+  const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
+  const [trades, setTrades] = useState<JournalTrade[] | null>(null)
   const [calibration, setCalibration] = useState<Calibration | null>(null)
   const [statistics, setStatistics] = useState<Statistics | null>(null)
   // undefined while loading.
   const [settings, setSettings] = useState<PracticeSettings | undefined>(undefined)
-  const [timeframe, setTimeframe] = useState<string>('5m')
   // Empty means "any": the server then picks from the whole history.
   const [killzone, setKillzone] = useState('')
-  const [weekday, setWeekday] = useState('')
   const [starting, setStarting] = useState(false)
+  const [allOpen, setAllOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadJournal = useCallback(() => {
+  const load = useCallback(() => {
     listSessions()
-      .then(setJournal)
-      .catch(() => setError('Could not load your practice journal.'))
+      .then(setSessions)
+      .catch(() => setError('Could not load your sessions.'))
+    listTrades()
+      .then(setTrades)
+      .catch(() => setError('Could not load your journal.'))
     getStatistics()
       .then(setStatistics)
       .catch(() => setError('Could not load your statistics.'))
@@ -68,35 +79,27 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
       .catch(() => setError('Could not load your calibration.'))
     getPracticeSettings()
       .then(setSettings)
-      .catch(() => setError('Could not load your risk limit and costs.'))
+      .catch(() => setError('Could not load your risk limit.'))
   }, [])
 
-  // Every rule is saved at once (T27): the ones not being changed are sent as they are.
-  const save = async (update: SettingsUpdate) => {
-    if (!settings) return
+  const saveLimit = async (cents: number | null) => {
     setError(null)
     try {
-      const { fillModel: _, ...current } = settings
-      setSettings(await savePracticeSettings({ ...current, ...update }))
+      setSettings(await saveRiskLimit(cents ?? undefined))
     } catch {
-      setError('Could not save your settings.')
+      setError('Could not save your risk limit.')
     }
   }
 
   useEffect(() => {
-    if (openId === null) loadJournal()
-  }, [openId, loadJournal])
+    if (openId === null) load()
+  }, [openId, load])
 
   const start = async () => {
     setStarting(true)
     setError(null)
     try {
-      const session = await createSession({
-        instrument: 'NQ',
-        timeframe,
-        ...(killzone && { killzone }),
-        ...(weekday && { weekday }),
-      })
+      const session = await createSession({ instrument: 'NQ', ...(killzone && { killzone }) })
       setCreated(session)
       setOpenId(session.state.id)
     } catch (e) {
@@ -124,205 +127,194 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     )
   }
 
+  const open = sessions?.filter((s) => s.status !== 'COMPLETE') ?? []
+  // The newest few: a learner with many left open should still reach the journal without scrolling past them all.
+  const openShown = allOpen ? open : open.slice(0, OPEN_SHOWN)
+
   return (
-    <section className="flex flex-col gap-4">
-      <Panel aria-label="New session">
-        <h2 className="mb-2 text-lg font-semibold">Practice</h2>
-        <p className="max-w-3xl text-sm text-subtle">
-          You get real NQ history that stops at a random, hidden moment — its date hidden too, because
-          knowing the date means knowing what happened. Then replay it bar by bar, at your own pace.
-          Whenever you see a setup, lock a trade with a stop and a target and watch it play out; when
-          it is over, look for the next. End the session to see your score in R and the date. Every
-          trade is recorded, and the record cannot be changed.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Segmented<string>
-            options={PRACTICE_TIMEFRAMES}
-            value={timeframe}
-            onChange={setTimeframe}
-            label="Practice timeframe"
-          />
-          <label className="flex items-center gap-2 text-xs font-medium text-subtle">
-            Session
-            <select className={fieldClass} value={killzone} onChange={(e) => setKillzone(e.target.value)}>
-              <option value="">Any time</option>
-              {KILLZONES.map((k) => (
-                // The market shuts at 17:00 on Fridays, before Asia's 20:00 (BUG-067).
-                <option key={k.value} value={k.value} disabled={k.value === 'ASIA' && weekday === 'FRIDAY'}>
-                  {k.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-xs font-medium text-subtle">
-            Day
-            <select className={fieldClass} value={weekday} onChange={(e) => setWeekday(e.target.value)}>
-              <option value="">Any day</option>
-              {WEEKDAYS.map((d) => (
-                <option key={d} value={d} disabled={d === 'FRIDAY' && killzone === 'ASIA'}>
-                  {d.charAt(0) + d.slice(1).toLowerCase()}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button variant="primary" disabled={starting} onClick={() => void start()}>
-            {starting ? 'Finding a moment…' : 'Start a session'}
-          </Button>
-        </div>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
+    <section className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow="Step 3"
+        title="Practice"
+        description="A real day replayed bar by bar, the future hidden. Plan, execute, then review."
+      />
+
+      <section
+        aria-label="New session"
+        className="flex flex-wrap items-end justify-between gap-6 rounded-card bg-accent/15 p-6 ring-1 ring-accent/30"
+      >
+        <div className="max-w-xl">
+          <h2 className="font-display text-2xl font-bold tracking-tight text-ink">Start a session</h2>
+          <p className="mt-1 text-sm text-subtle">
+            A random NQ day from the last two years. You won&apos;t see the date until the end.
+          </p>
           <RiskLimitField
             cents={settings === undefined ? undefined : (settings.riskLimitCents ?? null)}
-            onSave={(cents) => void save({ riskLimitCents: cents ?? undefined })}
+            onSave={(cents) => void saveLimit(cents)}
             onInvalid={() => setError(`A risk limit is $1 to $${MAX_LIMIT_DOLLARS.toLocaleString('en-US')}.`)}
           />
-          <p className="max-w-xl pb-2 text-xs text-subtle">
-            Your rule, set before you trade: each trade's scorecard says whether its risk kept it. It never blocks a
-            trade, and changing it later does not rewrite old ones.
-          </p>
         </div>
-        {settings && (
-          <CostsFields
-            settings={settings}
-            onSave={(update) => void save(update)}
-            onInvalid={() => setError('Fees are $0 to $50 a round trip, written like 4.50 or 4,50.')}
-          />
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="sr-only" htmlFor="session-time">
+            Session time
+          </label>
+          <select id="session-time" className={fieldClass} value={killzone} onChange={(e) => setKillzone(e.target.value)}>
+            <option value="">Any time</option>
+            {KILLZONES.map((k) => (
+              <option key={k.value} value={k.value}>
+                {k.label}
+              </option>
+            ))}
+          </select>
+          <Button variant="primary" size="lg" disabled={starting} onClick={() => void start()}>
+            <Play aria-hidden className="size-4 fill-current" />
+            {starting ? 'Finding a moment…' : 'Start'}
+          </Button>
+        </div>
         {error && (
-          <p role="alert" className={`mt-3 ${errorClass}`}>
+          <p role="alert" className={`w-full ${errorClass}`}>
             {error}
           </p>
         )}
-      </Panel>
+      </section>
+
+      {statistics && <Tiles statistics={statistics} />}
+
+      {open.length > 0 && (
+        <Panel aria-label="Open sessions">
+          <h3 className={panelTitle}>Open sessions</h3>
+          <ul className="flex flex-col">
+            {openShown.map((s) => (
+              <li key={s.id} className="flex items-center gap-4 border-b border-line/60 py-2.5 text-sm last:border-b-0" data-testid="open-session">
+                <span className="w-20 text-ink">{STATUS_LABEL[s.status]}</span>
+                <span className="num w-24 text-subtle">
+                  {s.trades} {s.trades === 1 ? 'trade' : 'trades'}
+                </span>
+                <span className={cx('num w-24', s.score.totalR > 0 ? 'text-up' : s.score.totalR < 0 ? 'text-down' : 'text-subtle')}>
+                  {s.score.closedTrades > 0 ? formatR(s.score.totalR) : '—'}
+                </span>
+                <Button variant="link" className="ml-auto" onClick={() => setOpenId(s.id)}>
+                  Resume
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {open.length > OPEN_SHOWN && (
+            <Button variant="link" className="mt-2" onClick={() => setAllOpen((a) => !a)}>
+              {allOpen ? 'Show fewer' : `Show all ${open.length}`}
+            </Button>
+          )}
+        </Panel>
+      )}
 
       <Panel aria-label="Journal">
         <h3 className={panelTitle}>Journal</h3>
-        {journal === null && (
+        {trades === null && (
           <p role="status" className="text-sm text-subtle">
             Loading…
           </p>
         )}
-        {journal?.length === 0 && <p className="text-sm text-subtle">No sessions yet.</p>}
-        {journal && journal.length > 0 && (
+        {trades?.length === 0 && <p className="text-sm text-subtle">No finished trades yet — start a session.</p>}
+        {trades && trades.length > 0 && (
           <table className={tableClass}>
             <thead>
               <tr>
-                <th>Started</th>
-                <th>Chart</th>
-                <th>Status</th>
-                <th>Trades</th>
-                <th>Win rate</th>
+                <th>When</th>
+                <th>Side</th>
+                <th>Entry</th>
+                <th>Result</th>
                 <th>R</th>
-                <th>Net</th>
-                <th />
+                <th>P&amp;L</th>
+                <th>Model</th>
               </tr>
             </thead>
             <tbody>
-              {journal.map((row) => {
-                // The score counts closed trades only: a running trade's outcome is the future.
-                const { closedTrades, wins, totalR, netPnlCents } = row.score
-                return (
-                  <tr key={row.id} data-testid="journal-row">
-                    <td>{new Date(row.createdAt * 1000).toLocaleString()}</td>
-                    <td>
-                      {row.instrument} · {row.timeframe}
-                    </td>
-                    <td>{STATUS_LABEL[row.status]}</td>
-                    <td>{row.trades}</td>
-                    <td>{closedTrades > 0 ? `${Math.round((100 * wins) / closedTrades)}%` : ''}</td>
-                    <td>{closedTrades > 0 ? formatR(totalR) : ''}</td>
-                    <td>{closedTrades > 0 ? formatCents(netPnlCents) : ''}</td>
-                    <td>
-                      <Button variant="link" onClick={() => setOpenId(row.id)}>
-                        {row.status === 'COMPLETE' ? 'Review' : 'Resume'}
-                      </Button>
-                    </td>
-                  </tr>
-                )
-              })}
+              {trades.map((t) => (
+                <tr
+                  key={`${t.sessionId}-${t.number}`}
+                  data-testid="journal-row"
+                  tabIndex={0}
+                  onClick={() => setOpenId(t.sessionId)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setOpenId(t.sessionId)
+                  }}
+                  className="cursor-pointer hover:bg-sunken/60 focus-visible:outline-2 focus-visible:outline-accent"
+                  title="Open this session"
+                >
+                  <td className="num text-subtle">{when(t)}</td>
+                  <td className={cx('font-medium', t.direction === 'LONG' ? 'text-up' : 'text-down')}>
+                    {t.direction === 'LONG' ? 'Long' : 'Short'}
+                  </td>
+                  <td className="num">{formatPrice(t.entryTicks, t.tickSize)}</td>
+                  <td>{t.outcome === 'CLOSED' ? 'Closed by hand' : outcomeLabel(t.outcome)}</td>
+                  <td className={cx('num font-semibold', t.r > 0 ? 'text-up' : t.r < 0 ? 'text-down' : 'text-subtle')}>
+                    {formatR(t.r)}
+                  </td>
+                  <td className="num">{formatCents(t.netPnlCents)}</td>
+                  <td className="text-subtle">{t.model ?? '—'}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </Panel>
 
-      {statistics && <StatisticsPanel statistics={statistics} />}
-      {calibration && <CalibrationPanel calibration={calibration} />}
+      {(statistics || calibration) && (
+        <details className="group">
+          <summary className="cursor-pointer text-sm font-semibold text-accent">More statistics</summary>
+          <div className="mt-4 flex flex-col gap-4">
+            {statistics && <StatisticsPanel statistics={statistics} />}
+            {calibration && <CalibrationPanel calibration={calibration} />}
+          </div>
+        </details>
+      )}
     </section>
   )
 }
 
-const TICKS = ['0', '1', '2', '3', '4'] as const
-const TARGET_FILLS = ['On the touch', 'Traded through'] as const
+/** "Tue 09:05 NY" while the session keeps its date (DEC-025); the real date and time once it is complete. */
+function when(t: JournalTrade): string {
+  if (t.timeBasis === 'NEW_YORK_WALL_CLOCK') return formatSessionTime(t.at, NEW_YORK, t.timeBasis)
+  return `${formatSessionDate(t.at, NEW_YORK)} · ${formatSessionTime(t.at, NEW_YORK)}`
+}
 
-/**
- * What trading costs (T27, DEC-072): fees per round trip, the ticks a market order and a stop slip, and whether a
- * target fills on the touch or once price trades through it. Used for trades placed from now on; each result keeps
- * the costs it was made with.
- */
-function CostsFields({
-  settings,
-  onSave,
-  onInvalid,
-}: {
-  settings: PracticeSettings
-  onSave: (update: SettingsUpdate) => void
-  onInvalid: () => void
-}) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const fees = draft ?? String(settings.feesCents / 100)
-  const commitFees = () => {
-    if (draft === null) return
-    const dollars = parseDecimal(draft, '$')
-    if (dollars !== null && dollars >= 0 && dollars <= 50) onSave({ feesCents: Math.round(dollars * 100) })
-    else onInvalid()
-    setDraft(null)
-  }
+/** The four figures (T41), each opening the sentence that says what it means. */
+function Tiles({ statistics }: { statistics: Statistics }) {
+  const { overall, heldToPlan, costsPaidCents, bestR, worstR } = statistics
+  const n = overall.trades
+  const trades = `${n} ${n === 1 ? 'trade' : 'trades'}`
   return (
-    <section aria-label="Your costs" className="mt-4 flex flex-wrap items-end gap-4">
-      <label className={labelClass}>
-        Fees per round trip ($)
-        <input
-          className={`${fieldClass} w-28`}
-          inputMode="decimal"
-          value={fees}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commitFees}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitFees()
-          }}
-        />
-      </label>
-      <div className={labelClass}>
-        Slippage in, ticks
-        <Segmented<(typeof TICKS)[number]>
-          options={TICKS}
-          value={String(settings.marketSlippageTicks) as (typeof TICKS)[number]}
-          onChange={(t) => onSave({ marketSlippageTicks: Number(t) })}
-          label="Slippage on a market order, ticks"
-        />
-      </div>
-      <div className={labelClass}>
-        At the stop, ticks
-        <Segmented<(typeof TICKS)[number]>
-          options={TICKS}
-          value={String(settings.stopSlippageTicks) as (typeof TICKS)[number]}
-          onChange={(t) => onSave({ stopSlippageTicks: Number(t) })}
-          label="Slippage at the stop, ticks"
-        />
-      </div>
-      <div className={labelClass}>
-        Targets fill
-        <Segmented<(typeof TARGET_FILLS)[number]>
-          options={TARGET_FILLS}
-          value={settings.limitThroughTicks === 0 ? 'On the touch' : 'Traded through'}
-          onChange={(f) => onSave({ limitThroughTicks: f === 'On the touch' ? 0 : 1 })}
-          label="Targets fill"
-        />
-      </div>
-      <p className="max-w-md pb-2 text-xs text-subtle" data-testid="costs-model">
-        For trades placed from now: each keeps the costs it was made with ({settings.fillModel}). The standard: $4.50, a
-        tick in, a tick at the stop, a target filled once traded through.
-      </p>
-    </section>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-testid="practice-tiles">
+      <StatTile
+        label="Total"
+        value={formatR(overall.totalR)}
+        tone={overall.totalR > 0 ? 'up' : overall.totalR < 0 ? 'down' : 'neutral'}
+        detail={
+          n === 0
+            ? 'No finished trades yet.'
+            : `Average ${formatR(overall.expectancyR ?? 0)} per trade across ${trades}. Best ${formatR(bestR ?? 0)}, worst ${formatR(worstR ?? 0)}.`
+        }
+      />
+      <StatTile
+        label="Win rate"
+        value={overall.winRate === undefined ? '—' : `${Math.round(overall.winRate)}%`}
+        detail={n === 0 ? 'No finished trades yet.' : `${overall.wins} of ${trades} made money after costs. ${overall.reading}`}
+      />
+      <StatTile
+        label="Held to plan"
+        value={n === 0 ? '—' : `${heldToPlan} / ${n}`}
+        detail={
+          n === 0
+            ? 'No finished trades yet.'
+            : `${n - heldToPlan} closed by hand before the stop or target. Process and outcome are scored separately.`
+        }
+      />
+      <StatTile
+        label="Costs paid"
+        value={formatCents(costsPaidCents)}
+        detail="Every trade pays the standard costs: a tick of slippage in, a tick at the stop, $4.50 a round trip."
+      />
+    </div>
   )
 }
 
@@ -347,12 +339,13 @@ function RiskLimitField({
     setDraft(null)
   }
   return (
-    <label className={labelClass}>
-      Risk limit per trade ($)
+    <label className="mt-4 flex flex-wrap items-center gap-2 text-xs text-subtle">
+      Your risk limit per trade: $
       <input
-        className={`${fieldClass} w-40`}
+        className={`${fieldClass} h-8 w-28`}
         inputMode="decimal"
         placeholder="none"
+        aria-label="Risk limit per trade ($)"
         disabled={cents === undefined}
         value={text}
         onChange={(e) => setDraft(e.target.value)}
@@ -361,6 +354,7 @@ function RiskLimitField({
           if (e.key === 'Enter') commit()
         }}
       />
+      <span>— your rule: each scorecard says whether a trade kept it. It never blocks one.</span>
     </label>
   )
 }

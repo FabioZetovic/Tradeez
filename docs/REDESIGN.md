@@ -55,7 +55,7 @@
 | T38 | Chart tab | T36, T37 | ✅ merged 2026-10-26 | `feat/t38-chart` | `components/chart/ChartPage.tsx` + `LayersMenu.tsx` (glass, search, presets, 5 groups, 40 layers, chips), `useChartLayers` (practice uses it too), drawing bar on lucide icons, price change since the previous session close, no instrument/beside/SMT. Screenshots docs/redesign/after/t38/. 412 tests, 18/18 mutants |
 | T39 | Home | T36 (news card: T40) | ✅ merged 2026-10-26 | `feat/t39-home` (from `feat/t38-chart`) | `components/home/HomePage.tsx` at `/`: greeting, four step cards with real progress (definitions agreed with Fabio), Up next, Due for review (rings), Practice so far, the latest NQ session still; lessons at `/learn/:conceptId`; News card waits for T40. Screenshots docs/redesign/after/t39/. 421 tests, 16 mutants |
 | T40 | News | T36 | ✅ merged 2026-10-26 | `feat/t40-news` | DEC-079: our own calendar — FRED release dates (8 releases) + the Fed's FOMC list, refreshed every 6 h, stale/FOMC warnings, FRED notice; News page `/news`, Home "News today", nav. Forex Factory ruled out by its terms. Screenshots docs/redesign/after/t40/ |
-| T41 | Practice home | T36 | ⬜ | | |
+| T41 | Practice home | T36 | ✅ merged 2026-10-26 | `feat/t41-practice` | DEC-080: costs fixed at the standard (refused if sent, V29), start = session time + Start, four StatTiles (total, win rate, held to plan, costs paid), open sessions, per-trade journal (`GET /api/practice/trades`), more statistics behind a disclosure. Screenshots docs/redesign/after/t41/ |
 | T42 | Practice session | T37, T38, T41 | ⬜ | | |
 | T43 | Drills | T36 | ⬜ | | locks from T45 added later |
 | T44 | Learn audit (with Fabio) | Fabio's time | ⬜ | | list → his decisions |
@@ -1023,4 +1023,8 @@ due, open), `suggested`, `due`.
 | 2026-10-26 | T40 | Our own calendar from the official schedules, via FRED (free key) and the Fed's FOMC list — DEC-079 | Fabio |
 | 2026-10-26 | T40 | Refreshed every six hours rather than yearly by hand, after Fabio asked about schedules that change ("shit changes in the market quick") | Fabio + Claude |
 | 2026-10-26 | T40 | Not rate-limited like the chart's reads: one indexed query over a few rows | Claude |
+| 2026-10-26 | T41 | Cost fields sent to the settings are refused with a 400, not ignored (the plan left it open) — DEC-080 | Claude |
+| 2026-10-26 | T41 | The costs are an app setting (`tradeez.practice.costs`), the standard by default: the worked-example tests keep their simpler costs through it, per test context | Claude |
+| 2026-10-26 | T41 | Held to plan = not closed by hand; a flat at the session's close counts as held | Claude |
+| 2026-10-26 | T41 | A journal row opens its session; opening it at that very trade, and `/practice/:id` addresses, come with T42's session screen | Claude |
 
