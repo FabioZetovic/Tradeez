@@ -20,7 +20,7 @@ import com.tradeez.practice.PracticeDtos.StatisticsView;
 class JournalStatisticsTest {
 
 	private static Sample r(double r) {
-		return new Sample(r, Math.round(r * 20_000), null, null, DayOfWeek.MONDAY, Direction.LONG, null, null, 0, 0);
+		return new Sample(r, Math.round(r * 20_000), null, null, DayOfWeek.MONDAY, Direction.LONG, null, null, 0, 0, false, 0);
 	}
 
 	private static StatisticsGroupView group(double... rs) {
@@ -88,11 +88,11 @@ class JournalStatisticsTest {
 	@DisplayName("grouped six ways, in a fixed order where there is one, and only the groups that have trades")
 	void dimensions() {
 		List<Sample> samples = List.of(
-			new Sample(2, 0, "Silver Bullet", "NEW_YORK_AM", DayOfWeek.TUESDAY, Direction.LONG, 5, 5, 2, 0),
-			new Sample(-1, 0, null, null, DayOfWeek.MONDAY, Direction.SHORT, null, null, 1, 1),
-			new Sample(1, 0, "The 2022 model", "ASIA", DayOfWeek.TUESDAY, Direction.LONG, 0, 5, 0, 0),
-			new Sample(-1, 0, "Silver Bullet", "NEW_YORK_AM", DayOfWeek.FRIDAY, Direction.LONG, 3, 5, 0, 1),
-			new Sample(0.5, 0, null, "ASIA", DayOfWeek.SUNDAY, Direction.SHORT, null, null, 0, 0));
+			new Sample(2, 0, "Silver Bullet", "NEW_YORK_AM", DayOfWeek.TUESDAY, Direction.LONG, 5, 5, 2, 0, false, 0),
+			new Sample(-1, 0, null, null, DayOfWeek.MONDAY, Direction.SHORT, null, null, 1, 1, false, 0),
+			new Sample(1, 0, "The 2022 model", "ASIA", DayOfWeek.TUESDAY, Direction.LONG, 0, 5, 0, 0, false, 0),
+			new Sample(-1, 0, "Silver Bullet", "NEW_YORK_AM", DayOfWeek.FRIDAY, Direction.LONG, 3, 5, 0, 1, false, 0),
+			new Sample(0.5, 0, null, "ASIA", DayOfWeek.SUNDAY, Direction.SHORT, null, null, 0, 0, false, 0));
 		StatisticsView view = JournalStatistics.of(samples);
 		assertThat(view.overall().label()).isEqualTo("All trades");
 		assertThat(view.overall().trades()).isEqualTo(5);
@@ -116,5 +116,24 @@ class JournalStatisticsTest {
 			.containsExactly(tuple("All kept", 1), tuple("Some broken", 2),
 				tuple("None to check", 2));
 		assertThat(dimension(view, "rules").groups().get(1).expectancyR()).isEqualTo(-1.0);
+	}
+
+	@Test
+	@DisplayName("T41: held to plan is every trade not closed by hand; costs add up; the best and worst trade, none without trades")
+	void totals() {
+		Sample held = new Sample(1.5, 0, null, null, DayOfWeek.MONDAY, Direction.LONG, null, null, 0, 0, false, 950);
+		Sample closed = new Sample(-0.4, 0, null, null, DayOfWeek.MONDAY, Direction.SHORT, null, null, 0, 0, true, 1450);
+		Sample stopped = new Sample(-1.04, 0, null, null, DayOfWeek.TUESDAY, Direction.LONG, null, null, 0, 0, false, 1450);
+		StatisticsView view = JournalStatistics.of(List.of(held, closed, stopped));
+		assertThat(view.heldToPlan()).isEqualTo(2);
+		assertThat(view.costsPaidCents()).isEqualTo(3_850);
+		assertThat(view.bestR()).isEqualTo(1.5);
+		assertThat(view.worstR()).isEqualTo(-1.04);
+
+		StatisticsView none = JournalStatistics.of(List.of());
+		assertThat(none.heldToPlan()).isZero();
+		assertThat(none.costsPaidCents()).isZero();
+		assertThat(none.bestR()).isNull();
+		assertThat(none.worstR()).isNull();
 	}
 }

@@ -1,14 +1,18 @@
 package com.tradeez.practice;
 
+import java.util.List;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 import com.tradeez.practice.PracticeDtos.CalibrationView;
+import com.tradeez.practice.PracticeDtos.JournalTradeView;
 import com.tradeez.practice.PracticeDtos.SettingsRequest;
 import com.tradeez.practice.PracticeDtos.SettingsView;
 import com.tradeez.practice.PracticeDtos.StatisticsView;
@@ -49,17 +53,29 @@ public class PracticeRecordController {
 		return practice.statistics(principal.id());
 	}
 
+	@GetMapping("/trades")
+	@Operation(summary = "The learner's finished trades, newest first",
+		description = "One row per trade across every session (T41): when it was placed — the time the session shows while "
+			+ "it is open, the real moment once it is complete (DEC-025) — the side, the entry, how it ended, R and money "
+			+ "net of costs, the model. Only trades whose exit the replay has shown. limit: 1 to 200, 50 by default.")
+	public List<JournalTradeView> trades(@AuthenticationPrincipal AuthenticatedUser principal,
+			@RequestParam(defaultValue = "50") int limit) {
+		if (limit < 1 || limit > 200) {
+			throw new IllegalArgumentException("limit is 1 to 200");
+		}
+		return practice.journal(principal.id(), limit);
+	}
+
 	@GetMapping("/settings")
-	@Operation(summary = "The learner's practice rules")
+	@Operation(summary = "The learner's risk limit, and the costs every trade pays")
 	public SettingsView settings(@AuthenticationPrincipal AuthenticatedUser principal) {
 		return practice.settings(principal.id());
 	}
 
 	@PutMapping("/settings")
-	@Operation(summary = "Set the learner's practice rules",
-		description = "The risk limit is copied onto each plan as it is placed, and the costs resolve it and are kept "
-			+ "with its result, so a later change never rewrites an earlier trade. All are set at once; a missing one is "
-			+ "unset, and unset costs are the standard ones (T27).")
+	@Operation(summary = "Set the learner's risk limit",
+		description = "Copied onto each plan as it is placed, so a later change never rewrites an earlier trade; missing, "
+			+ "it is unset. Costs are fixed at the standard (T41, DEC-080): sent, they are refused with 400.")
 	public SettingsView saveSettings(@AuthenticationPrincipal AuthenticatedUser principal,
 			@Valid @RequestBody SettingsRequest body) {
 		return practice.saveSettings(principal.id(), body);

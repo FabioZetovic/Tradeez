@@ -247,7 +247,6 @@ export interface PlanIntent {
   confidence?: number
 }
 
-export const PRACTICE_TIMEFRAMES = ['1m', '5m', '15m'] as const
 
 /** ICT killzones in New York time (sessions-1.0.0, DEC-043), for choosing a practice moment. */
 export const KILLZONES = [
@@ -257,15 +256,15 @@ export const KILLZONES = [
   { value: 'NEW_YORK_PM', label: 'New York PM · 13:30–16:00' },
 ] as const
 
-export const WEEKDAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'] as const
 
+/**
+ * A new session on NQ (T41): the session time is the one choice — no timeframe (the server's 5m) and no weekday. The
+ * API still takes both.
+ */
 export const createSession = (body: {
   instrument?: string
-  timeframe?: string
   /** One of KILLZONES' values; absent means any time. */
   killzone?: string
-  /** One of WEEKDAYS; absent means any day. */
-  weekday?: string
 }) =>
   apiFetch<SessionResponse>('/api/practice/sessions', {
     method: 'POST',
@@ -360,6 +359,13 @@ export interface StatisticsGroup {
 export interface Statistics {
   version: string
   overall: StatisticsGroup
+  /** T41: trades not closed by hand before the plan's own exit. */
+  heldToPlan: number
+  /** T41: fees and slippage over every trade, as each scorecard counts them. */
+  costsPaidCents: number
+  /** T41: the best and worst trade, R; absent without trades. */
+  bestR?: number
+  worstR?: number
   dimensions: { id: string; title: string; groups: StatisticsGroup[] }[]
   notes: string[]
 }
@@ -368,7 +374,7 @@ export const getStatistics = () => apiFetch<Statistics>('/api/practice/statistic
 
 export const getCalibration = () => apiFetch<Calibration>('/api/practice/calibration')
 
-/** A learner's practice rules: the risk limit as set (T23), and the costs as they apply — the standard ones where unset (T27). */
+/** The learner's risk limit as set (T23), and the costs every trade pays — fixed at the standard (T41, DEC-080). */
 export interface PracticeSettings {
   riskLimitCents?: number
   /** Commission and fees per contract, round trip. */
@@ -383,16 +389,35 @@ export interface PracticeSettings {
   fillModel: string
 }
 
-export type SettingsUpdate = Partial<Omit<PracticeSettings, 'fillModel'>>
-
 export const getPracticeSettings = () => apiFetch<PracticeSettings>('/api/practice/settings')
 
-/** Sets every rule at once; one left out is unset, and unset costs are the standard ones. */
-export const savePracticeSettings = (settings: SettingsUpdate) =>
+/** Sets the risk limit, or unsets it with undefined. Costs are not the learner's to set (DEC-080). */
+export const saveRiskLimit = (riskLimitCents: number | undefined) =>
   apiFetch<PracticeSettings>('/api/practice/settings', {
     method: 'PUT',
-    body: JSON.stringify(settings),
+    body: JSON.stringify({ riskLimitCents }),
   })
+
+/** One finished trade in the journal (T41), newest placed first. */
+export interface JournalTrade {
+  sessionId: string
+  /** 1, 2, 3… within its session. */
+  number: number
+  /** When the plan was locked, read by timeBasis: the session's own clock while it is open, the real moment after. */
+  at: number
+  timeBasis: TimeBasis
+  instrument: string
+  tickSize: number
+  direction: Direction
+  entryTicks: number
+  outcome: 'TARGET' | 'STOP' | 'AMBIGUOUS' | 'TIME_EXIT' | 'CLOSED'
+  /** Net of costs (DEC-076). */
+  r: number
+  netPnlCents: number
+  model?: string
+}
+
+export const listTrades = (limit = 50) => apiFetch<JournalTrade[]>(`/api/practice/trades?limit=${limit}`)
 
 /** Only while flat. Reveals the seed or the real date; ending twice changes nothing. */
 export const endSession = (id: string) =>

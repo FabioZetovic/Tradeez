@@ -300,6 +300,7 @@ class RobustnessTest extends AbstractIntegrationTest {
 				get("/api/practice/sessions/" + uuid + "/trades/1/review"),
 				get("/api/practice/calibration"),
 				get("/api/practice/statistics"),
+				get("/api/practice/trades"),
 				get("/api/practice/settings"),
 				put("/api/practice/settings"),
 				post("/api/auth/logout-all"),
@@ -326,7 +327,7 @@ class RobustnessTest extends AbstractIntegrationTest {
 			"/api/drills/{id}/answer", "/api/drills/risk", "/api/drills/risk/{id}", "/api/drills/risk/{id}/answer", "/api/learning", "/api/learning/concepts/{id}/read", "/api/news", "/api/practice/sessions",
 			"/api/practice/sessions/{id}", "/api/practice/sessions/{id}/clock", "/api/practice/sessions/{id}/setups",
 			"/api/practice/sessions/{id}/plan", "/api/practice/sessions/{id}/context", "/api/practice/sessions/{id}/advance", "/api/practice/sessions/{id}/skip",
-			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/practice/sessions/{id}/trades/{number}/review", "/api/practice/calibration", "/api/practice/statistics",
+			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/practice/sessions/{id}/trades/{number}/review", "/api/practice/calibration", "/api/practice/statistics", "/api/practice/trades",
 			"/api/practice/settings", "/api/auth/register", "/api/auth/login",
 			"/api/auth/refresh", "/api/auth/logout", "/api/auth/logout-all", "/api/auth/password", "/api/health");
 	}

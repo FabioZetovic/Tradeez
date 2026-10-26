@@ -286,11 +286,33 @@ public final class PracticeDtos {
 	public record StatisticsView(
 		@Schema(description = "journal-stats-1.0.0") String version,
 		StatisticsGroupView overall,
+		@Schema(description = "T41: trades not closed by hand before the plan's own exit") int heldToPlan,
+		@Schema(description = "T41: fees and slippage over every trade, cents, as each scorecard counts them") long costsPaidCents,
+		@Schema(description = "T41: the best trade, R; absent without trades") Double bestR,
+		@Schema(description = "T41: the worst trade, R; absent without trades") Double worstR,
 		List<StatisticsDimensionView> dimensions,
 		List<String> notes) {
 	}
 
-	@Schema(description = "The learner's practice rules: a risk limit, and what trading costs (T27, DEC-072)")
+	@Schema(description = """
+		One finished trade in the journal (T41). at: the time the session shows while it is open (timeBasis \
+		NEW_YORK_WALL_CLOCK, the date hidden, DEC-025), the real moment once it is complete (UTC).""")
+	public record JournalTradeView(
+		UUID sessionId,
+		@Schema(description = "1, 2, 3… in the order the session's trades were locked") int number,
+		@Schema(description = "When the plan was locked, epoch seconds read by timeBasis") long at,
+		String timeBasis,
+		String instrument,
+		BigDecimal tickSize,
+		FillEngine.Direction direction,
+		long entryTicks,
+		@Schema(description = "TARGET | STOP | AMBIGUOUS | TIME_EXIT | CLOSED (by hand)") String outcome,
+		@Schema(description = "Net of costs, in units of the planned risk (DEC-076)") double r,
+		long netPnlCents,
+		@Schema(description = "The model named, absent when none") String model) {
+	}
+
+	@Schema(description = "The learner's risk limit, and what every trade costs — fixed at the standard (T41, DEC-080)")
 	public record SettingsView(
 		@Schema(description = "The most one trade may risk, cents; absent when not set") Long riskLimitCents,
 		@Schema(description = "Commission and fees per contract, round trip, cents") long feesCents,
@@ -300,13 +322,13 @@ public final class PracticeDtos {
 		@Schema(description = "The fill model these make, as results store it") String fillModel) {
 	}
 
-	@Schema(description = "Set the learner's practice rules, all at once; a missing one is unset (the costs then standard)")
+	@Schema(description = "Set the learner's risk limit; missing, it is unset. Costs are fixed (DEC-080): sent, they are refused")
 	public record SettingsRequest(
 		@Schema(description = "$1 to $1,000,000, in cents") @Min(100) @Max(100_000_000) Long riskLimitCents,
-		@Schema(description = "$0 to $50, in cents") @Min(0) @Max(5_000) Long feesCents,
-		@Schema(description = "0 to 8") @Min(0) @Max(8) Integer marketSlippageTicks,
-		@Schema(description = "0 to 8") @Min(0) @Max(8) Integer stopSlippageTicks,
-		@Schema(description = "0 to 4") @Min(0) @Max(4) Integer limitThroughTicks) {
+		@Schema(description = "Refused: costs are fixed (DEC-080)", deprecated = true) Long feesCents,
+		@Schema(description = "Refused: costs are fixed (DEC-080)", deprecated = true) Integer marketSlippageTicks,
+		@Schema(description = "Refused: costs are fixed (DEC-080)", deprecated = true) Integer stopSlippageTicks,
+		@Schema(description = "Refused: costs are fixed (DEC-080)", deprecated = true) Integer limitThroughTicks) {
 	}
 
 	@Schema(description = """

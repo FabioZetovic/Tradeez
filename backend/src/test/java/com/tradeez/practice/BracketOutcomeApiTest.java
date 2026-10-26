@@ -20,6 +20,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.test.context.TestPropertySource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,7 @@ import jakarta.servlet.http.Cookie;
  * numbers, set as the learner's costs before each test (T27). The standard costs are PracticeApiTest's. R is the net
  * result, commission paid, over the risk planned (DEC-076): $2.50 on a 10-tick stop at $5 is 0.05R.
  */
+@TestPropertySource(properties = PracticeApiTest.BASIC_COSTS)
 class BracketOutcomeApiTest extends AbstractIntegrationTest {
 
 	private static final ZoneId CHICAGO = ZoneId.of("America/Chicago");
@@ -129,8 +131,6 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 				.content("{\"email\":\"alice@example.com\",\"password\":\"a-perfectly-fine-passphrase\",\"displayName\":\"A\"}"))
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getCookie(CookieService.ACCESS_TOKEN_COOKIE);
-		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-			.content(PracticeApiTest.BASIC_COSTS)).andExpect(status().isOk());
 		nqId = marketData.requireInstrument("NQ").getId();
 	}
 
@@ -422,42 +422,24 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("T27, the standard costs: in a tick dear, a target touched but not traded through left alone, $4.50 a round trip")
-	void standardCosts() throws Exception {
-		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-			.content("{}")).andExpect(status().isOk());
-		String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
-			m(80_000, 80_008, 79_999, 80_007), // touches the target, no more
-			m(80_007, 80_009, 80_005, 80_008)); // trades a tick through it
-		plan(id, "LONG", 79_990, 80_008, 1).andExpect(status().isOk());
-		JsonNode result = result(skip(id));
-
-		assertThat(result.get("fillModelVersion").asString()).isEqualTo("mkt-1t/slip-1t/thru-1t/comm-450c");
-		assertThat(result.get("engineVersion").asString()).isEqualTo("fill-1.4.0");
-		assertThat(result.get("outcome").asString()).isEqualTo("TARGET");
-		assertThat(result.get("entryTicks").asLong()).as("a market order a tick dear").isEqualTo(80_001);
-		assertThat(result.get("exitTicks").asLong()).as("the limit's own price, once traded through").isEqualTo(80_008);
-		assertThat(stored(id, 1).exitTime()).as("the second minute, not the touch").isEqualTo(TUESDAY_10AM.plusSeconds(60));
-		assertThat(result.get("pnlTicks").asLong()).isEqualTo(7);
-		assertThat(result.get("commissionCents").asLong()).isEqualTo(450);
-		assertThat(result.get("netPnlCents").asLong()).isEqualTo(7 * TICK_CENTS - 450);
-		assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.61);
-		assertThat(result.get("maeTicks").asLong()).isEqualTo(2);
-		assertThat(result.get("mfeTicks").asLong()).isEqualTo(7);
-	}
-
-	@Test
-	@DisplayName("T27: a close is filled with the plan's own costs, though the learner changed theirs since")
+	@DisplayName("T27, DEC-080: a close is filled with the costs its trade was placed under, not today's")
 	void costsKeptWithThePlan() throws Exception {
-		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"feesCents\":300,\"marketSlippageTicks\":2,\"stopSlippageTicks\":3,\"limitThroughTicks\":0}"))
-			.andExpect(status().isOk());
 		String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
 			m(80_000, 80_003, 79_998, 80_002),
 			m(80_002, 80_004, 80_000, 80_001));
 		plan(id, "LONG", 79_950, 80_050, 1).andExpect(status().isOk());
-		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-			.content("{}")).andExpect(status().isOk());
+		// As a trade placed before costs were fixed is stored: in two ticks dear, under its learner's own costs then.
+		// Results are immutable (DEC-013), so the row is rewritten as a legacy one would have been written: on one
+		// connection with the triggers stood aside, for this statement alone.
+		jdbc.execute((java.sql.Connection c) -> {
+			try (var statement = c.createStatement()) {
+				statement.execute("SET session_replication_role = replica");
+				statement.execute("UPDATE practice_result SET fill_model_version = 'mkt-2t/slip-3t/comm-300c', "
+					+ "entry_ticks = 80002 WHERE session_id = '" + UUID.fromString(id) + "'");
+				statement.execute("SET session_replication_role = origin");
+			}
+			return null;
+		});
 		mockMvc.perform(post("/api/practice/sessions/" + id + "/advance").cookie(alice).with(csrf())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"bars\":1,\"timeframe\":\"1m\"}")).andExpect(status().isOk());
 		JsonNode result = result(read(mockMvc.perform(post("/api/practice/sessions/" + id + "/close?timeframe=1m")
@@ -779,4 +761,34 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			  AND open_time < ? AND open_time >= ? ORDER BY open_time DESC LIMIT 1""",
 			Long.class, nqId, Timestamp.from(cursor), Timestamp.from(cursor.minusSeconds(3_600)));
 	}
+
+	@Nested
+	@TestPropertySource(properties = "tradeez.practice.costs=mkt-1t/slip-1t/thru-1t/comm-450c")
+	@DisplayName("at the standard costs, which every learner's trades pay (DEC-080)")
+	class StandardCosts {
+
+		@Test
+		@DisplayName("T27, the standard costs: in a tick dear, a target touched but not traded through left alone, $4.50 a round trip")
+		void standardCosts() throws Exception {
+			String id = standingAt(TUESDAY_10AM, m(80_000, 80_001, 79_999, 80_000),
+				m(80_000, 80_008, 79_999, 80_007), // touches the target, no more
+				m(80_007, 80_009, 80_005, 80_008)); // trades a tick through it
+			plan(id, "LONG", 79_990, 80_008, 1).andExpect(status().isOk());
+			JsonNode result = result(skip(id));
+
+			assertThat(result.get("fillModelVersion").asString()).isEqualTo("mkt-1t/slip-1t/thru-1t/comm-450c");
+			assertThat(result.get("engineVersion").asString()).isEqualTo("fill-1.4.0");
+			assertThat(result.get("outcome").asString()).isEqualTo("TARGET");
+			assertThat(result.get("entryTicks").asLong()).as("a market order a tick dear").isEqualTo(80_001);
+			assertThat(result.get("exitTicks").asLong()).as("the limit's own price, once traded through").isEqualTo(80_008);
+			assertThat(stored(id, 1).exitTime()).as("the second minute, not the touch").isEqualTo(TUESDAY_10AM.plusSeconds(60));
+			assertThat(result.get("pnlTicks").asLong()).isEqualTo(7);
+			assertThat(result.get("commissionCents").asLong()).isEqualTo(450);
+			assertThat(result.get("netPnlCents").asLong()).isEqualTo(7 * TICK_CENTS - 450);
+			assertThat(result.get("rMultiple").asDouble()).isEqualTo(0.61);
+			assertThat(result.get("maeTicks").asLong()).isEqualTo(2);
+			assertThat(result.get("mfeTicks").asLong()).isEqualTo(7);
+		}
+	}
+
 }

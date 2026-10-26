@@ -69,6 +69,11 @@ tradeez:
     # version or the counting changed — in the background. Tests switch it off.
     refresh-on-start: ${EVIDENCE_REFRESH_ON_START:true}
 
+  practice:
+    # T41 (DEC-080). What every practice trade costs, as a fill model's version: the standard — a tick of slippage on
+    # every market and stop fill, a target filled once traded through, $4.50 a round trip. Not the learner's to set.
+    costs: mkt-1t/slip-1t/thru-1t/comm-450c
+
   news:
     # T40 (DEC-079). Bring the economic calendar up to date after start-up and every six hours, from FRED and the
     # Fed's FOMC list. Tests switch it off: they never call FRED.

@@ -2002,6 +2002,18 @@ and tomorrow's high-impact releases. Mutations: 14 backend and 13 frontend, all 
 branch's, which passed its fresh-clone check without a `.env` (backend 719, no `[ERROR]`; frontend 430, lint, typecheck,
 knip, build, `npm audit` 0).
 
+**T41 — the Practice home** (`feat/t41-practice`, DEC-080). Fabio had asked for the cost settings to go "forever", and the
+timeframe and weekday with them. The Practice tab now starts a session with one choice — the session time — and a
+Start button, with the risk limit as one small field under it. Four figures sum the practice up, each opening the
+sentence that says what it means: the total in R, the win rate with the sample-size reading, how many trades were held to
+plan (not closed by hand), and the costs paid. Open sessions are listed to resume; the journal is one row per trade —
+when, side, entry, result, R, money, model — showing the session's own clock while it is open and the real date once it
+has ended. The full statistics and the calibration are a click away. On the server every new trade pays the standard
+costs; cost fields sent to the settings are refused with a clear message, and every stored trade keeps its own costs.
+Two existing database rules held firm during the work: results and plans cannot be edited once written, and a new
+session keeps clear of the open one's days (DEC-077) — the tests were written around both. Mutations: 15 frontend, all
+caught. Backend 719 → 723, frontend 430 → 431.
+
 ---
 
 ## For the presentation: the disclaimer slide

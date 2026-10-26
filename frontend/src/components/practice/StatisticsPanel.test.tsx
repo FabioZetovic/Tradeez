@@ -25,6 +25,8 @@ const group = (label: string, over: Partial<StatisticsGroup> = {}): StatisticsGr
 const STATS: Statistics = {
   version: 'journal-stats-1.0.0',
   overall: group('All trades', { trades: 5, winRate: 66.67 }),
+  heldToPlan: 5,
+  costsPaidCents: 4_750,
   dimensions: [
     { id: 'model', title: 'Model', groups: [group('Silver Bullet'), group('No model', { trades: 1, low: undefined, high: undefined, expectancyR: 2, wins: 1, losses: 0, winRate: 100, avgLossR: undefined, profitFactor: undefined, reading: 'One trade: no range yet.' })] },
     { id: 'killzone', title: 'Killzone', groups: [group('New York AM', { trades: 5 })] },

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.test.context.TestPropertySource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,8 @@ import jakarta.servlet.http.Cookie;
  * or past the cursor, no seed before the end, no result before the replay reaches it, and no way to
  * change a plan or a result once written.
  */
+// The worked examples are in fill-1.2.0's numbers; the standard costs have tests of their own.
+@TestPropertySource(properties = PracticeApiTest.BASIC_COSTS)
 class PracticeApiTest extends AbstractIntegrationTest {
 
 	private static final String PASSWORD = "a-perfectly-fine-passphrase";
@@ -75,9 +78,11 @@ class PracticeApiTest extends AbstractIntegrationTest {
 	private Cookie bob;
 
 
-	/** The costs the worked examples are worked in: FillModel.BASIC's, set as the learner's own (T27). */
-	static final String BASIC_COSTS =
-		"{\"feesCents\":250,\"marketSlippageTicks\":0,\"stopSlippageTicks\":1,\"limitThroughTicks\":0}";
+	/**
+	 * The costs the worked examples are worked in: FillModel.BASIC's (DEC-008). Since T41 no learner sets costs
+	 * (DEC-080); the app's own setting is changed for these classes instead, so their arithmetic stays readable.
+	 */
+	static final String BASIC_COSTS = "tradeez.practice.costs=slip-1t/comm-250c";
 
 	@BeforeEach
 	void signInTwoUsers() throws Exception {
@@ -86,9 +91,6 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		users.deleteAllInBatch();
 		alice = register("alice@example.com");
 		bob = register("bob@example.com");
-		// The worked examples below are in fill-1.2.0's numbers; the standard costs have tests of their own.
-		mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-			.content(BASIC_COSTS)).andExpect(status().isOk());
 	}
 
 	// --- helpers ---------------------------------------------------------------------------------
@@ -804,28 +806,6 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		}
 
 		@Test
-		@DisplayName("BUG-087 in and out at one price under $40 of fees: a loss of 0.02R, not a scratch at 0R")
-		void netOfCosts() throws Exception {
-			mockMvc.perform(put("/api/practice/settings").cookie(alice).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"feesCents\":4000,\"marketSlippageTicks\":0,\"stopSlippageTicks\":1,\"limitThroughTicks\":0}"))
-				.andExpect(status().isOk());
-			JsonNode session = create(alice);
-			String id = session.at("/state/id").asString();
-			wideLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
-			close(alice, id).andExpect(status().isOk());
-			JsonNode state = read(advance(alice, id, 1).andExpect(status().isOk())).get("state");
-
-			JsonNode result = state.at("/trades/0/result");
-			assertThat(result.get("pnlTicks").asLong()).isZero();
-			assertThat(result.get("netPnlCents").asLong()).isEqualTo(-4_000);
-			// 400 ticks to the stop at $5 is $2,000 risked; $40 of it is 0.02R.
-			assertThat(result.get("rMultiple").asDouble()).isEqualTo(-0.02);
-			assertThat(state.at("/score/wins").asInt()).isZero();
-			assertThat(state.at("/score/losses").asInt()).isEqualTo(1);
-			assertThat(state.at("/score/totalR").asDouble()).isEqualTo(-0.02);
-		}
-
-		@Test
 		@DisplayName("when the plan's own exit comes first, that exit is revealed and nothing is closed")
 		void planExitsFirst() throws Exception {
 			JsonNode session = create(alice);
@@ -858,6 +838,31 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			close(alice, id).andExpect(status().isConflict());
 			assertThatThrownBy(() -> jdbc.update("UPDATE practice_close SET exit_ticks = 1 WHERE session_id = ?::uuid", id))
 				.hasMessageContaining("immutable");
+		}
+
+		@Nested
+		@TestPropertySource(properties = "tradeez.practice.costs=slip-1t/comm-4000c")
+		@DisplayName("under $40 of fees a round trip")
+		class HighFees {
+
+			@Test
+			@DisplayName("BUG-087 in and out at one price under $40 of fees: a loss of 0.02R, not a scratch at 0R")
+			void netOfCosts() throws Exception {
+				JsonNode session = create(alice);
+				String id = session.at("/state/id").asString();
+				wideLong(alice, id, lastClose(session.get("bars"))).andExpect(status().isOk());
+				close(alice, id).andExpect(status().isOk());
+				JsonNode state = read(advance(alice, id, 1).andExpect(status().isOk())).get("state");
+
+				JsonNode result = state.at("/trades/0/result");
+				assertThat(result.get("pnlTicks").asLong()).isZero();
+				assertThat(result.get("netPnlCents").asLong()).isEqualTo(-4_000);
+				// 400 ticks to the stop at $5 is $2,000 risked; $40 of it is 0.02R.
+				assertThat(result.get("rMultiple").asDouble()).isEqualTo(-0.02);
+				assertThat(state.at("/score/wins").asInt()).isZero();
+				assertThat(state.at("/score/losses").asInt()).isEqualTo(1);
+				assertThat(state.at("/score/totalR").asDouble()).isEqualTo(-0.02);
+			}
 		}
 	}
 
@@ -893,4 +898,5 @@ class PracticeApiTest extends AbstractIntegrationTest {
 		return jdbc.queryForObject("SELECT seed FROM practice_session WHERE id = ?::uuid",
 			Long.class, sessionId);
 	}
+
 }

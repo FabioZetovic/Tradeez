@@ -231,6 +231,31 @@ series later); news inside a practice replay (R-9) — the history is now there 
 
 **Reconsider if** Forex Factory gives written consent, or a release that moves NQ is missing.
 
+**DEC-080 — Costs fixed at the standard; the Practice tab's one choice is the session time** · `IMPLEMENTED` · Fabio +
+Claude, Session 018 (2026-10-26), T41 — refines DEC-072
+
+Fabio, on the Practice tab: the fees and slippage "needs to go, get removed and changed forever"; no timeframe, and "I want
+to remove the day section entirely"; the session time and the risk limit kept.
+
+- **Every new trade pays DEC-072's standard costs:** a tick of slippage on every market and stop fill, a target filled once
+  traded through, $4.50 a round trip (`mkt-1t/slip-1t/thru-1t/comm-450c`). The app's own setting
+  `tradeez.practice.costs` names it; no learner can change it. `PUT /api/practice/settings` takes the risk limit alone and
+  **refuses** cost fields with a 400 that says so — refused rather than ignored, so a client that thinks it changed them
+  is told it did not. V29 drops the four cost columns. Every result already stored keeps the fill model it was
+  resolved with, and a trade closed later is still closed with its own: no score changes.
+- **The worked-example tests** (PracticeApiTest, BracketOutcomeApiTest) set DEC-008's simpler costs through that setting
+  for their own Spring context, so their arithmetic stays readable; the standard costs, the $40-fee cases and "a close
+  keeps its own costs" have test classes of their own.
+- **Starting a session sends NQ and, if chosen, the session time** — no timeframe (the server's 5m) and no weekday. The API
+  still accepts both.
+- **New figures:** statistics add held to plan (trades not closed by hand), costs paid (the scorecards' own costs line,
+  added up), and the best and worst trade. **The journal** is one row per finished trade across sessions
+  (`GET /api/practice/trades`), newest placed first: the time the session shows while it is open, the real date once it
+  is complete (DEC-025).
+
+**Reconsider if** Fabio wants learners to model their own broker again — then as a choice of named profiles, not free
+numbers.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and
