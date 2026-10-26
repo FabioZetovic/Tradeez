@@ -199,8 +199,8 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = { ".*_IDENTIFICATION", "^(?!SMT_).*" })
-	@DisplayName("identification: graded, and the key is every hit of the rule the chart shows whole (SMT: SmtDrillApiTest)")
+	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = { ".*_IDENTIFICATION", "^(?!SMT_|NEAREST_).*" })
+	@DisplayName("identification: graded, and the key is every hit of the rule the chart shows whole (SMT: SmtDrillApiTest; nearest liquidity below)")
 	void identification(DrillKind kind) throws Exception {
 		JsonNode drill = start(kind, "5m");
 		assertThat(drill.get("graded").asBoolean()).isTrue();
@@ -231,11 +231,13 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 			assertThat(hit.start()).as("everything the rule read is on screen").isGreaterThanOrEqualTo(from + 300L * kind.lead());
 			assertThat(hit.confirmed()).as("known by the last candle's close").isLessThanOrEqualTo(to);
 		}
-		// Every other hit anchored in the window is excused: none is silently left out.
+		// Every other hit anchored in the window and known within the drill's reach is excused: none is silently left out.
+		// (A gap inverted long after the chart ends is not one the chart can show.)
 		Set<Long> keyed = new HashSet<>(key.stream().map(Hit::anchor).toList());
 		Set<Long> accounted = new HashSet<>(keyed);
 		accounted.addAll(excused(id));
-		assertThat(stored(kind.detector(), from, to).stream().filter(h -> asked(kind, h)).map(Hit::anchor))
+		assertThat(stored(kind.detector(), from, to).stream().filter(h -> asked(kind, h) && h.confirmed() <= to + 3 * 300L)
+			.map(Hit::anchor))
 			.allMatch(accounted::contains);
 		assertThat(excused(id)).doesNotContainAnyElementsOf(keyed);
 
@@ -249,6 +251,42 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 			assertThat(setup.get("explanation")).isNotEmpty();
 			assertThat(setup.get("explanation").toString()).doesNotContain("null");
 		}
+	}
+
+	@Test
+	@DisplayName("nearest liquidity (ICT-10): the key is the nearest resting buy-side above the last close and sell-side below it")
+	void nearestLiquidity() throws Exception {
+		JsonNode drill = start(DrillKind.NEAREST_LIQUIDITY_IDENTIFICATION, "5m");
+		assertThat(drill.at("/rule/detector").asString()).isEqualTo("LIQUIDITY");
+		List<Long> times = barTimes(drill);
+		long from = times.getFirst();
+		long to = times.getLast() + 300;
+		JsonNode bars = drill.get("bars");
+		long close = bars.get(bars.size() - 1).get("close").asLong(); // ticks
+
+		List<Hit> key = key(drill.get("id").asString());
+		assertThat(key).hasSize(2).allSatisfy(h -> {
+			assertThat(h.kind()).isEqualTo("RESTING");
+			assertThat(h.start()).as("the swing and its left neighbour on screen").isGreaterThanOrEqualTo(from + 300);
+			assertThat(h.anchor()).isLessThan(to);
+		});
+		assertThat(key).anySatisfy(h -> assertThat(h.low()).isGreaterThan(close));
+		assertThat(key).anySatisfy(h -> assertThat(h.low()).isLessThan(close));
+		// Nearest: no other level rests between the close and either answer.
+		Set<Long> keyed = new HashSet<>(key.stream().map(Hit::anchor).toList());
+		List<Hit> rest = stored("LIQUIDITY", from + 300, to).stream().filter(h -> !keyed.contains(h.anchor())).toList();
+		long above = key.stream().mapToLong(Hit::low).max().orElseThrow();
+		long below = key.stream().mapToLong(Hit::low).min().orElseThrow();
+		for (Hit other : rest.stream().filter(h -> "RESTING".equals(h.kind())).toList()) {
+			boolean between = other.low() > close && other.low() < above || other.low() < close && other.low() > below;
+			boolean takenByEnd = rest.stream().anyMatch(h -> h.anchor() == other.anchor() && !"RESTING".equals(h.kind())
+				&& h.confirmed() <= to);
+			assertThat(between && !takenByEnd).as("a nearer resting level at " + other.low()).isFalse();
+		}
+
+		JsonNode result = read(mark(drill.get("id").asString(), new ArrayList<>(keyed)).andExpect(status().isOk())).get("result");
+		assertThat(result.get("found").asInt()).isEqualTo(2);
+		assertThat(result.get("extra").asInt()).isZero();
 	}
 
 	@Test

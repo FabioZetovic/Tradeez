@@ -62,6 +62,14 @@ public enum DrillKind {
 			+ "previous one and the other did not.",
 		"the swing of a divergence on the upper chart"),
 
+	/** T45: where the stops rest when the chart ends (DrillService#nearestLiquidity). */
+	NEAREST_LIQUIDITY_IDENTIFICATION(Mode.IDENTIFY, "LIQUIDITY", "ICT-10", "Buy-side and sell-side liquidity", Set.of("RESTING"),
+		List.of(), 1, 2, 2,
+		"Mark the two swings that hold the nearest resting liquidity when the chart ends: the nearest swing high above the "
+			+ "last close, with buy-side liquidity above it, and the nearest swing low below it, with sell-side liquidity "
+			+ "below it — ones price has not traded beyond since.",
+		"a swing holding the nearest resting liquidity"),
+
 	/** T45: Fabio's "much much much more important" concept. */
 	IFVG_IDENTIFICATION(Mode.IDENTIFY, "IFVG", "ICT-23", "Inversion fair value gaps", Set.of(), List.of(), 0, 1, 4,
 		"Mark the middle candle of every fair value gap that a later candle closes straight through — beyond its far "

@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -419,6 +420,26 @@ public class DrillService {
 		throw new NoWindowFoundException();
 	}
 
+	/**
+	 * ICT-10's drill (T45): the levels resting when the chart ends, read as the prediction drills read them — the nearest
+	 * buy-side above the last close and the nearest sell-side below it, each swing on the chart with its left neighbour.
+	 * Empty unless there are both.
+	 */
+	static List<DetectedSetup> nearestLiquidity(List<DetectedSetup> stored, Bar last, Instant earliestSwing, Instant end) {
+		List<Level> resting = Prediction.levelsAt(hits(stored), earliestSwing, end).stream()
+			.filter(l -> "RESTING".equals(l.state())).toList();
+		Optional<Level> above = resting.stream().filter(l -> l.high() && l.price() > last.closeTicks())
+			.min(Comparator.comparingLong(Level::price));
+		Optional<Level> below = resting.stream().filter(l -> !l.high() && l.price() < last.closeTicks())
+			.max(Comparator.comparingLong(Level::price));
+		if (above.isEmpty() || below.isEmpty()) {
+			return List.of();
+		}
+		Set<UUID> ids = Set.of(above.get().id(), below.get().id());
+		return stored.stream().filter(s -> ids.contains(s.getId())).sorted(Comparator.comparing(DetectedSetup::getAnchorTime))
+			.toList();
+	}
+
 	/** Stored hits as much as a prediction reads of them. */
 	private static List<Hit> hits(List<DetectedSetup> stored) {
 		return stored.stream()
@@ -495,6 +516,14 @@ public class DrillService {
 
 			Instant reach = to.plusSeconds(CONFIRM_REACH * step);
 			scanner.ensureScanned(detector, instrument, timeframe, SEED, from, reach);
+			if (kind == DrillKind.NEAREST_LIQUIDITY_IDENTIFICATION) {
+				List<DetectedSetup> nearest = nearestLiquidity(scanner.visible(detector, instrument, timeframe, SEED, from, to, to),
+					bars.getLast(), from.plusSeconds(kind.lead() * step), to);
+				if (nearest.size() == 2) {
+					return new Window(from, to, bars, nearest, List.of());
+				}
+				continue;
+			}
 			List<DetectedSetup> asked = scanner.visible(detector, instrument, timeframe, SEED, from, to, reach)
 				.stream()
 				.filter(kind::counts)
