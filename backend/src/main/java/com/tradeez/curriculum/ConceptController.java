@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.tradeez.analysis.DetectorRegistry;
 import com.tradeez.analysis.SetupDtos.RuleView;
 import com.tradeez.curriculum.ConceptRegistry.Concept;
-import com.tradeez.curriculum.ConceptRegistry.Level;
+import com.tradeez.curriculum.ConceptRegistry.Topic;
 import com.tradeez.curriculum.LessonDtos.LessonResponse;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 
@@ -25,8 +25,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Curriculum", description = "The ICT concepts Tradeez teaches")
 public class ConceptController {
 
-	@Schema(description = "The curriculum of ICT_CONCEPTS.md (S-2), with the detectors that implement each concept")
-	public record CurriculumResponse(List<Level> levels, List<ConceptView> concepts) {
+	@Schema(description = "The curriculum of ICT_CONCEPTS.md (S-2): Learn's topics, and every concept with the detectors that "
+		+ "implement it — merged and removed ones too, whose rules still run")
+	public record CurriculumResponse(List<Topic> topics, List<ConceptView> concepts) {
 	}
 
 	public record ConceptView(Concept concept, List<RuleView> detectors) {
@@ -37,7 +38,7 @@ public class ConceptController {
 
 	public ConceptController(ConceptRegistry concepts, DetectorRegistry detectors, LessonService lessons) {
 		this.lessons = lessons;
-		this.curriculum = new CurriculumResponse(concepts.levels(), concepts.concepts().stream()
+		this.curriculum = new CurriculumResponse(concepts.topics(), concepts.concepts().stream()
 			.map(c -> new ConceptView(c, detectors.all().stream()
 				.filter(d -> d.conceptId().equals(c.id()))
 				.map(RuleView::of)
@@ -46,7 +47,7 @@ public class ConceptController {
 	}
 
 	@GetMapping
-	@Operation(summary = "Every concept, its level, rules and summary, and the curriculum ladder",
+	@Operation(summary = "Every concept, its topic, kind, rules and summary, and Learn's topics",
 		description = "Read from docs/ICT_CONCEPTS.md at startup (T9, DEC-049).")
 	public CurriculumResponse concepts() {
 		return curriculum;

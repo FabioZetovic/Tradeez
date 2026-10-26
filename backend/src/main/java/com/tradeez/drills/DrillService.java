@@ -526,7 +526,13 @@ public class DrillService {
 	 * the start is a swing (its left neighbour is what makes it one), to the candle that confirmed it.
 	 */
 	private static boolean whole(DrillKind kind, DetectedSetup hit, Instant from, Instant to, long step) {
-		return !hit.getStartTime().isBefore(from.plusSeconds(kind.lead() * step)) && !hit.getConfirmedAt().isAfter(to);
+		Instant first = from.plusSeconds(kind.lead() * step);
+		if (hit.getStartTime().isBefore(first) || hit.getConfirmedAt().isAfter(to)) {
+			return false;
+		}
+		return !kind.showsItsReasons() || hit.getEvidence().entrySet().stream()
+			.filter(e -> e.getKey().endsWith("Time") && e.getValue() instanceof Number)
+			.allMatch(e -> ((Number) e.getValue()).longValue() >= first.getEpochSecond());
 	}
 
 	/**

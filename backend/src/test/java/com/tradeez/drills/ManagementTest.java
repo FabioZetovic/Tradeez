@@ -177,14 +177,15 @@ class ManagementTest {
 	}
 
 	@Test
-	@DisplayName("paid most: any of a tie counts, nothing else does; and it is practice, never a rating of ICT-82")
+	@DisplayName("paid most: any of a tie counts, nothing else does; and the drill practises ICT-82")
 	void paidMost() {
 		assertThat(Management.paidMost("HOLD,BREAKEVEN", "BREAKEVEN")).isTrue();
 		assertThat(Management.paidMost("HOLD,BREAKEVEN", "HOLD")).isTrue();
 		assertThat(Management.paidMost("HOLD,BREAKEVEN", "HALF")).isFalse();
 		assertThat(Management.paidMost("HALF", "HAL")).isFalse();
 		assertThat(Management.paidMost("HALF", null)).isFalse();
-		assertThat(DrillAttempts.rates("ICT-82")).isFalse();
-		assertThat(DrillAttempts.rates("ICT-20")).isTrue();
+		assertThat(DrillAttempts.drills("ICT-82")).isTrue();
+		assertThat(DrillAttempts.drills("ICT-83")).isTrue();
+		assertThat(DrillAttempts.drills("ICT-29")).isFalse();
 	}
 }

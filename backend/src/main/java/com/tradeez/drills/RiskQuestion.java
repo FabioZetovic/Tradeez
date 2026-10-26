@@ -24,6 +24,9 @@ public final class RiskQuestion {
 
 	public static final String VERSION = "risk-1.0.0";
 
+	/** The lesson the risk drills practise: risk rules and drawdown (DEC-081). */
+	public static final String CONCEPT = "ICT-83";
+
 	/** Each with its clock: a streak takes a power in the head, so more time. */
 	public enum Kind {
 		CONTRACTS(30), STREAK(45), RECOVERY(30);

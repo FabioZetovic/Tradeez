@@ -62,6 +62,27 @@ public enum DrillKind {
 			+ "previous one and the other did not.",
 		"the swing of a divergence on the upper chart"),
 
+	/** T45: Fabio's "much much much more important" concept. */
+	IFVG_IDENTIFICATION(Mode.IDENTIFY, "IFVG", "ICT-23", "Inversion fair value gaps", Set.of(), List.of(), 0, 1, 4,
+		"Mark the middle candle of every fair value gap that a later candle closes straight through — beyond its far "
+			+ "edge. That gap has failed, and ICT reads it the other way round from then on.",
+		"the middle candle of a gap price closed through"),
+
+	/** T45: the block, the move away from it and the swing it broke all on screen ({@link #showsItsReasons()}). */
+	ORDER_BLOCK_IDENTIFICATION(Mode.IDENTIFY, "OB", "ICT-30", "Order blocks", Set.of("FORMED"), List.of(), 1, 1, 3,
+		"Mark the order block of every move that broke structure: the last candle closing against the move before a "
+			+ "displacement that closes beyond the latest swing.",
+		"the last candle of an order block"),
+
+	BREAKER_IDENTIFICATION(Mode.IDENTIFY, "BREAKER", "ICT-31", "Breaker blocks", Set.of("FORMED"), List.of(), 1, 1, 3,
+		"Mark the breaker of every failed swing: price takes the liquidity beyond a low (or high), then displaces back "
+			+ "through the swing between — the candles that made that swing are the breaker.",
+		"the candle of a breaker"),
+
+	UNICORN_IDENTIFICATION(Mode.IDENTIFY, "UNICORN", "ICT-36", "Unicorns", Set.of("FORMED"), List.of(), 1, 1, 3,
+		"Mark every unicorn: a breaker that the fair value gap of its own displacement overlaps in price.",
+		"the candle of a unicorn's breaker"),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),
@@ -188,6 +209,15 @@ public enum DrillKind {
 
 	int maxHits() {
 		return maxHits;
+	}
+
+	/**
+	 * Every candle its rule read is on the chart (T45): each time in a hit's evidence — the swing a block broke, the
+	 * displacement, the gap — at or after the first candle that leaves a swing its left neighbour. The older drills'
+	 * rules read nothing before their own start.
+	 */
+	boolean showsItsReasons() {
+		return this == ORDER_BLOCK_IDENTIFICATION || this == BREAKER_IDENTIFICATION || this == UNICORN_IDENTIFICATION;
 	}
 
 	/** Whether a hit of this drill's rule is one the drill asks about. */
