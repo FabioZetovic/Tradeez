@@ -1,8 +1,18 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router'
 import { RiskDrills } from './RiskDrills'
-import type { RiskDrill } from '@/lib/api/drills'
+import { RISK_KINDS, type RiskDrill } from '@/lib/api/drills'
+
+/** The screen as its card opens it (T43): the first question is asked on arrival. */
+const open = (kind: RiskDrill['kind']) =>
+  render(
+    <MemoryRouter>
+      <RiskDrills kind={RISK_KINDS.find((k) => k.value === kind)!} />
+    </MemoryRouter>,
+  )
 
 const ASKED: RiskDrill = {
   id: 'r1',
@@ -74,11 +84,16 @@ describe('risk drills, against the clock (T26)', () => {
       },
     })
     const user = userEvent.setup()
-    render(<RiskDrills />)
-    await user.click(screen.getByRole('button', { name: 'Ask a question' }))
+    open('CONTRACTS')
     expect(await screen.findByTestId('risk-question')).toHaveTextContent('An account of $50,000')
     expect(calls[0].body).toEqual({ kind: 'CONTRACTS' })
     expect(screen.getByRole('timer')).toHaveTextContent('30 s left')
+    expect(screen.getByRole('timer')).not.toHaveClass('text-down')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Position size')
+    // The figures stand out (Lovable's card).
+    expect(within(screen.getByTestId('risk-question')).getByText('$50,000')).toHaveClass('num')
+    expect(within(screen.getByTestId('risk-question')).getByText('50')).toHaveClass('font-bold')
+    expect(screen.queryByRole('button', { name: 'Next question' })).toBeNull()
     expect(screen.queryByTestId('risk-result')).toBeNull()
 
     await user.type(screen.getByLabelText('Your answer (contracts)'), '2{Enter}')
@@ -91,7 +106,11 @@ describe('risk drills, against the clock (T26)', () => {
     // Answered: no clock and no box.
     expect(screen.queryByRole('timer')).toBeNull()
     expect(screen.queryByLabelText('Your answer (contracts)')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Next question' })).toBeEnabled()
+    expect(result).toHaveClass('bg-up/10')
+    await user.click(screen.getByRole('button', { name: 'Next question' }))
+    await waitFor(() => expect(calls).toHaveLength(3))
+    expect(calls[2]).toEqual({ method: 'POST', url: '/api/drills/risk', body: { kind: 'CONTRACTS' } })
+    expect(await screen.findByLabelText('Your answer (contracts)')).toHaveValue('')
   })
 
   it('a losing streak, answered wrong and late: the right figure, and over the clock', async () => {
@@ -103,14 +122,13 @@ describe('risk drills, against the clock (T26)', () => {
       },
     })
     const user = userEvent.setup()
-    render(<RiskDrills />)
-    await user.click(screen.getByRole('button', { name: 'Losing streak' }))
-    await user.click(screen.getByRole('button', { name: 'Ask a question' }))
+    open('STREAK')
     await user.type(await screen.findByLabelText('Your answer (%)'), '16%{Enter}')
     const result = await screen.findByTestId('risk-result')
     expect(calls[0].body).toEqual({ kind: 'STREAK' })
     expect(calls[1].body).toEqual({ value: 16 })
     expect(result).toHaveTextContent('Not quite: 14.92%')
+    expect(result).toHaveClass('bg-down/10')
     expect(result).toHaveTextContent('You said 16%, in 50.5 s — over the 45 s.')
     expect(screen.getByTestId('risk-record')).toHaveTextContent('Losing streak: 1 of 3 right so far.')
   })
@@ -124,9 +142,7 @@ describe('risk drills, against the clock (T26)', () => {
       },
     })
     const user = userEvent.setup()
-    render(<RiskDrills />)
-    await user.click(screen.getByRole('button', { name: 'Losing streak' }))
-    await user.click(screen.getByRole('button', { name: 'Ask a question' }))
+    open('STREAK')
     await user.type(await screen.findByLabelText('Your answer (%)'), '14,92 %{Enter}')
     await screen.findByTestId('risk-result')
     expect(calls[1].body).toEqual({ value: 14.92 })
@@ -135,8 +151,7 @@ describe('risk drills, against the clock (T26)', () => {
   it('refuses an answer that is not a number, and keeps the question open', async () => {
     const calls = serve({ '/api/drills/risk:CONTRACTS': ASKED })
     const user = userEvent.setup()
-    render(<RiskDrills />)
-    await user.click(screen.getByRole('button', { name: 'Ask a question' }))
+    open('CONTRACTS')
     await user.type(await screen.findByLabelText('Your answer (contracts)'), 'two{Enter}')
     expect(screen.getByRole('alert')).toHaveTextContent('An answer is a number, like 2.5 or 2,5.')
     expect(calls).toHaveLength(1)
@@ -148,19 +163,49 @@ describe('risk drills, against the clock (T26)', () => {
   it('counts down, and says when the time is up — the question still open', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     serve({ '/api/drills/risk:CONTRACTS': ASKED })
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    render(<RiskDrills />)
-    await user.click(screen.getByRole('button', { name: 'Ask a question' }))
+    open('CONTRACTS')
     expect(await screen.findByRole('timer')).toHaveTextContent('30 s left')
+    // The clock's ticking starts in an effect after the question shows.
+    await act(async () => {})
     act(() => {
       vi.advanceTimersByTime(10_000)
     })
     expect(screen.getByRole('timer')).toHaveTextContent('20 s left')
+    expect(screen.getByRole('timer')).not.toHaveClass('text-down')
     act(() => {
-      vi.advanceTimersByTime(21_000)
+      vi.advanceTimersByTime(11_000)
+    })
+    // Under ten seconds the pill turns red.
+    expect(screen.getByRole('timer')).toHaveTextContent('9 s left')
+    expect(screen.getByRole('timer')).toHaveClass('text-down')
+    act(() => {
+      vi.advanceTimersByTime(10_000)
     })
     expect(screen.getByRole('timer')).toHaveTextContent('Time is up — answer anyway')
     expect(screen.getByRole('timer')).toHaveClass('text-down')
     expect(screen.getByLabelText('Your answer (contracts)')).toBeEnabled()
+  })
+
+  it("asks one question, not two, when React's strict mode mounts the screen twice", async () => {
+    const calls = serve({ '/api/drills/risk:CONTRACTS': ASKED })
+    render(
+      <StrictMode>
+        <MemoryRouter>
+          <RiskDrills kind={RISK_KINDS[0]} />
+        </MemoryRouter>
+      </StrictMode>,
+    )
+    await screen.findByTestId('risk-question')
+    expect(calls).toHaveLength(1)
+  })
+
+  it('says so when no question can be asked, and tries again', async () => {
+    const calls = serve({})
+    const user = userEvent.setup()
+    open('RECOVERY')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not ask a question.')
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(calls).toHaveLength(2))
+    expect(calls[1].body).toEqual({ kind: 'RECOVERY' })
   })
 })

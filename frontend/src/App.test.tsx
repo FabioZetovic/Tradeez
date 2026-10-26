@@ -536,14 +536,39 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(current('Learn')).toBe('page')
   })
 
-  it('a drill address opens that drill', async () => {
-    const kind = (id: string, title: string) => ({ kind: id, mode: 'CLASSIFY', title, conceptId: 'ICT-06', detector: 'X', ruleVersion: 'x-1.0.0', instructions: '' })
-    mockApi({ ...signedIn, '/api/drills/kinds': { body: [kind('FIRST_DRILL', 'First'), kind('SECOND_DRILL', 'Second')] } })
+  /** What the page sent to `path`, by method: the request bodies, parsed. */
+  const sent = (path: string, method = 'POST') =>
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .filter(([url, init]) => String(url).endsWith(path) && (init as RequestInit | undefined)?.method === method)
+      .map(([, init]) => JSON.parse(String((init as RequestInit).body)))
+
+  it('a drill address asks for that drill; the cards read in the column, a drill takes the width (T43)', async () => {
+    mockApi({ ...signedIn, '/api/drills': { status: 503, body: { message: 'No real NQ data is loaded.' } } })
     at('/drills/SECOND_DRILL')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByRole('option', { name: 'Second' })
-    expect(screen.getByLabelText('Drill')).toHaveValue('SECOND_DRILL')
+    expect(await screen.findByRole('alert')).toHaveTextContent('No real NQ data is loaded.')
+    expect(sent('/api/drills')).toEqual([{ kind: 'SECOND_DRILL', instrument: 'NQ' }])
     expect(current('Drills')).toBe('page')
+    expect(screen.getByRole('main')).toHaveClass('max-w-none')
+
+    await userEvent.click(screen.getByRole('link', { name: 'All drills' }))
+    expect(window.location.pathname).toBe('/drills')
+    expect(await screen.findByRole('region', { name: 'Drills' })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toHaveClass('max-w-[1280px]')
+  })
+
+  it('a risk drill address asks its question; one not known goes back to the cards (T43)', async () => {
+    mockApi(signedIn)
+    at('/drills/risk/recovery')
+    const { unmount } = render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('heading', { name: 'Recovery' })).toBeInTheDocument()
+    await waitFor(() => expect(sent('/api/drills/risk')).toEqual([{ kind: 'RECOVERY' }]))
+    unmount()
+
+    at('/drills/risk/guessing')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('region', { name: 'Drills' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/drills')
   })
 })
 

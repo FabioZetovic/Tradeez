@@ -10,6 +10,9 @@ import { NewsPage } from '@/components/news/NewsPage'
 import { ChartPage } from '@/components/chart/ChartPage'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
+import { DrillsPage } from '@/components/drills/DrillsPage'
+import { RiskDrills } from '@/components/drills/RiskDrills'
+import { RISK_KINDS } from '@/lib/api/drills'
 import { LearnView } from '@/components/learn/LearnView'
 import { Notice } from '@/components/ui'
 import { DISCLAIMER } from '@/lib/disclaimer'
@@ -78,7 +81,9 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/sign-up" element={<Navigate to={back} replace />} />
         <Route path="/chart" element={<ChartPage adapterFactory={adapterFactory} />} />
         <Route path="/learn/:conceptId?" element={<Learn adapterFactory={adapterFactory} />} />
-        <Route path="/drills/:kind?" element={<Drills adapterFactory={adapterFactory} />} />
+        <Route path="/drills" element={<DrillsPage />} />
+        <Route path="/drills/risk/:slug" element={<RiskDrill />} />
+        <Route path="/drills/:kind" element={<Drill adapterFactory={adapterFactory} />} />
         <Route path="/practice/:sessionId?" element={<PracticeView adapterFactory={adapterFactory} />} />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/help" element={<Guide />} />
@@ -102,10 +107,17 @@ function Learn({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
   )
 }
 
-/** A lesson's "Practise it" opens /drills/<kind> on that drill. */
-function Drills({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
-  const { kind } = useParams()
-  return <DrillView key={kind} initialKind={kind} adapterFactory={adapterFactory} />
+/** A drill by its address (T43): from its card, or a lesson's "Practise it". */
+function Drill({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
+  const { kind = '' } = useParams()
+  return <DrillView key={kind} kind={kind} adapterFactory={adapterFactory} />
+}
+
+/** A risk drill by its address (T43); one not known goes back to the cards. */
+function RiskDrill() {
+  const { slug } = useParams()
+  const kind = RISK_KINDS.find((k) => k.slug === slug)
+  return kind ? <RiskDrills key={kind.value} kind={kind} /> : <Navigate to="/drills" replace />
 }
 
 /** Sign-in, sign-up and loading: Lovable's centred card under the logo, the disclaimer below (T36). */

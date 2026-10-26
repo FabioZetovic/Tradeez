@@ -1,6 +1,8 @@
 package com.tradeez.drills;
 
 import java.security.SecureRandom;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -10,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.tradeez.drills.DrillDtos.RiskDrillView;
+import com.tradeez.drills.DrillDtos.RiskKindView;
 import com.tradeez.drills.DrillDtos.RiskResultView;
 import com.tradeez.drills.RiskQuestion.Kind;
 import com.tradeez.drills.RiskQuestion.Question;
@@ -59,6 +62,21 @@ public class RiskDrillService {
 				"givens", q.givens(), "working", q.working())),
 			q.answer(), q.tolerance());
 		return view(userId, require(userId, id));
+	}
+
+	/** Every kind, in order, with its clock and the learner's record: none answered is a record of 0 of 0. */
+	public List<RiskKindView> kinds(UUID userId) {
+		Map<String, int[]> tally = new HashMap<>();
+		jdbc.query("""
+			SELECT kind, count(*) AS answered, count(*) FILTER (WHERE correct) AS right_answers
+			FROM risk_drill WHERE user_id = ? AND answered_at IS NOT NULL GROUP BY kind""",
+			rs -> {
+				tally.put(rs.getString("kind"), new int[] { rs.getInt("answered"), rs.getInt("right_answers") });
+			}, userId);
+		return Arrays.stream(Kind.values()).map(kind -> {
+			int[] record = tally.getOrDefault(kind.name(), new int[2]);
+			return new RiskKindView(kind.name(), kind.limitSeconds(), record[0], record[1]);
+		}).toList();
 	}
 
 	public RiskDrillView get(UUID userId, UUID id) {

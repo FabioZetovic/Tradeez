@@ -1,0 +1,47 @@
+[
+  {
+    "file": "1920-drills.png",
+    "width": 1920,
+    "title": "Drills at 1920: sections of cards, each with its mode, time and real record"
+  },
+  {
+    "file": "1366-drills.png",
+    "width": 1366,
+    "title": "Drills at 1366: sections of cards, each with its mode, time and real record"
+  },
+  {
+    "file": "1920-card-hover.png",
+    "width": 1920,
+    "title": "A card lifts on hover"
+  },
+  {
+    "file": "1920-drill-spot.png",
+    "width": 1920,
+    "title": "A spot drill, one click from its card: eyebrow, title, task, the chart at full width, the answer bar"
+  },
+  {
+    "file": "1920-drill-result.png",
+    "width": 1920,
+    "title": "Checked with no marks: what was missed, explained, then Next drill or All drills"
+  },
+  {
+    "file": "1920-drill-predict.png",
+    "width": 1920,
+    "title": "A prediction: two targets and what lies on the way"
+  },
+  {
+    "file": "1920-risk-question.png",
+    "width": 1920,
+    "title": "A risk drill: the countdown pill, the figures picked out, the answer box"
+  },
+  {
+    "file": "1920-risk-result.png",
+    "width": 1920,
+    "title": "Its result: right or not, the time, the working, the record, Next question"
+  },
+  {
+    "file": "1366-drill-spot.png",
+    "width": 1366,
+    "title": "A spot drill at 1366"
+  }
+]

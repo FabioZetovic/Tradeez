@@ -149,4 +149,27 @@ class RiskDrillApiTest extends AbstractIntegrationTest {
 		assertThat(own.get("answered").asInt()).isEqualTo(1);
 		assertThat(own.get("right").asInt()).isEqualTo(1);
 	}
+
+	@Test
+	@DisplayName("the kinds, in order, each with its clock and the learner's own record — unanswered questions left out")
+	void record() throws Exception {
+		JsonNode none = read(mockMvc.perform(get("/api/drills/risk/kinds").cookie(alice)).andExpect(status().isOk()));
+		assertThat(none.toString()).isEqualTo("[{\"kind\":\"CONTRACTS\",\"limitSeconds\":30,\"answered\":0,\"right\":0},"
+			+ "{\"kind\":\"STREAK\",\"limitSeconds\":45,\"answered\":0,\"right\":0},"
+			+ "{\"kind\":\"RECOVERY\",\"limitSeconds\":30,\"answered\":0,\"right\":0}]");
+
+		String first = read(ask(alice, "{\"kind\":\"STREAK\"}")).get("id").asString();
+		answer(alice, first, "{\"value\":" + stored(first) + "}").andExpect(status().isOk());
+		String second = read(ask(alice, "{\"kind\":\"STREAK\"}")).get("id").asString();
+		answer(alice, second, "{\"value\":" + (stored(second) + 5) + "}").andExpect(status().isOk());
+		ask(alice, "{\"kind\":\"STREAK\"}").andExpect(status().isCreated());
+		String bobs = read(ask(bob, "{\"kind\":\"RECOVERY\"}")).get("id").asString();
+		answer(bob, bobs, "{\"value\":" + stored(bobs) + "}").andExpect(status().isOk());
+
+		JsonNode kinds = read(mockMvc.perform(get("/api/drills/risk/kinds").cookie(alice)));
+		assertThat(kinds.get(1).get("answered").asInt()).isEqualTo(2);
+		assertThat(kinds.get(1).get("right").asInt()).isEqualTo(1);
+		assertThat(kinds.get(2).get("answered").asInt()).isZero();
+		assertThat(kinds.get(0).get("answered").asInt()).isZero();
+	}
 }
