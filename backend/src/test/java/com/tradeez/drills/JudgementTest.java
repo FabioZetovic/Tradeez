@@ -126,4 +126,46 @@ class JudgementTest {
 			assertThat(Judgement.ote(closingAt(960), left, at(1), TICK)).isNull();
 		}
 	}
+
+	/** A day of 68 candles opening at 1000: its low at candle {@code lowAt}, its high at {@code highAt}, closing at {@code close}. */
+	private static List<Bar> day(int lowAt, long low, int highAt, long high, long close) {
+		List<Bar> bars = new ArrayList<>();
+		for (int i = 0; i < 68; i++) {
+			long c = i == 67 ? close : 1000;
+			long lo = Math.min(1000, c) - (i == lowAt ? 1000 - low + Math.min(0, c - 1000) : 0);
+			long hi = Math.max(1000, c) + (i == highAt ? high - Math.max(1000, c) : 0);
+			bars.add(new Bar(at(i), 1000, hi, Math.min(lo, Math.min(1000, c)), c, 1));
+		}
+		return bars;
+	}
+
+	private static List<Hit> po3Hit(String direction) {
+		return List.of(new Hit(null, direction, at(0), at(10), at(68), 900, 1200, Map.of()));
+	}
+
+	@Nested
+	@DisplayName("which power of three (ICT-62)")
+	class Po3 {
+
+		@Test
+		@DisplayName("bullish: up on the day, the low first, and the low at least 15% of the range below the open")
+		void bullish() {
+			Asked asked = Judgement.po3(day(10, 900, 50, 1200, 1150), po3Hit("BULLISH"), TICK);
+			assertThat(asked.answer()).isEqualTo("BULLISH");
+			assertThat(asked.values()).containsExactly("BULLISH", "BEARISH", "NEITHER");
+			assertThat(asked.explanation()).contains("The low lay 25.00 points below the open: 33% of the day's 75.00-point range — "
+				+ "enough to count as the manipulation.");
+		}
+
+		@Test
+		@DisplayName("neither says which condition failed; a day the rule and the candles read differently is never asked")
+		void neither() {
+			Asked lowFirstDown = Judgement.po3(day(10, 900, 50, 1200, 950), List.of(), TICK);
+			assertThat(lowFirstDown.answer()).isEqualTo("NEITHER");
+			assertThat(lowFirstDown.explanation().getLast()).contains("needs its high before its low");
+			Asked shallow = Judgement.po3(day(10, 990, 50, 1200, 1150), List.of(), TICK);
+			assertThat(shallow.explanation().getLast()).contains("too shallow");
+			assertThat(Judgement.po3(day(10, 900, 50, 1200, 1150), List.of(), TICK)).as("the rule found nothing").isNull();
+		}
+	}
 }

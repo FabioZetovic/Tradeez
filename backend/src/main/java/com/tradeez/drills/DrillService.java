@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -94,6 +95,7 @@ public class DrillService {
 
 	/** Mode E: candles searched for a trade and its moment; the chart ends at the moment (T26). */
 	static final int MANAGE_WINDOW_BARS = 60;
+	private static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
 
 	static final Set<Timeframe> REAL_TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M5, Timeframe.M15);
 	static final Set<Timeframe> SIMULATED_TIMEFRAMES = EnumSet.of(Timeframe.M5, Timeframe.M15);
@@ -180,7 +182,7 @@ public class DrillService {
 		DrillKind kind = blank(kindCode) ? DEFAULT_KIND : DrillKind.parse(kindCode);
 		Instrument instrument = marketData.requireInstrument(blank(symbol) ? DEFAULT_INSTRUMENT : symbol);
 		boolean simulated = instrument.getDataClass() == DataClass.SIMULATED;
-		Timeframe timeframe = timeframe(timeframeCode, simulated, random);
+		Timeframe timeframe = kind.wholeDay() ? Timeframe.M15 : timeframe(timeframeCode, simulated, random);
 		if (simulated) {
 			if (kind != DrillKind.FVG_IDENTIFICATION) {
 				throw new IllegalArgumentException("On simulated data only the FVG drill runs, as a developer "
@@ -316,7 +318,7 @@ public class DrillService {
 	 */
 	private Judged findJudgement(DrillKind kind, Detector detector, Instrument instrument, Timeframe timeframe,
 			List<HiddenStretches.Stretch> avoid) {
-		int length = kind.mode().windowBars();
+		int length = kind.windowBars();
 		long step = timeframe.seconds();
 		Instant[] coverage = marketData.coverage(instrument);
 		if (coverage == null) {
@@ -324,7 +326,7 @@ public class DrillService {
 				+ " history has been imported yet, so there is nothing to drill on.");
 		}
 		Instant earliest = coverage[0].plus(HISTORY_MARGIN);
-		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(length));
+		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(length)).minus(Duration.ofDays(1));
 		if (!earliest.isBefore(latest)) {
 			throw new IllegalArgumentException("Too little real " + instrument.getSymbol()
 				+ " history has been imported to drill on.");
@@ -333,9 +335,13 @@ public class DrillService {
 		// drawn first and a chart found for it, so guessing the common one earns nothing.
 		List<String> balanced = kind.balancedAnswers();
 		String wanted = balanced.isEmpty() ? null : balanced.get(random.nextInt(balanced.size()));
+		// If the history has no chart with that answer, any chart rather than none.
+		Judged fallback = null;
 		for (int attempt = 0; attempt < MAX_ATTEMPTS * 3; attempt++) {
 			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
-			Instant from = Instant.ofEpochSecond(second - Math.floorMod(second, step));
+			Instant from = kind.wholeDay()
+				? Instant.ofEpochSecond(second).atZone(NEW_YORK).toLocalDate().atStartOfDay(NEW_YORK).toInstant()
+				: Instant.ofEpochSecond(second - Math.floorMod(second, step));
 			Instant to = from.plusSeconds(length * step);
 			if (HiddenStretches.touches(avoid, from, to) || !SessionCalendar.isOpenThroughout(from, to)
 					|| !marketData.rolls(instrument, from, to).isEmpty()) {
@@ -354,11 +360,18 @@ public class DrillService {
 				case PREMIUM_DISCOUNT_JUDGEMENT ->
 					Judgement.premiumDiscount(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
 				case OTE_JUDGEMENT -> Judgement.ote(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
+				case PO3_JUDGEMENT -> Judgement.po3(bars, hits, instrument.getTickSize());
 				default -> throw new IllegalStateException(kind + " is not a judgement");
 			};
 			if (asked != null && (wanted == null || wanted.equals(asked.answer()))) {
 				return new Judged(from, to, bars, asked);
 			}
+			if (asked != null && fallback == null) {
+				fallback = new Judged(from, to, bars, asked);
+			}
+		}
+		if (fallback != null) {
+			return fallback;
 		}
 		throw new NoWindowFoundException();
 	}

@@ -103,6 +103,12 @@ public enum DrillKind {
 			+ "79% of the way back from the end toward the start? Work the zone out yourself.",
 		null),
 
+	/** T45: a whole day read as power of three, or not ({@link Judgement#po3}); always on 15-minute candles. */
+	PO3_JUDGEMENT(Mode.JUDGE, "PO3", "ICT-62", "Power of three", Set.of(), List.of(), 0, 0, 0,
+		"A whole New York day, from the midnight open (drawn) to the 17:00 halt. Was it a bullish power of three, a "
+			+ "bearish one, or neither?",
+		null),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),
@@ -242,10 +248,21 @@ public enum DrillKind {
 		return this == ORDER_BLOCK_IDENTIFICATION || this == BREAKER_IDENTIFICATION || this == UNICORN_IDENTIFICATION;
 	}
 
+	/** A whole New York day, midnight to the 17:00 halt, needs its own chart: 15-minute candles from midnight. */
+	boolean wholeDay() {
+		return this == PO3_JUDGEMENT;
+	}
+
+	/** Candles shown: the mode's, or a whole day at 15 minutes. */
+	int windowBars() {
+		return wholeDay() ? 68 : mode.windowBars();
+	}
+
 	/** For J: the answers drawn evenly before a chart is found for one; empty where the market balances them itself. */
 	List<String> balancedAnswers() {
 		return switch (this) {
 			case OTE_JUDGEMENT -> List.of("INSIDE", "OUTSIDE");
+			case PO3_JUDGEMENT -> List.of("BULLISH", "BEARISH", "NEITHER");
 			default -> List.of();
 		};
 	}

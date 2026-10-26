@@ -158,6 +158,80 @@ public final class Judgement {
 			inside ? "INSIDE" : "OUTSIDE", why);
 	}
 
+	// --- which power of three (ICT-62) ------------------------------------------------------------------
+
+	static final String PO3_VERSION = "judge-po3-1.0.0";
+	/** po3-1.0.0's manipulation: at least this share of the day's range beyond the open. */
+	static final int MANIPULATION_PERCENT = 15;
+
+	static String po3Definition() {
+		return PO3_VERSION + ". A whole New York day, midnight to the 17:00 halt, read after it closed by po3-1.0.0. "
+			+ "Bullish power of three: it closed above its open, its low came before its high, and the low lay at least "
+			+ MANIPULATION_PERCENT + "% of the day's range below the open — accumulation, manipulation down, distribution "
+			+ "up. Bearish mirrors it. Any other day is neither.";
+	}
+
+	/**
+	 * Bullish, bearish or neither, as the PO3 rule read the day: its stored hit for the day, or none. The reasons are
+	 * worked out again from the candles, in prices; a day where the two disagree is never asked.
+	 *
+	 * @param bars the day, midnight to 17:00 New York
+	 * @param days the PO3 rule's hits known by the day's close
+	 */
+	static Asked po3(List<Bar> bars, List<Hit> days, BigDecimal tickSize) {
+		Instant first = bars.getFirst().openTime();
+		Optional<Hit> hit = days.stream().filter(h -> h.start().equals(first)).findFirst();
+		long open = bars.getFirst().openTicks();
+		long close = bars.getLast().closeTicks();
+		int lowAt = 0;
+		int highAt = 0;
+		for (int i = 1; i < bars.size(); i++) {
+			if (bars.get(i).lowTicks() < bars.get(lowAt).lowTicks()) {
+				lowAt = i;
+			}
+			if (bars.get(i).highTicks() > bars.get(highAt).highTicks()) {
+				highAt = i;
+			}
+		}
+		long low = bars.get(lowAt).lowTicks();
+		long high = bars.get(highAt).highTicks();
+		long range = high - low;
+		if (range == 0) {
+			return null;
+		}
+		boolean up = close > open;
+		boolean down = close < open;
+		boolean lowFirst = lowAt < highAt;
+		long beyond = up || !down ? open - low : high - open;
+		boolean deep = beyond * 100 >= (long) MANIPULATION_PERCENT * range;
+		String mine = up && lowFirst && deep ? "BULLISH" : down && !lowFirst && deep ? "BEARISH" : "NEITHER";
+		String rules = hit.map(Hit::direction).orElse("NEITHER");
+		if (!mine.equals(rules)) {
+			return null;
+		}
+		LongFunction<String> price = prices(tickSize);
+		String side = up || !down ? "low" : "high";
+		List<String> why = List.of(
+			"The day opened at midnight at " + price.apply(open) + " and closed at 17:00 at " + price.apply(close) + ": "
+				+ (up ? "above its open." : down ? "below its open." : "where it opened."),
+			"Its low, " + price.apply(low) + ", came " + (lowFirst ? "before" : "after") + " its high, " + price.apply(high) + ".",
+			"The " + side + " lay " + price.apply(beyond) + " points " + (side.equals("low") ? "below" : "above")
+				+ " the open: " + Math.round(100.0 * beyond / range) + "% of the day's " + price.apply(range) + "-point range — "
+				+ (deep ? "enough" : "short of the " + MANIPULATION_PERCENT + "%") + " to count as the manipulation.",
+			switch (mine) {
+				case "BULLISH" -> "Bullish power of three: accumulation at the open, a drop below it, then distribution up.";
+				case "BEARISH" -> "Bearish power of three: accumulation at the open, a rise above it, then distribution down.";
+				default -> "So neither: " + (!up && !down ? "a day that closes where it opened has no direction."
+					: up && !lowFirst ? "a day up needs its low before its high — the drop first, then the rise."
+					: down && lowFirst ? "a day down needs its high before its low — the rise first, then the drop."
+					: "the move against the day's direction was too shallow to be the manipulation.");
+			});
+		return new Asked(PO3_VERSION, po3Definition(), close,
+			List.of(new Option("BULLISH", "Bullish power of three"), new Option("BEARISH", "Bearish power of three"),
+				new Option("NEITHER", "Neither")),
+			List.of(new Context("DAY_OPEN", true, first.getEpochSecond(), open, open)), mine, why);
+	}
+
 	private static long number(Hit hit, String key) {
 		return ((Number) hit.evidence().get(key)).longValue();
 	}
@@ -169,6 +243,7 @@ public final class Judgement {
 			case "RANGE_LOW" -> "Range low";
 			case "LEG_START" -> "Leg start";
 			case "LEG_END" -> "Leg end";
+			case "DAY_OPEN" -> "Midnight open";
 			default -> c.what().charAt(0) + c.what().substring(1).toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
 		};
 		return name + " " + RuleText.price(c.lowTicks(), tickSize);
