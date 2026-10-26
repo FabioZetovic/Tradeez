@@ -7,13 +7,14 @@ import { cx } from '@/lib/styles'
 import { AccountMenu } from './AccountMenu'
 import type { User } from '@/lib/api/auth'
 
-/** Home, then the sections in the order they build on one another. News joins with its task (T40). */
+/** Home, the sections in the order they build on one another, and the economic calendar (T40). */
 const NAV = [
   { to: '/', label: 'Home' },
   { to: '/learn', label: 'Learn' },
   { to: '/drills', label: 'Drills' },
   { to: '/practice', label: 'Practice' },
   { to: '/chart', label: 'Chart' },
+  { to: '/news', label: 'News' },
 ] as const
 
 /** Pages built around a chart take the whole width; reading pages keep a 1280 px column (docs/REDESIGN.md T36). */

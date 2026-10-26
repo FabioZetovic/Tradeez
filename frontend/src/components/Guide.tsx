@@ -59,6 +59,20 @@ export function Guide() {
         What it is not: ICT&apos;s ideas are taught as ICT&apos;s claims. The rules say what they found in the data, not
         that the method works, and nothing here is advice.
       </p>
+      <p className="mb-6 max-w-3xl text-sm text-subtle" data-testid="guide-sources">
+        Where the data comes from: NQ candles from Massive; the economic calendar from the US agencies&apos; release
+        schedules via FRED, and the Federal Reserve. This product uses the FRED® API but is not endorsed or certified by
+        the Federal Reserve Bank of St. Louis. Using the calendar, you agree to the{' '}
+        <a
+          href="https://fred.stlouisfed.org/docs/api/terms_of_use.html"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-ink"
+        >
+          FRED API terms of use
+        </a>
+        .
+      </p>
       <Link
         to="/learn"
         className="inline-flex h-11 items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-accent-ink transition-all hover:shadow-glow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

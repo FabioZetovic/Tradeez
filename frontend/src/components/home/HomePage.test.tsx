@@ -9,6 +9,7 @@ import { getLearning, type Learning } from '@/lib/api/learning'
 import { getBars, listInstruments, type BarSeries, type Instrument } from '@/lib/api/marketData'
 import { getChartClock } from '@/lib/api/clock'
 import { getStatistics, listSessions, type SessionSummary, type Statistics } from '@/lib/api/practice'
+import { getNews, type News } from '@/lib/api/news'
 
 vi.mock('@/lib/api/concepts', () => ({ getCurriculum: vi.fn() }))
 vi.mock('@/lib/api/drills', () => ({ listDrillKinds: vi.fn() }))
@@ -16,6 +17,7 @@ vi.mock('@/lib/api/learning', () => ({ getLearning: vi.fn() }))
 vi.mock('@/lib/api/marketData', () => ({ getBars: vi.fn(), listInstruments: vi.fn() }))
 vi.mock('@/lib/api/clock', () => ({ getChartClock: vi.fn() }))
 vi.mock('@/lib/api/practice', () => ({ getStatistics: vi.fn(), listSessions: vi.fn() }))
+vi.mock('@/lib/api/news', () => ({ getNews: vi.fn() }))
 
 const USER = { id: 'u1', email: 'fabio@example.com', displayName: 'Fabio Zetović', createdAt: '2026-09-17T00:00:00Z' }
 
@@ -60,6 +62,7 @@ function mockAll() {
   vi.mocked(listInstruments).mockResolvedValue([NQ])
   vi.mocked(getBars).mockResolvedValue(BARS)
   vi.mocked(getChartClock).mockResolvedValue({ rules: {}, windows: [], lines: [] } as never)
+  vi.mocked(getNews).mockResolvedValue({ events: [] } as unknown as News)
 }
 
 function renderHome(adapter = new FakeChartAdapter()) {
@@ -170,5 +173,45 @@ describe('Home (T39)', () => {
     expect(link(/NQ, the latest session/)).toHaveAttribute('href', '/chart')
     // Two days back, on 5-minute candles.
     expect(getBars).toHaveBeenCalledWith({ symbol: 'NQ', timeframe: '5m', from: NQ.dataTo! - 2 * 86_400, to: NQ.dataTo })
+  })
+
+  it("lists today's and tomorrow's high-impact releases, New York time, and opens the week", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-27T16:00:00Z')) // Tuesday, noon in New York
+    const release = (key: string, iso: string, impact: 'HIGH' | 'MEDIUM') => ({
+      key,
+      title: `${key} title`,
+      agency: 'BLS',
+      impact,
+      at: Date.parse(iso) / 1000,
+      link: '',
+    })
+    vi.mocked(getNews).mockResolvedValue({
+      events: [
+        release('CPI', '2026-10-27T12:30:00Z', 'HIGH'), // today 08:30
+        release('JOLTS', '2026-10-27T14:00:00Z', 'MEDIUM'), // medium: not here
+        release('FOMC', '2026-10-28T18:00:00Z', 'HIGH'), // tomorrow 14:00
+        release('NFP', '2026-10-30T12:30:00Z', 'HIGH'), // Friday: not here
+      ],
+    } as unknown as News)
+    renderHome()
+    const card = await screen.findByRole('region', { name: 'News today' })
+    await waitFor(() => expect(within(card).getAllByRole('listitem')).toHaveLength(2))
+    expect(within(card).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Today 08:30CPI title',
+      'Tomorrow 14:00FOMC title',
+    ])
+    expect(within(card).getByRole('link', { name: /Week ahead/ })).toHaveAttribute('href', '/news')
+  })
+
+  it('says when there is no high-impact news, or no calendar', async () => {
+    renderHome()
+    expect(await within(card('News today')).findByText('No high-impact news today or tomorrow.')).toBeInTheDocument()
+  })
+
+  it('a calendar that could not be loaded is said to be so', async () => {
+    vi.mocked(getNews).mockRejectedValue(new Error('503'))
+    renderHome()
+    expect(await within(card('News today')).findByText('The calendar could not be loaded.')).toBeInTheDocument()
   })
 })
