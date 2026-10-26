@@ -106,11 +106,69 @@ public final class Judgement {
 			premium ? "PREMIUM" : "DISCOUNT", why);
 	}
 
+	// --- inside the OTE zone or not (ICT-42) -----------------------------------------------------------
+
+	static final String OTE_VERSION = "judge-ote-1.0.0";
+
+	static String oteDefinition() {
+		return OTE_VERSION + ". A leg of dealing-range-1.0.0, still standing when the chart ends, its start and end drawn. "
+			+ "Its optimal trade entry, by ote-1.0.0, runs from 62% to 79% of the way back from the end toward the start, "
+			+ "rounded outward to whole ticks. The last close is inside it or not.";
+	}
+
+	/**
+	 * Is the last close in the OTE zone: the latest OTE whose leg is wholly on the chart and that still stands when it
+	 * ends. Null when there is none.
+	 *
+	 * @param zones every state of the OTE rule's zones known by the chart's end
+	 */
+	static Asked ote(List<Bar> bars, List<Hit> zones, Instant firstCandle, BigDecimal tickSize) {
+		Instant end = bars.getLast().openTime().plusSeconds(1);
+		Optional<Hit> zone = zones.stream()
+			.filter(h -> "FORMED".equals(h.kind()) && number(h, "startTime") >= firstCandle.getEpochSecond()
+				&& h.confirmedAt().isBefore(end))
+			.filter(h -> zones.stream().noneMatch(s -> s.anchor().equals(h.anchor()) && RANGE_ENDS.contains(s.kind())
+				&& s.confirmedAt().isBefore(end)))
+			.max(Comparator.comparing(Hit::confirmedAt));
+		if (zone.isEmpty()) {
+			return null;
+		}
+		Hit z = zone.get();
+		long start = number(z, "startPrice");
+		long finish = number(z, "endPrice");
+		long close = bars.getLast().closeTicks();
+		boolean inside = close >= z.low() && close <= z.high();
+		boolean up = finish > start;
+		// After a leg up the zone is below the end: a close above it has not come back far enough yet.
+		boolean shallow = up ? close > z.high() : close < z.low();
+		String where = inside ? "inside it"
+			: (close > z.high() ? "above it" : "below it") + (shallow ? " — not back far enough yet" : " — further back than the zone");
+		LongFunction<String> price = prices(tickSize);
+		List<Context> context = List.of(
+			new Context("LEG_START", true, number(z, "startTime"), start, start),
+			new Context("LEG_END", true, number(z, "endTime"), finish, finish));
+		List<String> why = List.of(
+			"The leg runs " + (up ? "up" : "down") + " from " + price.apply(start) + " to " + price.apply(finish) + ", "
+				+ price.apply(Math.abs(finish - start)) + " points.",
+			"62% to 79% of the way back from its end is " + price.apply(z.low()) + " to " + price.apply(z.high())
+				+ ": the OTE zone, its line at 70.5% at " + RuleText.halfPrice(number(z, "midHalfTicks"), tickSize) + ".",
+			"The last close, " + price.apply(close) + ", is " + where + ".");
+		return new Asked(OTE_VERSION, oteDefinition(), close,
+			List.of(new Option("INSIDE", "Inside the OTE zone"), new Option("OUTSIDE", "Outside it")), context,
+			inside ? "INSIDE" : "OUTSIDE", why);
+	}
+
+	private static long number(Hit hit, String key) {
+		return ((Number) hit.evidence().get(key)).longValue();
+	}
+
 	/** A drawn line's words on the chart: "Range high 21330.00". */
 	static String label(Context c, BigDecimal tickSize) {
 		String name = switch (c.what()) {
 			case "RANGE_HIGH" -> "Range high";
 			case "RANGE_LOW" -> "Range low";
+			case "LEG_START" -> "Leg start";
+			case "LEG_END" -> "Leg end";
 			default -> c.what().charAt(0) + c.what().substring(1).toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
 		};
 		return name + " " + RuleText.price(c.lowTicks(), tickSize);

@@ -329,7 +329,11 @@ public class DrillService {
 			throw new IllegalArgumentException("Too little real " + instrument.getSymbol()
 				+ " history has been imported to drill on.");
 		}
-		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+		// Where one answer is far likelier than another (price sits outside a zone more often than in it), the answer is
+		// drawn first and a chart found for it, so guessing the common one earns nothing.
+		List<String> balanced = kind.balancedAnswers();
+		String wanted = balanced.isEmpty() ? null : balanced.get(random.nextInt(balanced.size()));
+		for (int attempt = 0; attempt < MAX_ATTEMPTS * 3; attempt++) {
 			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
 			Instant from = Instant.ofEpochSecond(second - Math.floorMod(second, step));
 			Instant to = from.plusSeconds(length * step);
@@ -349,9 +353,10 @@ public class DrillService {
 			Judgement.Asked asked = switch (kind) {
 				case PREMIUM_DISCOUNT_JUDGEMENT ->
 					Judgement.premiumDiscount(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
+				case OTE_JUDGEMENT -> Judgement.ote(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
 				default -> throw new IllegalStateException(kind + " is not a judgement");
 			};
-			if (asked != null) {
+			if (asked != null && (wanted == null || wanted.equals(asked.answer()))) {
 				return new Judged(from, to, bars, asked);
 			}
 		}

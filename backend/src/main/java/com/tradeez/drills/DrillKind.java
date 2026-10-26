@@ -97,6 +97,12 @@ public enum DrillKind {
 			+ "in discount, below it? Work the middle out yourself.",
 		null),
 
+	/** T45: inside the optimal trade entry or not ({@link Judgement#ote}). */
+	OTE_JUDGEMENT(Mode.JUDGE, "OTE", "ICT-42", "Optimal trade entry", Set.of(), List.of(), 1, 0, 0,
+		"A leg is drawn: where it started and where it ended. Is the last close inside its optimal trade entry — 62% to "
+			+ "79% of the way back from the end toward the start? Work the zone out yourself.",
+		null),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),
@@ -234,6 +240,14 @@ public enum DrillKind {
 	 */
 	boolean showsItsReasons() {
 		return this == ORDER_BLOCK_IDENTIFICATION || this == BREAKER_IDENTIFICATION || this == UNICORN_IDENTIFICATION;
+	}
+
+	/** For J: the answers drawn evenly before a chart is found for one; empty where the market balances them itself. */
+	List<String> balancedAnswers() {
+		return switch (this) {
+			case OTE_JUDGEMENT -> List.of("INSIDE", "OUTSIDE");
+			default -> List.of();
+		};
 	}
 
 	/** Whether a hit of this drill's rule is one the drill asks about. */

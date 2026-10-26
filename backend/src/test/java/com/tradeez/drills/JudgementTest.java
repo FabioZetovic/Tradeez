@@ -88,4 +88,42 @@ class JudgementTest {
 			assertThat(asked.answer()).as("1040 is in discount of 1030–1070").isEqualTo("DISCOUNT");
 		}
 	}
+
+	/** An OTE of a leg up from 900 (candle 5) to 1100 (candle 15): 62–79% back is 942–976, its line at 959. */
+	private static List<Hit> ote(String kind, int confirmed) {
+		Map<String, Object> evidence = Map.of("startTime", at(5).getEpochSecond(), "startPrice", 900L,
+			"endTime", at(15).getEpochSecond(), "endPrice", 1100L, "midHalfTicks", 1918L);
+		return List.of(new Hit(kind, "BULLISH", at(5), at(15), at(confirmed), 942, 976, evidence));
+	}
+
+	@Nested
+	@DisplayName("inside the OTE zone or not (ICT-42)")
+	class Ote {
+
+		@Test
+		@DisplayName("inside, above (not back far enough) and below (further back), each said in prices")
+		void where() {
+			Asked inside = Judgement.ote(closingAt(960), ote("FORMED", 20), at(1), TICK);
+			assertThat(inside.answer()).isEqualTo("INSIDE");
+			assertThat(inside.context()).extracting(Prediction.Context::what).containsExactly("LEG_START", "LEG_END");
+			assertThat(inside.explanation()).containsExactly("The leg runs up from 225.00 to 275.00, 50.00 points.",
+				"62% to 79% of the way back from its end is 235.50 to 244.00: the OTE zone, its line at 70.5% at 239.75.",
+				"The last close, 240.00, is inside it.");
+			Asked above = Judgement.ote(closingAt(1050), ote("FORMED", 20), at(1), TICK);
+			assertThat(above.answer()).isEqualTo("OUTSIDE");
+			assertThat(above.explanation().getLast()).endsWith("is above it — not back far enough yet.");
+			assertThat(Judgement.ote(closingAt(920), ote("FORMED", 20), at(1), TICK).explanation().getLast())
+				.endsWith("is below it — further back than the zone.");
+			assertThat(Judgement.ote(closingAt(942), ote("FORMED", 20), at(1), TICK).answer()).as("its edge is in it").isEqualTo("INSIDE");
+		}
+
+		@Test
+		@DisplayName("never asks about a leg off the chart or a range already left")
+		void refuses() {
+			assertThat(Judgement.ote(closingAt(960), ote("FORMED", 20), at(6), TICK)).isNull();
+			List<Hit> left = new ArrayList<>(ote("FORMED", 20));
+			left.addAll(ote("BROKEN_LOW", 30));
+			assertThat(Judgement.ote(closingAt(960), left, at(1), TICK)).isNull();
+		}
+	}
 }
