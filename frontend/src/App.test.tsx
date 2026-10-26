@@ -175,7 +175,11 @@ describe('App — signed out', () => {
 })
 
 describe('App — signed in', () => {
-  beforeEach(() => mockApi(signedIn))
+  // The Chart tab: Home is the root since T39.
+  beforeEach(() => {
+    mockApi(signedIn)
+    window.history.replaceState(null, '', '/chart')
+  })
 
   it('restores the session and shows the workspace', async () => {
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
@@ -467,14 +471,18 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     }
   })
 
-  it('the header switches sections, and the root and unknown addresses land on the chart', async () => {
+  it('an unknown address lands on Home; the header switches sections', async () => {
     at('/no-such-page')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    expect(await screen.findByTestId('price-chart')).toBeInTheDocument()
-    expect(window.location.pathname).toBe('/chart')
+    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Fabio\./ })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+    expect(current('Home')).toBe('page')
 
     // The Chart tab fills the window with a narrow gutter (T38); reading pages keep their margins.
+    await userEvent.click(screen.getByRole('link', { name: 'Chart' }))
+    expect(await screen.findByRole('heading', { name: 'NQ' })).toBeInTheDocument()
     expect(screen.getByRole('main')).toHaveClass('p-3')
+    expect(current('Home')).toBeNull()
     await userEvent.click(screen.getByRole('link', { name: 'Learn' }))
     expect(window.location.pathname).toBe('/learn')
     expect(screen.getByRole('main')).toHaveClass('py-8')
@@ -506,6 +514,14 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
 
+  it('a lesson address opens that lesson (T39)', async () => {
+    at('/learn/ICT-20')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await waitFor(() => expect(requests('/lesson').length).toBeGreaterThan(0))
+    expect(requests('/lesson')[0].pathname).toBe('/api/concepts/ICT-20/lesson')
+    expect(current('Learn')).toBe('page')
+  })
+
   it('a drill address opens that drill', async () => {
     const kind = (id: string, title: string) => ({ kind: id, mode: 'CLASSIFY', title, conceptId: 'ICT-06', detector: 'X', ruleVersion: 'x-1.0.0', instructions: '' })
     mockApi({ ...signedIn, '/api/drills/kinds': { body: [kind('FIRST_DRILL', 'First'), kind('SECOND_DRILL', 'Second')] } })
@@ -520,9 +536,9 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
 describe('App — the guide and the disclaimer (T29, T36)', () => {
   beforeEach(() => mockApi(signedIn))
 
-  it('greets a sign-in with the chart, not a pop-up; the guide is at /help, from the account menu', async () => {
+  it('greets a sign-in with Home, not a pop-up; the guide is at /help, from the account menu', async () => {
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByTestId('price-chart')
+    await screen.findByRole('heading', { name: /Fabio\./ })
     expect(screen.queryByRole('heading', { name: 'How Tradeez works' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Fabio' }))

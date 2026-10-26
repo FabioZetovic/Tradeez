@@ -12,6 +12,8 @@ import { cx, errorClass } from '@/lib/styles'
 interface LearnViewProps {
   /** Opens the Drills tab on this drill. */
   onPractise: (kind: string) => void
+  /** The lesson to open on, from its address /learn/:conceptId (T39). */
+  initialConcept?: string
   adapterFactory?: () => ChartAdapter
 }
 
@@ -23,9 +25,9 @@ interface LearnViewProps {
  * suggested now, what is due for review, and the next step. Asked for afresh each time the tab opens,
  * so drills done in between show. The ladder suggests; every card stays open.
  */
-export function LearnView({ onPractise, adapterFactory }: LearnViewProps) {
+export function LearnView({ onPractise, initialConcept, adapterFactory }: LearnViewProps) {
   const [curriculum, setCurriculum] = useState<Curriculum | null>(null)
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(initialConcept ?? null)
   const [timeframe, setTimeframe] = useState('5m')
   const [round, setRound] = useState(0)
   const [lesson, setLesson] = useState<Lesson | null>(null)

@@ -34,6 +34,8 @@ interface PriceChartProps {
   heightClass?: string
   /** Moved only by the chart it keeps to (BUG-092). */
   followsOnly?: boolean
+  /** Neither scrolls nor zooms (Home, R-12). */
+  still?: boolean
 }
 
 export function PriceChart({
@@ -47,6 +49,7 @@ export function PriceChart({
   recentBars,
   heightClass = 'h-[30rem]',
   followsOnly = false,
+  still = false,
 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const adapterRef = useRef<ChartAdapter | null>(null)
@@ -85,7 +88,7 @@ export function PriceChart({
     if (!container) return
 
     const adapter = (factoryRef.current ?? (() => new LightweightChartAdapter()))()
-    adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone, daily, followsOnly })
+    adapter.mount(container, { tickSize, exchangeTimezone, axisTimezone, daily, followsOnly, still })
     adapterRef.current = adapter
     setMountedAdapter(adapter)
 
@@ -101,7 +104,7 @@ export function PriceChart({
     }
     // recentBars is listed so the effect is honest about what it reads. In practice it is a
     // constant per screen, so it never triggers a remount on its own.
-  }, [tickSize, exchangeTimezone, axisTimezone, daily, recentBars, followsOnly])
+  }, [tickSize, exchangeTimezone, axisTimezone, daily, recentBars, followsOnly, still])
 
   // Data updates reuse the mounted chart.
   //

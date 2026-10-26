@@ -44,6 +44,8 @@ export interface ChartMountOptions {
    * minutes. Its price axis still scales.
    */
   followsOnly?: boolean
+  /** A picture of the market, not a tool (R-12, Home): it neither scrolls nor zooms, in time or price. */
+  still?: boolean
 }
 
 /**

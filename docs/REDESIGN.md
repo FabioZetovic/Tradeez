@@ -53,7 +53,7 @@
 | T36 | Theme and shell | — | ✅ merged 2026-10-23 | `feat/t36-shell` | DEC-078. Router (/chart /learn /drills/:kind? /practice /help /sign-in /sign-up; / → /chart until T39), AppShell + AccountMenu (shell/), footer short line + Read more, sign-in card, /help page, kit restyled + PageHeader + Glass (the rest of the kit with T39+, see §10). Screenshots docs/redesign/after/t36/. 398 tests, 14/14 mutants |
 | T37 | Chart overlays in the paint step (BUG-095) | — | ✅ merged 2026-10-23 | `feat/t37-overlays` (from `feat/t36-shell`) | BUG-095 fixed: `ChartAdapter.addLayer` (a series primitive) + `useChartLayer`; clock and example band under the candles, setups over, drawings and drill marks on top; `useOverlayCanvas` deleted. BUG-096 (undo/delete saved one step late, older than T37) found and fixed. Screenshots docs/redesign/after/t37/. 404 tests, 17/17 mutants |
 | T38 | Chart tab | T36, T37 | 🟢 built, waiting for "merge" | `feat/t38-chart` | `components/chart/ChartPage.tsx` + `LayersMenu.tsx` (glass, search, presets, 5 groups, 40 layers, chips), `useChartLayers` (practice uses it too), drawing bar on lucide icons, price change since the previous session close, no instrument/beside/SMT. Screenshots docs/redesign/after/t38/. 412 tests, 18/18 mutants |
-| T39 | Home | T36 (news card: T40) | ⬜ | | |
+| T39 | Home | T36 (news card: T40) | 🟢 built, waiting for "merge" | `feat/t39-home` (from `feat/t38-chart`) | `components/home/HomePage.tsx` at `/`: greeting, four step cards with real progress (definitions agreed with Fabio), Up next, Due for review (rings), Practice so far, the latest NQ session still; lessons at `/learn/:conceptId`; News card waits for T40. Screenshots docs/redesign/after/t39/. 421 tests, 16 mutants |
 | T40 | News | T36 | ⬜ | | feed terms checked first |
 | T41 | Practice home | T36 | ⬜ | | |
 | T42 | Practice session | T37, T38, T41 | ⬜ | | |
@@ -1010,4 +1010,9 @@ due, open), `suggested`, `due`.
 | 2026-10-23 | T38 | SMT is left out of the layer list everywhere a single market is charted, and a choice of it remembered from before is never sent | Claude |
 | 2026-10-23 | T38 | `Switch` joined the kit with its first user, the layers menu | Claude |
 | 2026-10-23 | T38 | The Chart tab's `main` has a 12 px gutter (Lovable's `p-3`); the chart card fills the rest of the window's height | Claude |
+| 2026-10-23 | T39 | Fabio agreed the progress definitions ("Go with that"): Learn = concepts complete ÷ concepts; Drills = pattern drills (marking and naming) whose concept is solid ÷ pattern drills; Practice = "N sessions · N trades"; Chart = no number | Fabio |
+| 2026-10-23 | T39 | Practice so far shows the total R net of costs and the trade count; "held to plan" waits for T41's count, as planned | Claude |
+| 2026-10-23 | T39 | The Home chart is the latest session (from the previous 17:00 New York close), killzones only, with the change from that close; `still` is a mount option of its own (no scroll, no scale in time or price) | Claude |
+| 2026-10-23 | T39 | Numbers do not count up (§T36 step 4): left for the polish pass, not needed to read them | Claude |
+| 2026-10-23 | T39 | No summary endpoint: Home makes eight small requests, all already there; decide again if it is ever slow | Claude |
 
