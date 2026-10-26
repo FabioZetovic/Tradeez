@@ -96,6 +96,8 @@ public class DrillService {
 
 	/** Mode E: candles searched for a trade and its moment; the chart ends at the moment (T26). */
 	static final int MANAGE_WINDOW_BARS = 60;
+	/** Daily bias: from 08:00 New York the day before to the 09:30 open at 15 minutes — 102 slots, the halt's 4 empty. */
+	static final int BIAS_WINDOW_BARS = 102;
 	private static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
 
 	static final Set<Timeframe> REAL_TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M5, Timeframe.M15);
@@ -183,7 +185,7 @@ public class DrillService {
 		DrillKind kind = blank(kindCode) ? DEFAULT_KIND : DrillKind.parse(kindCode);
 		Instrument instrument = marketData.requireInstrument(blank(symbol) ? DEFAULT_INSTRUMENT : symbol);
 		boolean simulated = instrument.getDataClass() == DataClass.SIMULATED;
-		Timeframe timeframe = kind.wholeDay() ? Timeframe.M15
+		Timeframe timeframe = kind.wholeDay() || kind == DrillKind.DAILY_BIAS_PREDICTION ? Timeframe.M15
 			: kind.model() != null ? Timeframe.M5 : timeframe(timeframeCode, simulated, random);
 		if (simulated) {
 			if (kind != DrillKind.FVG_IDENTIFICATION) {
@@ -224,10 +226,12 @@ public class DrillService {
 			return view(drill, instrument, judged.bars(), List.of());
 		}
 		if (kind.mode() == Mode.PREDICT) {
-			Asked asked = findPrediction(kind, detector, instrument, timeframe, avoid);
+			Asked asked = kind == DrillKind.DAILY_BIAS_PREDICTION ? findDailyBias(instrument, timeframe, avoid)
+				: findPrediction(kind, detector, instrument, timeframe, avoid);
 			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
 				timeframe.code(), instrument.getDataClass(), detector.id(), detector.ruleVersion(), asked.from(), asked.to(),
-				asked.question().targets().stream().map(Target::setupId).collect(Collectors.toSet()),
+				asked.question().targets().stream().map(Target::setupId).filter(java.util.Objects::nonNull)
+					.collect(Collectors.toSet()),
 				json.convertValue(asked.question(), JSON_OBJECT), asked.outcome().value(), asked.outcome().at(),
 				asked.revealTo())));
 			return view(drill, instrument, asked.bars(), List.of());
@@ -550,6 +554,69 @@ public class DrillService {
 		Set<UUID> ids = Set.of(above.get().id(), below.get().id());
 		return stored.stream().filter(s -> ids.contains(s.getId())).sorted(Comparator.comparing(DetectedSetup::getAnchorTime))
 			.toList();
+	}
+
+	/**
+	 * Daily bias (ICT-61, T45): a trading day whose 09:30 open sits between yesterday's high and low, the chart from 08:00
+	 * the day before to the open, and the candles after it deciding which of the two was taken first.
+	 */
+	private Asked findDailyBias(Instrument instrument, Timeframe timeframe, List<HiddenStretches.Stretch> avoid) {
+		int length = BIAS_WINDOW_BARS;
+		long step = timeframe.seconds();
+		Instant[] coverage = marketData.coverage(instrument);
+		if (coverage == null) {
+			throw new IllegalArgumentException("No real " + instrument.getSymbol()
+				+ " history has been imported yet, so there is nothing to drill on.");
+		}
+		Instant earliest = coverage[0].plus(HISTORY_MARGIN).plus(Duration.ofDays(2));
+		Instant latest = coverage[1].minus(FUTURE_REACH);
+		if (!earliest.isBefore(latest)) {
+			throw new IllegalArgumentException("Too little real " + instrument.getSymbol()
+				+ " history has been imported to drill on.");
+		}
+		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
+			java.time.LocalDate date = Instant.ofEpochSecond(second).atZone(NEW_YORK).toLocalDate();
+			Instant moment = date.atTime(9, 30).atZone(NEW_YORK).toInstant();
+			Instant from = moment.minusSeconds(length * step);
+			if (HiddenStretches.touches(avoid, from, moment.plus(FUTURE_REACH)) || !marketData.rolls(instrument, from, moment).isEmpty()) {
+				continue;
+			}
+			List<Bar> window = marketData.internalBars(instrument, timeframe, from, moment, SEED).bars();
+			// The daily halt, 17:00 to 18:00, is inside the stretch: an hour of candles fewer, and nothing else missing.
+			if (window.size() != length - Duration.ofHours(1).toSeconds() / step
+					|| !window.getLast().openTime().plusSeconds(step).equals(moment)) {
+				continue;
+			}
+			// Yesterday: the whole trading day before today's, 18:00 to 17:00 New York.
+			Instant today = Timeframe.D1.bucketStart(moment);
+			List<Bar> days = marketData.internalBars(instrument, Timeframe.D1, today.minus(Duration.ofDays(5)), today, SEED).bars();
+			if (days.isEmpty()) {
+				continue;
+			}
+			Bar yesterday = days.getLast();
+			long close = window.getLast().closeTicks();
+			if (close <= yesterday.lowTicks() || close >= yesterday.highTicks()
+					|| window.stream().filter(b -> !b.openTime().isBefore(today))
+						.anyMatch(b -> b.highTicks() > yesterday.highTicks() || b.lowTicks() < yesterday.lowTicks())) {
+				continue; // taken already overnight: nothing left to ask
+			}
+			long start = yesterday.openTime().getEpochSecond();
+			List<Target> targets = List.of(
+				new Target("PDH", Prediction.Role.ERL, true, true, start, yesterday.highTicks(), yesterday.highTicks(), null,
+					yesterday.highTicks() - close, null),
+				new Target("PDL", Prediction.Role.ERL, true, false, start, yesterday.lowTicks(), yesterday.lowTicks(), null,
+					close - yesterday.lowTicks(), null));
+			List<Bar> future = future(instrument, timeframe, moment);
+			Outcome outcome = Prediction.resolve(targets, future, bar -> minutes(instrument, timeframe, bar));
+			if (outcome == null) {
+				continue;
+			}
+			List<Bar> revealed = Prediction.revealed(future, outcome);
+			return new Asked(from, moment, List.copyOf(window), new Question(close, targets, List.of()), outcome,
+				revealed.getLast().openTime().plus(timeframe.duration()));
+		}
+		throw new NoWindowFoundException();
 	}
 
 	/** Stored hits as much as a prediction reads of them. */

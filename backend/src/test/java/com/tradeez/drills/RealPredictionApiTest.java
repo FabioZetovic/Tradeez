@@ -147,7 +147,7 @@ class RealPredictionApiTest extends AbstractIntegrationTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = ".*_PREDICTION")
+	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = { ".*_PREDICTION", "^(?!DAILY_BIAS).*" }) // daily bias: three generated weeks hold no day to ask it on
 	@DisplayName("shows the chart up to the moment and two targets — and nothing after it, here or on a reload")
 	void withholdsTheFuture(DrillKind kind) throws Exception {
 		JsonNode drill = start(kind, "5m");
@@ -221,7 +221,7 @@ class RealPredictionApiTest extends AbstractIntegrationTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = ".*_PREDICTION")
+	@EnumSource(value = DrillKind.class, mode = EnumSource.Mode.MATCH_ALL, names = { ".*_PREDICTION", "^(?!DAILY_BIAS).*" }) // daily bias: three generated weeks hold no day to ask it on
 	@DisplayName("the answer is what the candles after the moment did, and they are shown with it")
 	void answeredByTheFuture(DrillKind kind) throws Exception {
 		JsonNode drill = start(kind, "5m");

@@ -154,6 +154,12 @@ public enum DrillKind {
 			+ "behind (internal), or the next resting level beyond (external)?",
 		null),
 
+	/** T45: from the New York open, does the day take yesterday's high or its low first? Always on 15-minute candles. */
+	DAILY_BIAS_PREDICTION(Mode.PREDICT, "LIQUIDITY", "ICT-61", "Daily bias", Set.of(), List.of(List.of("PDH", "PDL")), 0, 0,
+		0,
+		"The chart stops at the 09:30 New York open. Yesterday's high and low are drawn. Which does the day take first?",
+		null),
+
 	/**
 	 * Mode E (T26, DEC-071): a trade is open and in profit — hold, stop to breakeven, or half off? What price did
 	 * with each decides ({@link Management}).
@@ -295,9 +301,9 @@ public enum DrillKind {
 		};
 	}
 
-	/** Candles shown: the mode's, or a whole day at 15 minutes. */
+	/** Candles shown: the mode's, a whole day at 15 minutes, or for daily bias yesterday from 08:00 to today's open. */
 	int windowBars() {
-		return wholeDay() ? 68 : mode.windowBars();
+		return wholeDay() ? 68 : this == DAILY_BIAS_PREDICTION ? DrillService.BIAS_WINDOW_BARS : mode.windowBars();
 	}
 
 	/** For J: the answers drawn evenly before a chart is found for one; empty where the market balances them itself. */

@@ -162,12 +162,11 @@ class LearningApiTest extends AbstractIntegrationTest {
 		assertThat(open(state, "ICT-44")).as("a reference card never locks").isTrue();
 		assertThat(concept(state, "ICT-01").get("topic").asString()).isEqualTo("Structure");
 		// Drilled where a drill exists — predictions, managed trades and the risk questions included.
-		assertThat(state.at("/summary/drilled").asInt()).isEqualTo(24);
+		assertThat(state.at("/summary/drilled").asInt()).as("every lesson has its drill").isEqualTo(25);
 		assertThat(concept(state, "ICT-16").get("drilled").asBoolean()).isTrue();
 		assertThat(concept(state, "ICT-16").get("state").asString()).isEqualTo("NEW");
 		assertThat(concept(state, "ICT-83").get("drilled").asBoolean()).isTrue();
 		assertThat(concept(state, "ICT-23").get("drilled").asBoolean()).isTrue();
-		assertThat(concept(state, "ICT-61").get("drilled").asBoolean()).as("its drill is not built yet").isFalse();
 		// Merged and removed concepts are not pages of Learn.
 		assertThat(state.get("concepts").valueStream().map(c -> c.get("id").asString()))
 			.doesNotContain("F-1", "ICT-05", "ICT-29");
