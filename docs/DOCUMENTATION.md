@@ -2028,6 +2028,9 @@ with none. Checking it in the browser caught one layout fault: an element hidden
 scrolling and made the whole page scroll — fixed by positioning the column. Mutations: 7, all caught (two after new
 tests). Frontend 432 → 436.
 
+**2026-10-26 — T42 merged.** Fabio: "merge it and continue with T43". `--no-ff` merge d4a21aa; master's tree is exactly the
+branch's, which passed its fresh-clone check (frontend 436, lint, typecheck, knip, build, `npm audit` 0; backend unchanged).
+
 ---
 
 ## For the presentation: the disclaimer slide
