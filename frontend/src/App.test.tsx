@@ -514,6 +514,13 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
 
+  it('the economic calendar is at /news, and in the header (T40)', async () => {
+    at('/news')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('heading', { name: 'Economic calendar' })).toBeInTheDocument()
+    expect(current('News')).toBe('page')
+  })
+
   it('a lesson address opens that lesson (T39)', async () => {
     at('/learn/ICT-20')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)

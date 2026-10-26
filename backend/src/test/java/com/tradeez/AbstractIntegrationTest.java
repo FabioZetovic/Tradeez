@@ -62,5 +62,7 @@ public abstract class AbstractIntegrationTest {
 		registry.add("tradeez.password.breach-check.enabled", () -> "false");
 		// Evidence is counted by the tests that mean to, not by every context that starts (EvidenceServiceTest).
 		registry.add("tradeez.evidence.refresh-on-start", () -> "false");
+		// Nor FRED: the economic calendar is filled by the tests that mean to (EconomicCalendarServiceTest).
+		registry.add("tradeez.news.refresh-enabled", () -> "false");
 	}
 }

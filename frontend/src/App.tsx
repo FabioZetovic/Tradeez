@@ -6,6 +6,7 @@ import { SignInForm } from '@/components/SignInForm'
 import { AppShell, Logo } from '@/components/shell/AppShell'
 import { Guide } from '@/components/Guide'
 import { HomePage } from '@/components/home/HomePage'
+import { NewsPage } from '@/components/news/NewsPage'
 import { ChartPage } from '@/components/chart/ChartPage'
 import { PracticeView } from '@/components/practice/PracticeView'
 import { DrillView } from '@/components/drills/DrillView'
@@ -79,6 +80,7 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/learn/:conceptId?" element={<Learn adapterFactory={adapterFactory} />} />
         <Route path="/drills/:kind?" element={<Drills adapterFactory={adapterFactory} />} />
         <Route path="/practice" element={<PracticeView adapterFactory={adapterFactory} />} />
+        <Route path="/news" element={<NewsPage />} />
         <Route path="/help" element={<Guide />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

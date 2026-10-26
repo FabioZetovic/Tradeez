@@ -69,6 +69,11 @@ tradeez:
     # version or the counting changed — in the background. Tests switch it off.
     refresh-on-start: ${EVIDENCE_REFRESH_ON_START:true}
 
+  news:
+    # T40 (DEC-079). Bring the economic calendar up to date after start-up and every six hours, from FRED and the
+    # Fed's FOMC list. Tests switch it off: they never call FRED.
+    refresh-enabled: ${NEWS_REFRESH_ENABLED:true}
+
   password:
     breach-check:
       # DEC-064. Have I Been Pwned's k-anonymous range API: only five hex characters of the password's SHA-1
@@ -94,6 +99,11 @@ databento:
   max-total-cost-usd: 100.00
 
 # DEC-042 — Massive's free plan: CME minute bars, ~2 years back, five requests a minute.
+fred:
+  # DEC-079. Only ever in the request to FRED, whose API takes it as a query parameter; never logged.
+  api-key: ${FRED_API_KEY:}
+  base-url: ${FRED_BASE_URL:https://api.stlouisfed.org}
+
 massive:
   api-key: ${MASSIVE_API_KEY:}
   base-url: ${MASSIVE_BASE_URL:https://api.massive.com}

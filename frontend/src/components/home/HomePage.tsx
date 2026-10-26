@@ -8,6 +8,8 @@ import { getLearning } from '@/lib/api/learning'
 import { getBars, listInstruments } from '@/lib/api/marketData'
 import { getChartClock, type ClockLayer } from '@/lib/api/clock'
 import { getStatistics, listSessions } from '@/lib/api/practice'
+import { getNews } from '@/lib/api/news'
+import { newsDay, newsTime } from '@/lib/news'
 import type { ChartAdapter, DomainBar } from '@/lib/chart/types'
 import { formatPrice } from '@/lib/chart/priceFormat'
 import { previousSessionClose, sessionStart } from '@/lib/chart/dateNavigation'
@@ -16,6 +18,7 @@ import { cx } from '@/lib/styles'
 import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
 import { ProgressBar, Ring } from '../ui'
+import { ImpactFolder } from '../news/NewsPage'
 
 const DAY = 86_400
 
@@ -199,7 +202,12 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         </section>
       </div>
 
-      <LatestSession adapterFactory={adapterFactory} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <NewsToday />
+        <div className="lg:col-span-2">
+          <LatestSession adapterFactory={adapterFactory} />
+        </div>
+      </div>
     </div>
   )
 }
@@ -316,5 +324,39 @@ function LatestSession({ adapterFactory }: { adapterFactory?: () => ChartAdapter
         )}
       />
     </Link>
+  )
+}
+
+/** Today's and tomorrow's high-impact US releases, New York time (T40); the week is a click away. */
+function NewsToday() {
+  const news = useLoaded(getNews)
+  const [now] = useState(() => Date.now() / 1000)
+  const days = new Set([newsDay(now), newsDay(now + DAY)])
+  const soon = news?.events.filter((e) => e.impact === 'HIGH' && days.has(newsDay(e.at))) ?? []
+
+  return (
+    <section aria-label="News today" className="flex flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
+      <h2 className="text-xs font-semibold tracking-widest text-subtle uppercase">News today</h2>
+      {news && soon.length === 0 && <p className="mt-3 text-sm text-subtle">No high-impact news today or tomorrow.</p>}
+      {news === null && <p className="mt-3 text-sm text-subtle">The calendar could not be loaded.</p>}
+      {soon.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-2.5">
+          {soon.map((event) => (
+            <li key={`${event.key}-${event.at}`} className="flex items-center gap-3 text-sm">
+              <span className="num w-24 shrink-0 text-xs text-subtle">
+                {newsDay(event.at) === newsDay(now) ? 'Today' : 'Tomorrow'} {newsTime(event.at)}
+              </span>
+              <ImpactFolder impact={event.impact} />
+              <span className="min-w-0 truncate text-ink">{event.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {news !== undefined && (
+        <Link to="/news" className="mt-auto inline-flex items-center gap-1.5 pt-5 text-sm font-semibold text-accent hover:underline">
+          Week ahead <ArrowRight aria-hidden className="size-4" />
+        </Link>
+      )}
+    </section>
   )
 }
