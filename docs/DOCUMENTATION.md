@@ -2078,6 +2078,10 @@ Backend 723 → 748, frontend 443 → 442 (the old Learn screen's tests went wit
 
 **T48 — the public landing page** (`feat/t48-landing`). A visitor at `/` now meets Tradeez before the sign-in form: what it is and for whom, the method — Learn, Drill, Practice — each with a real screen of the app, what it is honest about (real data never cherry-picked, rules not promises, simulated results with costs), the way in, and the disclaimer in full. Every other signed-out address still leads to sign-in, and a session that ends while the app is open still returns there with its notice. Mutations: 2, both caught. Frontend 449 → 450.
 
+**2026-10-27 — T48 merged; T49 paused by Fabio.** `--no-ff` merge d06d058. The AI chart assistant waits for his budget decision.
+
+**The post-redesign audit** (`fix/post-redesign-audit`). After M6, Fabio asked for everything to be checked. Typecheck, lint, knip, audit and both suites were clean. Then the running app was probed as two fresh users: every endpoint anonymously and signed in, with odd inputs and garbage bodies; every drill kind on both markets; another user's drills, risk drills, sessions and drawings; whole practice days on NQ and ES, looking for a real moment in anything sent while a session is open; whether a forming higher-timeframe candle holds only what the replay has shown. Every screen, and the 62 lesson and drill pages, were walked signed out and in at 1920 and 390 px for errors, failed requests, overflow and unnamed controls. Nothing let one user reach another's data, nothing showed the future or the date, and the screens were clean. Three bugs were found: BUG-098 (a news window past 2100 answered 500; fixed), BUG-099 (the volume imbalance rule, sized on NQ, finds almost nothing on ES; Fabio's call), BUG-100 (copy that still said NQ only; fixed).
+
 ---
 
 ## For the presentation: the disclaimer slide

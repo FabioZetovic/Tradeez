@@ -113,10 +113,18 @@ class NewsApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("refuses a window that ends before it starts, or spans more than 62 days")
+	@DisplayName("refuses a window that ends before it starts, spans more than 62 days, or lies outside 2000 to 2100")
 	void bounded() throws Exception {
-		mockMvc.perform(get("/api/news?from=200&to=100").cookie(learner)).andExpect(status().isBadRequest());
-		mockMvc.perform(get("/api/news?from=0&to=" + 63 * 86_400).cookie(learner)).andExpect(status().isBadRequest());
-		mockMvc.perform(get("/api/news?from=0&to=" + 62 * 86_400).cookie(learner)).andExpect(status().isOk());
+		long y2001 = Instant.parse("2001-01-01T00:00:00Z").getEpochSecond();
+		mockMvc.perform(get("/api/news?from=" + (y2001 + 200) + "&to=" + (y2001 + 100)).cookie(learner))
+			.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/news?from=" + y2001 + "&to=" + (y2001 + 63 * 86_400)).cookie(learner))
+			.andExpect(status().isBadRequest());
+		// BUG-098: these failed in the date arithmetic with a 500.
+		mockMvc.perform(get("/api/news?from=99999999999999").cookie(learner)).andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/news?from=-99999999999999&to=0").cookie(learner)).andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/news?from=0&to=86400").cookie(learner)).andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/news?from=" + y2001 + "&to=" + (y2001 + 62 * 86_400)).cookie(learner))
+			.andExpect(status().isOk());
 	}
 }

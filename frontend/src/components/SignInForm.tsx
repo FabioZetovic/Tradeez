@@ -55,7 +55,7 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
         {isRegister ? 'Create an account' : 'Sign in'}
       </h2>
       <p className="mt-1 mb-6 text-sm text-subtle">
-        {isRegister ? 'Practise ICT on two years of real NQ.' : 'Welcome back. Carry on where you left off.'}
+        {isRegister ? 'Practise ICT on two years of real NQ and ES.' : 'Welcome back. Carry on where you left off.'}
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
