@@ -248,7 +248,7 @@ describe('App — signed in', () => {
     expect(requests('/bars').every((url) => url.pathname.includes('/NQ/'))).toBe(true)
   })
 
-  it('never asks the chart for SMT, even when an older version remembered it on (R-2)', async () => {
+  it('with SMT on, asks for it, and draws the other market under the chart with its own divergences (T47)', async () => {
     localStorage.setItem('tradeez.setupLayers', JSON.stringify(['SMT', 'FVG']))
     mockApi({
       ...signedIn,
@@ -261,11 +261,15 @@ describe('App — signed in', () => {
           })),
         },
       },
-      '/api/charts/NQ/setups': { body: { rules: [], setups: [], rolls: [] } },
+      '/api/market/instruments/ES/bars': { body: { ...SERIES, instrument: 'ES' } },
+      '/api/market/instruments': { body: [NQ, { ...NQ, symbol: 'ES', displayName: 'E-mini S&P 500 futures' }] },
+      '/setups': { body: { rules: [], setups: [], rolls: [] } },
     })
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    await waitFor(() => expect(requests('/setups')).toHaveLength(1))
-    expect(requests('/setups')[0].searchParams.get('detectors')).toBe('FVG')
+    expect(await screen.findByRole('figure', { name: 'ES over the same minutes' })).toBeInTheDocument()
+    const asked = requests('/setups').map((u) => `${u.pathname} ${u.searchParams.get('detectors')}`)
+    expect(asked).toContain('/api/market/instruments/NQ/setups FVG,SMT')
+    expect(asked).toContain('/api/market/instruments/ES/setups SMT')
     localStorage.removeItem('tradeez.setupLayers')
   })
 

@@ -40,18 +40,6 @@ a hosting decision, not a code fix.
 
 ---
 
-### BUG-094 🟠 Switching the Chart tab to ES shows no chart
-
-**Status:** reported by Fabio (2026-10-23), not yet reproduced by Claude. **Affects:** `ChartWorkspace`, ES
-
-Choosing ES as the instrument on the Chart tab leaves the chart empty. ES leaves the Chart tab in T38 (NQ first);
-the cause is to be found when ES returns as a full instrument (T47).
-
-**2026-10-23, T38:** ES left the Chart tab (there is no instrument choice any more), so this cannot happen there now;
-left open for T47.
-
----
-
 ### BUG-093 🟡 The SMT lesson's test failed once: ES's first candle an hour before NQ's
 
 **Status:** seen once, not reproduced (2026-10-22). **Affects:** `SmtDrillApiTest.lesson`, perhaps `LessonService.around`
@@ -444,6 +432,25 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-094 🟠 Switching the Chart tab to ES shows no chart
+
+**Status:** reported by Fabio (2026-10-23), not yet reproduced by Claude. **Affects:** `ChartWorkspace`, ES
+
+Choosing ES as the instrument on the Chart tab leaves the chart empty. ES leaves the Chart tab in T38 (NQ first);
+the cause is to be found when ES returns as a full instrument (T47).
+
+**2026-10-23, T38:** ES left the Chart tab (there is no instrument choice any more), so this cannot happen there now;
+left open for T47.
+
+**✅ FIXED — 2026-10-27, `feat/t47-es`.** Reproduced when T47 brought the market switch back: after NQ, ES's chart kept NQ's candles
+and only its newest one took ES's price, so the price scale ran from ES's 7,700 to NQ's 31,000 and ES lay squashed along
+the bottom — a chart that reads as empty. The cause is in `PriceChart`: to let a replay step forward without resetting
+the view, it treats new candles as the shown ones *carried on* when the first and last times match, and then only updates
+the newest. Two markets over the same minutes have exactly the same times. Now the first candle's prices must match too
+(a closed candle never changes); a lone first candle, which may still be forming, is exempt. The API had always served ES
+correctly. Test: `PriceChart.test` — ES over NQ's minutes replaces the series and refits; red before the fix.
+**Lesson:** "the same times" is not "the same series"; an identity check must include something only that series has.
 
 ### BUG-097 🟠 Nothing can be drawn ahead of the last candle
 

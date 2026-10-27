@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { PriceChart } from '../PriceChart'
+import { AdapterOut, CompanionChart } from '../CompanionChart'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
 import {
   getBars,
@@ -55,8 +57,16 @@ const RECENT_BARS = 200
 
 const DAY = 86_400
 
-/** NQ only (R-1): ES is read beside NQ in the SMT lesson and drill, not on this tab (R-2). */
-const SYMBOL = 'NQ'
+/** The market the Chart tab opened on last, remembered in this browser (T47). */
+const SYMBOL_KEY = 'tradeez.chart.symbol'
+
+function rememberedSymbol(): string {
+  try {
+    return localStorage.getItem(SYMBOL_KEY) ?? 'NQ'
+  } catch {
+    return 'NQ'
+  }
+}
 
 interface ChartPageProps {
   /** Injected in tests so the chart can render without a canvas. */
@@ -66,10 +76,26 @@ interface ChartPageProps {
 /**
  * The Chart tab (T38): two years of real NQ filling the window — the slim drawing bar on the left, the chart card
  * with its top bar, the layers on as chips, and a status line. Every layer is one click away in the glass menu.
+ *
+ * T47: NQ or ES, chosen in the top bar; with the SMT layer on, the other market's chart under it over the same minutes,
+ * moving with it, its own divergences drawn. Everything asked for is keyed by the market, so a switch never shows one
+ * market's candles, clock or setups on the other's chart (BUG-094).
  */
 export function ChartPage({ adapterFactory }: ChartPageProps) {
-  const [instrument, setInstrument] = useState<Instrument | null>(null)
+  const [instruments, setInstruments] = useState<Instrument[] | null>(null)
   const [instrumentError, setInstrumentError] = useState<string | null>(null)
+  const [symbol, setSymbol] = useState<string>(rememberedSymbol)
+  const choose = (next: string) => {
+    setSymbol(next)
+    try {
+      localStorage.setItem(SYMBOL_KEY, next)
+    } catch {
+      // A remembered market is a convenience: without storage the tab opens on NQ.
+    }
+  }
+  // A market no longer listed (or a stale stored one) falls back to the first real market.
+  const instrument = instruments?.find((i) => i.symbol === symbol) ?? instruments?.[0] ?? null
+  const SYMBOL = instrument?.symbol ?? symbol
   const [timeframe, setTimeframe] = useState<TimeframeCode>('5m')
   // The latest bars response, tagged with the request it answers (see `requestKey` below).
   const [loaded, setLoaded] = useState<{ key: string; series?: BarSeries; error?: string } | null>(null)
@@ -102,9 +128,10 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
   useEffect(() => {
     listInstruments()
       .then((list) => {
-        const nq = list.find((i) => i.symbol === SYMBOL)
-        if (nq) setInstrument(nq)
-        else setInstrumentError('NQ is not among the instruments.')
+        // Real markets only: the simulated one is a developer fixture (DEC-034).
+        const real = list.filter((i) => i.dataClass !== 'SIMULATED')
+        if (real.length > 0) setInstruments(real)
+        else setInstrumentError('No real market has been imported yet.')
       })
       .catch(() => setInstrumentError('Could not load instruments.'))
   }, [])
@@ -121,7 +148,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
   // Loading and error are derived, not stored: a response counts only for the request it answers, so
   // "loading" is simply "the newest response is not for the current request yet". Nothing has to be
   // reset when a request starts (BUG-035: no synchronous setState inside an effect).
-  const requestKey = windowEnd === null ? null : `${timeframe}|${windowEnd}`
+  const requestKey = windowEnd === null ? null : `${SYMBOL}|${timeframe}|${windowEnd}`
   useEffect(() => {
     if (windowEnd === null || requestKey === null) return
     let cancelled = false
@@ -136,7 +163,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
     return () => {
       cancelled = true
     }
-  }, [timeframe, windowEnd, requestKey])
+  }, [SYMBOL, timeframe, windowEnd, requestKey])
 
   const layers = useChartLayers()
   const { clockShown, setupsShown, setupsOn } = layers
@@ -157,26 +184,51 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
     return () => {
       cancelled = true
     }
-  }, [timeframe, windowEnd, requestKey])
+  }, [SYMBOL, timeframe, windowEnd, requestKey])
 
   // Detected setups for the same window (T9), asked for only while a rule is switched on. A layer
   // is drawn only over the timeframe it was found on.
   const [setups, setSetups] = useState<{ key: string; layer: SetupLayer | null } | null>(null)
+  const setupsKey = `${SYMBOL}|${timeframe}`
   useEffect(() => {
     if (windowEnd === null || setupsOn.length === 0) return
     let cancelled = false
     const { from, to } = chartWindow(timeframe, windowEnd)
     getChartSetups(SYMBOL, timeframe, from, to, setupsOn)
       .then((layer) => {
-        if (!cancelled) setSetups({ key: timeframe, layer })
+        if (!cancelled) setSetups({ key: setupsKey, layer })
       })
       .catch(() => {
-        if (!cancelled) setSetups({ key: timeframe, layer: null })
+        if (!cancelled) setSetups({ key: setupsKey, layer: null })
       })
     return () => {
       cancelled = true
     }
-  }, [timeframe, windowEnd, setupsOn])
+  }, [SYMBOL, timeframe, windowEnd, setupsOn, setupsKey])
+
+  // DEC-075, T47: with SMT on, the other market over the same window under the chart, with its own divergences.
+  const smtOn = setupsOn.includes('SMT')
+  const beside = smtOn ? (instruments?.find((i) => i.symbol !== SYMBOL) ?? null) : null
+  const besideKey = beside === null || requestKey === null ? null : `${beside.symbol}|${requestKey}`
+  const [besideLoaded, setBesideLoaded] = useState<{ key: string; series: BarSeries | null; layer: SetupLayer | null } | null>(
+    null,
+  )
+  useEffect(() => {
+    if (beside === null || besideKey === null || windowEnd === null) return
+    let cancelled = false
+    const { from, to } = chartWindow(timeframe, windowEnd)
+    Promise.all([
+      getBars({ symbol: beside.symbol, timeframe, from, to }).catch(() => null),
+      getChartSetups(beside.symbol, timeframe, from, to, ['SMT']).catch(() => null),
+    ]).then(([series, layer]) => {
+      if (!cancelled) setBesideLoaded({ key: besideKey, series, layer })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [beside, besideKey, timeframe, windowEnd])
+  const besideNow = besideLoaded?.key === besideKey ? besideLoaded : null
+  const [leader, setLeader] = useState<ChartAdapter | null>(null)
 
   const current = loaded !== null && loaded.key === requestKey ? loaded : null
   const loading = requestKey === null ? !noHistory && instrumentError === null : current === null
@@ -220,7 +272,25 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
       <div className="flex h-[75svh] min-w-0 flex-col lg:flex-1 gap-3 rounded-card border border-line bg-surface p-3 shadow-panel lg:h-auto">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-baseline gap-3 pr-1">
-            <h1 className="font-display text-xl font-bold tracking-tight text-ink">{SYMBOL}</h1>
+            <h1 className="sr-only">{SYMBOL}</h1>
+            <label className="relative flex items-center">
+              <span className="sr-only">Market</span>
+              <select
+                value={SYMBOL}
+                onChange={(e) => choose(e.target.value)}
+                disabled={(instruments?.length ?? 0) < 2}
+                className="cursor-pointer appearance-none bg-transparent pr-6 font-display text-xl font-bold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-default"
+              >
+                {(instruments ?? [{ symbol: SYMBOL }]).map((i) => (
+                  <option key={i.symbol} value={i.symbol}>
+                    {i.symbol}
+                  </option>
+                ))}
+              </select>
+              {(instruments?.length ?? 0) > 1 && (
+                <ChevronDown aria-hidden className="pointer-events-none absolute right-0 size-4 text-subtle" />
+              )}
+            </label>
             {instrument && lastBar && (
               <span className="num text-lg font-semibold text-ink" data-testid="last-price">
                 {formatPrice(lastBar.close, instrument.tickSize)}
@@ -320,7 +390,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
         {instrument && series && error === null && (
           <div className="flex min-h-0 flex-1 flex-col">
             <PriceChart
-              heightClass="h-full"
+              heightClass={beside ? 'min-h-0 flex-1' : 'h-full'}
               bars={series.bars}
               tickSize={instrument.tickSize}
               exchangeTimezone={instrument.exchangeTimezone}
@@ -340,9 +410,10 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
                       shown={clockShown}
                     />
                   )}
+                  {beside && <AdapterOut adapter={adapter} onAdapter={setLeader} />}
                   <SetupOverlay
                     adapter={adapter}
-                    layer={setups?.key === timeframe ? setups.layer : null}
+                    layer={setups?.key === setupsKey ? setups.layer : null}
                     bars={series.bars}
                     timeframe={series.timeframe}
                     shown={setupsShown}
@@ -362,6 +433,26 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
                 </>
               )}
             />
+            {beside && besideNow?.series && (
+              <CompanionChart
+                companion={{ instrument: beside.symbol, tickSize: beside.tickSize, bars: besideNow.series.bars }}
+                leader={leader}
+                exchangeTimezone={beside.exchangeTimezone}
+                axisTimezone={axisTimezone}
+                daily={timeframe === '1d'}
+                adapterFactory={adapterFactory}
+                heightClass="h-48 lg:h-56"
+                overlay={(adapter) => (
+                  <SetupOverlay
+                    adapter={adapter}
+                    layer={besideNow.layer}
+                    bars={besideNow.series!.bars}
+                    timeframe={besideNow.series!.timeframe}
+                    shown={setupsShown}
+                  />
+                )}
+              />
+            )}
           </div>
         )}
 

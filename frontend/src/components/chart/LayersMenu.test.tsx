@@ -22,8 +22,8 @@ const CURRICULUM = {
   ],
 } as unknown as Curriculum
 
-function Harness({ clockAvailable = true }: { clockAvailable?: boolean }) {
-  const layers = useChartLayers()
+function Harness({ clockAvailable = true, scope = 'chart' }: { clockAvailable?: boolean; scope?: 'chart' | 'practice' }) {
+  const layers = useChartLayers(scope)
   return (
     <div>
       <p>outside</p>
@@ -65,7 +65,7 @@ describe('the layers menu (T38)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
-  it("groups the clock's parts and the rules, without SMT — read on two markets", async () => {
+  it("groups the clock's parts and the rules; SMT with them on the Chart tab, which shows the other market (T47)", async () => {
     render(<Harness />)
     const menu = await openMenu()
     await within(menu).findByRole('switch', { name: 'FVG' })
@@ -73,12 +73,18 @@ describe('the layers menu (T38)', () => {
       within(within(menu).getByRole('region', { name })).getAllByRole('switch').map((s) => s.getAttribute('aria-labelledby') && document.getElementById(s.getAttribute('aria-labelledby')!)?.firstChild?.textContent)
     expect(group('Time & sessions')).toEqual(['Days', 'Killzones', 'Silver Bullet', 'Macros', 'Session H/L', 'IPDA'])
     expect(group('Levels')).toEqual(['Opens', 'PDH/PDL', 'PWH/PWL', 'BSL/SSL'])
-    expect(group('Structure')).toEqual(['MSS'])
+    expect(group('Structure')).toEqual(['MSS', 'SMT'])
     expect(group('Gaps & blocks')).toEqual(['FVG'])
-    expect(within(menu).queryByRole('switch', { name: 'SMT' })).toBeNull()
-    expect(within(menu).getByRole('searchbox')).toHaveAttribute('placeholder', 'Search 12 layers')
+    expect(within(menu).getByRole('searchbox')).toHaveAttribute('placeholder', 'Search 13 layers')
     // Each rule names its concept and version (INVARIANT 8).
     expect(screen.getByText('FVG', { selector: 'span' })).toHaveAttribute('title', expect.stringMatching(/Fair value gap \(ICT-20\), rule fvg-1\.0\.0/))
+  })
+
+  it('leaves SMT out of a practice replay, which shows one market', async () => {
+    render(<Harness scope="practice" />)
+    const menu = await openMenu()
+    await within(menu).findByRole('switch', { name: 'FVG' })
+    expect(within(menu).queryByRole('switch', { name: 'SMT' })).toBeNull()
   })
 
   it('starts with the killzones, the opens and PDH/PDL; a switch adds a chip, and × takes it away', async () => {
