@@ -309,9 +309,11 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 		List<Hit> rest = stored("LIQUIDITY", from + 300, to).stream().filter(h -> !keyed.contains(h.anchor())).toList();
 		long above = key.stream().mapToLong(Hit::low).max().orElseThrow();
 		long below = key.stream().mapToLong(Hit::low).min().orElseThrow();
-		for (Hit other : rest.stream().filter(h -> "RESTING".equals(h.kind())).toList()) {
+		// Only levels known by the chart's end: a swing on the last candle is confirmed after it.
+		for (Hit other : rest.stream().filter(h -> "RESTING".equals(h.kind()) && h.confirmed() <= to).toList()) {
 			boolean between = other.low() > close && other.low() < above || other.low() < close && other.low() > below;
-			boolean takenByEnd = rest.stream().anyMatch(h -> h.anchor() == other.anchor() && !"RESTING".equals(h.kind())
+			// A level is its swing: its later states share the swing (start), not the candle they are anchored on.
+			boolean takenByEnd = stored("LIQUIDITY", from, to + 300).stream().anyMatch(h -> h.start() == other.start() && h.low() == other.low() && !"RESTING".equals(h.kind())
 				&& h.confirmed() <= to);
 			assertThat(between && !takenByEnd).as("a nearer resting level at " + other.low()).isFalse();
 		}
