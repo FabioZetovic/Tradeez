@@ -39,6 +39,7 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
       <button
         type="button"
         aria-haspopup="dialog"
+        aria-label={user.displayName}
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
         className="flex cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2 pl-1.5 text-sm text-ink transition-colors hover:bg-sunken focus-visible:outline-2 focus-visible:outline-accent"
@@ -46,7 +47,7 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
         <span aria-hidden className="grid size-7 place-items-center rounded-full bg-accent/16 text-xs font-bold text-accent">
           {initials(user.displayName)}
         </span>
-        <span>{user.displayName}</span>
+        <span className="hidden sm:inline">{user.displayName}</span>
         <ChevronDown aria-hidden className={cx('size-4 text-subtle transition-transform', open && 'rotate-180')} />
       </button>
       <Glass open={open} onClose={close} anchor={root} role="dialog" aria-label="Account" className="w-72 p-1.5">

@@ -14,6 +14,9 @@ import { toggleMark } from '@/lib/drills/marks'
 import { Button, Chip, Notice, Panel } from '../ui'
 import { errorClass, panelTitle } from '@/lib/styles'
 
+/** The answer under the chart; on a phone (T46) held at the screen's foot, so it stays in reach as you scroll. */
+const ANSWER_BAR = 'sticky bottom-2 z-10 lg:static'
+
 interface DrillViewProps {
   /** The drill, from its card or a lesson's "Practise it". */
   kind: string
@@ -217,7 +220,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           </details>
 
           {!answered && identify && (
-            <Panel aria-label="Answer">
+            <Panel aria-label="Answer" className={ANSWER_BAR}>
               <div className="flex flex-wrap items-center gap-3">
                 <span data-testid="mark-count" className="num text-sm text-subtle">
                   {marks.length} marked
@@ -233,7 +236,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           )}
 
           {!answered && predict && drill.question && (
-            <Panel aria-label="Answer">
+            <Panel aria-label="Answer" className={ANSWER_BAR}>
               <p className="mb-3 text-sm text-subtle">Which does price reach first?</p>
               <div className="flex flex-wrap items-start gap-3">
                 {drill.question.targets.map((target) => (
@@ -251,7 +254,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           )}
 
           {!answered && manage && (
-            <Panel aria-label="Answer">
+            <Panel aria-label="Answer" className={ANSWER_BAR}>
               <p className="mb-3 text-sm text-subtle">The trade is open and in profit. What do you do with it?</p>
               <div className="flex flex-wrap items-center gap-3">
                 {drill.options?.map((option) => (
@@ -264,7 +267,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           )}
 
           {!answered && judge && (
-            <Panel aria-label="Answer">
+            <Panel aria-label="Answer" className={ANSWER_BAR}>
               <div className="flex flex-wrap items-center gap-3">
                 {drill.options?.map((option) => (
                   <Button key={option.value} disabled={busy} onClick={() => void choose(option.value)}>
@@ -276,7 +279,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           )}
 
           {!answered && !identify && !future && !judge && (
-            <Panel aria-label="Answer">
+            <Panel aria-label="Answer" className={ANSWER_BAR}>
               <p className="mb-3 text-sm text-subtle">The marked {drill.subject?.side === 'HIGH' ? 'high' : 'low'} is…</p>
               <div className="flex flex-wrap items-center gap-3">
                 {drill.options?.map((option) => (

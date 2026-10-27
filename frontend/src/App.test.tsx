@@ -472,6 +472,23 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     }
   })
 
+  it('on a phone the sections fold into a menu: open it, pick one, and it closes (T46)', async () => {
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await screen.findByRole('heading', { name: /Fabio./ })
+    const button = screen.getByRole('button', { name: 'Menu' })
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull()
+    await userEvent.click(button)
+    expect(button).toHaveAttribute('aria-expanded', 'true')
+    const menu = screen.getByRole('navigation', { name: 'Menu' })
+    expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Learn', 'Drills', 'Practice', 'Chart', 'News'])
+    await userEvent.click(within(menu).getByRole('link', { name: 'News' }))
+    expect(window.location.pathname).toBe('/news')
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull()
+    // The account keeps its name for a screen reader when only its initials show.
+    expect(screen.getByRole('button', { name: 'Fabio' })).toHaveAttribute('aria-label', 'Fabio')
+  })
+
   it('an unknown address lands on Home; the header switches sections', async () => {
     at('/no-such-page')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)

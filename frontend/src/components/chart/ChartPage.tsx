@@ -194,7 +194,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
   const ready = instrument !== null && series !== null && error === null
 
   return (
-    <section aria-label="Chart" className="flex h-[calc(100svh-8.25rem)] min-h-[32rem] gap-3">
+    <section aria-label="Chart" className="flex flex-col gap-3 lg:h-[calc(100svh-8.25rem)] lg:min-h-[32rem] lg:flex-row">
       {ready && (
         <DrawingToolbar
           activeTool={activeTool}
@@ -216,7 +216,8 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
         />
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-card border border-line bg-surface p-3 shadow-panel">
+      {/* Stacked under the drawing bar on a phone or tablet (T46), the chart keeps most of the screen. */}
+      <div className="flex h-[75svh] min-w-0 flex-col lg:flex-1 gap-3 rounded-card border border-line bg-surface p-3 shadow-panel lg:h-auto">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-baseline gap-3 pr-1">
             <h1 className="font-display text-xl font-bold tracking-tight text-ink">{SYMBOL}</h1>

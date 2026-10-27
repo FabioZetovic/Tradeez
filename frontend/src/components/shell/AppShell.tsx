@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { motion } from 'motion/react'
-import { TrendingUp } from 'lucide-react'
+import { Menu, TrendingUp, X } from 'lucide-react'
 import { DISCLAIMER, DISCLAIMER_SHORT } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
 import { AccountMenu } from './AccountMenu'
@@ -41,16 +41,23 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
   const section = '/' + (pathname.split('/')[1] ?? '')
   const full = fills(pathname)
   const wide = full || wides(pathname)
+  // Phones (T46): the sections fold into a menu under the header.
+  const [menu, setMenu] = useState(false)
 
   return (
     <div className="flex min-h-svh flex-col">
       <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
         {/* As wide as the page under it, so the logo lines up with the content's left edge. */}
-        <div className={cx('mx-auto flex h-16 w-full items-center gap-8 px-6', wide ? 'max-w-none' : 'max-w-[1280px]')}>
+        <div
+          className={cx(
+            'mx-auto flex h-16 w-full items-center gap-3 px-4 md:gap-8 md:px-6',
+            wide ? 'max-w-none' : 'max-w-[1280px]',
+          )}
+        >
           <Link to="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
             <Logo />
           </Link>
-          <nav aria-label="Sections" className="flex gap-1">
+          <nav aria-label="Sections" className="hidden gap-1 md:flex">
             {NAV.map(({ to, label }) => (
               <NavLink
                 key={to}
@@ -67,7 +74,17 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              aria-expanded={menu}
+              aria-controls="section-menu"
+              onClick={() => setMenu((m) => !m)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink hover:bg-sunken focus-visible:outline-2 focus-visible:outline-accent md:hidden"
+            >
+              {menu ? <X aria-hidden className="size-4" /> : <Menu aria-hidden className="size-4" />}
+              Menu
+            </button>
             <AccountMenu
               user={user}
               onChangePassword={onChangePassword}
@@ -76,6 +93,25 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
             />
           </div>
         </div>
+        {menu && (
+          <nav id="section-menu" aria-label="Menu" className="flex flex-col gap-1 border-t border-line px-4 py-3 md:hidden">
+            {NAV.map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={() => setMenu(false)}
+                className={({ isActive }) =>
+                  cx(
+                    'rounded-lg px-3 py-2.5 text-base font-medium',
+                    isActive ? 'bg-sunken text-ink' : 'text-subtle hover:text-ink',
+                  )
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
       </header>
 
       {/* BUG-032: w-full and min-w-0 give the page a definite width, so the chart — which holds the
