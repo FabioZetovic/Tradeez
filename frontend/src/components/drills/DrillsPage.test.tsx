@@ -18,12 +18,13 @@ const kind = (id: string, mode: DrillKindView['mode'], title: string, conceptId:
 
 /** Out of the page's order on purpose, with one kind no topic names. */
 const KINDS = [
+  // Before the FVG on purpose: the page orders drills by their lessons.
+  kind('VI_IDENTIFICATION', 'IDENTIFY', 'Volume imbalances', 'ICT-25'),
   kind('BOS_CHOCH_CLASSIFICATION', 'CLASSIFY', 'Break of structure or change of character', 'ICT-06'),
   kind('FVG_IDENTIFICATION', 'IDENTIFY', 'Fair value gaps', 'ICT-20'),
   kind('LIQUIDITY_FIRST_PREDICTION', 'PREDICT', 'Which liquidity is taken first', 'ICT-16'),
   kind('OPEN_TRADE_MANAGEMENT', 'MANAGE', 'Manage an open trade', 'ICT-82'),
   kind('BRAND_NEW_IDENTIFICATION', 'IDENTIFY', 'Something new', 'ICT-99'),
-  kind('VI_IDENTIFICATION', 'IDENTIFY', 'Volume imbalances', 'ICT-25'),
 ]
 
 const concept = (id: string, over: Partial<ConceptProgress>): ConceptProgress => ({

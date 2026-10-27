@@ -275,6 +275,34 @@ detectors, rules and chart layers that use their ids keep working.
 
 **Reconsider if** a drill cannot be built for a "needs a drill" lesson — it then becomes a reference card.
 
+**DEC-082 — Learn by topic, locked by drills: learning-1.1.0, twelve new drills, the lesson texts** · `IMPLEMENTED` ·
+Fabio + Claude, Session 018 (2026-10-26/27), T45 — supersedes DEC-059's ladder
+
+Fabio: "with locked sessions, with progress measurements, and most importantly GROUPED TOGETHER" · "passing the drill
+unlocks the next session". Asked at the start: a drill is passed at **5 answers averaging 70%** or better over the last
+20, and the twelve missing drills are built inside T45.
+
+- **The curriculum** gains a Topics table in ICT_CONCEPTS.md (DEC-081): every concept a lesson, a reference card, merged
+  into a lesson, or removed. The registry refuses a document that leaves one out. Merged and removed concepts stay in
+  `/api/concepts`, so their rules and chart layers keep working; Learn shows the 33 pages.
+- **learning-1.1.0**: every drill of a lesson counts toward passing it — marking and naming by their score, a prediction,
+  a managed trade, a judgement or a risk question (ICT-83) as right or wrong. Inside a topic the first lesson is open and
+  each next one opens when the one before it is passed; reference cards never lock and are done once read. The level
+  ladder is gone. Reviews stay SM-2.
+- **Twelve drills**: spot drills for the IFVG, order block, breaker and unicorn (every candle their rule read on the
+  chart), and the two swings holding the nearest resting liquidity (BSL/SSL); a new **mode J, judgement** — a question
+  about the chart as it stands, answered by a rule when it is asked, its reasons in prices — for premium or discount,
+  inside the OTE or not, which power of three (a whole New York day, 15-minute candles), where the stop goes after a
+  sweep (Fabio's standard: beyond the high or low that made the sweep), and whether a Silver Bullet or 2022 model setup is
+  there (practice's checklist, DEC-066); and the daily bias, a prediction: from the 09:30 open, yesterday's high or low
+  first. Where one answer is far likelier, the answer is drawn first and a chart found for it. V30–V32.
+- **The lesson texts**: one Markdown file per page in `backend/src/main/resources/lessons/` — a summary, what it is, how
+  to spot it, how it is traded — in plain trader language, for Fabio's review topic by topic. The start fails if a page
+  has none.
+
+**Reconsider if** 5 at 70% proves too easy or too hard in use — the two numbers are constants of the rule, and a new
+version says so.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and

@@ -138,6 +138,23 @@ describe('Learn, by topic (T45)', () => {
 })
 
 describe('Learn, the states that could clash', () => {
+  it('a reference card between two lessons is never the drill to pass', async () => {
+    const state = learning([p('ICT-01', 'Structure', { open: true }), p('ICT-03', 'Structure')], 'ICT-01')
+    serve({
+      ...state,
+      topics: [{ title: 'Structure', concepts: ['ICT-01', 'ICT-44', 'ICT-03'], complete: 0 }],
+      concepts: [...state.concepts, p('ICT-44', 'Structure', { kind: 'REFERENCE', drilled: false, state: 'UNREAD', open: true })],
+    })
+    render(
+      <MemoryRouter>
+        <LearnPage />
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { level: 2, name: 'Structure' })
+    expect(tile('Market structure')).toHaveTextContent('Pass the Swing high / swing low drill to unlock')
+  })
+
+
   it('a locked lesson shows its lock even when due; "Start here" only for someone who has done nothing yet', async () => {
     const state = learning(
       [

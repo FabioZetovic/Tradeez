@@ -2054,6 +2054,18 @@ Fabio went through them on a page with an Accept and a Change button for each, a
 Learn goes from 72 pages to 25 lessons with drills and 8 reference cards, in nine topics, starting with market
 structure. The IFVG — "much much much more important" — gets the first new drill.
 
+**T45 — Learn rebuilt** (`feat/t45-learn`). Fabio: *"with locked sessions, with progress measurements, and most
+importantly GROUPED TOGETHER"* · *"passing the drill unlocks the next session"*. Learn now opens on nine topics, each a
+short path of lessons with its progress, a ring and a state on every lesson — done, due for review, next (it glows), or
+locked, saying which drill opens it — and "Start here" for a newcomer. A lesson reads in one template: what it is, how to
+spot it, how it is traded, real NQ examples, the rule (folded), what the data says, and the drill. A drill is passed at
+five answers averaging 70% (Fabio's choice), and that opens the next lesson. Every kept lesson now has its drill: twelve
+were built — four to spot (IFVG, order block, breaker, unicorn), one to mark where the stops rest, six questions the rule
+answers about the chart as it stands (premium or discount, the OTE, power of three, where the stop goes, and whether a
+Silver Bullet or 2022 model setup is there) and the daily bias, answered by what price did. Each was tried on the real
+history before it was kept. The 33 lesson texts are written for Fabio to review. Mutations: 15 frontend and 14 backend.
+Backend 723 → 748, frontend 443 → 442 (the old Learn screen's tests went with it; the new pages have their own).
+
 ---
 
 ## For the presentation: the disclaimer slide
