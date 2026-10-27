@@ -88,6 +88,14 @@ public interface Detector {
 		return detect(segment, timeframe);
 	}
 
+	/**
+	 * The same, told which market the candles are ({@code symbol}, or null when unknown). A rule whose size is
+	 * set per market reads it (BUG-099: a volume imbalance's minimum); the rest ignore it.
+	 */
+	default List<Detection> detect(List<Bar> segment, String symbol, Companion companion, Timeframe timeframe) {
+		return detect(segment, companion, timeframe);
+	}
+
 	/** Another market's candles beside a segment (T20), in time order; {@link #NONE} for a rule that reads one. */
 	record Companion(String symbol, List<Bar> bars) {
 

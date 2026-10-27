@@ -106,7 +106,7 @@ public final class EvidenceCalculator {
 	 * @param segments the market's candles of {@code timeframe}, oldest first, split at contract rolls
 	 */
 	public static RuleEvidence measure(Detector detector, Timeframe timeframe, List<List<Bar>> segments) {
-		return measure(detector, timeframe, segments, segment -> Detector.Companion.NONE);
+		return measure(detector, null, timeframe, segments, segment -> Detector.Companion.NONE);
 	}
 
 	/**
@@ -117,18 +117,24 @@ public final class EvidenceCalculator {
 	 */
 	public static RuleEvidence measure(Detector detector, Timeframe timeframe, List<List<Bar>> segments,
 			Function<List<Bar>, Detector.Companion> beside) {
+		return measure(detector, null, timeframe, segments, beside);
+	}
+
+	/** The same on a named market ({@code symbol}), for a rule whose size is set per market (BUG-099). */
+	public static RuleEvidence measure(Detector detector, String symbol, Timeframe timeframe, List<List<Bar>> segments,
+			Function<List<Bar>, Detector.Companion> beside) {
 		List<List<Bar>> nonEmpty = segments.stream().filter(s -> !s.isEmpty()).toList();
 		long candles = nonEmpty.stream().mapToLong(List::size).sum();
 		Instant from = nonEmpty.isEmpty() ? Instant.EPOCH : nonEmpty.getFirst().getFirst().openTime();
 		Instant to = nonEmpty.isEmpty() ? Instant.EPOCH : nonEmpty.getLast().getLast().openTime().plus(timeframe.duration());
 		LifeRule life = LIVES.get(detector.id());
 		if (life != null) {
-			return lives(detector, timeframe, nonEmpty, life, from, to, candles, beside);
+			return lives(detector, symbol, timeframe, nonEmpty, life, from, to, candles, beside);
 		}
 		Map<String, Long> kinds = new LinkedHashMap<>();
 		long hits = 0;
 		for (List<Bar> segment : nonEmpty) {
-			for (Detection d : detector.detect(segment, beside.apply(segment), timeframe)) {
+			for (Detection d : detector.detect(segment, symbol, beside.apply(segment), timeframe)) {
 				hits++;
 				kinds.merge(d.kind() != null ? d.kind() : d.direction().name(), 1L, Long::sum);
 			}
@@ -138,7 +144,7 @@ public final class EvidenceCalculator {
 		return new RuleEvidence(from, to, candles, hits, largestFirst(kinds), null, periods);
 	}
 
-	private static RuleEvidence lives(Detector detector, Timeframe timeframe, List<List<Bar>> segments, LifeRule rule,
+	private static RuleEvidence lives(Detector detector, String symbol, Timeframe timeframe, List<List<Bar>> segments, LifeRule rule,
 			Instant from, Instant to, long candles, Function<List<Bar>, Detector.Companion> beside) {
 		long lives = 0;
 		long ended = 0;
@@ -148,7 +154,7 @@ public final class EvidenceCalculator {
 			List<Instant> opens = segment.stream().map(Bar::openTime).toList();
 			// One life per zone: its anchor and direction (a range's premium and discount are two).
 			Map<String, List<Detection>> byLife = new LinkedHashMap<>();
-			for (Detection d : detector.detect(segment, beside.apply(segment), timeframe)) {
+			for (Detection d : detector.detect(segment, symbol, beside.apply(segment), timeframe)) {
 				byLife.computeIfAbsent(d.anchor() + "|" + d.direction() + "|" + d.lowTicks() + "|" + d.highTicks(),
 					k -> new ArrayList<>()).add(d);
 			}

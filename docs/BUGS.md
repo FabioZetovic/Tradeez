@@ -17,26 +17,6 @@
 
 ## Open
 
-### BUG-099 🟠 The volume imbalance rule finds almost nothing on ES
-
-**Status:** found by the post-redesign audit (2026-10-27): 17 of 18 volume-imbalance drills on ES answered 503 "Could
-not find a suitable stretch of chart"; every one on NQ was made. **Affects:** the ICT-25 drill on ES, the Chart tab's
-VI layer on ES, and the rule's evidence there.
-
-`vi-1.0.0` asks for a gap of at least 4 ticks between the two bodies — one point, measured on NQ (session 017: about
-1.6 per 30 candles on every timeframe). ES moves about a fifth as many points as NQ, so its body gaps are smaller.
-Measured on 2025 at 5m, 15m and 1h, per 30 candles:
-
-| Minimum gap | NQ | ES |
-|---|---|---|
-| 1 tick | 6.2–6.7 | 3.8–4.0 |
-| 2 ticks | 4.0–4.3 | 0.15–0.21 |
-| 4 ticks (the rule) | 1.41–1.45 | 0.01 |
-
-**Next — Fabio's call, because it changes a versioned rule:** a minimum per market (`vi-1.1.0`: one point on NQ, one
-tick on ES — ICT's own definition has no minimum), or ES leaves the volume imbalance drill and layer. Until then a
-learner who picks ES for that drill gets "try again".
-
 ### BUG-073 🟠 Deployed on two sites, the page could not send the CSRF token, and Safari would drop the session
 
 **Status:** reasoned (session 017's security pass, 2026-10-17) — not deployed, so not reproduced. **Deferred by
@@ -452,6 +432,33 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-099 🟠 The volume imbalance rule finds almost nothing on ES
+
+**Status:** found by the post-redesign audit (2026-10-27): 17 of 18 volume-imbalance drills on ES answered 503 "Could
+not find a suitable stretch of chart"; every one on NQ was made. **Affects:** the ICT-25 drill on ES, the Chart tab's
+VI layer on ES, and the rule's evidence there.
+
+`vi-1.0.0` asks for a gap of at least 4 ticks between the two bodies — one point, measured on NQ (session 017: about
+1.6 per 30 candles on every timeframe). ES moves about a fifth as many points as NQ, so its body gaps are smaller.
+Measured on 2025 at 5m, 15m and 1h, per 30 candles:
+
+| Minimum gap | NQ | ES |
+|---|---|---|
+| 1 tick | 6.2–6.7 | 3.8–4.0 |
+| 2 ticks | 4.0–4.3 | 0.15–0.21 |
+| 4 ticks (the rule) | 1.41–1.45 | 0.01 |
+
+Offered a minimum per market or ES leaving the drill and layer, Fabio chose the first (DEC-083).
+
+**✅ FIXED — 2026-10-27, `fix/post-redesign-audit`.** `vi-1.1.0`: at least a point on NQ as before, at least a tick on
+ES. A detector is now told which market it reads; the scanner and the evidence pass it along, and each hit keeps the
+minimum it was found under, so its explanation reads "1 tick … on this market" on ES. Tests: the rule on both markets,
+the scanner and the evidence passing the market (a 2-tick gap made in the ES fixture, whose simulated minutes have
+none); five mutants, all caught. Live: 36 of 36 volume imbalance drills made on NQ and ES at 1m, 5m and 15m (ES was 1
+in 18); the Chart tab's ES layer finds 96 over three days at 5m.
+**Lesson:** a size measured on one market is a fact about that market. When a second one arrives, every fixed size in
+ticks or points is a question to ask again.
 
 ### BUG-100 🟢 The guide, sign-up and Learn still said "real NQ" only
 

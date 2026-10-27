@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.tradeez.AbstractIntegrationTest;
+import com.tradeez.ThreeWeeksOfEs;
 import com.tradeez.ThreeWeeksOfNq;
 import com.tradeez.analysis.Detector;
 import com.tradeez.analysis.DetectorRegistry;
@@ -94,6 +95,39 @@ class EvidenceServiceTest extends AbstractIntegrationTest {
 		assertThat(stored.get(1).evidence()).isEqualTo(expected);
 		assertThat(expected.hits()).isPositive();
 		assertThat(expected.lives().ended()).isPositive().isLessThanOrEqualTo(expected.hits());
+	}
+
+	@Test
+	@DisplayName("BUG-099: a rule whose size is set per market is counted with its market's numbers")
+	void perMarket() {
+		Instrument es = marketData.requireInstrument("ES");
+		ThreeWeeksOfEs.insert(marketData, barStore);
+		try {
+			// The fixture's minutes open where the last one closed: give two of them bodies 2 ticks apart, wicks
+			// overlapping — a volume imbalance on ES, too small for NQ's point.
+			Instant[] coverage = marketData.coverage(es);
+			Instant first = coverage[0].plus(java.time.Duration.ofHours(2));
+			jdbc.update("""
+				UPDATE market_bar SET open_ticks = 100, close_ticks = 102, high_ticks = 104, low_ticks = 99
+				WHERE instrument_id = ? AND resolution = '1m' AND open_time = ?""", es.getId(),
+				java.sql.Timestamp.from(first));
+			jdbc.update("""
+				UPDATE market_bar SET open_ticks = 104, close_ticks = 106, high_ticks = 107, low_ticks = 103
+				WHERE instrument_id = ? AND resolution = '1m' AND open_time = ?""", es.getId(),
+				java.sql.Timestamp.from(first.plusSeconds(60)));
+			evidence.refresh(es);
+			Detector vi = detectors.require("VI");
+			var segments = Segments.atRolls(marketData.internalBars(es, Timeframe.M1, coverage[0], coverage[1], 0).bars(),
+				marketData.rolls(es, coverage[0], coverage[1]));
+			EvidenceCalculator.RuleEvidence onEs = EvidenceCalculator.measure(vi, "ES", Timeframe.M1, segments,
+				segment -> Detector.Companion.NONE);
+			assertThat(onEs.hits()).as("ES's minimum finds what NQ's does not")
+				.isGreaterThan(EvidenceCalculator.measure(vi, Timeframe.M1, segments).hits());
+			assertThat(evidence.forRule(es, vi)).filteredOn(s -> s.timeframe() == Timeframe.M1).singleElement()
+				.satisfies(s -> assertThat(s.evidence()).isEqualTo(onEs));
+		} finally {
+			ThreeWeeksOfEs.remove(marketData, jdbc);
+		}
 	}
 
 	@Test

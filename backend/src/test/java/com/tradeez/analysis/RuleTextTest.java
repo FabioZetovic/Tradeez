@@ -129,11 +129,11 @@ class RuleTextTest {
 	@DisplayName("a volume imbalance and a displacement, from their candles' numbers")
 	void imbalanceAndDisplacement() {
 		DetectedSetup vi = setup(new VolumeImbalanceDetector(), null, "BEARISH", 80_000, 80_006, evidence(
-			"candle1LowTicks", 79_990, "candle2HighTicks", 80_002, "sizeTicks", 6));
+			"candle1LowTicks", 79_990, "candle2HighTicks", 80_002, "sizeTicks", 6, "minTicks", 4));
 		assertThat(RuleText.explain(vi, NQ_TICK)).containsExactly(
 			"Candle 1's body bottoms out at 20001.50; candle 2's body tops out at 20000.00, 6 ticks lower.",
 			"The bodies do not touch, but the wicks overlap: candle 2's high, 20000.50, is not below candle 1's low, 19997.50.",
-			"At least the rule's 4 ticks between the bodies: a bearish volume imbalance.");
+			"At least the rule's 4 ticks between the bodies on this market: a bearish volume imbalance.");
 
 		DetectedSetup move = setup(new DisplacementDetector(), null, "BULLISH", 80_000, 80_060,
 			evidence("candles", 2, "bodyTicks", 58, "rangeSumTicks", 140));
@@ -148,7 +148,7 @@ class RuleTextTest {
 	void rules() {
 		assertThat(RuleText.definition(new FvgDetector())).contains("25%").contains("14 candles");
 		assertThat(RuleText.definition(new SwingDetector())).contains("the high of the candle before it");
-		assertThat(RuleText.definition(new VolumeImbalanceDetector())).contains("at least 4 ticks");
+		assertThat(RuleText.definition(new VolumeImbalanceDetector())).contains("at least 4 ticks (a point) on NQ and 1 tick on ES");
 		assertThat(RuleText.definition(new SweepDetector())).contains("next 2 candles").contains("500");
 		assertThat(RuleText.definition(new EqualHighsLowsDetector())).contains("10%").contains("3 candles");
 		for (Detector d : List.of(new DisplacementDetector(), new StructureDetector(), new BosChochDetector())) {
