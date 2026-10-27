@@ -4,27 +4,24 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * {@code learning-1.0.0} (T16, DEC-059): what a learner's record says about each concept — written as
- * plainly as possible, because the learner is shown the rule beside the result.
+ * {@code learning-1.1.0} (T45, DEC-082; was {@code learning-1.0.0}, T16, DEC-059): what a learner's record says about
+ * each concept Learn teaches — written as plainly as possible, because the learner is shown the rule beside the result.
  *
  * <ul>
- *   <li><b>Rated</b> concepts are those a drill grades against a rule (modes A and B, ICT_CONCEPTS.md:
- *       "solid is measured on D and R concepts only"). Each attempt scores 0 to 1 — a name right or
- *       wrong; for marking, the share of the answer found once misses and extra marks count against it.
- *       A concept is <b>solid</b> once it has at least {@value #SOLID_MIN_ATTEMPTS} attempts and the last
- *       {@value #RECENT} average at least {@value #SOLID_PERCENT}%.</li>
- *   <li>Prediction drills (mode C) are practice, never a rating: a judgement concept "unlocks by use,
- *       never by a score".</li>
- *   <li>A concept no drill rates is <b>done</b> once its card is read — or, for one a prediction drill
- *       practises, once that is done.</li>
+ *   <li>A <b>lesson</b> with a drill is <b>passed</b> (the state {@code SOLID}) once its drills have been answered at
+ *       least {@value #SOLID_MIN_ATTEMPTS} times and the last {@value #RECENT} average at least {@value #SOLID_PERCENT}%
+ *       — Fabio's mark. Every drill of the concept counts: marking and naming by their score, a prediction or a
+ *       managed trade 1 when right. Each attempt scores 0 to 1.</li>
+ *   <li>A lesson whose drill is not built yet, and a <b>reference card</b>, are <b>done</b> once read.</li>
+ *   <li><b>Locks</b>: inside a topic the first lesson is open, and each lesson after it opens once the lesson
+ *       before it is passed. Reference cards never lock.</li>
  *   <li><b>Review</b> follows SM-2, Anki's scheduler, one review per concept per day (UTC): the day's
  *       mean score is the review's quality. A poor day ({@value #PASS_PERCENT}% or less) brings the
  *       concept back the next day; good ones push it out — 1 day, 6 days, then by its ease.</li>
@@ -34,10 +31,10 @@ import java.util.TreeMap;
  */
 public final class LearningRule {
 
-	public static final String VERSION = "learning-1.0.0";
-	static final int SOLID_MIN_ATTEMPTS = 10;
+	public static final String VERSION = "learning-1.1.0";
+	static final int SOLID_MIN_ATTEMPTS = 5;
 	static final int RECENT = 20;
-	static final int SOLID_PERCENT = 80;
+	static final int SOLID_PERCENT = 70;
 	/** At or below this a day's review is a lapse (SM-2 quality under 3). */
 	static final int PASS_PERCENT = 50;
 	private static final double START_EASE = 2.5;
@@ -48,69 +45,72 @@ public final class LearningRule {
 
 	/** The rule in words, from the same constants the rule runs on. */
 	public static String definition() {
-		return VERSION + ". A concept a drill grades against a rule — by marking or by naming, on real data — is solid "
-			+ "once it has at least " + SOLID_MIN_ATTEMPTS + " attempts and the last " + RECENT + " average at least "
-			+ SOLID_PERCENT + "%. Each attempt scores 0 to 1: a name right or wrong; marks by the share of the answer "
-			+ "found, misses and extra marks counting against it. Prediction drills are practice, never a rating. A "
-			+ "concept no drill grades is done once its card is read, or practised. Reviews are spaced as Anki spaces "
-			+ "them (SM-2), one a day per concept: a day at " + PASS_PERCENT + "% or less brings it back the next day; "
-			+ "good days push it out — a day, six days, then further each time. A level opens when the levels it "
-			+ "builds on are complete; the ladder suggests, it never locks.";
+		return VERSION + ". A lesson is passed once its drills have been answered at least " + SOLID_MIN_ATTEMPTS
+			+ " times and the last " + RECENT + " average at least " + SOLID_PERCENT + "%. Each answer scores 0 to 1: "
+			+ "a name or a prediction right or wrong; marks by the share of the answer found, misses and extra marks "
+			+ "counting against it. Inside a topic the first lesson is open and each next one opens when the one before "
+			+ "it is passed; reference cards never lock, and are done once read. Reviews are spaced as Anki spaces them "
+			+ "(SM-2), one a day per lesson: a day at " + PASS_PERCENT + "% or less brings it back the next day; good "
+			+ "days push it out — a day, six days, then further each time.";
 	}
 
-	/** One graded drill, as the record keeps it. */
+	/**
+	 * One graded drill, as the record keeps it.
+	 *
+	 * @param rated marking or naming, graded against a rule; a prediction, a managed trade or a risk question is not
+	 *              — it still counts toward passing its lesson
+	 */
 	public record Attempt(String conceptId, Instant at, double score, boolean rated) {
 	}
 
 	public enum State {
-		/** Rated, never attempted. */
+		/** A drilled lesson never attempted. */
 		NEW,
-		/** Rated, attempted, not solid yet. */
+		/** Attempted, not passed yet. */
 		LEARNING,
+		/** Passed. */
 		SOLID,
-		/** No drill rates it, and it has not been read or practised. */
+		/** No drill: not read yet. */
 		UNREAD,
-		/** No drill rates it, and it has been read or practised. */
+		/** No drill: read. */
 		DONE
 	}
 
 	/**
-	 * @param recentAccuracy the mean score of the last {@value #RECENT} rated attempts, 0 to 1; null without any
-	 * @param nextReview     the day a rated concept is due again; null before its first attempt
+	 * @param drilled        a drill practises it
+	 * @param attempts       its drills answered
+	 * @param recentAccuracy the mean score of the last {@value #RECENT} attempts, 0 to 1; null without any
+	 * @param practised      of the attempts, those not graded against a rule (predictions, managed trades, risk)
+	 * @param nextReview     the day a drilled concept is due again; null before its first attempt
 	 */
-	public record Progress(String conceptId, boolean rated, State state, int attempts, int recentCount,
+	public record Progress(String conceptId, boolean drilled, State state, int attempts, int recentCount,
 			Double recentAccuracy, int practised, Instant readAt, Instant lastPractised, LocalDate nextReview,
 			boolean due) {
 
-		/** Solid, or done: what a level's unlock counts. */
+		/** Passed, or done: what opens the next lesson. */
 		public boolean complete() {
 			return state == State.SOLID || state == State.DONE;
 		}
 	}
 
-	/**
-	 * A concept's progress from its attempts and whether its card was read.
-	 *
-	 * @param rated whether any drill grades this concept against a rule
-	 */
-	static Progress progress(String conceptId, boolean rated, List<Attempt> attempts, Instant readAt, LocalDate today) {
+	/** A concept's progress from its attempts and whether its card was read. */
+	static Progress progress(String conceptId, boolean drilled, List<Attempt> attempts, Instant readAt, LocalDate today) {
 		List<Attempt> mine = attempts.stream().filter(a -> a.conceptId().equals(conceptId))
 			.sorted(Comparator.comparing(Attempt::at)).toList();
-		List<Attempt> graded = mine.stream().filter(Attempt::rated).toList();
 		int practised = (int) mine.stream().filter(a -> !a.rated()).count();
 		Instant last = mine.isEmpty() ? null : mine.getLast().at();
-		if (!rated) {
-			State state = readAt != null || practised > 0 ? State.DONE : State.UNREAD;
+		if (!drilled) {
+			State state = readAt != null ? State.DONE : State.UNREAD;
 			return new Progress(conceptId, false, state, 0, 0, null, practised, readAt, last, null, false);
 		}
-		if (graded.isEmpty()) {
-			return new Progress(conceptId, true, State.NEW, 0, 0, null, practised, readAt, last, null, false);
+		if (mine.isEmpty()) {
+			return new Progress(conceptId, true, State.NEW, 0, 0, null, 0, readAt, null, null, false);
 		}
-		List<Attempt> recent = graded.subList(Math.max(0, graded.size() - RECENT), graded.size());
+		List<Attempt> recent = mine.subList(Math.max(0, mine.size() - RECENT), mine.size());
 		double accuracy = recent.stream().mapToDouble(Attempt::score).average().orElseThrow();
-		boolean solid = graded.size() >= SOLID_MIN_ATTEMPTS && 100 * accuracy >= SOLID_PERCENT - 1e-9;
-		LocalDate next = nextReview(graded);
-		return new Progress(conceptId, true, solid ? State.SOLID : State.LEARNING, graded.size(), recent.size(),
+		boolean solid = mine.size() >= SOLID_MIN_ATTEMPTS && 100 * accuracy >= SOLID_PERCENT - 1e-9;
+		LocalDate next = nextReview(mine);
+		return new Progress(conceptId, true, solid ? State.SOLID : State.LEARNING, mine.size(), recent.size(),
 			accuracy, practised, readAt, last, next, !today.isBefore(next));
 	}
 
@@ -149,79 +149,54 @@ public final class LearningRule {
 	}
 
 	/**
-	 * When a level of the ladder opens (ICT_CONCEPTS.md, Part 12). The ladder suggests; it never locks —
-	 * every card stays open to read.
+	 * One topic's pages as the locks see them, in the order taught.
+	 *
+	 * @param lessons for each page, true for a lesson and false for a reference card
 	 */
-	sealed interface Unlock {
-		/** Reference knowledge, or the start. */
-		record Always() implements Unlock {
-		}
-
-		/** Every concept of these levels complete. */
-		record LevelsComplete(Set<Integer> levels) implements Unlock {
-		}
-
-		/** Each concept of the level opens on its own, once the concepts it builds on are complete. */
-		record EachOnItsPrerequisites() implements Unlock {
-		}
-
-		/** Opens with another level. */
-		record With(int level) implements Unlock {
-		}
+	record Topic(String title, List<String> concepts, Map<String, Boolean> lessons) {
 	}
 
-	/** Part 12's "Unlocks when", as {@code learning-1.0.0} settles it. */
-	static final Map<Integer, Unlock> LADDER = Map.of(
-		0, new Unlock.Always(),
-		1, new Unlock.LevelsComplete(Set.of(0)),
-		2, new Unlock.LevelsComplete(Set.of(1)),
-		3, new Unlock.LevelsComplete(Set.of(1)),
-		4, new Unlock.LevelsComplete(Set.of(2, 3)),
-		5, new Unlock.LevelsComplete(Set.of(1)),
-		6, new Unlock.Always(),
-		7, new Unlock.LevelsComplete(Set.of(2, 5, 6)),
-		8, new Unlock.EachOnItsPrerequisites(),
-		9, new Unlock.With(8));
-
-	/** What the learner needs to know about a concept to place it on the ladder. */
-	record Placed(String conceptId, int level, List<String> prerequisites) {
-	}
-
-	/** Whether each level is open, given every concept's progress. */
-	static Map<Integer, Boolean> openLevels(Collection<Placed> concepts, Map<String, Progress> progress) {
-		Map<Integer, Boolean> open = new TreeMap<>();
-		for (int level : new TreeMap<>(LADDER).keySet()) {
-			open.put(level, opens(level, concepts, progress));
+	/**
+	 * Which pages are open: inside each topic the first lesson, and each lesson after it once the lesson before it is
+	 * complete; reference cards always.
+	 */
+	static Map<String, Boolean> open(List<Topic> topics, Map<String, Progress> progress) {
+		Map<String, Boolean> open = new LinkedHashMap<>();
+		for (Topic topic : topics) {
+			String before = null;
+			for (String id : topic.concepts()) {
+				if (!topic.lessons().get(id)) {
+					open.put(id, true);
+					continue;
+				}
+				open.put(id, before == null || progress.get(before).complete());
+				before = id;
+			}
 		}
 		return open;
 	}
 
-	private static boolean opens(int level, Collection<Placed> concepts, Map<String, Progress> progress) {
-		return switch (LADDER.get(level)) {
-			case Unlock.Always a -> true;
-			case Unlock.LevelsComplete c -> c.levels().stream().allMatch(l -> complete(l, concepts, progress));
-			case Unlock.EachOnItsPrerequisites e -> concepts.stream().filter(p -> p.level() == level)
-				.anyMatch(p -> ready(p, progress));
-			case Unlock.With w -> opens(w.level(), concepts, progress);
-		};
-	}
-
-	/** Every concept of the level solid or done. A level with no concepts in it is not complete. */
-	static boolean complete(int level, Collection<Placed> concepts, Map<String, Progress> progress) {
-		List<Placed> in = concepts.stream().filter(p -> p.level() == level).toList();
-		return !in.isEmpty() && in.stream().allMatch(p -> progress.get(p.conceptId()).complete());
-	}
-
-	/** The concepts a concept builds on are all complete. */
-	static boolean ready(Placed concept, Map<String, Progress> progress) {
-		return concept.prerequisites().stream().allMatch(id -> progress.containsKey(id) && progress.get(id).complete());
-	}
-
-	/** Whether a concept is open to be suggested: its level is, and in level 8 the concept itself is. */
-	static boolean open(Placed concept, Map<Integer, Boolean> levels, Map<String, Progress> progress) {
-		if (!levels.getOrDefault(concept.level(), false)) {
-			return false;
+	/**
+	 * The next page to work on: the first open, incomplete lesson of the furthest topic the learner has started — some
+	 * of it complete, not all — or, before any, of the first topic with one.
+	 */
+	static String suggested(List<Topic> topics, Map<String, Progress> progress, Map<String, Boolean> open) {
+		Topic started = null;
+		for (Topic topic : topics) {
+			List<String> lessons = topic.concepts().stream().filter(topic.lessons()::get).toList();
+			long complete = lessons.stream().filter(id -> progress.get(id).complete()).count();
+			if (complete > 0 && complete < lessons.size()) {
+				started = topic;
+			}
 		}
-		return !(LADDER.get(concept.level()) instanceof Unlock.EachOnItsPrerequisites) || ready(concept, progress);
+		List<Topic> order = new ArrayList<>(topics);
+		if (started != null) {
+			order.remove(started);
+			order.addFirst(started);
+		}
+		return order.stream()
+			.flatMap(t -> t.concepts().stream().filter(t.lessons()::get))
+			.filter(id -> open.get(id) && !progress.get(id).complete())
+			.findFirst().orElse(null);
 	}
 }

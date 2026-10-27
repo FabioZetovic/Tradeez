@@ -18,17 +18,20 @@ const kind = (id: string, mode: DrillKindView['mode'], title: string, conceptId:
 
 /** Out of the page's order on purpose, with one kind no topic names. */
 const KINDS = [
+  // Before the FVG on purpose: the page orders drills by their lessons.
+  kind('VI_IDENTIFICATION', 'IDENTIFY', 'Volume imbalances', 'ICT-25'),
   kind('BOS_CHOCH_CLASSIFICATION', 'CLASSIFY', 'Break of structure or change of character', 'ICT-06'),
   kind('FVG_IDENTIFICATION', 'IDENTIFY', 'Fair value gaps', 'ICT-20'),
   kind('LIQUIDITY_FIRST_PREDICTION', 'PREDICT', 'Which liquidity is taken first', 'ICT-16'),
   kind('OPEN_TRADE_MANAGEMENT', 'MANAGE', 'Manage an open trade', 'ICT-82'),
   kind('BRAND_NEW_IDENTIFICATION', 'IDENTIFY', 'Something new', 'ICT-99'),
-  kind('VI_IDENTIFICATION', 'IDENTIFY', 'Volume imbalances', 'ICT-25'),
 ]
 
 const concept = (id: string, over: Partial<ConceptProgress>): ConceptProgress => ({
   id,
-  rated: true,
+  kind: 'LESSON',
+  topic: '',
+  drilled: true,
   state: 'LEARNING',
   attempts: 0,
   recentCount: 0,
@@ -43,8 +46,19 @@ const LEARNING = {
     concept('ICT-20', { attempts: 12, recentCount: 12, recentAccuracy: 0.666 }),
     concept('ICT-06', { attempts: 1, recentCount: 1 }),
     concept('ICT-25', {}),
-    concept('ICT-16', { rated: false, practised: 4 }),
+    concept('ICT-16', { attempts: 4, recentCount: 4, recentAccuracy: 0.5, practised: 4 }),
   ],
+}
+
+/** Learn's topics (DEC-081), the order the sections follow; ICT-99 is in none. */
+const CURRICULUM = {
+  topics: [
+    { title: 'Structure', concepts: ['ICT-01', 'ICT-06'] },
+    { title: 'Liquidity', concepts: ['ICT-16'] },
+    { title: 'Gaps & imbalances', concepts: ['ICT-20', 'ICT-23', 'ICT-25'] },
+    { title: 'Risk & management', concepts: ['ICT-83', 'ICT-82'] },
+  ],
+  concepts: [],
 }
 
 const RISK: RiskKindView[] = [
@@ -69,7 +83,7 @@ function serve(routes: Record<string, unknown>) {
   )
 }
 
-const ALL = { '/api/drills/kinds': KINDS, '/api/learning': LEARNING, '/api/drills/risk/kinds': RISK }
+const ALL = { '/api/drills/kinds': KINDS, '/api/learning': LEARNING, '/api/drills/risk/kinds': RISK, '/api/concepts': CURRICULUM }
 
 function Opened() {
   const params = useParams()
@@ -93,19 +107,18 @@ const card = (title: string) => screen.getByRole('link', { name: new RegExp(titl
 afterEach(() => vi.unstubAllGlobals())
 
 describe('Drills, the cards (T43)', () => {
-  it('groups the drills by topic, in the order they build on one another, Risk last', async () => {
+  it("groups the drills by Learn's topics, in Learn's order; the risk questions with Risk & management (T45)", async () => {
     serve(ALL)
     renderPage()
     expect(await screen.findByRole('heading', { name: 'Gaps & imbalances' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Drills' })).toBeInTheDocument()
     expect(screen.getByText('Short exercises on one idea at a time, on real NQ.')).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
-      'Gaps & imbalances',
       'Structure',
       'Liquidity',
-      'Trade management',
+      'Gaps & imbalances',
+      'Risk & management',
       'More drills',
-      'Risk',
     ])
     const gaps = screen.getByRole('region', { name: 'Gaps & imbalances' })
     expect(within(gaps).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
@@ -117,11 +130,9 @@ describe('Drills, the cards (T43)', () => {
       'href',
       '/drills/BRAND_NEW_IDENTIFICATION',
     )
-    expect(within(screen.getByRole('region', { name: 'Risk' })).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
-      '/drills/risk/position-size',
-      '/drills/risk/losing-streak',
-      '/drills/risk/recovery',
-    ])
+    expect(
+      within(screen.getByRole('region', { name: 'Risk & management' })).getAllByRole('link').map((l) => l.getAttribute('href')),
+    ).toEqual(['/drills/OPEN_TRADE_MANAGEMENT', '/drills/risk/position-size', '/drills/risk/losing-streak', '/drills/risk/recovery'])
     expect(screen.getByRole('link', { name: /Next step/ })).toHaveAttribute('href', '/practice')
   })
 
@@ -137,7 +148,7 @@ describe('Drills, the cards (T43)', () => {
     expect(card('Position size')).toHaveTextContent('30 s each')
   })
 
-  it("carries the real record: a rated concept's tries and recent accuracy, a prediction's count, risk's tally", async () => {
+  it("carries the real record: the lesson's tries and recent accuracy — predictions too — and risk's tally", async () => {
     serve(ALL)
     renderPage()
     await screen.findByRole('heading', { name: 'Gaps & imbalances' })
@@ -145,7 +156,7 @@ describe('Drills, the cards (T43)', () => {
     expect(record('Fair value gaps')).toHaveTextContent('12 tries · 67% recently')
     expect(record('Break of structure')).toHaveTextContent(/^1 try$/)
     expect(record('Volume imbalances')).toHaveTextContent('Not tried yet')
-    expect(record('Which liquidity')).toHaveTextContent('4 answered')
+    expect(record('Which liquidity')).toHaveTextContent('4 tries · 50% recently')
     // No progress on the concept at all: nothing claimed.
     expect(record('Manage an open trade')).toHaveTextContent(/^\s*$/)
     expect(record('Position size')).toHaveTextContent('1 of 3 right')

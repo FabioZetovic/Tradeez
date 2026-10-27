@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -12,6 +13,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -46,6 +48,7 @@ import com.tradeez.drills.Prediction.Outcome;
 import com.tradeez.drills.Prediction.Question;
 import com.tradeez.drills.Prediction.Target;
 import com.tradeez.marketdata.Bar;
+import com.tradeez.practice.ModelChecklist;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
 import com.tradeez.marketdata.HiddenStretches;
@@ -93,6 +96,9 @@ public class DrillService {
 
 	/** Mode E: candles searched for a trade and its moment; the chart ends at the moment (T26). */
 	static final int MANAGE_WINDOW_BARS = 60;
+	/** Daily bias: from 08:00 New York the day before to the 09:30 open at 15 minutes — 102 slots, the halt's 4 empty. */
+	static final int BIAS_WINDOW_BARS = 102;
+	private static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
 
 	static final Set<Timeframe> REAL_TIMEFRAMES = EnumSet.of(Timeframe.M1, Timeframe.M5, Timeframe.M15);
 	static final Set<Timeframe> SIMULATED_TIMEFRAMES = EnumSet.of(Timeframe.M5, Timeframe.M15);
@@ -179,7 +185,8 @@ public class DrillService {
 		DrillKind kind = blank(kindCode) ? DEFAULT_KIND : DrillKind.parse(kindCode);
 		Instrument instrument = marketData.requireInstrument(blank(symbol) ? DEFAULT_INSTRUMENT : symbol);
 		boolean simulated = instrument.getDataClass() == DataClass.SIMULATED;
-		Timeframe timeframe = timeframe(timeframeCode, simulated, random);
+		Timeframe timeframe = kind.wholeDay() || kind == DrillKind.DAILY_BIAS_PREDICTION ? Timeframe.M15
+			: kind.model() != null ? Timeframe.M5 : timeframe(timeframeCode, simulated, random);
 		if (simulated) {
 			if (kind != DrillKind.FVG_IDENTIFICATION) {
 				throw new IllegalArgumentException("On simulated data only the FVG drill runs, as a developer "
@@ -211,11 +218,20 @@ public class DrillService {
 			return view(drill, instrument, managed.bars(), List.of());
 		}
 		Detector detector = detectors.require(kind.detector());
+		if (kind.mode() == Mode.JUDGE) {
+			Judged judged = findJudgement(kind, detector, instrument, timeframe, avoid);
+			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
+				timeframe.code(), instrument.getDataClass(), detector.id(), detector.ruleVersion(), judged.from(), judged.to(),
+				Set.of(), json.convertValue(judged.asked(), JSON_OBJECT), judged.asked().answer(), judged.to(), judged.to())));
+			return view(drill, instrument, judged.bars(), List.of());
+		}
 		if (kind.mode() == Mode.PREDICT) {
-			Asked asked = findPrediction(kind, detector, instrument, timeframe, avoid);
+			Asked asked = kind == DrillKind.DAILY_BIAS_PREDICTION ? findDailyBias(instrument, timeframe, avoid)
+				: findPrediction(kind, detector, instrument, timeframe, avoid);
 			Drill drill = writeTx.execute(tx -> drills.save(new Drill(userId, kind.name(), instrument.getId(),
 				timeframe.code(), instrument.getDataClass(), detector.id(), detector.ruleVersion(), asked.from(), asked.to(),
-				asked.question().targets().stream().map(Target::setupId).collect(Collectors.toSet()),
+				asked.question().targets().stream().map(Target::setupId).filter(java.util.Objects::nonNull)
+					.collect(Collectors.toSet()),
 				json.convertValue(asked.question(), JSON_OBJECT), asked.outcome().value(), asked.outcome().at(),
 				asked.revealTo())));
 			return view(drill, instrument, asked.bars(), List.of());
@@ -267,7 +283,11 @@ public class DrillService {
 			if (choice == null || marks != null) {
 				throw new IllegalArgumentException("This drill is answered by choosing a name: send a choice.");
 			}
-			List<String> options = kind.mode() == Mode.CLASSIFY ? kind.optionsFor(key.getFirst()) : kind.predictions();
+			List<String> options = switch (kind.mode()) {
+				case CLASSIFY -> kind.optionsFor(key.getFirst());
+				case JUDGE -> json.convertValue(seen.getQuestion(), Judgement.Asked.class).values();
+				default -> kind.predictions();
+			};
 			if (!options.contains(choice)) {
 				throw new IllegalArgumentException("Choose one of " + options + ".");
 			}
@@ -292,6 +312,103 @@ public class DrillService {
 	 * @param excused A: candles a mark on which counts neither way
 	 */
 	private record Window(Instant from, Instant to, List<Bar> bars, List<DetectedSetup> key, List<Long> excused) {
+	}
+
+	/** A judgement drill: the chart and what the rule asks of it, with its answer (T45). */
+	private record Judged(Instant from, Instant to, List<Bar> bars, Judgement.Asked asked) {
+	}
+
+	/**
+	 * A stretch of open market, unbroken by a roll, the hidden practice stretches or a missing candle, about which the
+	 * kind's rule can ask its question.
+	 */
+	private Judged findJudgement(DrillKind kind, Detector detector, Instrument instrument, Timeframe timeframe,
+			List<HiddenStretches.Stretch> avoid) {
+		int length = kind.windowBars();
+		long step = timeframe.seconds();
+		Instant[] coverage = marketData.coverage(instrument);
+		if (coverage == null) {
+			throw new IllegalArgumentException("No real " + instrument.getSymbol()
+				+ " history has been imported yet, so there is nothing to drill on.");
+		}
+		Instant earliest = coverage[0].plus(HISTORY_MARGIN);
+		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(length)).minus(Duration.ofDays(1));
+		if (!earliest.isBefore(latest)) {
+			throw new IllegalArgumentException("Too little real " + instrument.getSymbol()
+				+ " history has been imported to drill on.");
+		}
+		// Where one answer is far likelier than another (price sits outside a zone more often than in it), the answer is
+		// drawn first and a chart found for it, so guessing the common one earns nothing.
+		List<String> balanced = kind.balancedAnswers();
+		String wanted = balanced.isEmpty() ? null : balanced.get(random.nextInt(balanced.size()));
+		// If the history has no chart with that answer, any chart rather than none.
+		Judged fallback = null;
+		for (int attempt = 0; attempt < MAX_ATTEMPTS * 3; attempt++) {
+			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
+			Instant from = kind.wholeDay()
+				? Instant.ofEpochSecond(second).atZone(NEW_YORK).toLocalDate().atStartOfDay(NEW_YORK).toInstant()
+				: Instant.ofEpochSecond(second - Math.floorMod(second, step));
+			if (kind.model() != null) {
+				// The chart ends at a moment in the model's hours, on the day drawn.
+				java.time.LocalTime[] hours = kind.endingHours().get(random.nextInt(kind.endingHours().size()));
+				long minutes = java.time.Duration.between(hours[0], hours[1]).toMinutes() / 5;
+				Instant end = Instant.ofEpochSecond(second).atZone(NEW_YORK).toLocalDate()
+					.atTime(hours[0].plusMinutes(5 * random.nextLong(minutes))).atZone(NEW_YORK).toInstant();
+				from = end.minusSeconds(length * step);
+			}
+			Instant to = from.plusSeconds(length * step);
+			if (HiddenStretches.touches(avoid, from, to) || !SessionCalendar.isOpenThroughout(from, to)
+					|| !marketData.rolls(instrument, from, to).isEmpty()) {
+				continue;
+			}
+			List<Bar> bars = marketData.internalBars(instrument, timeframe, from, to, SEED).bars();
+			if (bars.size() != length) {
+				continue;
+			}
+			if (kind.model() != null) {
+				Map<String, List<ModelChecklist.Hit>> byDetector = new java.util.LinkedHashMap<>();
+				List<Detector> rules = kind.model().detectors().stream().map(detectors::require).toList();
+				scanner.ensureScanned(rules, instrument, timeframe, SEED, from, to);
+				for (Detector rule : rules) {
+					byDetector.put(rule.id(), scanner.visible(rule, instrument, timeframe, SEED, from, to, to).stream()
+						.map(h -> new ModelChecklist.Hit(h.getDetector(), h.getKind(), h.getDirection(), h.getStartTime(),
+							h.getAnchorTime(), h.getEndTime(), h.getConfirmedAt(), h.getZoneLowTicks(), h.getZoneHighTicks(),
+							h.getEvidence()))
+						.toList());
+				}
+				Judgement.Asked asked = Judgement.model(kind.model(), bars, byDetector, to, timeframe, instrument.getTickSize());
+				if (asked != null && (wanted == null || wanted.equals(asked.answer()))) {
+					return new Judged(from, to, bars, asked);
+				}
+				if (asked != null && fallback == null) {
+					fallback = new Judged(from, to, bars, asked);
+				}
+				continue;
+			}
+			scanner.ensureScanned(detector, instrument, timeframe, SEED, from, to);
+			List<Judgement.Hit> hits = scanner.visible(detector, instrument, timeframe, SEED, from, to, to).stream()
+				.map(h -> new Judgement.Hit(h.getKind(), h.getDirection(), h.getStartTime(), h.getAnchorTime(),
+					h.getConfirmedAt(), h.getZoneLowTicks(), h.getZoneHighTicks(), h.getEvidence()))
+				.toList();
+			Judgement.Asked asked = switch (kind) {
+				case PREMIUM_DISCOUNT_JUDGEMENT ->
+					Judgement.premiumDiscount(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
+				case OTE_JUDGEMENT -> Judgement.ote(bars, hits, from.plusSeconds(kind.lead() * step), instrument.getTickSize());
+				case PO3_JUDGEMENT -> Judgement.po3(bars, hits, instrument.getTickSize());
+				case STOP_PLACEMENT_JUDGEMENT -> Judgement.stopPlacement(bars, hits, instrument.getTickSize(), random);
+				default -> throw new IllegalStateException(kind + " is not a judgement");
+			};
+			if (asked != null && (wanted == null || wanted.equals(asked.answer()))) {
+				return new Judged(from, to, bars, asked);
+			}
+			if (asked != null && fallback == null) {
+				fallback = new Judged(from, to, bars, asked);
+			}
+		}
+		if (fallback != null) {
+			return fallback;
+		}
+		throw new NoWindowFoundException();
 	}
 
 	/** A management drill: the chart up to the moment, the trade, and what each choice made (T26). */
@@ -419,6 +536,89 @@ public class DrillService {
 		throw new NoWindowFoundException();
 	}
 
+	/**
+	 * ICT-10's drill (T45): the levels resting when the chart ends, read as the prediction drills read them — the nearest
+	 * buy-side above the last close and the nearest sell-side below it, each swing on the chart with its left neighbour.
+	 * Empty unless there are both.
+	 */
+	static List<DetectedSetup> nearestLiquidity(List<DetectedSetup> stored, Bar last, Instant earliestSwing, Instant end) {
+		List<Level> resting = Prediction.levelsAt(hits(stored), earliestSwing, end).stream()
+			.filter(l -> "RESTING".equals(l.state())).toList();
+		Optional<Level> above = resting.stream().filter(l -> l.high() && l.price() > last.closeTicks())
+			.min(Comparator.comparingLong(Level::price));
+		Optional<Level> below = resting.stream().filter(l -> !l.high() && l.price() < last.closeTicks())
+			.max(Comparator.comparingLong(Level::price));
+		if (above.isEmpty() || below.isEmpty()) {
+			return List.of();
+		}
+		Set<UUID> ids = Set.of(above.get().id(), below.get().id());
+		return stored.stream().filter(s -> ids.contains(s.getId())).sorted(Comparator.comparing(DetectedSetup::getAnchorTime))
+			.toList();
+	}
+
+	/**
+	 * Daily bias (ICT-61, T45): a trading day whose 09:30 open sits between yesterday's high and low, the chart from 08:00
+	 * the day before to the open, and the candles after it deciding which of the two was taken first.
+	 */
+	private Asked findDailyBias(Instrument instrument, Timeframe timeframe, List<HiddenStretches.Stretch> avoid) {
+		int length = BIAS_WINDOW_BARS;
+		long step = timeframe.seconds();
+		Instant[] coverage = marketData.coverage(instrument);
+		if (coverage == null) {
+			throw new IllegalArgumentException("No real " + instrument.getSymbol()
+				+ " history has been imported yet, so there is nothing to drill on.");
+		}
+		Instant earliest = coverage[0].plus(HISTORY_MARGIN).plus(Duration.ofDays(2));
+		Instant latest = coverage[1].minus(FUTURE_REACH);
+		if (!earliest.isBefore(latest)) {
+			throw new IllegalArgumentException("Too little real " + instrument.getSymbol()
+				+ " history has been imported to drill on.");
+		}
+		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+			long second = earliest.getEpochSecond() + random.nextLong(latest.getEpochSecond() - earliest.getEpochSecond());
+			java.time.LocalDate date = Instant.ofEpochSecond(second).atZone(NEW_YORK).toLocalDate();
+			Instant moment = date.atTime(9, 30).atZone(NEW_YORK).toInstant();
+			Instant from = moment.minusSeconds(length * step);
+			if (HiddenStretches.touches(avoid, from, moment.plus(FUTURE_REACH)) || !marketData.rolls(instrument, from, moment).isEmpty()) {
+				continue;
+			}
+			List<Bar> window = marketData.internalBars(instrument, timeframe, from, moment, SEED).bars();
+			// The daily halt, 17:00 to 18:00, is inside the stretch: an hour of candles fewer, and nothing else missing.
+			if (window.size() != length - Duration.ofHours(1).toSeconds() / step
+					|| !window.getLast().openTime().plusSeconds(step).equals(moment)) {
+				continue;
+			}
+			// Yesterday: the whole trading day before today's, 18:00 to 17:00 New York.
+			Instant today = Timeframe.D1.bucketStart(moment);
+			List<Bar> days = marketData.internalBars(instrument, Timeframe.D1, today.minus(Duration.ofDays(5)), today, SEED).bars();
+			if (days.isEmpty()) {
+				continue;
+			}
+			Bar yesterday = days.getLast();
+			long close = window.getLast().closeTicks();
+			if (close <= yesterday.lowTicks() || close >= yesterday.highTicks()
+					|| window.stream().filter(b -> !b.openTime().isBefore(today))
+						.anyMatch(b -> b.highTicks() > yesterday.highTicks() || b.lowTicks() < yesterday.lowTicks())) {
+				continue; // taken already overnight: nothing left to ask
+			}
+			long start = yesterday.openTime().getEpochSecond();
+			List<Target> targets = List.of(
+				new Target("PDH", Prediction.Role.ERL, true, true, start, yesterday.highTicks(), yesterday.highTicks(), null,
+					yesterday.highTicks() - close, null),
+				new Target("PDL", Prediction.Role.ERL, true, false, start, yesterday.lowTicks(), yesterday.lowTicks(), null,
+					close - yesterday.lowTicks(), null));
+			List<Bar> future = future(instrument, timeframe, moment);
+			Outcome outcome = Prediction.resolve(targets, future, bar -> minutes(instrument, timeframe, bar));
+			if (outcome == null) {
+				continue;
+			}
+			List<Bar> revealed = Prediction.revealed(future, outcome);
+			return new Asked(from, moment, List.copyOf(window), new Question(close, targets, List.of()), outcome,
+				revealed.getLast().openTime().plus(timeframe.duration()));
+		}
+		throw new NoWindowFoundException();
+	}
+
 	/** Stored hits as much as a prediction reads of them. */
 	private static List<Hit> hits(List<DetectedSetup> stored) {
 		return stored.stream()
@@ -495,6 +695,14 @@ public class DrillService {
 
 			Instant reach = to.plusSeconds(CONFIRM_REACH * step);
 			scanner.ensureScanned(detector, instrument, timeframe, SEED, from, reach);
+			if (kind == DrillKind.NEAREST_LIQUIDITY_IDENTIFICATION) {
+				List<DetectedSetup> nearest = nearestLiquidity(scanner.visible(detector, instrument, timeframe, SEED, from, to, to),
+					bars.getLast(), from.plusSeconds(kind.lead() * step), to);
+				if (nearest.size() == 2) {
+					return new Window(from, to, bars, nearest, List.of());
+				}
+				continue;
+			}
 			List<DetectedSetup> asked = scanner.visible(detector, instrument, timeframe, SEED, from, to, reach)
 				.stream()
 				.filter(kind::counts)
@@ -526,7 +734,13 @@ public class DrillService {
 	 * the start is a swing (its left neighbour is what makes it one), to the candle that confirmed it.
 	 */
 	private static boolean whole(DrillKind kind, DetectedSetup hit, Instant from, Instant to, long step) {
-		return !hit.getStartTime().isBefore(from.plusSeconds(kind.lead() * step)) && !hit.getConfirmedAt().isAfter(to);
+		Instant first = from.plusSeconds(kind.lead() * step);
+		if (hit.getStartTime().isBefore(first) || hit.getConfirmedAt().isAfter(to)) {
+			return false;
+		}
+		return !kind.showsItsReasons() || hit.getEvidence().entrySet().stream()
+			.filter(e -> e.getKey().endsWith("Time") && e.getValue() instanceof Number)
+			.allMatch(e -> ((Number) e.getValue()).longValue() >= first.getEpochSecond());
 	}
 
 	/**
@@ -594,6 +808,8 @@ public class DrillService {
 		boolean classify = kind.mode() == Mode.CLASSIFY;
 		boolean predict = kind.mode() == Mode.PREDICT;
 		boolean manage = kind.mode() == Mode.MANAGE;
+		boolean judge = kind.mode() == Mode.JUDGE;
+		Judgement.Asked judged = judge ? json.convertValue(drill.getQuestion(), Judgement.Asked.class) : null;
 		Management.Asked managed = manage ? json.convertValue(drill.getQuestion(), Management.Asked.class) : null;
 		DetectedSetup subject = classify ? key.getFirst() : null;
 		BigDecimal tickSize = instrument.getTickSize();
@@ -630,13 +846,17 @@ public class DrillService {
 					.map(v -> new OptionView(v, PredictionText.label(target(question, v), tickSize))).toList()
 				: manage ? kind.predictions().stream()
 					.map(v -> new OptionView(v, Management.label(Management.Choice.valueOf(v)))).toList()
+				: judge ? judged.options().stream().map(o -> new OptionView(o.value(), o.label())).toList()
 				: null,
-			predict ? questionView(kind, question, tickSize) : manage ? Management.questionView(managed.trade(), tickSize) : null,
+			predict ? questionView(kind, question, tickSize) : manage ? Management.questionView(managed.trade(), tickSize)
+				: judge ? judgementView(judged, tickSize) : null,
 			drill.isAnswered() ? drill.getMarks() : null,
 			drill.isAnswered() ? drill.getChoice() : null,
 			!drill.isAnswered() ? null
 				: predict ? predictionResult(drill, question, revealed, tickSize)
 				: manage ? managementResult(drill, managed, tickSize)
+				: judge ? new ResultView(null, null, null, null, null, drill.getOutcome(), drill.getOutcome().equals(drill.getChoice()),
+					List.of(), null, null, judged.explanation())
 				: result(drill, key, tickSize),
 			revealed == null ? null : bars(revealed),
 			companion == null ? null : new CompanionBars(companion.getSymbol(), companion.getTickSize(),
@@ -664,6 +884,13 @@ public class DrillService {
 				PredictionText.label(t, tickSize))).toList(),
 			q.context().stream().map(c -> new ContextView(c.what(), c.level() ? "LEVEL" : "ZONE", c.fromTime(),
 				c.lowTicks(), c.highTicks(), PredictionText.label(c, tickSize))).toList());
+	}
+
+	/** What a judgement draws: its lines, labelled, and no targets — the answers are the options. */
+	private static QuestionView judgementView(Judgement.Asked asked, BigDecimal tickSize) {
+		return new QuestionView(asked.version(), asked.definition(), asked.closeTicks(), List.of(),
+			asked.context().stream().map(c -> new ContextView(c.what(), c.level() ? "LEVEL" : "ZONE", c.fromTime(),
+				c.lowTicks(), c.highTicks(), Judgement.label(c, tickSize))).toList());
 	}
 
 	/**

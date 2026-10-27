@@ -58,8 +58,8 @@
 | T41 | Practice home | T36 | ✅ merged 2026-10-26 | `feat/t41-practice` | DEC-080: costs fixed at the standard (refused if sent, V29), start = session time + Start, four StatTiles (total, win rate, held to plan, costs paid), open sessions, per-trade journal (`GET /api/practice/trades`), more statistics behind a disclosure. Screenshots docs/redesign/after/t41/ |
 | T42 | Practice session | T37, T38, T41 | ✅ merged 2026-10-26 | `feat/t42-session` | `/practice/:sessionId` full screen: drawing bar, chart card (top bar, layers, chart, Trades strip), 22rem trading column (score, plan, open trade, scorecard, review, replay sticky at its foot); practice layers its own and all off by default. Screenshots docs/redesign/after/t42/ |
 | T43 | Drills | T36 | 🟢 built, waiting for "merge" | `feat/t43-drills` | `/drills` cards by topic (mode badge, time hint, the real record), `/drills/:kind` one click to a drill (eyebrow, title, task, chart, answer bar, result, Next drill), `/drills/risk/:slug` Lovable's risk card; no kind dropdown, no timeframe — the server draws 1m/5m/15m; `GET /api/drills/risk/kinds` for the risk records. Locks from T45 added later. Screenshots docs/redesign/after/t43/ |
-| T44 | Learn audit (with Fabio) | Fabio's time | ⬜ | | list → his decisions |
-| T45 | Learn rebuild | T36, T44 | ⬜ | | |
+| T44 | Learn audit (with Fabio) | Fabio's time | 🟢 decided — Fabio accepted all 72 (DEC-081) | `feat/t44-learn-audit` | docs/redesign/learn-audit.md: 72 rows from the API; proposed 13 keep + 12 keep-needs-a-drill + 8 reference cards, 26 merged, 13 removed; 9 topics |
+| T45 | Learn rebuild | T36, T44 | 🟢 built; texts approved by Fabio; waiting for "merge" | `feat/t45-learn` (from `feat/t44-learn-audit`) | DEC-082. `/learn` by topic with locks (5 answers at 70%), `/learn/:id` in the template, 12 new drills (5 spot, mode J judgement ×6, daily bias), 33 lesson texts in `backend/src/main/resources/lessons/`, Drills under Learn's topics. Screenshots docs/redesign/after/t45/ |
 | T46 | Phones and tablets | T36–T45 | ⬜ | | |
 | T47 | ES as a full instrument (BUG-094) | NQ "perfect" | ⬜ | | |
 | T48 | Public landing page | T36 | ⬜ | | |
@@ -1038,4 +1038,17 @@ due, open), `suggested`, `due`.
 | 2026-10-26 | T43 | Risk addresses read `/drills/risk/position-size`, `losing-streak`, `recovery`; an unknown one goes back to the cards | Claude |
 | 2026-10-26 | T43 | The cards read in the 1280 column; a drill's screen takes the width for its chart. A kind no topic names still gets a card under "More drills", so every drill stays reachable until T44/T45 regroup them | Claude |
 | 2026-10-26 | T43 | `NextStep` joins the kit (first used here) | Claude |
+| 2026-10-26 | T44 | Fabio decided on a page with Accept / Change per concept, his choices kept in the page's own store and read back by Claude: all 72 proposals accepted (DEC-081). The audit has 72 rows, not 84 — 84 was the highest concept number | Fabio |
+| 2026-10-26 | T44 | Topics for T45: Structure · Liquidity · Gaps & imbalances · Premium & discount · Blocks · Bias · Models · Risk & management · Time & sessions (reference); a new learner starts at Structure | Fabio |
+| 2026-10-26 | T45 | A lesson's drill is **passed** at 5 graded tries and 70% or better over the recent ones (`learning-1.1.0`); asked at the start as the plan says | Fabio |
+| 2026-10-26 | T45 | The 12 drills the kept lessons need are built inside T45, not after it | Fabio |
+| 2026-10-26 | T45 | Topics live in their own table in ICT_CONCEPTS.md (`## Topics`: topic, id, kind, importance, into) rather than four new master-table columns; every concept must appear once, and merged/removed concepts stay in `/api/concepts` so their chart layers keep working | Claude |
+| 2026-10-26 | T45 | Every drill of a lesson counts toward passing it — predictions, managed trades and the risk questions (for ICT-83) too, each answer 0 or 1; until a lesson's drill is built, reading it passes it | Claude |
+| 2026-10-26 | T45 | Drills built so far: IFVG, order block, breaker, unicorn (spot, every candle the rule read on screen), BSL/SSL (mark the two swings holding the nearest resting liquidity). Plan for the other seven: one new rule-graded question mode — a chart, lines drawn, a question with 2–3 answers, the answer worked out by the rule (premium/discount, OTE, PO3, stop placement, Silver Bullet and 2022 model checklists) or by what price did (daily bias: PDH or PDL first, from the New York open) | Claude |
+| 2026-10-27 | T45 | Mode J, judgement: one engine for the six rule-answered questions (premium/discount, OTE, PO3, stop placement, the Silver Bullet and 2022 model checklists) rather than six one-off drills; stored as a drill whose outcome is the rule's answer at the chart's end (V32) | Claude |
+| 2026-10-27 | T45 | Stop placement offers three stops, lettered at random: beyond the sweep's extreme (Fabio's standard), just past the entry, just past the old swing inside the sweep's wick | Claude |
+| 2026-10-27 | T45 | PO3 is asked on a whole New York day at 15 minutes, the model drills at 5 minutes ending in the model's hours, daily bias at 15 minutes from 08:00 the day before to the 09:30 open | Claude |
+| 2026-10-27 | T45 | The lesson texts are Markdown files the backend serves (`lessons/{id}.md`); ICT_CONCEPTS.md keeps the topics table and the summaries | Claude |
+| 2026-10-27 | T45 | A locked lesson shows its lock before anything else, even when due; "Start here" only for someone who has practised and read nothing | Claude |
+| 2026-10-27 | T45 | Fabio reviewed the 33 lesson texts: "its all good i like it" — accepted as written | Fabio |
 

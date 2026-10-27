@@ -62,6 +62,71 @@ public enum DrillKind {
 			+ "previous one and the other did not.",
 		"the swing of a divergence on the upper chart"),
 
+	/** T45: where the stops rest when the chart ends (DrillService#nearestLiquidity). */
+	NEAREST_LIQUIDITY_IDENTIFICATION(Mode.IDENTIFY, "LIQUIDITY", "ICT-10", "Buy-side and sell-side liquidity", Set.of("RESTING"),
+		List.of(), 1, 2, 2,
+		"Mark the two swings that hold the nearest resting liquidity when the chart ends: the nearest swing high above the "
+			+ "last close, with buy-side liquidity above it, and the nearest swing low below it, with sell-side liquidity "
+			+ "below it — ones price has not traded beyond since.",
+		"a swing holding the nearest resting liquidity"),
+
+	/** T45: Fabio's "much much much more important" concept. */
+	IFVG_IDENTIFICATION(Mode.IDENTIFY, "IFVG", "ICT-23", "Inversion fair value gaps", Set.of(), List.of(), 0, 1, 4,
+		"Mark the middle candle of every fair value gap that a later candle closes straight through — beyond its far "
+			+ "edge. That gap has failed, and ICT reads it the other way round from then on.",
+		"the middle candle of a gap price closed through"),
+
+	/** T45: the block, the move away from it and the swing it broke all on screen ({@link #showsItsReasons()}). */
+	ORDER_BLOCK_IDENTIFICATION(Mode.IDENTIFY, "OB", "ICT-30", "Order blocks", Set.of("FORMED"), List.of(), 1, 1, 3,
+		"Mark the order block of every move that broke structure: the last candle closing against the move before a "
+			+ "displacement that closes beyond the latest swing.",
+		"the last candle of an order block"),
+
+	BREAKER_IDENTIFICATION(Mode.IDENTIFY, "BREAKER", "ICT-31", "Breaker blocks", Set.of("FORMED"), List.of(), 1, 1, 3,
+		"Mark the breaker of every failed swing: price takes the liquidity beyond a low (or high), then displaces back "
+			+ "through the swing between — the candles that made that swing are the breaker.",
+		"the candle of a breaker"),
+
+	UNICORN_IDENTIFICATION(Mode.IDENTIFY, "UNICORN", "ICT-36", "Unicorns", Set.of("FORMED"), List.of(), 1, 1, 3,
+		"Mark every unicorn: a breaker that the fair value gap of its own displacement overlaps in price.",
+		"the candle of a unicorn's breaker"),
+
+	/** T45: where in its range the last close sits ({@link Judgement#premiumDiscount}). */
+	PREMIUM_DISCOUNT_JUDGEMENT(Mode.JUDGE, "PD", "ICT-41", "Premium or discount", Set.of(), List.of(), 1, 0, 0,
+		"A dealing range is drawn: its high and its low. Is the last close in premium — above the middle of the range — or "
+			+ "in discount, below it? Work the middle out yourself.",
+		null),
+
+	/** T45: inside the optimal trade entry or not ({@link Judgement#ote}). */
+	OTE_JUDGEMENT(Mode.JUDGE, "OTE", "ICT-42", "Optimal trade entry", Set.of(), List.of(), 1, 0, 0,
+		"A leg is drawn: where it started and where it ended. Is the last close inside its optimal trade entry — 62% to "
+			+ "79% of the way back from the end toward the start? Work the zone out yourself.",
+		null),
+
+	/** T45: a whole day read as power of three, or not ({@link Judgement#po3}); always on 15-minute candles. */
+	PO3_JUDGEMENT(Mode.JUDGE, "PO3", "ICT-62", "Power of three", Set.of(), List.of(), 0, 0, 0,
+		"A whole New York day, from the midnight open (drawn) to the 17:00 halt. Was it a bullish power of three, a "
+			+ "bearish one, or neither?",
+		null),
+
+	/** T45: where the stop goes after a sweep ({@link Judgement#stopPlacement}). */
+	STOP_PLACEMENT_JUDGEMENT(Mode.JUDGE, "SWEEP", "ICT-80", "Stop placement", Set.of(), List.of(), 0, 0, 0,
+		"Price has just swept a swing and a trade the other way is drawn at the last close. Three stops are drawn: A, B "
+			+ "and C. Where does the stop go?",
+		null),
+
+	/** T45: the Silver Bullet's checklist at the chart's end ({@link Judgement#model}); always on 5-minute candles. */
+	SILVER_BULLET_JUDGEMENT(Mode.JUDGE, "FVG", "ICT-71", "Silver Bullet setup", Set.of(), List.of(), 0, 0, 0,
+		"The chart ends inside or near a Silver Bullet hour, with a trade drawn the way the model draws it. Is this a "
+			+ "valid Silver Bullet setup — every step of the model met?",
+		null),
+
+	/** T45: the 2022 model's checklist at the chart's end ({@link Judgement#model}); always on 5-minute candles. */
+	MODEL_2022_JUDGEMENT(Mode.JUDGE, "MSS", "ICT-70", "2022 model setup", Set.of(), List.of(), 0, 0, 0,
+		"The chart ends inside or near a killzone, with a trade drawn the way the 2022 model draws it. Is this a valid "
+			+ "2022 model setup — every step of the model met?",
+		null),
+
 	STRUCTURE_CLASSIFICATION(Mode.CLASSIFY, "STRUCTURE", "ICT-03", "Market structure", Set.of(),
 		List.of(List.of("HH", "LH", "EH"), List.of("HL", "LL", "EL")), 0, 0, 0,
 		"Name the marked swing against the previous swing of its kind: higher, lower or equal.", null),
@@ -89,6 +154,12 @@ public enum DrillKind {
 			+ "behind (internal), or the next resting level beyond (external)?",
 		null),
 
+	/** T45: from the New York open, does the day take yesterday's high or its low first? Always on 15-minute candles. */
+	DAILY_BIAS_PREDICTION(Mode.PREDICT, "LIQUIDITY", "ICT-61", "Daily bias", Set.of(), List.of(List.of("PDH", "PDL")), 0, 0,
+		0,
+		"The chart stops at the 09:30 New York open. Yesterday's high and low are drawn. Which does the day take first?",
+		null),
+
 	/**
 	 * Mode E (T26, DEC-071): a trade is open and in profit — hold, stop to breakeven, or half off? What price did
 	 * with each decides ({@link Management}).
@@ -107,7 +178,9 @@ public enum DrillKind {
 		/** Mode C: say what price does next; the future decides. */
 		PREDICT,
 		/** Mode E: manage an open trade; the future decides (T26). */
-		MANAGE;
+		MANAGE,
+		/** Mode J: a question about the chart as it stands; a rule decides when it is asked (T45, {@link Judgement}). */
+		JUDGE;
 
 		/** Candles shown: a glance for A; for B and C, room for the context the answer depends on; for E, the trade's life. */
 		int windowBars() {
@@ -188,6 +261,59 @@ public enum DrillKind {
 
 	int maxHits() {
 		return maxHits;
+	}
+
+	/**
+	 * Every candle its rule read is on the chart (T45): each time in a hit's evidence — the swing a block broke, the
+	 * displacement, the gap — at or after the first candle that leaves a swing its left neighbour. The older drills'
+	 * rules read nothing before their own start.
+	 */
+	boolean showsItsReasons() {
+		return this == ORDER_BLOCK_IDENTIFICATION || this == BREAKER_IDENTIFICATION || this == UNICORN_IDENTIFICATION;
+	}
+
+	/** A whole New York day, midnight to the 17:00 halt, needs its own chart: 15-minute candles from midnight. */
+	boolean wholeDay() {
+		return this == PO3_JUDGEMENT;
+	}
+
+	/** For J on a model: the model whose checklist decides; null otherwise. */
+	com.tradeez.practice.TradingModel model() {
+		return switch (this) {
+			case SILVER_BULLET_JUDGEMENT -> com.tradeez.practice.TradingModel.SILVER_BULLET;
+			case MODEL_2022_JUDGEMENT -> com.tradeez.practice.TradingModel.MODEL_2022;
+			default -> null;
+		};
+	}
+
+	/**
+	 * The New York times a model's chart may end at — the hours its checklist is about, with a little either side so a
+	 * moment outside them is asked too: the Silver Bullet's 10:00 hour, the London and New York morning killzones.
+	 */
+	List<java.time.LocalTime[]> endingHours() {
+		return switch (this) {
+			case SILVER_BULLET_JUDGEMENT -> List.<java.time.LocalTime[]>of(new java.time.LocalTime[] {
+				java.time.LocalTime.of(9, 45), java.time.LocalTime.of(11, 15) });
+			case MODEL_2022_JUDGEMENT -> List.of(
+				new java.time.LocalTime[] { java.time.LocalTime.of(1, 45), java.time.LocalTime.of(5, 15) },
+				new java.time.LocalTime[] { java.time.LocalTime.of(8, 15), java.time.LocalTime.of(11, 15) });
+			default -> List.of();
+		};
+	}
+
+	/** Candles shown: the mode's, a whole day at 15 minutes, or for daily bias yesterday from 08:00 to today's open. */
+	int windowBars() {
+		return wholeDay() ? 68 : this == DAILY_BIAS_PREDICTION ? DrillService.BIAS_WINDOW_BARS : mode.windowBars();
+	}
+
+	/** For J: the answers drawn evenly before a chart is found for one; empty where the market balances them itself. */
+	List<String> balancedAnswers() {
+		return switch (this) {
+			case OTE_JUDGEMENT -> List.of("INSIDE", "OUTSIDE");
+			case PO3_JUDGEMENT -> List.of("BULLISH", "BEARISH", "NEITHER");
+			case SILVER_BULLET_JUDGEMENT, MODEL_2022_JUDGEMENT -> List.of("YES", "NO");
+			default -> List.of();
+		};
 	}
 
 	/** Whether a hit of this drill's rule is one the drill asks about. */

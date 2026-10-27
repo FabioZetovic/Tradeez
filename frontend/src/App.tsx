@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router'
 import { MotionConfig } from 'motion/react'
 import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
@@ -13,7 +13,8 @@ import { DrillView } from '@/components/drills/DrillView'
 import { DrillsPage } from '@/components/drills/DrillsPage'
 import { RiskDrills } from '@/components/drills/RiskDrills'
 import { RISK_KINDS } from '@/lib/api/drills'
-import { LearnView } from '@/components/learn/LearnView'
+import { LearnPage } from '@/components/learn/LearnPage'
+import { LessonPage } from '@/components/learn/LessonPage'
 import { Notice } from '@/components/ui'
 import { DISCLAIMER } from '@/lib/disclaimer'
 import type { ChartAdapter } from '@/lib/chart/types'
@@ -80,7 +81,8 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/sign-in" element={<Navigate to={back} replace />} />
         <Route path="/sign-up" element={<Navigate to={back} replace />} />
         <Route path="/chart" element={<ChartPage adapterFactory={adapterFactory} />} />
-        <Route path="/learn/:conceptId?" element={<Learn adapterFactory={adapterFactory} />} />
+        <Route path="/learn" element={<LearnPage />} />
+        <Route path="/learn/:conceptId" element={<Lesson adapterFactory={adapterFactory} />} />
         <Route path="/drills" element={<DrillsPage />} />
         <Route path="/drills/risk/:slug" element={<RiskDrill />} />
         <Route path="/drills/:kind" element={<Drill adapterFactory={adapterFactory} />} />
@@ -93,18 +95,10 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
   )
 }
 
-/** A lesson by its address (T39); its "Practise it" opens /drills/<kind> on that drill. */
-function Learn({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
-  const { conceptId } = useParams()
-  const navigate = useNavigate()
-  return (
-    <LearnView
-      key={conceptId}
-      initialConcept={conceptId}
-      onPractise={(kind) => void navigate(`/drills/${kind}`)}
-      adapterFactory={adapterFactory}
-    />
-  )
+/** A lesson by its address (T39, T45). */
+function Lesson({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
+  const { conceptId = '' } = useParams()
+  return <LessonPage key={conceptId} id={conceptId} adapterFactory={adapterFactory} />
 }
 
 /** A drill by its address (T43): from its card, or a lesson's "Practise it". */

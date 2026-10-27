@@ -254,7 +254,7 @@ describe('App — signed in', () => {
       ...signedIn,
       '/api/concepts': {
         body: {
-          levels: [],
+          topics: [],
           concepts: ['FVG', 'SMT'].map((detector) => ({
             concept: { id: detector, name: detector, summary: '' },
             detectors: [{ detector, version: '1.0.0' }],
@@ -453,12 +453,13 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
   beforeEach(() => mockApi(signedIn))
 
   const at = (path: string) => window.history.replaceState(null, '', path)
-  const current = (name: string) => screen.getByRole('link', { name }).getAttribute('aria-current')
+  const current = (name: string) =>
+    within(screen.getByRole('navigation', { name: 'Sections' })).getByRole('link', { name }).getAttribute('aria-current')
 
   it('opens every section at its own address, and marks it in the header', async () => {
     const screens = [
       { path: '/chart', nav: 'Chart', shows: () => screen.findByTestId('price-chart') },
-      { path: '/learn', nav: 'Learn', shows: () => screen.findByRole('region', { name: 'Curriculum' }) },
+      { path: '/learn', nav: 'Learn', shows: () => screen.findByRole('region', { name: 'Learn' }) },
       { path: '/drills', nav: 'Drills', shows: () => screen.findByRole('region', { name: 'Drills' }) },
       { path: '/practice', nav: 'Practice', shows: () => screen.findByRole('region', { name: 'New session' }) },
     ]

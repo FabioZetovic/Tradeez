@@ -6,4 +6,5 @@ export const MODE_NAMES: Record<DrillMode, string> = {
   CLASSIFY: 'Name',
   PREDICT: 'Predict',
   MANAGE: 'Manage',
+  JUDGE: 'Judge',
 }

@@ -18,7 +18,9 @@ import com.tradeez.analysis.Detector;
 import com.tradeez.analysis.FvgDetector;
 import com.tradeez.curriculum.ConceptRegistry.Concept;
 import com.tradeez.curriculum.ConceptRegistry.Curriculum;
+import com.tradeez.curriculum.ConceptRegistry.Kind;
 import com.tradeez.curriculum.ConceptRegistry.Status;
+import com.tradeez.curriculum.ConceptRegistry.Topic;
 import com.tradeez.marketdata.Bar;
 import com.tradeez.marketdata.Timeframe;
 
@@ -101,12 +103,37 @@ class ConceptRegistryTest {
 	}
 
 	@Test
-	@DisplayName("the ladder has levels 0 to 9, and every concept sits on one")
-	void ladder() {
-		assertThat(curriculum.levels()).extracting(ConceptRegistry.Level::level)
-			.containsExactly(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-		assertThat(curriculum.levels().get(3).theme()).isEqualTo("Imbalances and gaps");
-		assertThat(curriculum.levels().get(6).unlocksWhen()).isEqualTo("always open — it is reference knowledge");
+	@DisplayName("the topics (DEC-081): nine, in order, 25 lessons and 8 reference cards; the rest merged or removed")
+	void topics() {
+		assertThat(curriculum.topics()).extracting(Topic::title).containsExactly("Structure", "Liquidity",
+			"Gaps & imbalances", "Premium & discount", "Blocks", "Bias", "Models", "Risk & management", "Time & sessions");
+		assertThat(curriculum.topics().getFirst().concepts()).containsExactly("ICT-01", "ICT-03", "ICT-04", "ICT-06");
+		assertThat(curriculum.topics().get(2).concepts()).startsWith("ICT-20", "ICT-23");
+		assertThat(curriculum.concepts()).filteredOn(c -> c.kind() == Kind.LESSON).hasSize(25);
+		assertThat(curriculum.concepts()).filteredOn(c -> c.kind() == Kind.REFERENCE).hasSize(8);
+		assertThat(curriculum.concepts()).filteredOn(c -> c.kind() == Kind.MERGED).hasSize(26);
+		assertThat(curriculum.concepts()).filteredOn(c -> c.kind() == Kind.REMOVED).hasSize(13);
+		assertThat(concept("ICT-23")).extracting(Concept::topic, Concept::importance, Concept::taught)
+			.containsExactly("Gaps & imbalances", "high", true);
+		assertThat(concept("ICT-05")).extracting(Concept::kind, Concept::into, Concept::taught)
+			.containsExactly(Kind.MERGED, "ICT-06", false);
+		assertThat(concept("F-1")).extracting(Concept::kind, Concept::topic).containsExactly(Kind.REMOVED, "");
+	}
+
+	@Test
+	@DisplayName("a concept left out of the topics, placed twice, or merged into a page that is not taught is refused")
+	void refusesBadTopics() {
+		assertThatThrownBy(() -> ConceptRegistry.parse(document.replace("| — | ICT-29 | removed | low | — |\n", "")
+			.replace("| — | ICT-29 | removed | low | — |\r\n", "")))
+			.hasMessageContaining("ICT-29 is not placed");
+		assertThatThrownBy(() -> ConceptRegistry.parse(document.replace("| — | ICT-29 | removed | low | — |",
+			"| — | ICT-29 | removed | low | — |\n| — | ICT-29 | removed | low | — |")))
+			.hasMessageContaining("placed twice");
+		assertThatThrownBy(() -> ConceptRegistry.parse(document.replace("| Structure | ICT-05 | merged | high | ICT-06 |",
+			"| Structure | ICT-05 | merged | high | ICT-29 |")))
+			.hasMessageContaining("ICT-05 is merged into 'ICT-29'");
+		assertThatThrownBy(() -> ConceptRegistry.parse(document.replace("| Structure | ICT-01 | lesson |", "| Liquidity | ICT-01 | lesson |")))
+			.hasMessageContaining("split in two");
 	}
 
 	@Test

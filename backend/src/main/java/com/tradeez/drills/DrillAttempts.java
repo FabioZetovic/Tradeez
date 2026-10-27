@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,6 +30,8 @@ import tools.jackson.databind.ObjectMapper;
  *   <li>Naming (B): 1 for the rule's name, 0 for another.</li>
  *   <li>Predicting (C): 1 when the target chosen came first — practice, never rated.</li>
  *   <li>Managing (E, T26): 1 when the choice was among those that paid most — practice, never rated.</li>
+ *   <li>Judging (J, T45): 1 for the rule's answer, 0 for another.</li>
+ *   <li>Risk questions (F, T26): 1 when right — practice, never rated; they count toward {@value RiskQuestion#CONCEPT}.</li>
  * </ul>
  *
  * <p>Only graded drills are read, and the database grades a drill only on real data (DEC-034).
@@ -55,7 +58,7 @@ public class DrillAttempts {
 		this.json = json;
 	}
 
-	/** Every graded, answered drill of the user, oldest first. A kind no longer offered is left out. */
+	/** Every graded, answered drill of the user and every risk question answered, oldest first. A kind no longer offered is left out. */
 	public List<Attempt> of(UUID userId) {
 		List<Attempt> attempts = new ArrayList<>();
 		jdbc.query(SQL, rs -> {
@@ -64,18 +67,22 @@ public class DrillAttempts {
 				attempts.add(new Attempt(kind.conceptId(), rs.getTimestamp(2).toInstant(), score(kind, rs), rated(kind)));
 			}
 		}, userId);
+		jdbc.query("SELECT answered_at, correct FROM risk_drill WHERE user_id = ? AND answered_at IS NOT NULL", rs -> {
+			attempts.add(new Attempt(RiskQuestion.CONCEPT, rs.getTimestamp(1).toInstant(), rs.getBoolean(2) ? 1.0 : 0.0, false));
+		}, userId);
+		attempts.sort(Comparator.comparing(Attempt::at));
 		return attempts;
 	}
 
-	/** Whether any drill grades this concept against a rule: a marking or naming drill practises it. */
-	public static boolean rates(String conceptId) {
-		return Arrays.stream(DrillKind.values())
-			.anyMatch(k -> rated(k) && k.conceptId().equals(conceptId));
+	/** Whether a drill practises this concept: any drill kind on it, or the risk questions for theirs. */
+	public static boolean drills(String conceptId) {
+		return RiskQuestion.CONCEPT.equals(conceptId)
+			|| Arrays.stream(DrillKind.values()).anyMatch(k -> k.conceptId().equals(conceptId));
 	}
 
-	/** Graded against a rule: marking and naming. What the future decides is practice, never a rating. */
+	/** Graded against a rule: marking, naming and judging. What the future decides is practice, never a rating. */
 	private static boolean rated(DrillKind kind) {
-		return kind.mode() == Mode.IDENTIFY || kind.mode() == Mode.CLASSIFY;
+		return kind.mode() == Mode.IDENTIFY || kind.mode() == Mode.CLASSIFY || kind.mode() == Mode.JUDGE;
 	}
 
 	private double score(DrillKind kind, ResultSet rs) throws SQLException {
@@ -93,7 +100,7 @@ public class DrillAttempts {
 				yield all == 0 ? 1.0 : (double) found / all;
 			}
 			case CLASSIFY -> !kinds.isEmpty() && kinds.getFirst().equals(rs.getString(4)) ? 1.0 : 0.0;
-			case PREDICT -> rs.getString(4) != null && rs.getString(4).equals(rs.getString(6)) ? 1.0 : 0.0;
+			case PREDICT, JUDGE -> rs.getString(4) != null && rs.getString(4).equals(rs.getString(6)) ? 1.0 : 0.0;
 			case MANAGE -> Management.paidMost(rs.getString(6), rs.getString(4)) ? 1.0 : 0.0;
 		};
 	}

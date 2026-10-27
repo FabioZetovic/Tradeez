@@ -14,11 +14,11 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import com.tradeez.learning.LearningRule.Attempt;
-import com.tradeez.learning.LearningRule.Placed;
 import com.tradeez.learning.LearningRule.Progress;
 import com.tradeez.learning.LearningRule.State;
+import com.tradeez.learning.LearningRule.Topic;
 
-/** {@code learning-1.0.0} (T16, DEC-059): solid, done, reviews and the ladder, each rule on its own. */
+/** {@code learning-1.1.0} (T45, DEC-082): passed, done, reviews and the topic locks, each rule on its own. */
 class LearningRuleTest {
 
 	private static final LocalDate DAY = LocalDate.parse("2026-10-01");
@@ -41,7 +41,7 @@ class LearningRuleTest {
 	}
 
 	@Nested
-	@DisplayName("a concept a drill grades")
+	@DisplayName("a lesson a drill practises")
 	class Rated {
 
 		@Test
@@ -55,24 +55,24 @@ class LearningRuleTest {
 		}
 
 		@Test
-		@DisplayName("is not solid on a handful of perfect attempts: ten are needed")
-		void needsTen() {
-			assertThat(rated(attempts(9, 1.0, DAY), DAY).state()).isEqualTo(State.LEARNING);
-			Progress ten = rated(attempts(10, 1.0, DAY), DAY);
-			assertThat(ten.state()).isEqualTo(State.SOLID);
-			assertThat(ten.attempts()).isEqualTo(10);
+		@DisplayName("is not passed on four perfect attempts: five are needed (Fabio)")
+		void needsFive() {
+			assertThat(rated(attempts(4, 1.0, DAY), DAY).state()).isEqualTo(State.LEARNING);
+			Progress five = rated(attempts(5, 1.0, DAY), DAY);
+			assertThat(five.state()).isEqualTo(State.SOLID);
+			assertThat(five.attempts()).isEqualTo(5);
 		}
 
 		@Test
-		@DisplayName("is solid at 80% over the last twenty, not at a hair under")
+		@DisplayName("is passed at 70% over the last twenty, not at a hair under (Fabio)")
 		void threshold() {
-			List<Attempt> eighty = new ArrayList<>(attempts(16, 1.0, DAY));
-			eighty.addAll(attempts(4, 0.0, DAY));
-			assertThat(rated(eighty, DAY).state()).isEqualTo(State.SOLID);
-			assertThat(rated(eighty, DAY).recentAccuracy()).isEqualTo(0.8);
+			List<Attempt> seventy = new ArrayList<>(attempts(14, 1.0, DAY));
+			seventy.addAll(attempts(6, 0.0, DAY));
+			assertThat(rated(seventy, DAY).state()).isEqualTo(State.SOLID);
+			assertThat(rated(seventy, DAY).recentAccuracy()).isEqualTo(0.7);
 
-			List<Attempt> under = new ArrayList<>(attempts(15, 1.0, DAY));
-			under.addAll(attempts(4, 0.0, DAY));
+			List<Attempt> under = new ArrayList<>(attempts(13, 1.0, DAY));
+			under.addAll(attempts(6, 0.0, DAY));
 			under.add(new Attempt("ICT-20", on(DAY, 100), 0.98, true));
 			assertThat(rated(under, DAY).state()).isEqualTo(State.LEARNING);
 		}
@@ -90,12 +90,17 @@ class LearningRuleTest {
 		}
 
 		@Test
-		@DisplayName("is not rated by prediction drills, which only count as practice")
-		void predictionsAreNotRatings() {
-			Progress p = LearningRule.progress("ICT-20", true,
-				List.of(new Attempt("ICT-20", on(DAY, 1), 1.0, false)), null, DAY);
-			assertThat(p.state()).isEqualTo(State.NEW);
-			assertThat(p.practised()).isEqualTo(1);
+		@DisplayName("counts predictions, managed trades and risk questions toward passing, and says how many there were")
+		void practiceCounts() {
+			List<Attempt> mixed = new ArrayList<>();
+			for (int i = 0; i < 5; i++) {
+				mixed.add(new Attempt("ICT-16", on(DAY, i), i == 0 ? 0.0 : 1.0, false));
+			}
+			Progress p = LearningRule.progress("ICT-16", true, mixed, null, DAY);
+			assertThat(p.state()).isEqualTo(State.SOLID);
+			assertThat(p.recentAccuracy()).isEqualTo(0.8);
+			assertThat(p.practised()).isEqualTo(5);
+			assertThat(LearningRule.progress("ICT-16", true, mixed.subList(0, 4), null, DAY).state()).isEqualTo(State.LEARNING);
 		}
 
 		@Test
@@ -108,18 +113,18 @@ class LearningRuleTest {
 	}
 
 	@Nested
-	@DisplayName("a concept no drill grades")
-	class Unrated {
+	@DisplayName("a reference card, or a lesson whose drill is not built yet")
+	class Undrilled {
 
 		@Test
-		@DisplayName("is done once its card is read, or once it is practised")
-		void readOrPractised() {
-			assertThat(LearningRule.progress("ICT-16", false, List.of(), null, DAY).state()).isEqualTo(State.UNREAD);
-			assertThat(LearningRule.progress("ICT-16", false, List.of(), on(DAY, 0), DAY).state()).isEqualTo(State.DONE);
-			Progress practised = LearningRule.progress("ICT-16", false,
-				List.of(new Attempt("ICT-16", on(DAY, 3), 0.0, false)), null, DAY);
-			assertThat(practised.state()).as("use, not a score").isEqualTo(State.DONE);
-			assertThat(practised.due()).isFalse();
+		@DisplayName("is done once read, and only then")
+		void read() {
+			assertThat(LearningRule.progress("ICT-44", false, List.of(), null, DAY).state()).isEqualTo(State.UNREAD);
+			assertThat(LearningRule.progress("ICT-44", false, List.of(), on(DAY, 0), DAY).state()).isEqualTo(State.DONE);
+			Progress tried = LearningRule.progress("ICT-44", false,
+				List.of(new Attempt("ICT-44", on(DAY, 3), 1.0, false)), null, DAY);
+			assertThat(tried.state()).isEqualTo(State.UNREAD);
+			assertThat(tried.due()).isFalse();
 		}
 	}
 
@@ -179,85 +184,62 @@ class LearningRuleTest {
 	}
 
 	@Nested
-	@DisplayName("the ladder")
-	class Ladder {
+	@DisplayName("the topic locks")
+	class Locks {
 
-		/** Two concepts a level for levels 0–9; level 8's second builds on level 3's first. */
-		private final List<Placed> curriculum = curriculum();
+		/** Two topics: A has lessons a1, a2, a3 with a reference card between the first two; B has b1, b2. */
+		private final List<Topic> topics = List.of(
+			new Topic("A", List.of("a1", "ref", "a2", "a3"), lessons("a1", true, "ref", false, "a2", true, "a3", true)),
+			new Topic("B", List.of("b1", "b2"), lessons("b1", true, "b2", true)));
 
-		private static List<Placed> curriculum() {
-			List<Placed> out = new ArrayList<>();
-			for (int level = 0; level <= 9; level++) {
-				out.add(new Placed("L" + level + "a", level, List.of()));
-				out.add(new Placed("L" + level + "b", level, level == 8 ? List.of("L3a") : List.of()));
+		private static Map<String, Boolean> lessons(Object... pairs) {
+			Map<String, Boolean> map = new LinkedHashMap<>();
+			for (int i = 0; i < pairs.length; i += 2) {
+				map.put((String) pairs[i], (Boolean) pairs[i + 1]);
 			}
-			return out;
+			return map;
 		}
 
 		private Map<String, Progress> progress(String... complete) {
 			Map<String, Progress> map = new LinkedHashMap<>();
-			for (Placed p : curriculum) {
-				boolean done = List.of(complete).contains(p.conceptId());
-				map.put(p.conceptId(), new Progress(p.conceptId(), false, done ? State.DONE : State.UNREAD, 0, 0, null,
-					0, null, null, null, false));
+			for (Topic t : topics) {
+				for (String id : t.concepts()) {
+					boolean done = List.of(complete).contains(id);
+					map.put(id, new Progress(id, true, done ? State.SOLID : State.NEW, 0, 0, null, 0, null, null, null, false));
+				}
 			}
 			return map;
 		}
 
 		@Test
-		@DisplayName("opens the foundations and the reference level from the start, and nothing else")
+		@DisplayName("opens the first lesson of every topic and every reference card from the start, and nothing else")
 		void start() {
-			Map<Integer, Boolean> open = LearningRule.openLevels(curriculum, progress());
-			assertThat(open).containsEntry(0, true).containsEntry(6, true).containsEntry(1, false)
-				.containsEntry(2, false).containsEntry(8, true); // L8a builds on nothing
+			Map<String, Boolean> open = LearningRule.open(topics, progress());
+			assertThat(open).containsEntry("a1", true).containsEntry("ref", true).containsEntry("b1", true)
+				.containsEntry("a2", false).containsEntry("a3", false).containsEntry("b2", false);
 		}
 
 		@Test
-		@DisplayName("opens a level when the levels it builds on are complete — all of their concepts")
-		void levels() {
-			assertThat(LearningRule.openLevels(curriculum, progress("L0a")).get(1)).isFalse();
-			Map<Integer, Boolean> afterZero = LearningRule.openLevels(curriculum, progress("L0a", "L0b"));
-			assertThat(afterZero.get(1)).isTrue();
-			assertThat(afterZero.get(2)).isFalse();
-			Map<Integer, Boolean> afterOne = LearningRule.openLevels(curriculum, progress("L0a", "L0b", "L1a", "L1b"));
-			assertThat(afterOne).containsEntry(2, true).containsEntry(3, true).containsEntry(5, true)
-				.containsEntry(4, false).containsEntry(7, false);
+		@DisplayName("opens a lesson once the lesson before it is passed — a reference card between them does not count")
+		void next() {
+			Map<String, Boolean> open = LearningRule.open(topics, progress("a1"));
+			assertThat(open).containsEntry("a2", true).containsEntry("a3", false).containsEntry("b2", false);
+			assertThat(LearningRule.open(topics, progress("a1", "a2"))).containsEntry("a3", true);
+			// A later lesson passed out of order opens the one after it, never the one before.
+			assertThat(LearningRule.open(topics, progress("a2"))).containsEntry("a2", false).containsEntry("a3", true);
 		}
 
 		@Test
-		@DisplayName("opens each entry model on its own prerequisites, and execution with the first model")
-		void models() {
+		@DisplayName("suggests the first lesson at the start, then the next lesson of the furthest topic started")
+		void suggested() {
 			Map<String, Progress> none = progress();
-			Map<Integer, Boolean> levels = LearningRule.openLevels(curriculum, none);
-			Placed waiting = curriculum.stream().filter(p -> p.conceptId().equals("L8b")).findFirst().orElseThrow();
-			assertThat(LearningRule.open(waiting, levels, none)).isFalse();
-			Map<String, Progress> ready = progress("L3a");
-			assertThat(LearningRule.open(waiting, LearningRule.openLevels(curriculum, ready), ready)).isTrue();
-			assertThat(levels.get(9)).isEqualTo(levels.get(8));
-		}
-
-		@Test
-		@DisplayName("keeps the entry models closed while none of them has what it builds on")
-		void modelsWaitForPrerequisites() {
-			List<Placed> waiting = curriculum.stream()
-				.map(p -> p.level() == 8 ? new Placed(p.conceptId(), 8, List.of("L3a")) : p).toList();
-			Map<String, Progress> none = progress();
-			Map<Integer, Boolean> closed = LearningRule.openLevels(waiting, none);
-			assertThat(closed).containsEntry(8, false).containsEntry(9, false);
-			Map<String, Progress> ready = progress("L3a");
-			assertThat(LearningRule.openLevels(waiting, ready)).containsEntry(8, true).containsEntry(9, true);
-		}
-
-		@Test
-		@DisplayName("never calls a level with nothing in it complete")
-		void emptyLevel() {
-			assertThat(LearningRule.complete(42, curriculum, progress())).isFalse();
-		}
-
-		@Test
-		@DisplayName("has a rule for every level of the curriculum")
-		void everyLevel() {
-			assertThat(LearningRule.LADDER).containsOnlyKeys(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+			assertThat(LearningRule.suggested(topics, none, LearningRule.open(topics, none))).isEqualTo("a1");
+			Map<String, Progress> one = progress("a1");
+			assertThat(LearningRule.suggested(topics, one, LearningRule.open(topics, one))).isEqualTo("a2");
+			Map<String, Progress> both = progress("a1", "b1");
+			assertThat(LearningRule.suggested(topics, both, LearningRule.open(topics, both))).isEqualTo("b2");
+			Map<String, Progress> all = progress("a1", "a2", "a3", "b1", "b2");
+			assertThat(LearningRule.suggested(topics, all, LearningRule.open(topics, all))).isNull();
 		}
 	}
 

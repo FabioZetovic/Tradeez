@@ -41,7 +41,7 @@ interface EvidenceView {
 
 interface DrillRef {
   kind: string
-  mode: 'IDENTIFY' | 'CLASSIFY' | 'PREDICT'
+  mode: 'IDENTIFY' | 'CLASSIFY' | 'PREDICT' | 'MANAGE' | 'JUDGE'
   title: string
 }
 
@@ -81,6 +81,17 @@ export interface Lesson {
   examples: Example[]
   /** Why there are no examples, or fewer than three. */
   examplesNote?: string
+  kind: 'LESSON' | 'REFERENCE' | 'MERGED' | 'REMOVED'
+  topic?: string
+  /** For a merged concept: the lesson it is a section of. */
+  into?: string
+  /** The lesson's words (T45); absent for a concept that is not a page of Learn. */
+  text?: {
+    summary: string
+    whatItIs: string
+    howToSpot: string[]
+    howToTrade: string
+  }
 }
 
 export const LESSON_TIMEFRAMES = ['1m', '5m', '15m'] as const

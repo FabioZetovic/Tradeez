@@ -82,6 +82,17 @@ public final class LessonDtos {
 		String timeframe,
 		List<Example> examples,
 		@Schema(description = "Why there are no examples, or fewer than asked for; absent otherwise")
-		String examplesNote) {
+		String examplesNote,
+		@Schema(description = "LESSON, REFERENCE, MERGED or REMOVED (DEC-081)") String kind,
+		@Schema(description = "Its topic; absent for a removed concept") String topic,
+		@Schema(description = "For a merged concept, the lesson it is a section of") String into,
+		@Schema(description = "The lesson's words (T45): absent for a concept Learn does not teach as a page") TextView text) {
+	}
+
+	public record TextView(
+		@Schema(description = "The one-line plain summary") String summary,
+		String whatItIs,
+		@Schema(description = "What to look for on the chart, one item each") List<String> howToSpot,
+		@Schema(description = "Entry, stop and target in plain words") String howToTrade) {
 	}
 }

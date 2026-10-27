@@ -107,13 +107,17 @@ class LearningApiTest extends AbstractIntegrationTest {
 		throw new AssertionError("no concept " + id);
 	}
 
-	private static JsonNode level(JsonNode state, int level) {
-		for (JsonNode l : state.get("levels")) {
-			if (l.get("level").asInt() == level) {
-				return l;
+	private static JsonNode topic(JsonNode state, String title) {
+		for (JsonNode t : state.get("topics")) {
+			if (t.get("title").asString().equals(title)) {
+				return t;
 			}
 		}
-		throw new AssertionError("no level " + level);
+		throw new AssertionError("no topic " + title);
+	}
+
+	private static boolean open(JsonNode state, String id) {
+		return concept(state, id).get("open").asBoolean();
 	}
 
 	private String startDrill(Cookie who, String kind, String instrument) throws Exception {
@@ -138,79 +142,106 @@ class LearningApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("starts at the foundations: every concept listed, levels 0 and 6 open, F-1 suggested")
+	@DisplayName("starts with nine topics of lessons and cards: each topic's first lesson open, ICT-01 suggested")
 	void start() throws Exception {
 		mockMvc.perform(get("/api/learning")).andExpect(status().isUnauthorized());
 		JsonNode state = state(alice);
 		assertThat(state.get("version").asString()).isEqualTo(LearningRule.VERSION);
-		assertThat(state.get("rule").asString()).contains("solid");
-		assertThat(state.get("concepts")).hasSize(72);
-		assertThat(state.get("suggested").asString()).isEqualTo("F-1");
+		assertThat(state.get("rule").asString()).contains("passed").contains("5 times").contains("70%");
+		assertThat(state.get("concepts")).hasSize(33);
+		assertThat(state.get("topics")).hasSize(9);
+		assertThat(topic(state, "Structure").get("concepts").toString()).isEqualTo("[\"ICT-01\",\"ICT-03\",\"ICT-04\",\"ICT-06\"]");
+		assertThat(topic(state, "Structure").get("complete").asInt()).isZero();
+		assertThat(state.get("suggested").asString()).isEqualTo("ICT-01");
 		assertThat(state.get("due")).isEmpty();
-		assertThat(level(state, 0).get("open").asBoolean()).isTrue();
-		assertThat(level(state, 6).get("open").asBoolean()).isTrue();
-		assertThat(level(state, 1).get("open").asBoolean()).isFalse();
-		assertThat(level(state, 1).get("unlocksWhen").asString()).contains("Level 0 complete");
-		// Rated exactly where a marking or naming drill grades: not a prediction-only concept.
-		// Nine since DEC-075: SMT divergence (ICT-66) has its marking drill.
-		assertThat(state.at("/summary/rated").asInt()).isEqualTo(9);
-		assertThat(concept(state, "ICT-66").get("rated").asBoolean()).isTrue();
-		assertThat(concept(state, "ICT-20").get("state").asString()).isEqualTo("NEW");
-		assertThat(concept(state, "ICT-16").get("rated").asBoolean()).isFalse();
-		assertThat(concept(state, "ICT-16").get("state").asString()).isEqualTo("UNREAD");
+		assertThat(open(state, "ICT-01")).isTrue();
+		assertThat(open(state, "ICT-03")).isFalse();
+		assertThat(open(state, "ICT-10")).as("Liquidity's first lesson").isTrue();
+		assertThat(open(state, "ICT-13")).isFalse();
+		assertThat(concept(state, "ICT-44").get("kind").asString()).isEqualTo("REFERENCE");
+		assertThat(open(state, "ICT-44")).as("a reference card never locks").isTrue();
+		assertThat(concept(state, "ICT-01").get("topic").asString()).isEqualTo("Structure");
+		// Drilled where a drill exists — predictions, managed trades and the risk questions included.
+		assertThat(state.at("/summary/drilled").asInt()).as("every lesson has its drill").isEqualTo(25);
+		assertThat(concept(state, "ICT-16").get("drilled").asBoolean()).isTrue();
+		assertThat(concept(state, "ICT-16").get("state").asString()).isEqualTo("NEW");
+		assertThat(concept(state, "ICT-83").get("drilled").asBoolean()).isTrue();
+		assertThat(concept(state, "ICT-23").get("drilled").asBoolean()).isTrue();
+		// Merged and removed concepts are not pages of Learn.
+		assertThat(state.get("concepts").valueStream().map(c -> c.get("id").asString()))
+			.doesNotContain("F-1", "ICT-05", "ICT-29");
 	}
 
 	@Test
-	@DisplayName("reading the foundations' cards opens level 1 and suggests its first concept; a read is kept once")
+	@DisplayName("a reference card is done once read; reading a drilled lesson does not pass it; a read is kept once")
 	void reads() throws Exception {
-		for (String id : List.of("F-1", "F-2", "F-3", "F-4")) {
-			markRead(alice, id).andExpect(status().isOk());
-		}
-		JsonNode before = state(alice);
-		assertThat(level(before, 1).get("open").asBoolean()).as("F-5 still unread").isFalse();
-		assertThat(before.get("suggested").asString()).isEqualTo("F-5");
+		JsonNode card = read(markRead(alice, "ICT-44").andExpect(status().isOk()));
+		assertThat(concept(card, "ICT-44").get("state").asString()).isEqualTo("DONE");
+		assertThat(topic(card, "Premium & discount").get("complete").asInt()).isEqualTo(1);
 
-		JsonNode after = read(markRead(alice, "F-5").andExpect(status().isOk()));
-		assertThat(level(after, 0).get("complete").asBoolean()).isTrue();
-		assertThat(level(after, 1).get("open").asBoolean()).isTrue();
-		assertThat(after.get("suggested").asString()).isEqualTo("ICT-01");
-		assertThat(concept(after, "F-5").get("state").asString()).isEqualTo("DONE");
+		JsonNode after = read(markRead(alice, "ICT-10").andExpect(status().isOk()));
+		assertThat(concept(after, "ICT-10").get("state").asString()).as("its drill passes it, not reading").isEqualTo("NEW");
+		assertThat(concept(after, "ICT-10").has("readAt")).isTrue();
+		assertThat(open(after, "ICT-13")).isFalse();
 
-		long readAt = concept(after, "F-1").get("readAt").asLong();
-		markRead(alice, "F-1").andExpect(status().isOk());
-		assertThat(concept(state(alice), "F-1").get("readAt").asLong()).as("reading again changes nothing").isEqualTo(readAt);
-		assertThatThrownBy(() -> jdbc.update("UPDATE concept_read SET read_at = now() WHERE concept_id = 'F-1'"))
+		long readAt = concept(after, "ICT-44").get("readAt").asLong();
+		markRead(alice, "ICT-44").andExpect(status().isOk());
+		assertThat(concept(state(alice), "ICT-44").get("readAt").asLong()).as("reading again changes nothing").isEqualTo(readAt);
+		assertThatThrownBy(() -> jdbc.update("UPDATE concept_read SET read_at = now() WHERE concept_id = 'ICT-44'"))
 			.hasMessageContaining("immutable");
 		markRead(alice, "ICT-99").andExpect(status().isNotFound());
-		// Bob's ladder is his own.
-		assertThat(level(state(bob), 1).get("open").asBoolean()).isFalse();
+		markRead(alice, "F-1").andExpect(status().isNotFound()); // removed
+		markRead(alice, "ICT-05").andExpect(status().isNotFound()); // merged into ICT-06
+		// Bob's record is his own.
+		assertThat(concept(state(bob), "ICT-44").get("state").asString()).isEqualTo("UNREAD");
 	}
 
 	@Test
-	@DisplayName("ten perfect marking drills make a concept solid, due again tomorrow; a miss lowers its accuracy")
+	@DisplayName("five perfect marking drills pass a lesson and open the next, due again tomorrow; a miss lowers its accuracy")
 	void ratings() throws Exception {
-		for (int i = 0; i < 9; i++) {
-			markPerfectly(alice, startDrill(alice, "FVG_IDENTIFICATION", "NQ"));
+		for (int i = 0; i < 4; i++) {
+			markPerfectly(alice, startDrill(alice, "SWING_HIGH_IDENTIFICATION", "NQ"));
 		}
-		JsonNode nine = concept(state(alice), "ICT-20");
-		assertThat(nine.get("state").asString()).isEqualTo("LEARNING");
-		assertThat(nine.get("recentAccuracy").asDouble()).isEqualTo(1.0);
+		JsonNode four = state(alice);
+		assertThat(concept(four, "ICT-01").get("state").asString()).isEqualTo("LEARNING");
+		assertThat(concept(four, "ICT-01").get("recentAccuracy").asDouble()).isEqualTo(1.0);
+		assertThat(open(four, "ICT-03")).isFalse();
 
-		markPerfectly(alice, startDrill(alice, "FVG_IDENTIFICATION", "NQ"));
+		markPerfectly(alice, startDrill(alice, "SWING_LOW_IDENTIFICATION", "NQ"));
 		JsonNode state = state(alice);
-		JsonNode ten = concept(state, "ICT-20");
-		assertThat(ten.get("state").asString()).isEqualTo("SOLID");
-		assertThat(ten.get("attempts").asInt()).isEqualTo(10);
-		assertThat(ten.get("nextReview").asString()).isEqualTo(LocalDate.now(ZoneOffset.UTC).plusDays(1).toString());
-		assertThat(ten.get("due").asBoolean()).isFalse();
+		JsonNode five = concept(state, "ICT-01");
+		assertThat(five.get("state").asString()).isEqualTo("SOLID");
+		assertThat(five.get("attempts").asInt()).as("both swing drills count toward the lesson").isEqualTo(5);
+		assertThat(five.get("nextReview").asString()).isEqualTo(LocalDate.now(ZoneOffset.UTC).plusDays(1).toString());
+		assertThat(five.get("due").asBoolean()).isFalse();
+		assertThat(open(state, "ICT-03")).isTrue();
+		assertThat(state.get("suggested").asString()).isEqualTo("ICT-03");
 		assertThat(state.at("/summary/solid").asInt()).isEqualTo(1);
-		assertThat(state.at("/summary/ratedAttempts").asInt()).isEqualTo(10);
+		assertThat(state.at("/summary/ratedAttempts").asInt()).isEqualTo(5);
 
-		// A miss: nothing marked scores 0, and the last eleven average 10/11.
-		answer(alice, startDrill(alice, "FVG_IDENTIFICATION", "NQ"), "{\"marks\":[]}");
-		JsonNode eleven = concept(state(alice), "ICT-20");
-		assertThat(eleven.get("recentAccuracy").asDouble()).isEqualTo(Math.round(10_000.0 / 11) / 1000.0);
-		assertThat(eleven.get("state").asString()).isEqualTo("SOLID");
+		// A miss: nothing marked scores 0, and the last six average 5/6.
+		answer(alice, startDrill(alice, "SWING_HIGH_IDENTIFICATION", "NQ"), "{\"marks\":[]}");
+		JsonNode six = concept(state(alice), "ICT-01");
+		assertThat(six.get("recentAccuracy").asDouble()).isEqualTo(Math.round(5_000.0 / 6) / 1000.0);
+		assertThat(six.get("state").asString()).isEqualTo("SOLID");
+	}
+
+	@Test
+	@DisplayName("five risk questions right pass Risk rules and open Stop placement; Bob's are not Alice's")
+	void risk() throws Exception {
+		for (int i = 0; i < 5; i++) {
+			String id = read(mockMvc.perform(post("/api/drills/risk").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"kind\":\"RECOVERY\"}"))).get("id").asString();
+			double right = jdbc.queryForObject("SELECT answer FROM risk_drill WHERE id = ?::uuid", Double.class, id);
+			mockMvc.perform(post("/api/drills/risk/" + id + "/answer").cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"value\":" + right + "}")).andExpect(status().isOk());
+		}
+		JsonNode state = state(alice);
+		assertThat(concept(state, "ICT-83").get("state").asString()).isEqualTo("SOLID");
+		assertThat(concept(state, "ICT-83").get("practised").asInt()).isEqualTo(5);
+		assertThat(open(state, "ICT-80")).isTrue();
+		assertThat(state.at("/summary/predictions").asInt()).isEqualTo(5);
+		assertThat(concept(state(bob), "ICT-83").get("attempts").asInt()).isZero();
 	}
 
 	@Test
@@ -275,15 +306,17 @@ class LearningApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("a prediction drill is practice: it completes its concept by use, and rates nothing")
+	@DisplayName("a prediction counts toward its lesson, scored by what price did")
 	void predictions() throws Exception {
 		String id = startDrill(alice, "LIQUIDITY_FIRST_PREDICTION", "NQ");
 		answer(alice, id, "{\"choice\":\"BSL\"}");
+		boolean right = "BSL".equals(jdbc.queryForObject("SELECT outcome FROM drill WHERE id = ?::uuid", String.class, id));
 		JsonNode state = state(alice);
 		JsonNode dol = concept(state, "ICT-16");
 		assertThat(dol.get("practised").asInt()).isEqualTo(1);
-		assertThat(dol.get("state").asString()).isEqualTo("DONE");
-		assertThat(dol.has("recentAccuracy")).isFalse();
+		assertThat(dol.get("attempts").asInt()).isEqualTo(1);
+		assertThat(dol.get("state").asString()).isEqualTo("LEARNING");
+		assertThat(dol.get("recentAccuracy").asDouble()).isEqualTo(right ? 1.0 : 0.0);
 		assertThat(state.at("/summary/predictions").asInt()).isEqualTo(1);
 		assertThat(state.at("/summary/ratedAttempts").asInt()).isZero();
 		// Bob has done nothing.

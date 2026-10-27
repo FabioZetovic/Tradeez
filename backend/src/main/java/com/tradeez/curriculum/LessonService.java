@@ -33,6 +33,7 @@ import com.tradeez.curriculum.LessonDtos.EvidenceView;
 import com.tradeez.curriculum.LessonDtos.Example;
 import com.tradeez.curriculum.LessonDtos.LessonResponse;
 import com.tradeez.curriculum.LessonDtos.RuleCard;
+import com.tradeez.curriculum.LessonDtos.TextView;
 import com.tradeez.drills.DrillKind;
 import com.tradeez.evidence.EvidenceService;
 import com.tradeez.evidence.EvidenceText;
@@ -100,15 +101,17 @@ public class LessonService {
 	private final MarketDataService marketData;
 	private final EvidenceService evidence;
 	private final HiddenStretches hiddenStretches;
+	private final LessonTexts texts;
 
 	public LessonService(ConceptRegistry concepts, DetectorRegistry detectors, SetupScanner scanner,
-			MarketDataService marketData, EvidenceService evidence, HiddenStretches hiddenStretches) {
+			MarketDataService marketData, EvidenceService evidence, HiddenStretches hiddenStretches, LessonTexts texts) {
 		this.concepts = concepts;
 		this.detectors = detectors;
 		this.scanner = scanner;
 		this.marketData = marketData;
 		this.evidence = evidence;
 		this.hiddenStretches = hiddenStretches;
+		this.texts = texts;
 	}
 
 	public LessonResponse lesson(UUID userId, String id, String timeframeCode) {
@@ -156,7 +159,13 @@ public class LessonService {
 			!rules.isEmpty() ? "SETUPS" : clock ? "CLOCK" : null,
 			Arrays.stream(DrillKind.values()).filter(k -> k.conceptId().equals(id))
 				.map(k -> new DrillRef(k.name(), k.mode().name(), k.title())).toList(),
-			nq.getSymbol(), nq.getTickSize(), nq.getExchangeTimezone(), timeframe.code(), examples, note);
+			nq.getSymbol(), nq.getTickSize(), nq.getExchangeTimezone(), timeframe.code(), examples, note,
+			concept.kind().name(), concept.topic().isEmpty() ? null : concept.topic(), concept.into().isEmpty() ? null : concept.into(),
+			text(texts.of(id)));
+	}
+
+	private static TextView text(LessonTexts.Text t) {
+		return t == null ? null : new TextView(t.summary(), t.whatItIs(), t.howToSpot(), t.howToTrade());
 	}
 
 	private static ConceptRef ref(Concept concept) {

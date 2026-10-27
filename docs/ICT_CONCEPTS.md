@@ -17,6 +17,7 @@
 - [How to read this file](#how-to-read-this-file)
 - [The honest frame](#the-honest-frame--read-before-teaching-anything)
 - [Master table](#master-table)
+- [Topics](#topics)
 - [Part 0 — How Tradeez teaches a concept](#part-0--how-tradeez-teaches-a-concept)
 - [Part 1 — Foundations (Level 0)](#part-1--foundations-level-0)
 - [Part 2 — Market structure (Level 1)](#part-2--market-structure-level-1)
@@ -184,6 +185,89 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-84 | Journaling and review | 9 | — | ✅ partly (journal, scorecard, calibration — DEC-067; the review — DEC-068; statistics by model, killzone, weekday — DEC-069) | `scorecard-1.1.0`, `calibration-1.0.0` | — |
 
 ---
+
+## Topics
+
+*DEC-081 (T44, Fabio's decisions in docs/redesign/learn-audit.md).* Learn teaches the concepts below by topic, in this
+order; inside a topic, its lessons in this order. A **lesson** has a drill and unlocks the next lesson of its topic once the drill
+is passed (`learning-1.1.0`); a **reference** card is read, never locked; a **merged** concept is a section of the lesson
+named in *Into*; a **removed** one is not taught. Every concept appears once. The rules and chart layers of merged and removed
+concepts keep running under their own ids.
+
+| Topic | ID | Kind | Importance | Into |
+|---|---|---|---|---|
+| Structure | ICT-01 | lesson | high | — |
+| Structure | ICT-02 | merged | medium | ICT-01 |
+| Structure | ICT-03 | lesson | high | — |
+| Structure | ICT-04 | lesson | high | — |
+| Structure | ICT-06 | lesson | high | — |
+| Structure | ICT-05 | merged | high | ICT-06 |
+| Liquidity | ICT-10 | lesson | high | — |
+| Liquidity | ICT-11 | merged | high | ICT-10 |
+| Liquidity | ICT-13 | lesson | high | — |
+| Liquidity | ICT-14 | merged | medium | ICT-13 |
+| Liquidity | ICT-74 | merged | low | ICT-13 |
+| Liquidity | ICT-16 | lesson | high | — |
+| Liquidity | ICT-17 | merged | low | ICT-16 |
+| Liquidity | ICT-15 | lesson | high | — |
+| Liquidity | ICT-12 | lesson | medium | — |
+| Gaps & imbalances | ICT-20 | lesson | high | — |
+| Gaps & imbalances | ICT-21 | merged | medium | ICT-20 |
+| Gaps & imbalances | ICT-22 | merged | medium | ICT-20 |
+| Gaps & imbalances | ICT-26 | merged | low | ICT-20 |
+| Gaps & imbalances | ICT-23 | lesson | high | — |
+| Gaps & imbalances | ICT-25 | lesson | medium | — |
+| Gaps & imbalances | ICT-24 | reference | medium | — |
+| Gaps & imbalances | ICT-27 | reference | medium | — |
+| Gaps & imbalances | ICT-28 | reference | low | — |
+| Gaps & imbalances | ICT-78 | merged | low | ICT-28 |
+| Premium & discount | ICT-41 | lesson | high | — |
+| Premium & discount | ICT-40 | merged | medium | ICT-41 |
+| Premium & discount | ICT-42 | lesson | medium | — |
+| Premium & discount | ICT-43 | merged | low | ICT-42 |
+| Premium & discount | ICT-72 | merged | low | ICT-42 |
+| Premium & discount | ICT-44 | reference | medium | — |
+| Blocks | ICT-30 | lesson | high | — |
+| Blocks | ICT-31 | lesson | medium | — |
+| Blocks | ICT-32 | merged | low | ICT-31 |
+| Blocks | ICT-75 | merged | low | ICT-31 |
+| Blocks | ICT-36 | lesson | medium | — |
+| Blocks | ICT-73 | merged | low | ICT-36 |
+| Blocks | ICT-33 | reference | low | — |
+| Blocks | ICT-37 | reference | low | — |
+| Bias | ICT-61 | lesson | high | — |
+| Bias | ICT-60 | merged | medium | ICT-61 |
+| Bias | ICT-62 | lesson | medium | — |
+| Bias | ICT-63 | merged | medium | ICT-62 |
+| Bias | ICT-76 | merged | low | ICT-62 |
+| Bias | ICT-66 | lesson | medium | — |
+| Bias | ICT-64 | reference | medium | — |
+| Bias | ICT-65 | merged | low | ICT-64 |
+| Models | ICT-71 | lesson | high | — |
+| Models | ICT-70 | lesson | high | — |
+| Risk & management | ICT-83 | lesson | high | — |
+| Risk & management | F-5 | merged | medium | ICT-83 |
+| Risk & management | ICT-80 | lesson | high | — |
+| Risk & management | ICT-81 | merged | high | ICT-80 |
+| Risk & management | ICT-82 | lesson | high | — |
+| Time & sessions | ICT-50 | reference | medium | — |
+| Time & sessions | ICT-51 | merged | medium | ICT-50 |
+| Time & sessions | ICT-52 | merged | medium | ICT-50 |
+| Time & sessions | ICT-53 | merged | medium | ICT-50 |
+| Time & sessions | ICT-54 | merged | low | ICT-50 |
+| — | F-1 | removed | low | — |
+| — | F-2 | removed | low | — |
+| — | F-3 | removed | low | — |
+| — | F-4 | removed | low | — |
+| — | ICT-29 | removed | low | — |
+| — | ICT-34 | removed | low | — |
+| — | ICT-35 | removed | low | — |
+| — | ICT-55 | removed | low | — |
+| — | ICT-56 | removed | low | — |
+| — | ICT-57 | removed | low | — |
+| — | ICT-67 | removed | low | — |
+| — | ICT-77 | removed | low | — |
+| — | ICT-84 | removed | low | — |
 
 ## Part 0 — How Tradeez teaches a concept
 

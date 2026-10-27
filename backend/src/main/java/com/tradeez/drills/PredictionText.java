@@ -37,6 +37,9 @@ final class PredictionText {
 				+ "behind it that no candle has traded into (fvg-state-1.0.0, still open) — internal liquidity (IRL) "
 				+ "— and the next resting level beyond, on the same side — external (ERL). The gap is reached when a "
 				+ "candle trades into it, the level taken a tick beyond. " + decided;
+			case DAILY_BIAS_PREDICTION -> Prediction.VERSION + ". At the 09:30 New York open, with the open between "
+				+ "yesterday's high and low: which does price take first? Yesterday is the trading day before, 18:00 to "
+				+ "17:00 New York. A level is taken when a candle trades a tick beyond it. " + decided;
 			default -> throw new IllegalArgumentException(kind + " is not a prediction");
 		};
 	}
@@ -48,6 +51,8 @@ final class PredictionText {
 			: "the " + (target.above() ? "bearish" : "bullish") + " gap at " + RuleText.price(target.lowTicks(), tickSize)
 				+ "–" + RuleText.price(target.highTicks(), tickSize);
 		return switch (target.value()) {
+			case "PDH" -> "Yesterday's high at " + RuleText.price(target.lowTicks(), tickSize);
+			case "PDL" -> "Yesterday's low at " + RuleText.price(target.lowTicks(), tickSize);
 			case "IRL" -> "Internal: " + what;
 			case "ERL" -> "External: " + lower(what);
 			default -> what;
@@ -98,7 +103,7 @@ final class PredictionText {
 		String label = label(target, tickSize);
 		int colon = label.indexOf(": ");
 		String bare = lower(colon < 0 ? label : label.substring(colon + 2));
-		return bare.startsWith("the ") ? bare : "the " + bare;
+		return bare.startsWith("the ") || bare.startsWith("yesterday") ? bare : "the " + bare;
 	}
 
 	private static String toward(Target target) {

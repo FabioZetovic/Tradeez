@@ -23,13 +23,13 @@ const USER = { id: 'u1', email: 'fabio@example.com', displayName: 'Fabio Zetovi�
 
 const concept = (id: string, name: string) => ({ concept: { id, name, summary: `${name} in one sentence.` }, detectors: [] })
 const CURRICULUM = {
-  levels: [],
+  topics: [],
   concepts: [concept('ICT-01', 'Swing high / swing low'), concept('ICT-03', 'Market structure'), concept('ICT-20', 'Fair value gap')],
 } as unknown as Curriculum
 
 const progress = (id: string, state: string, recentAccuracy?: number) => ({ id, state, recentAccuracy })
 const LEARNING = {
-  summary: { concepts: 72, complete: 18, rated: 9, solid: 1, due: 2, ratedAttempts: 30, predictions: 4 },
+  summary: { concepts: 72, complete: 18, drilled: 9, solid: 1, due: 2, ratedAttempts: 30, predictions: 4 },
   concepts: [progress('ICT-01', 'SOLID', 0.9), progress('ICT-03', 'LEARNING', 0.75), progress('ICT-20', 'LEARNING')],
   suggested: 'ICT-20',
   // Not in curriculum order: shown in it.
@@ -41,7 +41,7 @@ const KINDS = [
   kind('SWING_HIGHS', 'IDENTIFY', 'ICT-01'),
   kind('FVG', 'IDENTIFY', 'ICT-20'),
   kind('BOS_CHOCH', 'CLASSIFY', 'ICT-03'),
-  kind('NEXT_TARGET', 'PREDICT', 'ICT-01'), // a prediction: practice, not counted
+  kind('NEXT_TARGET', 'PREDICT', 'ICT-01'), // counts toward its lesson too (learning-1.1.0)
 ]
 
 const SESSIONS = [{ trades: 3 }, { trades: 1 }] as SessionSummary[]
@@ -106,10 +106,10 @@ describe('Home (T39)', () => {
 
   it('shows each step with its real progress — Learn and Drills as bars, Practice and Chart as figures', async () => {
     renderHome()
-    const learn = await screen.findByRole('progressbar', { name: '18 of 72 concepts complete' })
+    const learn = await screen.findByRole('progressbar', { name: '18 of 72 lessons complete' })
     expect(learn).toHaveAttribute('aria-valuenow', '25')
-    // Pattern drills only: one of three is on a solid concept.
-    expect(await screen.findByRole('progressbar', { name: '1 of 3 drills solid' })).toHaveAttribute('aria-valuenow', '33')
+    // Every drill counts (T45): two of four are on a passed lesson.
+    expect(await screen.findByRole('progressbar', { name: '2 of 4 drills passed' })).toHaveAttribute('aria-valuenow', '50')
     expect(link(/Practice/)).toHaveTextContent('2 sessions · 4 trades')
     expect(link(/Learn/)).toHaveAttribute('href', '/learn')
     expect(link(/Drills/)).toHaveAttribute('href', '/drills')
@@ -153,7 +153,7 @@ describe('Home (T39)', () => {
     expect(await screen.findByText('No trades yet — start a session.')).toBeInTheDocument()
     expect(screen.queryByTestId('total-r')).toBeNull()
     expect(link(/Practice/)).toHaveTextContent('0 sessions · 0 trades')
-    expect(await screen.findByRole('progressbar', { name: '0 of 3 drills solid' })).toHaveAttribute('aria-valuenow', '0')
+    expect(await screen.findByRole('progressbar', { name: '0 of 4 drills passed' })).toHaveAttribute('aria-valuenow', '0')
   })
 
   it('says so when progress cannot be loaded, and shows no bar for it', async () => {
