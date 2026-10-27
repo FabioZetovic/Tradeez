@@ -219,6 +219,7 @@ describe('DrawingOverlay', () => {
 
     expect(canvas).toHaveAttribute('data-interactive', 'false')
     expect(canvas.style.pointerEvents).toBe('none')
+    expect(canvas.style.touchAction).toBe('auto') // a finger pans the chart (T46)
   })
 
   it('captures the pointer while a tool is armed', () => {
@@ -228,6 +229,7 @@ describe('DrawingOverlay', () => {
 
     expect(canvas).toHaveAttribute('data-interactive', 'true')
     expect(canvas.style.pointerEvents).toBe('auto')
+    expect(canvas.style.touchAction).toBe('none') // a finger draws, the page does not scroll (T46)
   })
 
   it('returns to select mode after a shape is drawn', () => {

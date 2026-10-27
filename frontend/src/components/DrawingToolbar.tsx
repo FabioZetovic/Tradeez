@@ -17,7 +17,8 @@ import type { SnapMode } from '@/lib/drawing/snap'
 import type { DrawingKind } from '@/lib/drawing/types'
 import { cx } from '@/lib/styles'
 
-const Divider = () => <span aria-hidden className="mx-1.5 my-1 h-px bg-line" />
+/** Across the bar: upright between tools in a row (phones, T46), flat between tools in a column. */
+const Divider = () => <span aria-hidden className="my-1.5 w-px shrink-0 bg-line lg:mx-1.5 lg:my-1 lg:h-px lg:w-auto" />
 
 interface DrawingToolbarProps {
   activeTool: DrawingKind | null
@@ -108,7 +109,8 @@ export function DrawingToolbar({
       role="toolbar"
       aria-label="Drawing tools"
       aria-orientation="vertical"
-      className="flex flex-col gap-0.5 self-start rounded-card border border-line bg-surface p-1 shadow-panel"
+      // A row under 1024 px, scrolling if the tools do not fit; a column beside the chart above it (T46).
+      className="flex shrink-0 flex-row gap-0.5 self-stretch overflow-x-auto rounded-card border border-line bg-surface p-1 shadow-panel lg:flex-col lg:self-start lg:overflow-visible"
     >
       <Tool label="Select and move (Esc)" pressed={activeTool === null} onClick={() => onSelectTool(null)}>
         <MousePointer2 />

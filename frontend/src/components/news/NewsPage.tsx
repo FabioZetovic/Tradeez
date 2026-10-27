@@ -81,14 +81,15 @@ export function NewsPage() {
                 <li
                   key={`${event.key}-${event.at}`}
                   className={cx(
-                    'flex items-center gap-4 border-b border-line/60 px-5 py-3 last:border-b-0',
+                    // On a phone (T46) the source wraps under the event rather than squeezing it.
+                    'flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line/60 px-4 py-3 last:border-b-0 sm:px-5',
                     event.at < now && 'opacity-50',
                   )}
                 >
                   <span className="num w-12 text-sm text-ink">{newsTime(event.at)}</span>
-                  <span className="num w-9 text-xs text-subtle">USD</span>
+                  <span className="num hidden w-9 text-xs text-subtle sm:inline">USD</span>
                   <ImpactFolder impact={event.impact} />
-                  <span className="min-w-0 flex-1 text-sm text-ink">{event.title}</span>
+                  <span className="min-w-0 flex-1 basis-40 text-sm text-ink">{event.title}</span>
                   <a
                     href={event.link}
                     target="_blank"

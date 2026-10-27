@@ -307,7 +307,10 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
 
   const score = state.score
   return (
-    <section aria-label="Practice session" className="flex h-[calc(100svh-8.25rem)] min-h-[36rem] gap-3">
+    <section
+      aria-label="Practice session"
+      className="flex flex-col gap-3 lg:h-[calc(100svh-8.25rem)] lg:min-h-[36rem] lg:flex-row"
+    >
       <DrawingToolbar
         activeTool={activeTool}
         onSelectTool={setActiveTool}
@@ -321,7 +324,9 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
         onDelete={deleteSelected}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-card border border-line bg-surface p-3 shadow-panel">
+      {/* Under 1024 px (T46) the chart takes most of the screen and the trading column follows it, the replay held at
+          the screen's foot as you scroll. */}
+      <div className="flex h-[70svh] min-w-0 flex-col lg:flex-1 gap-3 rounded-card border border-line bg-surface p-3 shadow-panel lg:h-auto">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft aria-hidden className="size-4" />
@@ -426,7 +431,10 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
 
       {/* The trading column (T42, R-18): the score, the plan or the trade, its result and review, and the replay at
           its foot — everything a trade needs, beside a chart that keeps its size. */}
-      <aside aria-label="Trading" className="relative flex w-[22rem] shrink-0 flex-col gap-3 overflow-y-auto pr-1">
+      <aside
+        aria-label="Trading"
+        className="relative flex w-full shrink-0 flex-col gap-3 lg:w-[22rem] lg:overflow-y-auto lg:pr-1"
+      >
         <section aria-label="Score" className="flex items-baseline justify-between rounded-card border border-line bg-surface px-4 py-3 shadow-panel">
           <span className="text-xs font-semibold tracking-widest text-subtle uppercase">Session</span>
           <span className="num text-sm text-subtle" data-testid="session-score">

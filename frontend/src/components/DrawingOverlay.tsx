@@ -359,6 +359,8 @@ export function DrawingOverlay({
           // See the comment on `interactive`: transparent to the pointer unless there is something
           // to interact with, so the chart keeps its own panning and zooming.
           pointerEvents: interactive ? 'auto' : 'none',
+          // A finger drawing on a phone (T46) draws: the browser neither scrolls nor zooms under it.
+          touchAction: interactive ? 'none' : 'auto',
           cursor: activeTool ? 'crosshair' : pointerOverDrawing ? 'move' : 'default',
         }}
         onPointerDown={handlePointerDown}
