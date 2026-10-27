@@ -2084,6 +2084,8 @@ Backend 723 → 748, frontend 443 → 442 (the old Learn screen's tests went wit
 
 **BUG-099 — vi-1.1.0** (DEC-083). Fabio chose a minimum per market: a point on NQ as before, a tick on ES — any gap, ICT's own definition. Measured first on 2025: a 4-tick gap came 0.01 times per 30 ES candles, any gap 3.9. Detectors are now told which market they read; the scanner and the evidence pass it along, and the new version re-scans and re-counts on its own. Mutations: 5, all caught. Live, every volume imbalance drill was made on both markets (ES had been 1 in 18).
 
+**The landing page, redrawn.** Fabio liked a landing page Claude Design drew from it, and it replaces T48's: a centred hero under a soft glow, a drawn replay (a range, a sweep of its low, a displacement leaving a gap, the cursor and the hidden bars), the method as three numbered lines, the honesty points, the way in. Built with the app's tokens and Space Grotesk; the drawn replay is captioned as an illustration, not market data. The four screenshots (290 KB) are gone from the bundle. One full frontend run had a single failing test while the backend suite loaded the machine; two reruns passed and it was not caught again.
+
 ---
 
 ## For the presentation: the disclaimer slide
