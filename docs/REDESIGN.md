@@ -63,7 +63,7 @@
 | T46 | Phones and tablets | T36–T45 | ✅ merged 2026-10-27 | `feat/t46-mobile` | Header menu under 768 px; chart and session stacked under 1024 px with the drawing bar as a row; session replay held at the screen's foot; drill answer bar sticky; news rows wrap; touch draws while a tool is on. Screenshots at 390, 768 and 1366 in docs/redesign/after/t46/ |
 | T47 | ES as a full instrument (BUG-094) | NQ "perfect" | ✅ merged 2026-10-27 | `feat/t47-es` | NQ ▾ / ES on the Chart tab (remembered), SMT layer back with the other market under the chart, NQ/ES on Practice's start and on Drills; BUG-094 found and fixed in PriceChart. Screenshots docs/redesign/after/t47/ |
 | T48 | Public landing page | T36 | 🟢 built, waiting for "merge" | `feat/t48-landing` | `/` signed out: hero, the method with real screens, honest by design, the way in, the disclaimer in full; a session that just ended still goes to sign-in. Screenshots docs/redesign/after/t48/ |
-| T49 | AI chart assistant | everything | ⬜ | | last; budget decision |
+| T49 | AI chart assistant | everything | ⏸ | | paused 2026-10-27 by Fabio; needs his budget decision |
 
 ---
 
