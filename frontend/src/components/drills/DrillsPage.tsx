@@ -8,7 +8,8 @@ import { getLearning, type ConceptProgress } from '@/lib/api/learning'
 import { getCurriculum, type Curriculum } from '@/lib/api/concepts'
 import { topicIcon } from '@/lib/topics'
 import { cx, errorClass } from '@/lib/styles'
-import { Chip, NextStep, PageHeader } from '../ui'
+import { drillMarket, MARKETS, setDrillMarket, type Market } from '@/lib/markets'
+import { Chip, NextStep, PageHeader, Segmented } from '../ui'
 
 /**
  * Drills (T43, Lovable's §5.5): sections of cards, one click to start. Each card carries the learner's real record — from
@@ -21,6 +22,12 @@ export function DrillsPage() {
   const [risk, setRisk] = useState<RiskKindView[]>([])
   const [concepts, setConcepts] = useState<Map<string, ConceptProgress>>(new Map())
   const [curriculum, setCurriculum] = useState<Curriculum | null>(null)
+  // T47: the market the drills are asked on, kept for the drill screens too.
+  const [market, setMarket] = useState<Market>(drillMarket)
+  const chooseMarket = (next: Market) => {
+    setMarket(next)
+    setDrillMarket(next)
+  }
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -55,7 +62,12 @@ export function DrillsPage() {
 
   return (
     <section aria-label="Drills">
-      <PageHeader eyebrow="Step 2" title="Drills" description="Short exercises on one idea at a time, on real NQ." />
+      <PageHeader
+        eyebrow="Step 2"
+        title="Drills"
+        description={`Short exercises on one idea at a time, on real ${market}.`}
+        right={<Segmented<Market> options={MARKETS} value={market} onChange={chooseMarket} label="Market" />}
+      />
       {error && (
         <p role="alert" className={errorClass}>
           {error}

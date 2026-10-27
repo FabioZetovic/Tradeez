@@ -131,7 +131,7 @@ export function PriceChart({
   // The overlay is positioned against this frame, and pointer events on the chart bubble up to it —
   // which is what lets the overlay hit-test while remaining transparent to the pointer.
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative min-h-0 min-w-0 flex-1">
       <div
         ref={containerRef}
         className={cx('overflow-hidden rounded-lg border border-line bg-surface', heightClass)}
@@ -153,15 +153,22 @@ function frame(adapter: ChartAdapter, recentBars: number | undefined) {
  * that was still forming, now further on — and perhaps newer ones after it.
  *
  * Checks the ends rather than every bar: a replay never rewrites a candle that has closed (the
- * server guarantees that, and a backend test holds it to it), so matching first and last times is
- * enough to know the prefix is the same series. Bars after it must be strictly later, because
- * updateBar on an equal time would overwrite a bar instead of adding one.
+ * server guarantees that, and a backend test holds it to it), so matching first and last times — and the first
+ * candle's prices — is enough to know the prefix is the same series. The prices matter: another market over the same
+ * minutes has the very same times (BUG-094, ES after NQ kept NQ's candles). Bars after it must be strictly later,
+ * because updateBar on an equal time would overwrite a bar instead of adding one.
  */
 function continues(shown: DomainBar[], next: DomainBar[]): boolean {
   if (shown.length === 0 || next.length < shown.length) return false
   const last = shown.length - 1
   return (
     next[0].time === shown[0].time &&
+    // A lone first candle may still be forming; once there are more, the first has closed and cannot change.
+    (last === 0 ||
+      (next[0].open === shown[0].open &&
+        next[0].high === shown[0].high &&
+        next[0].low === shown[0].low &&
+        next[0].close === shown[0].close)) &&
     next[last].time === shown[last].time &&
     (next.length === shown.length || next[shown.length].time > shown[last].time)
   )

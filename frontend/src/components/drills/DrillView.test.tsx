@@ -645,6 +645,14 @@ describe('Drills — fixtures and refusals', () => {
     expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/drills'))).toHaveLength(1)
   })
 
+  it('asks on the market the Drills page chose (T47)', async () => {
+    localStorage.setItem('tradeez.drills.market', 'ES')
+    mockApi(server())
+    await startDrill()
+    expect(started()?.body).toEqual({ kind: 'FVG_IDENTIFICATION', instrument: 'ES' })
+    localStorage.removeItem('tradeez.drills.market')
+  })
+
   it('says so when no chart can be found, and tries again', async () => {
     let fail = true
     mockApi((call) => {

@@ -21,12 +21,15 @@ type LayerGroup = (typeof LAYER_GROUPS)[number]
 const ORDER: Record<LayerGroup, readonly string[]> = {
   'Time & sessions': ['days', 'killzones', 'silverBullet', 'macros', 'sessionLevels', 'ipda'],
   Levels: ['opens', 'previousDay', 'previousWeek', 'LIQUIDITY', 'EQHL', 'OPENING_GAP', 'ORG'],
-  Structure: ['SWING', 'SWING_TIER', 'STRUCTURE', 'DISPLACEMENT', 'MSS', 'BOS_CHOCH', 'SWEEP', 'TURTLE_SOUP'],
+  Structure: ['SWING', 'SWING_TIER', 'STRUCTURE', 'DISPLACEMENT', 'MSS', 'BOS_CHOCH', 'SWEEP', 'TURTLE_SOUP', 'SMT'],
   'Gaps & blocks': ['FVG', 'FVG_STATE', 'IFVG', 'BPR', 'VI', 'VOID', 'OB', 'BREAKER', 'MITIGATION', 'REJECTION'],
   Models: ['UNICORN', 'DEALING_RANGE', 'PD', 'OTE', 'STDEV', 'PO3', 'JUDAS', 'DAILY_PROFILE', 'WEEKLY_PROFILE'],
 }
 
-/** Read on two markets, so not offered on a chart of one (R-1, R-2): SMT has its lesson and its drill. */
+/**
+ * Read on two markets (R-1, R-2): on the Chart tab since T47, with the other market drawn under the chart; still not in
+ * a practice replay, which shows one.
+ */
 export const TWO_MARKET_RULES: ReadonlySet<string> = new Set(['SMT'])
 
 /** One click to a common view. Clean is everything off. */
@@ -43,12 +46,18 @@ export function isClockLayer(id: string): id is ClockLayerKey {
   return CLOCK_KEYS.has(id)
 }
 
-/** The clock's parts and the given rules as one list, in group order and in order within each group. */
-export function arrangeLayers(rules: ReadonlyArray<{ id: string; label: string; title: string }>): Layer[] {
+/**
+ * The clock's parts and the given rules as one list, in group order and in order within each group. The two-market rules
+ * only where the chart can show the second market (T47).
+ */
+export function arrangeLayers(
+  rules: ReadonlyArray<{ id: string; label: string; title: string }>,
+  twoMarkets = false,
+): Layer[] {
   const all = [
     ...CLOCK_LAYERS.map((layer) => ({ id: layer.key, kind: 'clock' as const, label: layer.label, title: layer.title })),
     ...rules
-      .filter((rule) => !TWO_MARKET_RULES.has(rule.id))
+      .filter((rule) => twoMarkets || !TWO_MARKET_RULES.has(rule.id))
       .map((rule) => ({ ...rule, kind: 'setup' as const })),
   ]
   const placed = (id: string): [number, number] => {

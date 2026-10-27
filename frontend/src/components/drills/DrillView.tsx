@@ -11,6 +11,7 @@ import { answerDrill, startDrill, type DrillResponse, type ResultView, type Targ
 import type { ChartAdapter } from '@/lib/chart/types'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { toggleMark } from '@/lib/drills/marks'
+import { drillMarket } from '@/lib/markets'
 import { Button, Chip, Notice, Panel } from '../ui'
 import { errorClass, panelTitle } from '@/lib/styles'
 
@@ -82,7 +83,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
   const start = useCallback(
     () =>
       run(async () => {
-        const next = await startDrill({ kind, instrument: 'NQ' })
+        const next = await startDrill({ kind, instrument: drillMarket() })
         setDrill(next)
         setMarks([])
       }),

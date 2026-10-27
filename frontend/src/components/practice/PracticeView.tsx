@@ -25,7 +25,8 @@ import { formatPrice } from '@/lib/chart/priceFormat'
 import { formatSessionDate, formatSessionTime } from '@/lib/chart/timeAxis'
 import { parseDecimal } from '@/lib/decimal'
 import { formatCents, formatR, outcomeLabel, STATUS_LABEL } from '@/lib/practice/plan'
-import { Button, PageHeader, Panel, StatTile } from '../ui'
+import { MARKETS, type Market } from '@/lib/markets'
+import { Button, PageHeader, Panel, Segmented, StatTile } from '../ui'
 import { cx, errorClass, fieldClass, panelTitle } from '@/lib/styles'
 
 const tableClass =
@@ -65,6 +66,8 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   const [settings, setSettings] = useState<PracticeSettings | undefined>(undefined)
   // Empty means "any": the server then picks from the whole history.
   const [killzone, setKillzone] = useState('')
+  // T47: NQ or ES — a real day of either.
+  const [market, setMarket] = useState<Market>('NQ')
   const [starting, setStarting] = useState(false)
   const [allOpen, setAllOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -104,7 +107,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     setStarting(true)
     setError(null)
     try {
-      const session = await createSession({ instrument: 'NQ', ...(killzone && { killzone }) })
+      const session = await createSession({ instrument: market, ...(killzone && { killzone }) })
       void navigate(`/practice/${session.state.id}`, { state: { created: session } })
     } catch (e) {
       const body = e instanceof ApiError ? (e.body as { message?: string } | null) : null
@@ -147,7 +150,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
         <div className="max-w-xl">
           <h2 className="font-display text-2xl font-bold tracking-tight text-ink">Start a session</h2>
           <p className="mt-1 text-sm text-subtle">
-            A random NQ day from the last two years. You won&apos;t see the date until the end.
+            A random {market} day from the last two years. You won&apos;t see the date until the end.
           </p>
           <RiskLimitField
             cents={settings === undefined ? undefined : (settings.riskLimitCents ?? null)}
@@ -156,6 +159,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <Segmented<Market> options={MARKETS} value={market} onChange={setMarket} label="Market" />
           <label className="sr-only" htmlFor="session-time">
             Session time
           </label>

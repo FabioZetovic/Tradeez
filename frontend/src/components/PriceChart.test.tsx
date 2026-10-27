@@ -145,3 +145,33 @@ describe('PriceChart', () => {
     expect(adapter.destroyed).toBe(true)
   })
 })
+
+describe('PriceChart, another market over the same minutes (BUG-094)', () => {
+  it('replaces the series and refits: same times, other prices, is never a replay carried on', () => {
+    const adapter = new FakeChartAdapter()
+    const { rerender } = render(
+      <PriceChart bars={bars} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />,
+    )
+    const fits = adapter.fitCalls
+    // ES over NQ's minutes: every time the same, every price a quarter of NQ's.
+    const es = bars.map((b) => ({ ...b, open: b.open / 4, high: b.high / 4, low: b.low / 4, close: b.close / 4 }))
+    rerender(<PriceChart bars={es} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />)
+
+    expect(adapter.bars).toEqual(es)
+    expect(adapter.updates).toEqual([])
+    expect(adapter.fitCalls).toBeGreaterThan(fits)
+  })
+
+  it('one price of the first candle different is enough: a closed candle never changes', () => {
+    for (const field of ['open', 'high', 'low', 'close'] as const) {
+      const adapter = new FakeChartAdapter()
+      const { rerender } = render(
+        <PriceChart bars={bars} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />,
+      )
+      const other = [{ ...bars[0], [field]: bars[0][field] + 1 }, bars[1]]
+      rerender(<PriceChart bars={other} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />)
+      expect(adapter.bars, field).toEqual(other)
+      expect(adapter.updates, field).toEqual([])
+    }
+  })
+})

@@ -72,10 +72,12 @@ export function useChartLayers(scope: keyof typeof TOGGLES = 'chart') {
     }
   }, [])
 
-  const layers = useMemo(() => arrangeLayers(rules), [rules])
+  // The Chart tab draws the other market under the chart (T47); a practice replay shows one market only.
+  const twoMarkets = scope === 'chart'
+  const layers = useMemo(() => arrangeLayers(rules, twoMarkets), [rules, twoMarkets])
   const setupsOn = useMemo(
-    () => rules.filter((r) => setups.shown.has(r.id) && !TWO_MARKET_RULES.has(r.id)).map((r) => r.id),
-    [rules, setups.shown],
+    () => rules.filter((r) => setups.shown.has(r.id) && (twoMarkets || !TWO_MARKET_RULES.has(r.id))).map((r) => r.id),
+    [rules, setups.shown, twoMarkets],
   )
 
   const { toggle: toggleClock, set: setClock } = clock
