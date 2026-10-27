@@ -61,8 +61,8 @@
 | T44 | Learn audit (with Fabio) | Fabio's time | ✅ merged 2026-10-27 (with T45) | `feat/t44-learn-audit` | docs/redesign/learn-audit.md: 72 rows from the API; proposed 13 keep + 12 keep-needs-a-drill + 8 reference cards, 26 merged, 13 removed; 9 topics |
 | T45 | Learn rebuild | T36, T44 | ✅ merged 2026-10-27 | `feat/t45-learn` (from `feat/t44-learn-audit`) | DEC-082. `/learn` by topic with locks (5 answers at 70%), `/learn/:id` in the template, 12 new drills (5 spot, mode J judgement ×6, daily bias), 33 lesson texts in `backend/src/main/resources/lessons/`, Drills under Learn's topics. Screenshots docs/redesign/after/t45/ |
 | T46 | Phones and tablets | T36–T45 | ✅ merged 2026-10-27 | `feat/t46-mobile` | Header menu under 768 px; chart and session stacked under 1024 px with the drawing bar as a row; session replay held at the screen's foot; drill answer bar sticky; news rows wrap; touch draws while a tool is on. Screenshots at 390, 768 and 1366 in docs/redesign/after/t46/ |
-| T47 | ES as a full instrument (BUG-094) | NQ "perfect" | 🟢 built, waiting for "merge" | `feat/t47-es` | NQ ▾ / ES on the Chart tab (remembered), SMT layer back with the other market under the chart, NQ/ES on Practice's start and on Drills; BUG-094 found and fixed in PriceChart. Screenshots docs/redesign/after/t47/ |
-| T48 | Public landing page | T36 | ⬜ | | |
+| T47 | ES as a full instrument (BUG-094) | NQ "perfect" | ✅ merged 2026-10-27 | `feat/t47-es` | NQ ▾ / ES on the Chart tab (remembered), SMT layer back with the other market under the chart, NQ/ES on Practice's start and on Drills; BUG-094 found and fixed in PriceChart. Screenshots docs/redesign/after/t47/ |
+| T48 | Public landing page | T36 | 🟢 built, waiting for "merge" | `feat/t48-landing` | `/` signed out: hero, the method with real screens, honest by design, the way in, the disclaimer in full; a session that just ended still goes to sign-in. Screenshots docs/redesign/after/t48/ |
 | T49 | AI chart assistant | everything | ⬜ | | last; budget decision |
 
 ---
@@ -1057,4 +1057,6 @@ due, open), `suggested`, `due`.
 | 2026-10-27 | T47 | Fabio said "continue with T47": taken as NQ being far enough along | Fabio |
 | 2026-10-27 | T47 | The Chart tab's market is a picker in its top bar, remembered in the browser; the Drills page's market is remembered for the drill screens; Practice asks each time | Claude |
 | 2026-10-27 | T47 | SMT on the Chart tab draws the other market under the chart (moving with it, its own divergences marked); a practice replay still leaves SMT out — it shows one market | Claude |
+| 2026-10-27 | T48 | The landing page's screenshots are the app's own (four JPEGs, 56–106 KB, in the bundle), taken from the T45–T47 captures — real screens, as the page claims | Claude |
+| 2026-10-27 | T48 | A session that ends while the app is open still lands on sign-in with its notice (BUG-040), not on the landing page | Claude |
 

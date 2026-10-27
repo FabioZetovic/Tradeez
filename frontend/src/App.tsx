@@ -6,6 +6,7 @@ import { SignInForm } from '@/components/SignInForm'
 import { AppShell, Logo } from '@/components/shell/AppShell'
 import { Guide } from '@/components/Guide'
 import { HomePage } from '@/components/home/HomePage'
+import { LandingPage } from '@/components/landing/LandingPage'
 import { NewsPage } from '@/components/news/NewsPage'
 import { ChartPage } from '@/components/chart/ChartPage'
 import { PracticeView } from '@/components/practice/PracticeView'
@@ -47,7 +48,8 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
   }
 
   if (state.status !== 'signedIn') {
-    // Signed out, every address leads to sign-in — which remembers where it was, to return there after.
+    // Signed out: the landing page at / (T48); every other address leads to sign-in — which remembers where it was, to
+    // return there after.
     const signIn = (mode: 'login' | 'register') => (
       <AuthPage>
         {state.expired && (
@@ -60,6 +62,8 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
     )
     return (
       <Routes>
+        {/* A session that just ended (BUG-040) goes back to sign-in and says why, not to the landing page. */}
+        <Route path="/" element={state.expired ? signIn('login') : <LandingPage />} />
         <Route path="/sign-in" element={signIn('login')} />
         <Route path="/sign-up" element={signIn('register')} />
         <Route path="*" element={<Navigate to="/sign-in" replace state={{ from: location.pathname }} />} />
