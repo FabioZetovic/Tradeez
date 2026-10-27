@@ -2074,6 +2074,10 @@ Backend 723 → 748, frontend 443 → 442 (the old Learn screen's tests went wit
 
 **T47 — ES as a full instrument** (`feat/t47-es`). The Chart tab's top bar picks NQ or ES again, and remembers it; the SMT layer is back on the Chart tab, the other market drawn under the chart over the same minutes and moving with it; Practice's start and the Drills page each choose NQ or ES. BUG-094 — ES showing no chart — was reproduced at once by switching live: ES kept NQ's candles, only its newest one ES's, so the price scale ran from 7,700 to 31,000 and ES lay flat along the bottom. The chart component had taken "the same first and last times" for "the same candles, carried on", which two markets over the same minutes always are; now the first candle's prices must match too. Two layout faults were caught by looking, not by tests: the chart and its companion fighting for height. Mutations: 8, all caught (one after a new test). Frontend 445 → 449.
 
+**2026-10-27 — T47 merged.** `--no-ff` merge 2612b37 after its fresh-clone check.
+
+**T48 — the public landing page** (`feat/t48-landing`). A visitor at `/` now meets Tradeez before the sign-in form: what it is and for whom, the method — Learn, Drill, Practice — each with a real screen of the app, what it is honest about (real data never cherry-picked, rules not promises, simulated results with costs), the way in, and the disclaimer in full. Every other signed-out address still leads to sign-in, and a session that ends while the app is open still returns there with its notice. Mutations: 2, both caught. Frontend 449 → 450.
+
 ---
 
 ## For the presentation: the disclaimer slide

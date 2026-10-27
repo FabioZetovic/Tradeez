@@ -96,7 +96,11 @@ beforeEach(() => window.history.replaceState(null, '', '/'))
 afterEach(() => vi.restoreAllMocks())
 
 describe('App — signed out', () => {
-  beforeEach(() => mockApi(signedOut))
+  beforeEach(() => {
+    mockApi(signedOut)
+    // / is the landing page (T48): these start at sign-in.
+    window.history.replaceState(null, '', '/sign-in')
+  })
 
   it('shows the sign-in form when no session can be restored', async () => {
     render(<App />)
@@ -106,7 +110,8 @@ describe('App — signed out', () => {
   })
 
   it('BUG-040: a session that ends while the app is open returns to sign-in, and says why', async () => {
-    // Signed in at load; minutes later every request is refused and so is the refresh.
+    // Signed in at load, at / — minutes later every request is refused and so is the refresh.
+    window.history.replaceState(null, '', '/')
     mockApi({
       ...signedIn,
       '/api/market/instruments/NQ/bars': { status: 401, body: {} },
@@ -116,6 +121,27 @@ describe('App — signed out', () => {
 
     expect(await screen.findByTestId('session-expired')).toHaveTextContent(/signed out/i)
     expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1, name: /Learn ICT the way it is traded/ })).toBeNull()
+  })
+
+  it('a visitor at / gets the landing page: what it is, the method, the honesty, the way in (T48)', async () => {
+    window.history.replaceState(null, '', '/')
+    render(<App />)
+    expect(await screen.findByRole('heading', { level: 1, name: /Learn ICT the way it is traded/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'Learn',
+      'Drill',
+      'Practice',
+      'Real data, never cherry-picked',
+      'Rules, not promises',
+      'Simulated, with costs',
+    ])
+    expect(screen.getAllByRole('img').length).toBe(4)
+    expect(screen.getByTestId('landing-disclaimer')).toHaveTextContent(/not financial advice/)
+    expect(screen.queryByTestId('price-chart')).toBeNull()
+    await userEvent.click(screen.getByRole('link', { name: /Start learning/ }))
+    expect(window.location.pathname).toBe('/sign-up')
+    expect(await screen.findByLabelText(/display name/i)).toBeInTheDocument()
   })
 
   it('does not render the chart to an unauthenticated visitor', async () => {
