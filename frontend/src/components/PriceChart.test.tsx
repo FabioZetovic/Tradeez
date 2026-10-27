@@ -161,4 +161,17 @@ describe('PriceChart, another market over the same minutes (BUG-094)', () => {
     expect(adapter.updates).toEqual([])
     expect(adapter.fitCalls).toBeGreaterThan(fits)
   })
+
+  it('one price of the first candle different is enough: a closed candle never changes', () => {
+    for (const field of ['open', 'high', 'low', 'close'] as const) {
+      const adapter = new FakeChartAdapter()
+      const { rerender } = render(
+        <PriceChart bars={bars} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />,
+      )
+      const other = [{ ...bars[0], [field]: bars[0][field] + 1 }, bars[1]]
+      rerender(<PriceChart bars={other} tickSize={0.25} exchangeTimezone="America/Chicago" axisTimezone="exchange" adapterFactory={() => adapter} />)
+      expect(adapter.bars, field).toEqual(other)
+      expect(adapter.updates, field).toEqual([])
+    }
+  })
 })

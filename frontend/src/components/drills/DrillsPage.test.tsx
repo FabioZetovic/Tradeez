@@ -164,6 +164,17 @@ describe('Drills, the cards (T43)', () => {
     expect(record('Recovery')).toHaveTextContent('2 of 2 right')
   })
 
+  it('drills on the market chosen, remembered for the drill screens (T47)', async () => {
+    serve(ALL)
+    renderPage()
+    await screen.findByRole('heading', { name: 'Structure' })
+    expect(screen.getByText('Short exercises on one idea at a time, on real NQ.')).toBeInTheDocument()
+    await userEvent.click(within(screen.getByRole('group', { name: 'Market' })).getByRole('button', { name: 'ES' }))
+    expect(screen.getByText('Short exercises on one idea at a time, on real ES.')).toBeInTheDocument()
+    expect(localStorage.getItem('tradeez.drills.market')).toBe('ES')
+    localStorage.removeItem('tradeez.drills.market')
+  })
+
   it('one click opens the drill', async () => {
     serve(ALL)
     renderPage()

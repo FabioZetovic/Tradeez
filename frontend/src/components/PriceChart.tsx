@@ -131,7 +131,7 @@ export function PriceChart({
   // The overlay is positioned against this frame, and pointer events on the chart bubble up to it —
   // which is what lets the overlay hit-test while remaining transparent to the pointer.
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative min-h-0 min-w-0 flex-1">
       <div
         ref={containerRef}
         className={cx('overflow-hidden rounded-lg border border-line bg-surface', heightClass)}

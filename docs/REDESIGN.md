@@ -60,8 +60,8 @@
 | T43 | Drills | T36 | 🟢 built, waiting for "merge" | `feat/t43-drills` | `/drills` cards by topic (mode badge, time hint, the real record), `/drills/:kind` one click to a drill (eyebrow, title, task, chart, answer bar, result, Next drill), `/drills/risk/:slug` Lovable's risk card; no kind dropdown, no timeframe — the server draws 1m/5m/15m; `GET /api/drills/risk/kinds` for the risk records. Locks from T45 added later. Screenshots docs/redesign/after/t43/ |
 | T44 | Learn audit (with Fabio) | Fabio's time | ✅ merged 2026-10-27 (with T45) | `feat/t44-learn-audit` | docs/redesign/learn-audit.md: 72 rows from the API; proposed 13 keep + 12 keep-needs-a-drill + 8 reference cards, 26 merged, 13 removed; 9 topics |
 | T45 | Learn rebuild | T36, T44 | ✅ merged 2026-10-27 | `feat/t45-learn` (from `feat/t44-learn-audit`) | DEC-082. `/learn` by topic with locks (5 answers at 70%), `/learn/:id` in the template, 12 new drills (5 spot, mode J judgement ×6, daily bias), 33 lesson texts in `backend/src/main/resources/lessons/`, Drills under Learn's topics. Screenshots docs/redesign/after/t45/ |
-| T46 | Phones and tablets | T36–T45 | 🟢 built, waiting for "merge" | `feat/t46-mobile` | Header menu under 768 px; chart and session stacked under 1024 px with the drawing bar as a row; session replay held at the screen's foot; drill answer bar sticky; news rows wrap; touch draws while a tool is on. Screenshots at 390, 768 and 1366 in docs/redesign/after/t46/ |
-| T47 | ES as a full instrument (BUG-094) | NQ "perfect" | ⬜ | | |
+| T46 | Phones and tablets | T36–T45 | ✅ merged 2026-10-27 | `feat/t46-mobile` | Header menu under 768 px; chart and session stacked under 1024 px with the drawing bar as a row; session replay held at the screen's foot; drill answer bar sticky; news rows wrap; touch draws while a tool is on. Screenshots at 390, 768 and 1366 in docs/redesign/after/t46/ |
+| T47 | ES as a full instrument (BUG-094) | NQ "perfect" | 🟢 built, waiting for "merge" | `feat/t47-es` | NQ ▾ / ES on the Chart tab (remembered), SMT layer back with the other market under the chart, NQ/ES on Practice's start and on Drills; BUG-094 found and fixed in PriceChart. Screenshots docs/redesign/after/t47/ |
 | T48 | Public landing page | T36 | ⬜ | | |
 | T49 | AI chart assistant | everything | ⬜ | | last; budget decision |
 
@@ -1054,4 +1054,7 @@ due, open), `suggested`, `due`.
 | 2026-10-27 | T46 | The practice session on a phone stacks — chart, then the trading column, its replay sticky at the screen's foot — rather than a bottom sheet with tabs: the same reach with far less machinery | Claude |
 | 2026-10-27 | T46 | The account stays its own button (initials only on a phone, its name kept for screen readers) rather than moving into the menu | Claude |
 | 2026-10-27 | T46 | On a touch screen a drawing tool draws (the canvas takes the touch); moving or deleting a drawing is still done with a mouse — touching a drawing to select it is left for later | Claude |
+| 2026-10-27 | T47 | Fabio said "continue with T47": taken as NQ being far enough along | Fabio |
+| 2026-10-27 | T47 | The Chart tab's market is a picker in its top bar, remembered in the browser; the Drills page's market is remembered for the drill screens; Practice asks each time | Claude |
+| 2026-10-27 | T47 | SMT on the Chart tab draws the other market under the chart (moving with it, its own divergences marked); a practice replay still leaves SMT out — it shows one market | Claude |
 

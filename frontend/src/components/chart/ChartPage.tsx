@@ -390,7 +390,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
         {instrument && series && error === null && (
           <div className="flex min-h-0 flex-1 flex-col">
             <PriceChart
-              heightClass={beside ? 'min-h-0 flex-1' : 'h-full'}
+              heightClass="h-full"
               bars={series.bars}
               tickSize={instrument.tickSize}
               exchangeTimezone={instrument.exchangeTimezone}

@@ -1554,6 +1554,15 @@ describe('Practice — real NQ behind a hidden date (T4, DEC-025)', () => {
     expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({ instrument: 'NQ', killzone: 'LONDON' })
   })
 
+  it('starts a session on ES when ES is chosen (T47)', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await user.click(within(await screen.findByRole('group', { name: 'Market' })).getByRole('button', { name: 'ES' }))
+    expect(screen.getByText(/A random ES day/)).toBeInTheDocument()
+    await startSession(user)
+    expect(calls.find((c) => is(c, 'POST', '/api/practice/sessions'))?.body).toEqual({ instrument: 'ES' })
+  })
+
   it('shows New York wall-clock time and keeps the date hidden', async () => {
     const adapter = new FakeChartAdapter()
     const user = userEvent.setup()
