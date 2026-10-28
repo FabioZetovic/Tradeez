@@ -350,10 +350,15 @@ function server({
   }
 }
 
-/** Clicks the candle at `index`. The fake projection puts time t at x = t - 1000. */
+/**
+ * Presses and releases on the candle at `index` — what a mouse click and a finger's tap have in common (BUG-111). The
+ * fake projection puts time t at x = t - 1000.
+ */
 function clickCandle(index: number) {
   const frame = screen.getByTestId('drill-overlay').parentElement!
-  fireEvent.click(frame, { clientX: BARS[index].time - 1000, clientY: 100 })
+  const at = { clientX: BARS[index].time - 1000, clientY: 100, button: 0 }
+  fireEvent.pointerDown(frame, at)
+  fireEvent.pointerUp(frame, at)
 }
 
 /** The drill's screen, as its card opens it (T43). */
@@ -436,9 +441,27 @@ describe('Drills — spot (identification)', () => {
     await startDrill()
     const frame = screen.getByTestId('drill-overlay').parentElement!
     const x = BARS[5].time - 1000
-    fireEvent.pointerDown(frame, { clientX: x - 40, clientY: 100 })
-    fireEvent.click(frame, { clientX: x, clientY: 100 })
+    fireEvent.pointerDown(frame, { clientX: x - 40, clientY: 100, button: 0 })
+    fireEvent.pointerUp(frame, { clientX: x, clientY: 100, button: 0 })
     expect(screen.getByTestId('mark-count')).toHaveTextContent('0 marked')
+  })
+
+  it('marks a candle on a tap, which on a touch screen brings no click (BUG-111)', async () => {
+    await startDrill()
+    const frame = screen.getByTestId('drill-overlay').parentElement!
+    const at = { clientX: BARS[5].time - 1000, clientY: 100, button: 0, pointerType: 'touch' }
+    fireEvent.pointerDown(frame, at)
+    fireEvent.pointerUp(frame, at)
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('1 marked')
+    // A click alone — none comes after a tap, and a mouse's comes after its release — marks nothing more.
+    fireEvent.click(frame, at)
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('1 marked')
+    // Nor does a release whose press was elsewhere (a drag that ended on the chart), or a right button's.
+    fireEvent.pointerUp(frame, { ...at, clientX: BARS[20].time - 1000 })
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('1 marked')
+    fireEvent.pointerDown(frame, { ...at, clientX: BARS[22].time - 1000, button: 2 })
+    fireEvent.pointerUp(frame, { ...at, clientX: BARS[22].time - 1000, button: 2 })
+    expect(screen.getByTestId('mark-count')).toHaveTextContent('1 marked')
   })
 
   it("sends exactly the marked candles, then grades them and shows the server's explanations", async () => {

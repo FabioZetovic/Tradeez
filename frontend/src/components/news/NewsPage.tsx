@@ -99,7 +99,7 @@ export function NewsPage() {
                       href={event.link}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-subtle hover:text-ink"
+                      className="inline-flex items-center gap-1 text-xs text-subtle hover:text-ink pointer-coarse:min-h-11 pointer-coarse:px-1"
                     >
                       {event.agency}
                       <ExternalLink aria-hidden className="size-3" />
@@ -121,7 +121,7 @@ export function NewsPage() {
           </p>
           <p>
             {news.notice}{' '}
-            <a href={news.termsUrl} target="_blank" rel="noreferrer" className="underline hover:text-ink">
+            <a href={news.termsUrl} target="_blank" rel="noreferrer" className="tap underline hover:text-ink">
               FRED API terms of use
             </a>
           </p>

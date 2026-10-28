@@ -66,6 +66,7 @@
 | T49 | AI chart assistant | everything | ⏸ | | paused 2026-10-27 by Fabio; needs his budget decision |
 | T50 | Design clean-up: off the template look | — | 🟢 first pass built 2026-10-28, waiting for "merge"; D-6 and D-10 wait for Fabio | `feat/motion` (D-1), `fix/t50-cleanup` | Fabio's critique request: D-1 … D-12 in §6 with BUG-101 … BUG-110; D-6 and D-10 need his yes. Screenshots docs/redesign/critique/ |
 | T51 | The logo and the name | Fabio's name and domain | ⏸ | | D-12; Fabio: "Logo i will fix later when i come up with an actual name of the app" |
+| T52 | Mobile pass | — | 🟢 built 2026-10-28, waiting for "merge" | `feat/mobile` | Fabio: "lets focus on mobile compatibility now". An audit of every screen at 390, 360 and 768 with touch (overflow, targets, text, real taps); BUG-111 … BUG-116 fixed. Screenshots docs/redesign/after/t52/ |
 
 ---
 
@@ -997,6 +998,24 @@ scroll and the chart toolbar on one row.
 screen at 1920 and 1366 in `docs/redesign/after/t50/`, compared with `docs/redesign/critique/`; no `shadow-glow`,
 `tracking-widest` or accent-tinted panel left (grep); tests, lint, tsc and knip clean.
 
+### T52 — Mobile pass (Fabio, 2026-10-28)
+
+**Fabio:** "merge everything and lets focus on mobile compatibility now". T46 made every screen reflow; T52 checks it
+as a phone is used. **How it was checked** (repeatable, scripts in the session's scratchpad): every screen — landing,
+sign-in, Home, Learn, a lesson, Drills, a drill, a risk drill, Practice, a live practice session, the Chart tab with its
+layers menu open, News, the guide, the phone menu — at 390×844, 360×780 and 768×1024 with touch emulated; for each,
+sideways overflow, anything past the right edge, every visible control under 44px, text under 12px; screen-sized
+shots while scrolling (full-page shots misplace sticky panels); and real touch: tapping the menu, tapping candles in a
+drill, drawing on the Chart tab by tap.
+
+**Found and fixed:** BUG-111 (a tap could not mark a drill's candle — the drill unusable on a phone), BUG-112 (Home
+scrolled sideways), BUG-113 (the replay bar a third of the screen), BUG-114 (the chart's controls a third of the
+screen), BUG-115 (touch targets), BUG-116 (the account name wrapping on a tablet). Text under 12px: the landing
+replay's three labels, now 12px. Unchanged on a desktop: checked at 1920 and 1366.
+
+**Rule from now on:** touch is tested with touch (`hasTouch`, taps), not with a mouse in a small window; sizes for a
+finger go behind `pointer-coarse:` so the desktop keeps its density.
+
 ### T51 — The logo and the name (Fabio, later)
 
 The name "Tradeez" is a working name; Fabio will choose the real one once he has found a domain for it. Then: a
@@ -1134,6 +1153,7 @@ due, open), `suggested`, `due`.
 | 2026-10-27 | T47 | SMT on the Chart tab draws the other market under the chart (moving with it, its own divergences marked); a practice replay still leaves SMT out — it shows one market | Claude |
 | 2026-10-27 | T48 | The landing page's screenshots are the app's own (four JPEGs, 56–106 KB, in the bundle), taken from the T45–T47 captures — real screens, as the page claims | Claude |
 | 2026-10-27 | T48 | A session that ends while the app is open still lands on sign-in with its notice (BUG-040), not on the landing page | Claude |
+| 2026-10-28 | T52 | The mobile pass: touch sizes only on a coarse pointer (`pointer-coarse:`), never for the mouse; the Chart tab's controls one scrolling row on a phone rather than a menu; the replay bar compacted rather than turned into tabs (T46's "bottom sheet with tabs" idea not needed once it is two rows) | Claude |
 | 2026-10-28 | T50 | The first pass (`fix/t50-cleanup`): D-2, D-3, D-4, D-5, D-7, D-8, D-9, D-11 and BUG-102, 104–110 fixed; BUG-101 ("thats okay") and BUG-103 ("thats design decision") kept by Fabio. The header is now full width on every screen (BUG-102: always full width rather than always the 1232 column, because the chart pages are the product). `Segmented` taller but not wider, or the chart toolbar wraps at 1366 | Fabio + Claude |
 | 2026-10-28 | T50 | Fabio called the hero's purple pill "vibecoded and basic and bad" and asked what else feels the same. Removed (D-1). The critique of every screen at 1920 logged as T50 D-2 … D-12 (the template look) and BUG-101 … BUG-110 (real flaws), each with what, why and how; §4 gains principle 9. The logo waits for the real name (T51) | Fabio + Claude |
 | 2026-10-28 | R-5 | The motion pass (`feat/motion`), Fabio: "add animations to the app for it to feel smoother". §4's list finished: the section highlight and every Segmented control's highlight slide to the new choice; buttons press; stat tiles and the Next step card lift, a tile's sentence, the phone menu and the footer's disclaimer open by height; progress bars and rings fill in; Practice's figures count up (600 ms, `CountUp`); the sign-in card, a drill's result, Home's step cards and News's days rise in; the landing page's hero rises line by line, its replay draws itself candle by candle and its sections rise in on scroll. All of it off under reduced motion (the shell's `MotionConfig`), and instant in tests (`skipAnimations`). The chart itself is not animated | Fabio + Claude |

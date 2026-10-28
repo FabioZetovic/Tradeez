@@ -13,7 +13,7 @@ export const panelTitle = 'mb-3 text-lg font-semibold tracking-tight text-ink'
 
 /** Text inputs and selects. */
 export const fieldClass =
-  'h-10 rounded-lg border border-line bg-canvas/60 px-3.5 text-sm text-ink tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30'
+  'h-10 rounded-lg border border-line bg-canvas/60 px-3.5 text-sm text-ink tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 pointer-coarse:h-11'
 
 /** A label stacked above its control. */
 export const labelClass = 'flex flex-col gap-1.5 text-sm font-medium text-ink'

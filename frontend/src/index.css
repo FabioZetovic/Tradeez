@@ -49,6 +49,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A small link inside a line of text — "Read more" — that a finger must still hit (BUG-115): on a touch screen an
+   invisible area around it takes the tap, without moving the text. */
+@utility tap {
+  @media (pointer: coarse) {
+    position: relative;
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -14px -6px;
+    }
+  }
+}
+
 /* The glass surface (R-10): the layers menu, popovers over the chart. */
 @utility glass {
   background-color: rgb(21 24 29 / 0.6);

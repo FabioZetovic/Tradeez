@@ -265,7 +265,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
 
       {(statistics || calibration) && (
         <details className="group">
-          <summary className="cursor-pointer text-sm font-semibold text-accent">More statistics</summary>
+          <summary className="cursor-pointer text-sm font-semibold text-accent pointer-coarse:min-h-11 pointer-coarse:flex pointer-coarse:items-center">More statistics</summary>
           <div className="mt-4 flex flex-col gap-4">
             {statistics && <StatisticsPanel statistics={statistics} />}
             {calibration && <CalibrationPanel calibration={calibration} />}
@@ -288,7 +288,7 @@ function Tiles({ statistics }: { statistics: Statistics }) {
   const n = overall.trades
   const trades = `${n} ${n === 1 ? 'trade' : 'trades'}`
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-testid="practice-tiles">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" data-testid="practice-tiles">
       <StatTile
         label="Total"
         value={<CountUp value={overall.totalR} format={formatR} />}

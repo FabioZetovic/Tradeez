@@ -78,6 +78,19 @@ screenshot.
 
 ---
 
+### BUG-117 🟡 A practice test failed once while a browser audit loaded the machine
+
+**Status:** seen once, not reproduced (2026-10-28, `feat/mobile`). **Affects:** `PracticeView.test.tsx`, "shows New York
+wall-clock time and keeps the date hidden".
+
+One full frontend run failed this test while puppeteer was driving the dev servers; three runs of the practice tests
+right after, and every full run since, passed. The test reads no clock; most likely one of its `findBy` waits (one
+second by default) timed out under load, as in the one-off failure noted with the motion pass (DOCUMENTATION,
+2026-10-28). **Next:** if it fails again, run it alone at once and keep the output; if it is the wait, give the session
+start a longer `findBy` timeout.
+
+---
+
 *BUG-075 to BUG-092 are the bug hunt of 2026-10-21* — Fabio: "go through the app and mark every single bug you can
 find … dont touch them yet", thinking like an attacker for the backend and a trader for the frontend. Logged
 untouched, each saying whether it was reproduced against the running app or read from the code; then all eighteen
@@ -456,6 +469,79 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-111 🟠 On a touch screen a tap could not mark a candle in a drill
+
+**Status:** verified (the mobile audit, 2026-10-28): at 390×844 with touch, three taps on a swing-high drill's chart left
+"0 marked"; a mouse click on the same spot marked one. **Affects:** every spot drill on a phone or tablet — the
+drill could not be answered at all.
+
+**What.** A tap on the chart did nothing. **Why.** `DrillOverlay` marked a candle on `click`. A finger's tap fires
+`pointerdown` and `pointerup`, but the chart library takes the touch for its own panning and no `click` follows. T46
+checked the drill on a phone-sized window with a mouse, which does click, so it was never caught.
+
+**✅ FIXED — 2026-10-28, `feat/mobile`.** A candle is marked on `pointerup` when its `pointerdown` (the main button) was within the drag
+tolerance; a click alone, a release whose press was elsewhere, and a right button mark nothing. Tests: a tap marks with
+no click; a click alone, a stray release and a right button do not; the existing click-and-drag tests now press and
+release. Two mutants, both caught. Live with touch: three taps, three marked; a fourth on the same candle unmarks.
+**Lesson:** test touch with touch. A phone-sized window driven by a mouse proves the layout, not the gestures.
+
+### BUG-112 🟡 Home scrolled sideways on a phone
+
+**Status:** verified (2026-10-28): the page was 60px wider than a 390 screen, 90px wider than a 360 one. **Affects:**
+Home; also the landing page's header at 360, 11px past the edge.
+
+**What / why.** The News today card is a grid item, and a grid item is as wide as its content unless told otherwise
+(`min-width: auto`): its longest title, "PCE — Personal Income and Outlays", could not truncate and pushed the
+column, the page and the header with it. On the landing page the logo, "Sign in" and "Create an account" needed 368px
+with its 24px sides.
+
+**✅ FIXED — 2026-10-28, `feat/mobile`.** `min-w-0` on the card, so the title truncates; the landing page's sides are 16px below 640px.
+Test: the card carries `min-w-0` (a mutant removing it is caught). Live: no sideways scroll on any screen at 360, 390
+or 768.
+**Lesson:** `truncate` inside a grid or flex item needs `min-w-0` on the item, or it never gets the chance.
+
+### BUG-113 🟡 The practice replay bar covered a third of a phone's screen
+
+**Status:** verified (2026-10-28): the sticky Replay panel was 235px tall on an 844px screen. **Affects:** the
+practice session below 1024px.
+
+**What / why.** T46 holds the replay at the screen's foot as you scroll, which is right; but it kept the desktop panel —
+its title, a row of labelled buttons and speeds that wrapped to two, and the "End session…" row under a rule.
+**✅ FIXED — 2026-10-28, `feat/mobile`.** Below 1024px: no title (still named for a screen reader), "Next bar" and "Play" as icons with
+their names kept, and the controls and "End session…" flowing together into two rows. 126px. The desktop panel is as
+it was.
+
+### BUG-114 🟡 The Chart tab's controls took a third of a phone's screen
+
+**Status:** verified (2026-10-28): at 390 the timeframes, the jumps, the date and Layers stacked into four rows, about
+270px, leaving the chart about 260px. **Affects:** the Chart tab below 768px.
+
+**✅ FIXED — 2026-10-28, `feat/mobile`.** Below 768px the timeframes, jumps, date and clock share one row that scrolls sideways, beside
+Layers; from a tablet up the wrapper steps aside (`display: contents`) and nothing changes. The chart gains about
+130px. A first try let the toggle groups shrink to a sliver inside that row (seen on the screenshot); its children
+are now kept at their width.
+
+### BUG-115 🟡 Touch targets under 44px across the app
+
+**Status:** verified (2026-10-28, the audit measuring every visible control at 390, 360 and 768 with touch).
+**Affects:** the drawing bar (tools squeezed to 27×36), every toggle (options about 35px wide), every button (32–36px),
+the phone menu button, back links (20px), the news sources (16px), "More statistics", the sign-in switch link, the
+Layers button and its rows (a 36×20 switch was the only way to turn a layer on), the chips' remove buttons (16px),
+fields (40px), the market picker.
+
+**✅ FIXED — 2026-10-28, `feat/mobile`.** On a coarse pointer only — the mouse keeps the compact sizes: buttons, fields, toggles and the
+drawing tools at least 44px (`pointer-coarse:`), the drawing bar scrolling sideways instead of squeezing, a toggle
+group that is wider than its row scrolling inside itself, the back links and other small links at 44px, a `tap`
+utility giving inline links ("Read more", the FRED terms, "Clear all", a chip's ×) an invisible 44px area without moving
+the text, and a whole layer row turning its layer on. Test: a tap on a layer's name toggles it, a tap on its switch
+toggles it once (two mutants, both caught). Left at 36–42px, above WCAG's 24px minimum: the cards' text links
+("Continue lesson"), the layer presets.
+
+### BUG-116 🟡 On a tablet the account name wrapped onto two lines
+
+**Status:** verified (2026-10-28, 768): "Phone / Tester" beside the full nav, the header row 52px tall.
+**✅ FIXED — 2026-10-28, `feat/mobile`.** The name shows from 1024px up, cut short at 10rem; below it the initials alone, as on a phone.
 
 ### BUG-102 🟡 The header jumps sideways between screens
 

@@ -31,7 +31,7 @@ export function AllDrills({ className }: { className?: string }) {
   return (
     <Link
       to="/drills"
-      className={`inline-flex items-center gap-1.5 text-sm font-medium text-subtle hover:text-ink ${className ?? ''}`}
+      className={`inline-flex items-center gap-1.5 text-sm font-medium text-subtle hover:text-ink pointer-coarse:min-h-11 ${className ?? ''}`}
     >
       <ArrowLeft aria-hidden className="size-4" />
       All drills

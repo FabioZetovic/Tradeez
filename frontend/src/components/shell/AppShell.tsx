@@ -50,7 +50,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
         {/* The full width on every screen, so it never jumps sideways between the reading pages and the chart pages
             (BUG-102). */}
         <div className="flex h-16 w-full items-center gap-3 px-4 md:gap-8 md:px-6">
-          <Link to="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
+          <Link to="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
             <Logo />
           </Link>
           <nav aria-label="Sections" className="hidden gap-1 md:flex">
@@ -60,7 +60,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
                 to={to}
                 className={({ isActive }) =>
                   cx(
-                    'relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                    'relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors pointer-coarse:py-3',
                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                     isActive ? 'text-ink' : 'text-subtle hover:text-ink',
                   )
@@ -89,7 +89,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
               aria-expanded={menu}
               aria-controls="section-menu"
               onClick={() => setMenu((m) => !m)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink hover:bg-sunken focus-visible:outline-2 focus-visible:outline-accent md:hidden"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink hover:bg-sunken focus-visible:outline-2 focus-visible:outline-accent md:hidden pointer-coarse:min-h-11"
             >
               {menu ? <X aria-hidden className="size-4" /> : <Menu aria-hidden className="size-4" />}
               Menu
@@ -168,7 +168,7 @@ function Footer() {
         type="button"
         aria-expanded={more}
         onClick={() => setMore((m) => !m)}
-        className="cursor-pointer underline underline-offset-2 hover:text-ink"
+        className="tap cursor-pointer underline underline-offset-2 hover:text-ink"
       >
         {more ? 'Less' : 'Read more'}
       </button>

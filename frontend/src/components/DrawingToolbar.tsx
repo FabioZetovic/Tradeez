@@ -81,7 +81,8 @@ function Tool({
       disabled={disabled}
       onClick={onClick}
       className={cx(
-        'grid size-9 cursor-pointer place-items-center rounded-lg transition-colors [&_svg]:size-4',
+        // Never squeezed: on a phone the bar scrolls sideways instead, each tool a 44px target to touch (BUG-115).
+        'grid size-9 shrink-0 cursor-pointer place-items-center rounded-lg transition-colors pointer-coarse:size-11 [&_svg]:size-4',
         'focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-35',
         pressed ? 'bg-accent/15 text-accent' : 'text-subtle hover:bg-sunken hover:text-ink',
       )}

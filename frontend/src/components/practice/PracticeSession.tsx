@@ -34,7 +34,7 @@ import type { SnapMode } from '@/lib/drawing/snap'
 import type { Drawing, DrawingKind } from '@/lib/drawing/types'
 import { ArrowLeft, Pause, Play, StepForward } from 'lucide-react'
 import { Button, Chip, Panel, Segmented } from '../ui'
-import { errorClass, keyValueClass, panelTitle } from '@/lib/styles'
+import { cx, errorClass, keyValueClass, panelTitle } from '@/lib/styles'
 import {
   closedTradeDrawing,
   defaultBracket,
@@ -541,13 +541,15 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
           />
         )}
 
-        {/* Always in view at the column's foot, however long the scorecard above it (T42). */}
-        <Panel aria-label="Replay" className="sticky bottom-0 z-10 mt-auto">
-          <h3 className={panelTitle}>Replay</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={busy || playing} onClick={() => void advance(1)}>
+        {/* Always in view at the column's foot, however long the scorecard above it (T42). On a phone it is one short
+            rows — no title, the step's label an icon, "End session…" beside the speeds — so it does not cover a third of the
+            screen (BUG-113). */}
+        <Panel aria-label="Replay" className="sticky bottom-0 z-10 mt-auto max-lg:flex max-lg:flex-wrap max-lg:items-center max-lg:gap-2 max-lg:p-3">
+          <h3 className={cx(panelTitle, 'max-lg:sr-only')}>Replay</h3>
+          <div className="flex flex-wrap items-center gap-2 max-lg:contents">
+            <Button disabled={busy || playing} onClick={() => void advance(1)} aria-label="Next bar">
               <StepForward aria-hidden className="size-4" />
-              Next bar
+              <span className="max-sm:hidden">Next bar</span>
             </Button>
             <Button disabled={busy || playing} onClick={() => void advance(10)}>
               Next 10
@@ -555,7 +557,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
             {status !== 'COMPLETE' && (
               <Button active={playing} aria-pressed={playing} onClick={() => setPlaying(!playing)}>
                 {playing ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}
-                {playing ? 'Pause' : 'Play'}
+                <span className="max-sm:sr-only">{playing ? 'Pause' : 'Play'}</span>
               </Button>
             )}
             {status !== 'COMPLETE' && (
@@ -574,7 +576,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
           </div>
 
           {status === 'ANALYSING' && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 max-lg:contents">
               {confirmingEnd ? (
                 <>
                   <span className="text-sm">

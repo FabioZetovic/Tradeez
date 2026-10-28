@@ -112,7 +112,7 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
 
       <Link
         to={isRegister ? '/sign-in' : '/sign-up'}
-        className="mt-5 block text-center text-sm text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent"
+        className="mt-5 block text-center text-sm text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent pointer-coarse:py-3"
       >
         {isRegister ? 'Sign in instead' : 'Create an account instead'}
       </Link>
