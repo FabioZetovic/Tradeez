@@ -94,7 +94,6 @@ export function RiskDrills({ kind }: { kind: (typeof RISK_KINDS)[number] }) {
     <section aria-label="Risk drill" className="mx-auto flex max-w-3xl flex-col gap-4">
       <AllDrills />
       <header>
-        <p className="mb-2 text-xs font-semibold tracking-widest text-accent uppercase">Sums</p>
         <h1 className="font-display text-3xl font-bold tracking-tight text-ink">{kind.label}</h1>
         <p className="mt-2 text-base text-subtle">{kind.line} Answer in your head before the clock runs out.</p>
       </header>

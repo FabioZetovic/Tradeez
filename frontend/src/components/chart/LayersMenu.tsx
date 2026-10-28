@@ -39,7 +39,7 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
         className={cx(
           'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-all',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-          open ? 'bg-accent text-accent-ink shadow-glow' : 'bg-sunken text-ink hover:bg-raised',
+          open ? 'bg-accent text-accent-ink' : 'bg-sunken text-ink hover:bg-raised',
         )}
       >
         <Layers aria-hidden className="size-4" />
@@ -107,7 +107,7 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
             if (rows.length === 0) return null
             return (
               <section key={group} aria-label={group} className="mt-2 first:mt-0">
-                <h3 className="px-2 py-1.5 text-xs font-semibold tracking-widest text-subtle uppercase">{group}</h3>
+                <h3 className="px-2 py-1.5 text-sm font-medium text-subtle">{group}</h3>
                 {rows.map((layer) => (
                   <LayerRow
                     key={layer.id}

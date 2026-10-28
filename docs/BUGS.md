@@ -78,133 +78,6 @@ screenshot.
 
 ---
 
-### BUG-102 🟡 The header jumps sideways between screens
-
-**Status:** verified (design critique, 2026-10-28, screenshots in `docs/redesign/critique/`). **Affects:**
-`AppShell.tsx`, the Chart tab, a drill, a practice session.
-
-**What.** On Home, Learn, Drills, Practice and News the header's content sits in the 1232px column (the logo at
-x=344 on a 1920 screen). On the Chart tab and a drill it switches to the full width, so the logo and the section links
-jump about 320px to the left as you move between them, and back.
-**Why it matters.** The header is the one thing that should never move. A jumping nav reads as two apps stitched
-together, and it is the most visible inconsistency because it happens on every click between those screens.
-**How to fix.** Give the header one width on every screen. Either always full width (the logo at the left edge, the
-account at the right, like most trading tools), or always the 1232px column while the chart pages' content alone goes
-wide. Recommendation: always full width — the chart pages are the product, and the reading pages lose nothing.
-Check at 1920 and 1366 on every section.
-
----
-
-### BUG-103 🟡 The landing page's drawn candles are white and purple; every real chart is green and red
-
-**Status:** verified (2026-10-28). **Affects:** `ReplayPreview` in `LandingPage.tsx`.
-
-**What.** Up candles are `bg-ink/85` (white) and down candles `bg-accent` (purple). Every chart inside the app draws
-up green and down red.
-**Why it matters.** The picture is there to show what the product looks like, and it does not look like the product.
-R-3 says the accent is "never used for prices or results", and M6 agreed "up and down stay green and red"; purple candles also add to the purple everywhere
-(T50 D-8).
-**How to fix.** Use the `up` and `down` tokens for the bodies and wicks; keep the FVG box and the session band
-neutral or very faint.
-
----
-
-### BUG-104 🟡 A drill's chart leaves about a third of its width empty on the right
-
-**Status:** verified by screenshot (a swing-high drill at 15m, `docs/redesign/critique/drill.jpg`: the candles end at
-about 65% of the width); the cause read from the code. **Affects:** every drill chart; less visibly the lesson
-examples.
-
-**What.** About 31 candles fill the left two thirds; the right third is empty grid.
-**Why it happens.** `lightweightAdapter.ts` keeps `RIGHT_OFFSET_BARS = 12` bars of space after the last candle, so the
-position tool has room to draw its zones to the right of an entry. Twelve bars is fine on a chart of hundreds; on a
-drill of about 30 it is 12 of 43 slots — nearly 30% of the width, plus the price axis.
-**Why it matters.** The drill is about reading those candles; a third of the screen is wasted and the candles are
-smaller than they need to be.
-**How to fix.** Let a chart ask for its own right offset (an option on the adapter): the Chart tab and practice keep
-12 bars (the position tool needs them), drills and lesson examples use a small one (2–3 bars). Check that marking
-the last candle still works and that BUG-097's "draw ahead of the last candle" is unaffected on the Chart tab.
-
----
-
-### BUG-105 🟡 Internal ids and rule versions are shown to learners
-
-**Status:** verified (2026-10-28). **Affects:** Learn's cards ("ICT-01" over every title), a lesson's eyebrow
-("Structure · ICT-01"), Home's Due for review, a drill ("The rule (swing-1.0.0)" next to a chip "Graded against
-swing-1.0.0" — the version twice), the evidence footnote ("Counted by swing-1.0.0 under evidence-1.0.0"), and a
-"Card" chip on eight lessons that nothing explains.
-
-**What.** Catalogue numbers and version strings from `ICT_CONCEPTS.md` sit in the first line a learner reads.
-**Why it matters.** They are noise to a learner and make the screens look like a database view. The versions are
-worth keeping — they are how Tradeez proves which rule judged an answer — but as a detail for the curious and the
-jury, not the headline. "Card" means "a reference page without a drill", which no learner can guess.
-**How to fix.** Drop "ICT-xx" from cards, eyebrows and Home (keep it in URLs and `data-*` attributes). Say the version
-once, inside "The rule Tradeez uses" on a lesson and in a drill's result ("Graded by swing-1.0.0"). Rename "Card" to
-"Read only", with a title saying reading it counts as done. Update the tests that look for the ids.
-
----
-
-### BUG-106 🟡 Locked lessons are hard to read
-
-**Status:** reasoned from the screenshot (2026-10-28) — the contrast is an estimate (about 2.5:1); measure the
-computed colours before fixing. **Affects:** `LearnPage.tsx`, a locked lesson card.
-
-**What.** A locked card dims its title and its "Pass the … drill to unlock" line together, well below the normal
-subtle text.
-**Why it matters.** The unlock line is the one thing a learner needs on a locked card — it says what to do next — and
-it is the hardest text on the page to read. WCAG AA asks 4.5:1 for small text.
-**How to fix.** Keep the title at its normal colour (or one step down), the unlock line at `text-subtle`, and let the
-lock icon carry "locked". No opacity on text.
-
----
-
-### BUG-107 🟡 Empty progress rings look like unchecked radio buttons
-
-**Status:** verified (2026-10-28). **Affects:** Learn — every lesson card and the "0 / 33 lessons" ring.
-
-**What.** A lesson with no progress shows an empty grey ring at its left; 33 of them in a column look like a form of
-radio buttons, and invite a click on the ring.
-**How to fix.** Show the ring only once there is progress; before that, nothing (or the lock for locked lessons). The
-page header's ring can read "0 of 33" as text until the first lesson is done.
-
----
-
-### BUG-108 🟡 Segmented controls are small targets
-
-**Status:** reasoned from the screenshots (2026-10-28): NQ/ES on Drills, High / High + medium on News and the
-lesson's 1m/5m/15m look about 20–24px tall at 1920; measure before fixing. **Affects:** `Segmented` in `ui.tsx`.
-
-**What / why.** They are fiddly with a mouse and below the 44px touch guidance (WCAG 2.5.8 AA asks at least 24px).
-T46 sized other controls for touch; these were missed.
-**How to fix.** A minimum height of 32px on desktop and 44px on touch (`pointer: coarse`), the same text size. Check
-that the chart toolbar's timeframe row still fits at 1366.
-
----
-
-### BUG-109 🟡 Practice's risk limit reads as a broken sentence
-
-**Status:** verified (2026-10-28). **Affects:** the "Start a session" panel in `PracticeView.tsx`.
-
-**What.** "Your risk limit per trade: $ [none]" and, on a separate line, "— your rule: each scorecard says whether a
-trade kept it. It never blocks one." The dash makes the second line look like the end of a sentence that lost its
-start, and "none" in the field looks like a value rather than a hint.
-**How to fix.** Label "Risk limit per trade ($)", placeholder "No limit", and one hint under the field: "Each
-scorecard says whether a trade kept it. It never blocks one."
-
----
-
-### BUG-110 🟡 A drill's answer bar is a full-width box around three small controls
-
-**Status:** verified (2026-10-28). **Affects:** `DrillView.tsx` on desktop.
-
-**What.** "0 marked", Clear and Check answer sit at the left of a 1600px bordered panel; the rest is empty box.
-**Why it matters.** Card around everything (T50 D-6) at its most visible: the box adds weight and nothing else, and
-the main action is far from the chart's right side where the eye ends.
-**How to fix.** No box: a plain row under the chart, the count at the left and Clear + Check answer at the right. Keep
-the sticky bar on phones (T46).
-
----
-
 *BUG-075 to BUG-092 are the bug hunt of 2026-10-21* — Fabio: "go through the app and mark every single bug you can
 find … dont touch them yet", thinking like an attacker for the backend and a trader for the frontend. Logged
 untouched, each saying whether it was reproduced against the running app or read from the code; then all eighteen
@@ -583,6 +456,150 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-102 🟡 The header jumps sideways between screens
+
+**Status:** verified (design critique, 2026-10-28, screenshots in `docs/redesign/critique/`). **Affects:**
+`AppShell.tsx`, the Chart tab, a drill, a practice session.
+
+**What.** On Home, Learn, Drills, Practice and News the header's content sits in the 1232px column (the logo at
+x=344 on a 1920 screen). On the Chart tab and a drill it switches to the full width, so the logo and the section links
+jump about 320px to the left as you move between them, and back.
+**Why it matters.** The header is the one thing that should never move. A jumping nav reads as two apps stitched
+together, and it is the most visible inconsistency because it happens on every click between those screens.
+**How to fix.** Give the header one width on every screen. Either always full width (the logo at the left edge, the
+account at the right, like most trading tools), or always the 1232px column while the chart pages' content alone goes
+wide. Recommendation: always full width — the chart pages are the product, and the reading pages lose nothing.
+Check at 1920 and 1366 on every section.
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** The header is the full width on every screen: the logo at the left edge, the account at the
+right, the same on Home and on the Chart tab. Checked at 1920 and 1366 on every section.
+**Lesson:** the frame decides its own width; tying it to the page's makes it move with every page.
+
+### BUG-103 🟡 The landing page's drawn candles are white and purple; every real chart is green and red
+
+**Status:** verified (2026-10-28). **Affects:** `ReplayPreview` in `LandingPage.tsx`.
+
+**What.** Up candles are `bg-ink/85` (white) and down candles `bg-accent` (purple). Every chart inside the app draws
+up green and down red.
+**Why it matters.** The picture is there to show what the product looks like, and it does not look like the product.
+R-3 says the accent is "never used for prices or results", and M6 agreed "up and down stay green and red"; purple candles also add to the purple everywhere
+(T50 D-8).
+**How to fix.** Use the `up` and `down` tokens for the bodies and wicks; keep the FVG box and the session band
+neutral or very faint.
+
+**✖ NOT A BUG — 2026-10-28.** Fabio: "thats design decision". The drawn replay keeps its white and purple
+candles: it is an illustration, said so beside it, not a chart of the app. Left as it is.
+
+### BUG-104 🟡 A drill's chart leaves about a third of its width empty on the right
+
+**Status:** verified by screenshot (a swing-high drill at 15m, `docs/redesign/critique/drill.jpg`: the candles end at
+about 65% of the width); the cause read from the code. **Affects:** every drill chart; less visibly the lesson
+examples.
+
+**What.** About 31 candles fill the left two thirds; the right third is empty grid.
+**Why it happens.** `lightweightAdapter.ts` keeps `RIGHT_OFFSET_BARS = 12` bars of space after the last candle, so the
+position tool has room to draw its zones to the right of an entry. Twelve bars is fine on a chart of hundreds; on a
+drill of about 30 it is 12 of 43 slots — nearly 30% of the width, plus the price axis.
+**Why it matters.** The drill is about reading those candles; a third of the screen is wasted and the candles are
+smaller than they need to be.
+**How to fix.** Let a chart ask for its own right offset (an option on the adapter): the Chart tab and practice keep
+12 bars (the position tool needs them), drills and lesson examples use a small one (2–3 bars). Check that marking
+the last candle still works and that BUG-097's "draw ahead of the last candle" is unaffected on the Chart tab.
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** `ChartMountOptions.rightOffset`: the Chart tab and practice keep 12 bars (the position
+tool), a drill and a lesson's example ask for 2. Tests: the adapter takes 12 by default and 2 when asked; the drill
+asks for 2; two mutants, both caught. Live: the drill's candles reach the price axis (`after/t50/drill.jpg`).
+**Lesson:** a margin in bars is a different share of every chart; size it for the chart, not once for all.
+
+### BUG-105 🟡 Internal ids and rule versions are shown to learners
+
+**Status:** verified (2026-10-28). **Affects:** Learn's cards ("ICT-01" over every title), a lesson's eyebrow
+("Structure · ICT-01"), Home's Due for review, a drill ("The rule (swing-1.0.0)" next to a chip "Graded against
+swing-1.0.0" — the version twice), the evidence footnote ("Counted by swing-1.0.0 under evidence-1.0.0"), and a
+"Card" chip on eight lessons that nothing explains.
+
+**What.** Catalogue numbers and version strings from `ICT_CONCEPTS.md` sit in the first line a learner reads.
+**Why it matters.** They are noise to a learner and make the screens look like a database view. The versions are
+worth keeping — they are how Tradeez proves which rule judged an answer — but as a detail for the curious and the
+jury, not the headline. "Card" means "a reference page without a drill", which no learner can guess.
+**How to fix.** Drop "ICT-xx" from cards, eyebrows and Home (keep it in URLs and `data-*` attributes). Say the version
+once, inside "The rule Tradeez uses" on a lesson and in a drill's result ("Graded by swing-1.0.0"). Rename "Card" to
+"Read only", with a title saying reading it counts as done. Update the tests that look for the ids.
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** No "ICT-xx" on Learn's tiles, Home's Due for review or a lesson's header (the topic alone);
+a drill says "The rule Tradeez uses" with the version once ("Graded against swing-1.0.0"; a prediction "… predict-1.0.0,
+on liquidity-1.0.0", so its rule's version is still said); "Card" became "Read only" with a title. The ids stay in the
+addresses. Tests updated and one added: no tile carries an id.
+**Lesson:** an id is for the code and the audit trail; a learner needs the name.
+
+### BUG-106 🟡 Locked lessons are hard to read
+
+**Status:** reasoned from the screenshot (2026-10-28) — the contrast is an estimate (about 2.5:1); measure the
+computed colours before fixing. **Affects:** `LearnPage.tsx`, a locked lesson card.
+
+**What.** A locked card dims its title and its "Pass the … drill to unlock" line together, well below the normal
+subtle text.
+**Why it matters.** The unlock line is the one thing a learner needs on a locked card — it says what to do next — and
+it is the hardest text on the page to read. WCAG AA asks 4.5:1 for small text.
+**How to fix.** Keep the title at its normal colour (or one step down), the unlock line at `text-subtle`, and let the
+lock icon carry "locked". No opacity on text.
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** No opacity on a locked tile: the title keeps its colour, the unlock line `text-subtle`,
+the lock icon says the rest. Test: no tile dimmed; a mutant dimming them again is caught.
+**Lesson:** never dim the text that tells someone what to do.
+
+### BUG-107 🟡 Empty progress rings look like unchecked radio buttons
+
+**Status:** verified (2026-10-28). **Affects:** Learn — every lesson card and the "0 / 33 lessons" ring.
+
+**What.** A lesson with no progress shows an empty grey ring at its left; 33 of them in a column look like a form of
+radio buttons, and invite a click on the ring.
+**How to fix.** Show the ring only once there is progress; before that, nothing (or the lock for locked lessons). The
+page header's ring can read "0 of 33" as text until the first lesson is done.
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** A tile's ring appears once there is progress; the page's own ring became the line "0 of 33
+lessons done". Test: no ring on a newcomer's tiles; a mutant drawing them is caught.
+
+### BUG-108 🟡 Segmented controls are small targets
+
+**Status:** reasoned from the screenshots (2026-10-28): NQ/ES on Drills, High / High + medium on News and the
+lesson's 1m/5m/15m look about 20–24px tall at 1920; measure before fixing. **Affects:** `Segmented` in `ui.tsx`.
+
+**What / why.** They are fiddly with a mouse and below the 44px touch guidance (WCAG 2.5.8 AA asks at least 24px).
+T46 sized other controls for touch; these were missed.
+**How to fix.** A minimum height of 32px on desktop and 44px on touch (`pointer: coarse`), the same text size. Check
+that the chart toolbar's timeframe row still fits at 1366.
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** `Segmented` is 32px tall, 44px on a touch screen (`pointer-coarse`), in the sans rather
+than mono; its padding kept, so the Chart tab's toolbar still fits on one row at 1366 (checked: a wider padding pushed
+Layers onto a second row).
+
+### BUG-109 🟡 Practice's risk limit reads as a broken sentence
+
+**Status:** verified (2026-10-28). **Affects:** the "Start a session" panel in `PracticeView.tsx`.
+
+**What.** "Your risk limit per trade: $ [none]" and, on a separate line, "— your rule: each scorecard says whether a
+trade kept it. It never blocks one." The dash makes the second line look like the end of a sentence that lost its
+start, and "none" in the field looks like a value rather than a hint.
+**How to fix.** Label "Risk limit per trade ($)", placeholder "No limit", and one hint under the field: "Each
+scorecard says whether a trade kept it. It never blocks one."
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** A real label "Risk limit per trade ($)", the placeholder "No limit", and one hint under the
+field, tied to it by `aria-describedby`. The existing test finds the field by its label.
+
+### BUG-110 🟡 A drill's answer bar is a full-width box around three small controls
+
+**Status:** verified (2026-10-28). **Affects:** `DrillView.tsx` on desktop.
+
+**What.** "0 marked", Clear and Check answer sit at the left of a 1600px bordered panel; the rest is empty box.
+**Why it matters.** Card around everything (T50 D-6) at its most visible: the box adds weight and nothing else, and
+the main action is far from the chart's right side where the eye ends.
+**How to fix.** No box: a plain row under the chart, the count at the left and Clear + Check answer at the right. Keep
+the sticky bar on phones (T46).
+
+**✅ FIXED — 2026-10-28, `fix/t50-cleanup`.** On a desktop the marking bar has no box: the count at the left, Clear and Check answer at
+the right under the chart. On a phone it is still the sticky panel (T46).
 
 ### BUG-099 🟠 The volume imbalance rule finds almost nothing on ES
 

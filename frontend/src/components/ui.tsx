@@ -28,7 +28,7 @@ type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 // active looks are separate, complete sets — never one layered on the other.
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   default: 'bg-sunken font-medium text-ink hover:bg-raised',
-  primary: 'bg-accent font-semibold text-accent-ink hover:shadow-glow',
+  primary: 'bg-accent font-semibold text-accent-ink hover:brightness-110',
   buy: 'border border-up/60 font-semibold text-up hover:bg-up/10',
   sell: 'border border-down/60 font-semibold text-down hover:bg-down/10',
   danger: 'font-medium text-down hover:bg-down/10',
@@ -112,7 +112,8 @@ export function Segmented<T extends string>({
           aria-pressed={option === value}
           onClick={() => onChange(option)}
           className={cx(
-            'num relative h-7 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors',
+            // 32px to click, 44px to touch (BUG-108).
+            'relative h-8 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors pointer-coarse:h-11',
             FOCUS_RING,
             option === value ? 'text-accent-ink' : 'text-subtle hover:text-ink',
           )}
@@ -139,14 +140,15 @@ export function Panel({ className, ...props }: HTMLAttributes<HTMLElement>) {
   )
 }
 
-/** A page's title block: an accent eyebrow, the title, a line of description, and anything to its right. */
+/**
+ * A page's title block: the title, a line of description, and anything to its right. No label over the title — the
+ * header already says where you are (T50 D-3).
+ */
 export function PageHeader({
-  eyebrow,
   title,
   description,
   right,
 }: {
-  eyebrow?: string
   title: string
   description?: ReactNode
   right?: ReactNode
@@ -154,7 +156,6 @@ export function PageHeader({
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div className="max-w-3xl">
-        {eyebrow && <p className="mb-2 text-xs font-semibold tracking-widest text-accent uppercase">{eyebrow}</p>}
         <h1 className="font-display text-4xl font-bold tracking-tight text-ink">{title}</h1>
         {description && <p className="mt-3 text-base text-subtle">{description}</p>}
       </div>
@@ -362,7 +363,7 @@ export function StatTile({
         FOCUS_RING,
       )}
     >
-      <span className="flex w-full items-center justify-between text-xs font-semibold tracking-widest text-subtle uppercase">
+      <span className="flex w-full items-center justify-between text-sm font-medium text-subtle">
         {label}
         <ChevronDown aria-hidden className={cx('size-4 transition-transform duration-200', open && 'rotate-180')} />
       </span>
@@ -396,8 +397,8 @@ export function NextStep({ to, title, line }: { to: string; title: string; line:
       )}
     >
       <span>
-        <span className="block text-xs font-semibold tracking-widest text-accent uppercase">Next step</span>
-        <span className="mt-1 block font-display text-xl font-bold tracking-tight text-ink">{title}</span>
+        <span className="block text-sm text-subtle">Next</span>
+        <span className="mt-0.5 block font-display text-xl font-bold tracking-tight text-ink">{title}</span>
         <span className="mt-1 block text-sm text-subtle">{line}</span>
       </span>
       <ArrowRight aria-hidden className="size-5 shrink-0 text-accent transition-transform group-hover:translate-x-1" />

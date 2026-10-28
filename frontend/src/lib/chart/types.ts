@@ -46,6 +46,11 @@ export interface ChartMountOptions {
   followsOnly?: boolean
   /** A picture of the market, not a tool (R-12, Home): it neither scrolls nor zooms, in time or price. */
   still?: boolean
+  /**
+   * Empty bars after the last candle; 12 unless set. A short chart with no position tool — a drill, a lesson's example —
+   * asks for a few, or a third of it is empty grid (BUG-104).
+   */
+  rightOffset?: number
 }
 
 /**

@@ -39,21 +39,14 @@ export function LearnPage() {
   return (
     <section aria-label="Learn">
       <PageHeader
-        eyebrow="Step 1"
         title="Learn"
         description="ICT's ideas grouped by topic — start with the first open lesson."
         right={
           learning && (
-            <div className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-panel">
-              <Ring
-                value={learning.summary.complete / Math.max(1, learning.summary.concepts)}
-                size={48}
-                label="Lessons complete"
-              />
-              <span className="num text-sm text-subtle" data-testid="learn-total">
-                <strong className="text-ink">{learning.summary.complete}</strong> / {learning.summary.concepts} lessons
-              </span>
-            </div>
+            <span className="text-sm text-subtle" data-testid="learn-total">
+              <strong className="num text-ink">{learning.summary.complete}</strong> of {learning.summary.concepts} lessons
+              done
+            </span>
           )
         }
       />
@@ -76,9 +69,7 @@ export function LearnPage() {
             <section key={topic.title} aria-labelledby={id}>
               <div className="mb-4 flex items-baseline justify-between gap-4">
                 <h2 id={id} className="flex items-center gap-2.5 font-display text-xl font-bold tracking-tight text-ink">
-                  <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-accent/15 text-accent">
-                    <Icon className="size-4" />
-                  </span>
+                  <Icon aria-hidden className="size-4 text-subtle" />
                   {topic.title}
                 </h2>
                 <span className="num text-xs text-subtle" data-testid="topic-progress">
@@ -117,8 +108,9 @@ export function LearnPage() {
 }
 
 /**
- * One lesson or card (Lovable's): its ring, code and title, and its state — done, due for review, next (the whole tile
- * glows), or locked, saying which drill opens it.
+ * One lesson or card (Lovable's): its title, a ring once there is progress (an empty one read as a radio button,
+ * BUG-107), and its state — done, due for review, next (an accent border), or locked, saying which drill opens it. No
+ * catalogue id on the tile (BUG-105); a locked one stays readable, the lock saying it is locked (BUG-106).
  */
 function LessonTile({
   index,
@@ -153,19 +145,17 @@ function LessonTile({
         className={cx(
           'flex h-full items-center gap-4 rounded-card border bg-surface p-4 shadow-panel transition-all duration-150',
           'hover:-translate-y-0.5 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent',
-          next ? 'border-accent/60 shadow-glow' : 'border-line hover:border-accent/40',
-          locked && 'opacity-70',
+          next ? 'border-accent' : 'border-line hover:border-accent/40',
         )}
       >
-        <Ring value={ring} size={40} label={done ? 'Complete' : `${Math.round(ring * 100)}% recently`} />
+        {ring > 0 && <Ring value={ring} size={40} label={done ? 'Complete' : `${Math.round(ring * 100)}% recently`} />}
         <span className="min-w-0 flex-1">
-          <span className="num block text-xs text-subtle">{progress.id}</span>
           <span className="block font-semibold text-ink">{name}</span>
           {why && <span className="mt-0.5 block text-xs text-subtle">{why}</span>}
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
           {startHere && <Chip tone="accent">Start here</Chip>}
-          {card && !done && <Chip>Card</Chip>}
+          {card && !done && <Chip title="A reference page without a drill: reading it counts as done">Read only</Chip>}
           {locked ? (
             <Lock aria-label="Locked" className="size-4 text-subtle" />
           ) : progress.due ? (

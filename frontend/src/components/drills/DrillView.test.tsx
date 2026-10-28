@@ -405,10 +405,17 @@ describe('Drills — spot (identification)', () => {
     expect(screen.queryByRole('button', { name: '1m' })).toBeNull()
   })
 
+  it('lets its candles take the width: two empty bars after the last, not twelve (BUG-104)', async () => {
+    const adapters: FakeChartAdapter[] = []
+    renderDrill('FVG_IDENTIFICATION', adapters)
+    await screen.findByTestId('drill-overlay')
+    expect(adapters[0].mountOptions?.rightOffset).toBe(2)
+  })
+
   it('names the versioned rule it is graded against (DEC-026)', async () => {
     await startDrill()
     expect(screen.getByTestId('graded')).toHaveTextContent('Graded against fvg-1.0.0')
-    expect(screen.getByText('The rule (fvg-1.0.0)')).toBeInTheDocument()
+    expect(screen.getByText('The rule Tradeez uses')).toBeInTheDocument()
     expect(screen.getByText(/not proof that a pattern matters/)).toBeInTheDocument()
     expect(screen.queryByTestId('fixture-notice')).not.toBeInTheDocument()
   })
@@ -576,8 +583,7 @@ describe('Drills — predict', () => {
   it('draws two targets with what the chart says about each — and nothing after the moment', async () => {
     await startDrill('LIQUIDITY_FIRST_PREDICTION')
     expect(started()?.body).toMatchObject({ kind: 'LIQUIDITY_FIRST_PREDICTION' })
-    expect(screen.getByTestId('graded')).toHaveTextContent('Graded by what price did · predict-1.0.0')
-    expect(screen.getByText('The rule (predict-1.0.0, on liquidity-1.0.0)')).toBeInTheDocument()
+    expect(screen.getByTestId('graded')).toHaveTextContent('Graded by what price did · predict-1.0.0, on liquidity-1.0.0')
     expect(screen.getByText(/the nearest resting buy-side and sell-side/)).toBeInTheDocument()
     const facts = screen.getAllByTestId('target-facts')
     expect(facts[0]).toHaveTextContent('25 ticks away · on the way: 2 swing points, 1 open gap')

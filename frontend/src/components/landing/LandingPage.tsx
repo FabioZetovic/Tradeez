@@ -7,10 +7,9 @@ import { DISCLAIMER } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
 
 const PRIMARY =
-  'inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3.5 text-[15px] font-medium text-accent-ink hover:shadow-glow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+  'inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3.5 text-[15px] font-medium text-accent-ink hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const QUIET =
   'rounded-xl px-4 py-3.5 text-[15px] text-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-const EYEBROW = 'font-mono text-xs text-accent'
 const H2 = 'font-display text-[clamp(26px,3.4vw,36px)] font-semibold tracking-tight text-ink'
 
 const EASE = [0.22, 1, 0.36, 1] as const
@@ -22,7 +21,7 @@ const rise = (order: number) => ({
   transition: { duration: 0.6, ease: EASE, delay: 0.08 * order },
 })
 
-/** A section rises in the first time it scrolls into view. */
+/** A section rises in the first time it scrolls into view (BUG-101: kept so by Fabio). */
 const reveal = {
   initial: { opacity: 0, y: 24 },
   whileInView: { opacity: 1, y: 0 },
@@ -38,11 +37,6 @@ const reveal = {
 export function LandingPage() {
   return (
     <div className="relative flex min-h-svh flex-col overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-[360px] left-1/2 h-[720px] w-[1100px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgb(124_108_255/0.22),transparent_70%)]"
-      />
-
       <header className="relative mx-auto flex w-full max-w-[1120px] items-center justify-between gap-4 px-6 py-7">
         <Logo />
         <nav aria-label="Account" className="flex items-center gap-2">
@@ -88,16 +82,16 @@ export function LandingPage() {
 
         <motion.section {...reveal} aria-labelledby="method" className="flex flex-col gap-12 pt-28">
           <h2 id="method" className={cx(H2, 'max-w-[640px]')}>
-            Learn it. Drill it. <span className="text-subtle">Then trade a day you can&apos;t see ahead of.</span>
+            Learn it. Drill it. Then trade a day you can&apos;t see ahead of.
           </h2>
           <ol className="grid gap-12 md:grid-cols-3">
-            <Step n="01" title="Learn">
+            <Step title="Learn">
               Each idea in plain trader language, with real NQ examples the rule found at random.
             </Step>
-            <Step n="02" title="Drill">
+            <Step title="Drill">
               Mark every gap, name the structure, say where the stop goes. Pass it and the next lesson opens.
             </Step>
-            <Step n="03" title="Practice">
+            <Step title="Practice">
               A real day replayed bar by bar, the date hidden. Plan the trade, place it, get a scorecard against your
               plan.
             </Step>
@@ -149,10 +143,9 @@ export function LandingPage() {
   )
 }
 
-function Step({ n, title, children }: { n: string; title: string; children: ReactNode }) {
+function Step({ title, children }: { title: string; children: ReactNode }) {
   return (
     <li className="flex flex-col gap-2.5">
-      <span className={EYEBROW}>{n}</span>
       <h3 className="text-xl font-medium tracking-tight text-ink">{title}</h3>
       <p className="text-[15px] leading-relaxed text-subtle">{children}</p>
     </li>
@@ -250,12 +243,12 @@ function ReplayPreview() {
     <motion.figure
       {...rise(3)}
       aria-labelledby="replay-caption"
-      className="overflow-hidden rounded-[18px] border border-line bg-surface shadow-[0_40px_120px_-40px_rgb(124_108_255/0.35)]"
+      className="overflow-hidden rounded-[18px] border border-line bg-surface shadow-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-[18px] py-3.5">
-        <div className="flex items-center gap-3 font-mono text-xs">
-          <span className="text-ink">Replay · 5m</span>
-          <span className="rounded-md bg-accent/15 px-2 py-1 text-accent">Date hidden</span>
+        <div className="flex items-center gap-3 text-sm">
+          <span className="font-medium text-ink">Replay · 5m</span>
+          <span className="text-subtle">Date hidden</span>
         </div>
         <div aria-hidden className="flex items-center gap-1 text-subtle">
           <span className="grid h-9 w-11 place-items-center">
@@ -273,10 +266,10 @@ function ReplayPreview() {
       <div aria-hidden className="relative mx-5 mt-6 mb-2 h-[260px] md:h-[360px]">
         <motion.div
           {...after(0.5)}
-          className="absolute inset-y-0 border-x border-accent/25 bg-accent/[0.07]"
+          className="absolute inset-y-0 border-x border-line bg-ink/[0.03]"
           style={{ left: pct(session.left), width: pct(session.width) }}
         />
-        <span className="absolute -top-[18px] pl-1.5 font-mono text-[11px] text-subtle" style={{ left: pct(session.left) }}>
+        <span className="absolute -top-[18px] pl-1.5 text-[11px] text-subtle" style={{ left: pct(session.left) }}>
           NY AM
         </span>
         <motion.div
@@ -284,7 +277,7 @@ function ReplayPreview() {
           className="absolute inset-x-0 border-t border-dashed border-subtle/60"
           style={{ top: pct(sweep) }}
         />
-        <span className="absolute left-0 mt-1.5 font-mono text-[11px] text-subtle" style={{ top: pct(sweep) }}>
+        <span className="absolute left-0 mt-1.5 text-[11px] text-subtle" style={{ top: pct(sweep) }}>
           Sell-side liquidity
         </span>
         <motion.div
@@ -292,7 +285,7 @@ function ReplayPreview() {
           className="absolute right-0 border-y border-accent/40 bg-accent/[0.12]"
           style={{ left: pct(gap.left), top: pct(gap.top), height: pct(gap.height) }}
         />
-        <span className="absolute right-2 mt-1 font-mono text-[11px] text-accent" style={{ top: pct(gap.top) }}>
+        <span className="absolute right-2 mt-1 text-[11px] text-accent" style={{ top: pct(gap.top) }}>
           FVG
         </span>
         <div className="absolute inset-0 flex gap-[3px]">
@@ -324,13 +317,13 @@ function ReplayPreview() {
 
       <figcaption
         id="replay-caption"
-        className="flex flex-wrap gap-x-7 gap-y-2 border-t border-line px-5 pt-4 pb-[18px] font-mono text-xs text-subtle"
+        className="flex flex-wrap gap-x-7 gap-y-2 border-t border-line px-5 pt-4 pb-[18px] text-xs text-subtle"
       >
         <span>
           Practice: <span className="text-ink">plan the trade</span>, <span className="text-ink">place it</span>
         </span>
         <span>
-          Next bar <span className="text-accent">hidden</span>
+          Next bar <span className="text-ink">hidden</span>
         </span>
         <span className="ml-auto">An illustration, not market data</span>
       </figcaption>

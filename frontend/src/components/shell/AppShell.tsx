@@ -47,13 +47,9 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
   return (
     <div className="flex min-h-svh flex-col">
       <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
-        {/* As wide as the page under it, so the logo lines up with the content's left edge. */}
-        <div
-          className={cx(
-            'mx-auto flex h-16 w-full items-center gap-3 px-4 md:gap-8 md:px-6',
-            wide ? 'max-w-none' : 'max-w-[1280px]',
-          )}
-        >
+        {/* The full width on every screen, so it never jumps sideways between the reading pages and the chart pages
+            (BUG-102). */}
+        <div className="flex h-16 w-full items-center gap-3 px-4 md:gap-8 md:px-6">
           <Link to="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
             <Logo />
           </Link>

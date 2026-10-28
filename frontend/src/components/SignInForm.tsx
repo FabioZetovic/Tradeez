@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { errorMessage } from '@/lib/api/auth'
 import { PasswordRules } from './PasswordRules'
 import { Button } from './ui'
-import { errorClass, fieldClass, labelClass } from '@/lib/styles'
+import { cx, errorClass, fieldClass, labelClass } from '@/lib/styles'
 
 interface SignInFormProps {
   /** Which page this is: /sign-in or /sign-up (T36). */
@@ -51,12 +51,10 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
 
   return (
     <section className="w-full rounded-card border border-line bg-surface p-7 shadow-panel">
-      <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
+      <h2 className={cx('font-display text-2xl font-bold tracking-tight text-ink', !isRegister && 'mb-6')}>
         {isRegister ? 'Create an account' : 'Sign in'}
       </h2>
-      <p className="mt-1 mb-6 text-sm text-subtle">
-        {isRegister ? 'Practise ICT on two years of real NQ and ES.' : 'Welcome back. Carry on where you left off.'}
-      </p>
+      {isRegister && <p className="mt-1 mb-6 text-sm text-subtle">Practise ICT on two years of real NQ and ES.</p>}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {isRegister && (

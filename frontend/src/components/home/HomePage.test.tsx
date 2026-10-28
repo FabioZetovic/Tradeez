@@ -113,7 +113,7 @@ describe('Home (T39)', () => {
     expect(link(/Practice/)).toHaveTextContent('2 sessions · 4 trades')
     expect(link(/Learn/)).toHaveAttribute('href', '/learn')
     expect(link(/Drills/)).toHaveAttribute('href', '/drills')
-    expect(link(/STEP 4/)).toHaveAttribute('href', '/chart')
+    expect(link(/The whole history/)).toHaveAttribute('href', '/chart')
   })
 
   it('suggests the next lesson, and lists what is due in curriculum order with its recent accuracy', async () => {

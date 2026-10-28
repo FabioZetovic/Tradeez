@@ -44,7 +44,6 @@ export function NewsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="News"
         title="Economic calendar"
         description="The US releases that move NQ, this week and next — the red and orange folders traders plan around. Times are New York."
         right={<Segmented options={IMPACTS} value={impact} onChange={setImpact} label="Impact" />}
@@ -76,7 +75,7 @@ export function NewsPage() {
           >
             <Panel
               aria-label={day}
-              className={cx('p-0', day === today && 'border-l-4 border-l-accent')}
+              className="p-0"
             >
               <h2 className="flex items-center gap-2 border-b border-line px-5 py-3 text-sm font-semibold text-ink">
                 {day}

@@ -14,10 +14,11 @@ import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { toggleMark } from '@/lib/drills/marks'
 import { drillMarket } from '@/lib/markets'
 import { Button, Chip, Notice, Panel } from '../ui'
-import { errorClass, panelTitle } from '@/lib/styles'
+import { cx, errorClass, panelTitle } from '@/lib/styles'
 
 /** The answer under the chart; on a phone (T46) held at the screen's foot, so it stays in reach as you scroll. */
 const ANSWER_BAR = 'sticky bottom-2 z-10 lg:static'
+const DRILL_RIGHT_OFFSET = 2
 
 interface DrillViewProps {
   /** The drill, from its card or a lesson's "Practise it". */
@@ -148,13 +149,13 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
       {drill && (
         <>
           <header>
-            <p className="mb-2 text-xs font-semibold tracking-widest text-accent uppercase" data-testid="drill-mode">
-              {MODE_NAMES[drill.mode]}
-            </p>
             <div className="flex flex-wrap items-baseline gap-3">
               <h1 className="font-display text-3xl font-bold tracking-tight text-ink">{drill.title}</h1>
-              <span className="num text-sm font-medium text-subtle" data-testid="drill-chart">
-                {drill.instrument} · {drill.timeframe}
+              <span className="text-sm text-subtle">
+                <span data-testid="drill-mode">{MODE_NAMES[drill.mode]}</span> ·{' '}
+                <span data-testid="drill-chart">
+                  {drill.instrument} · {drill.timeframe}
+                </span>
               </span>
             </div>
             <p className="mt-2 max-w-3xl text-base text-subtle">{drill.instructions}</p>
@@ -175,6 +176,8 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
               tickSize={drill.tickSize}
               exchangeTimezone={drill.exchangeTimezone}
               axisTimezone="exchange"
+              // No position tool here: the candles take the width (BUG-104).
+              rightOffset={DRILL_RIGHT_OFFSET}
               adapterFactory={adapterFactory}
               overlay={(adapter) => (
                 <>
@@ -205,12 +208,14 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
 
           <details className="text-xs">
             <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-subtle">
-              <span>The rule ({predict ? `${drill.question?.version}, on ${drill.rule.version}` : judge ? drill.question?.version : drill.rule.version})</span>
-              {drill.graded && (
-                <Chip data-testid="graded">
-                  {future ? `Graded by what price did · ${drill.question?.version}`
+              <span className="text-ink">The rule Tradeez uses</span>
+              {drill.graded ? (
+                <span data-testid="graded">
+                  {future ? `Graded by what price did · ${drill.question?.version}, on ${drill.rule.version}`
                     : `Graded against ${judge ? drill.question?.version : drill.rule.version}`}
-                </Chip>
+                </span>
+              ) : (
+                <span>{predict ? `${drill.question?.version}, on ${drill.rule.version}` : drill.rule.version}</span>
               )}
             </summary>
             {(predict || judge) && <p className="mt-2 max-w-4xl">{drill.question?.definition}</p>}
@@ -222,17 +227,19 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           </details>
 
           {!answered && identify && (
-            <Panel aria-label="Answer" className={ANSWER_BAR}>
-              <div className="flex flex-wrap items-center gap-3">
-                <span data-testid="mark-count" className="num text-sm text-subtle">
-                  {marks.length} marked
+            <Panel aria-label="Answer" className={cx(ANSWER_BAR, 'lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none')}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span data-testid="mark-count" className="text-sm text-subtle">
+                  <span className="num">{marks.length}</span> marked
                 </span>
-                <Button disabled={busy || marks.length === 0} onClick={() => setMarks([])}>
-                  Clear
-                </Button>
-                <Button variant="primary" disabled={busy} onClick={() => void check()}>
-                  Check answer
-                </Button>
+                <span className="flex gap-3">
+                  <Button disabled={busy || marks.length === 0} onClick={() => setMarks([])}>
+                    Clear
+                  </Button>
+                  <Button variant="primary" disabled={busy} onClick={() => void check()}>
+                    Check answer
+                  </Button>
+                </span>
               </div>
             </Panel>
           )}

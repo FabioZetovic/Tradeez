@@ -79,12 +79,14 @@ export class LightweightChartAdapter implements ChartAdapter {
   private chart: IChartApi | null = null
   private series: ISeriesApi<'Candlestick'> | null = null
   private tickSize = 0.25
+  private rightOffset = RIGHT_OFFSET_BARS
   /** Every layer added, attached again to each new series a remount makes. */
   private readonly layers = new Set<LayerPrimitive>()
 
   mount(container: HTMLElement, options: ChartMountOptions): void {
     this.destroy()
     this.tickSize = options.tickSize
+    this.rightOffset = options.rightOffset ?? RIGHT_OFFSET_BARS
     const tickLabel = createTickMarkFormatter(options.exchangeTimezone, options.axisTimezone, options.daily)
 
     this.chart = createChart(container, {
@@ -110,8 +112,9 @@ export class LightweightChartAdapter implements ChartAdapter {
         timeVisible: true,
         secondsVisible: false,
         // Empty space after the last bar. The position tool draws its zones to the right of the
-        // entry, and without room there a bracket on the latest bar is a sliver against the axis.
-        rightOffset: RIGHT_OFFSET_BARS,
+        // entry, and without room there a bracket on the latest bar is a sliver against the axis. A chart without the
+        // tool may ask for less (BUG-104).
+        rightOffset: this.rightOffset,
         // BUG-029 — the axis ticks. `localization.timeFormatter` below covers only the crosshair
         // label; without this the axis stayed in UTC while the crosshair showed exchange time.
         tickMarkFormatter: (time: Time, type: TickMarkType) =>
@@ -170,7 +173,7 @@ export class LightweightChartAdapter implements ChartAdapter {
     if (!this.chart || total === 0) return
     this.chart.timeScale().setVisibleLogicalRange({
       from: Math.max(0, total - count),
-      to: total - 1 + RIGHT_OFFSET_BARS,
+      to: total - 1 + this.rightOffset,
     })
   }
 

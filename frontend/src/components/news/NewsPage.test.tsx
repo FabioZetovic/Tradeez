@@ -48,7 +48,7 @@ describe('the News page (T40)', () => {
     render(<NewsPage />)
     const monday = await screen.findByRole('region', { name: 'Monday 26 October' })
     expect(monday).toHaveTextContent('Today')
-    expect(monday).toHaveClass('border-l-accent')
+    expect(monday).not.toHaveClass('border-l-accent')
     expect(within(monday).getByText('08:30')).toBeInTheDocument()
     expect(within(monday).getByText('CPI title').closest('li')).toHaveClass('opacity-50')
 

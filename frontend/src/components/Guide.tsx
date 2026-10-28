@@ -35,7 +35,6 @@ export function Guide() {
   return (
     <>
       <PageHeader
-        eyebrow="How it works"
         title="How Tradeez works"
         description="Tradeez teaches ICT's method on two years of real NQ and ES futures history. You practise on the past: nothing you do here reaches a market."
       />
@@ -43,7 +42,7 @@ export function Guide() {
         {STEPS.map((step, i) => (
           <li key={step.to}>
             <Panel className="flex h-full flex-col gap-2">
-              <span className="num text-xs font-semibold tracking-widest text-accent uppercase">Step {i + 1}</span>
+              <span className="text-sm text-subtle">Step {i + 1}</span>
               <Link
                 to={step.to}
                 className="text-lg font-semibold tracking-tight text-ink hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
@@ -75,7 +74,7 @@ export function Guide() {
       </p>
       <Link
         to="/learn"
-        className="inline-flex h-11 items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-accent-ink transition-all hover:shadow-glow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="inline-flex h-11 items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-accent-ink transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         Start with Learn
         <ArrowRight aria-hidden className="size-4" />
