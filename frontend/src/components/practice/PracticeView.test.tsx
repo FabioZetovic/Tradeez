@@ -1654,7 +1654,8 @@ describe('Practice — the replay on a phone (T53)', () => {
   it('plans in a sheet with − and +, places, shows the trade in a strip, scores it on its own screen, and ends', async () => {
     const user = userEvent.setup()
     renderPractice()
-    await startSession(user)
+    await user.click(await screen.findByRole('button', { name: 'Start session' }))
+    await screen.findByTestId('price-chart')
     const replay = screen.getByRole('group', { name: 'Replay' })
     expect(within(replay).getByRole('button', { name: 'Next 10' })).toBeInTheDocument()
     // The speed is one button that cycles.
@@ -1687,5 +1688,62 @@ describe('Practice — the replay on a phone (T53)', () => {
     // Its trades, each opening its scorecard again.
     await user.click(within(over).getByRole('button', { name: /Long/ }))
     expect(await screen.findByRole('region', { name: 'Scorecard' })).toBeInTheDocument()
+  })
+})
+
+describe('Practice — the home on a phone (T53)', () => {
+  beforeEach(() => onPhone())
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('the journal as rows, filtered by chips, twenty at a time; the statistics a screen of their own', async () => {
+    const trades: JournalTrade[] = Array.from({ length: 25 }, (_, i) => ({
+      sessionId: `s${i}`,
+      number: 1,
+      at: Date.UTC(2000, 0, 11, 9, 5) / 1000,
+      timeBasis: 'NEW_YORK_WALL_CLOCK',
+      instrument: 'NQ',
+      tickSize: 0.25,
+      direction: i % 2 === 0 ? 'LONG' : 'SHORT',
+      entryTicks: 80_000 + i,
+      outcome: i === 3 ? 'AMBIGUOUS' : 'TARGET',
+      r: i % 3 === 0 ? -1 : 1.5,
+      netPnlCents: 1_000,
+    }))
+    const statistics = {
+      ...NO_STATISTICS,
+      overall: { label: 'All trades', trades: 25, wins: 16, losses: 9, winRate: 64, expectancyR: 0.6, low: 0.1, high: 1.1, profitFactor: 1.9, totalR: 15, netPnlCents: 1, reading: 'Positive so far.' },
+      dimensions: [
+        { id: 'model', title: 'Model', groups: [{ label: 'No model', trades: 25, wins: 16, losses: 9, winRate: 64, totalR: 15, netPnlCents: 1, reading: 'A range above zero.' }] },
+        { id: 'side', title: 'Side', groups: [] },
+      ],
+    }
+    mockApi((call) =>
+      call.method === 'GET' && call.url.startsWith('/api/practice/trades')
+        ? { body: trades }
+        : is(call, 'GET', '/api/practice/statistics')
+          ? { body: statistics }
+          : { status: 404, body: {} },
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(20))
+    await user.click(screen.getByRole('button', { name: 'Load 5 more' }))
+    expect(screen.getAllByTestId('journal-row')).toHaveLength(25)
+
+    const show = screen.getByRole('group', { name: 'Show' })
+    await user.click(within(show).getByRole('button', { name: 'Short' }))
+    expect(screen.getAllByTestId('journal-row')).toHaveLength(12)
+    await user.click(within(show).getByRole('button', { name: 'Ambiguous' }))
+    expect(screen.getAllByTestId('journal-row')).toHaveLength(1)
+    await user.click(within(show).getByRole('button', { name: 'Losers' }))
+    expect(screen.getAllByTestId('journal-row').every((row) => row.textContent?.includes('−1.00R'))).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: 'More statistics' }))
+    const page = screen.getByRole('region', { name: 'Statistics' })
+    expect(within(page).getByTestId('statistics-overall')).toHaveTextContent('+0.60R')
+    expect(within(page).getByRole('img', { name: '95% range from +0.10R to +1.10R' })).toBeInTheDocument()
+    expect(within(page).getAllByTestId('statistics-row')).toHaveLength(1)
+    await user.click(within(page).getByRole('button', { name: 'Back to Practice' }))
+    expect(screen.queryByRole('region', { name: 'Statistics' })).toBeNull()
   })
 })
