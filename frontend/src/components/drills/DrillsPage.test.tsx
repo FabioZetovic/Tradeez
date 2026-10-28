@@ -133,7 +133,7 @@ describe('Drills, the cards (T43)', () => {
     expect(
       within(screen.getByRole('region', { name: 'Risk & management' })).getAllByRole('link').map((l) => l.getAttribute('href')),
     ).toEqual(['/drills/OPEN_TRADE_MANAGEMENT', '/drills/risk/position-size', '/drills/risk/losing-streak', '/drills/risk/recovery'])
-    expect(screen.getByRole('link', { name: /Next step/ })).toHaveAttribute('href', '/practice')
+    expect(screen.getByRole('link', { name: /Put it together/ })).toHaveAttribute('href', '/practice')
   })
 
   it('a card: the title, its line, the mode, a time hint', async () => {

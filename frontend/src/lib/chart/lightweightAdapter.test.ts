@@ -238,3 +238,20 @@ describe('a still chart (T39, R-12)', () => {
     expect(ordinary.handleScale).toBeUndefined()
   })
 })
+
+describe('LightweightChartAdapter — BUG-104', () => {
+  it('keeps 12 empty bars after the last candle unless a chart asks for fewer', () => {
+    const mount = (rightOffset?: number) => {
+      created.length = 0
+      new LightweightChartAdapter().mount(document.createElement('div'), {
+        tickSize: 0.25,
+        exchangeTimezone: 'America/Chicago',
+        axisTimezone: 'exchange',
+        rightOffset,
+      })
+      return (created[0].options as { timeScale: { rightOffset: number } }).timeScale.rightOffset
+    }
+    expect(mount()).toBe(12)
+    expect(mount(2)).toBe(2)
+  })
+})

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router'
-import { ArrowRight, BookOpen, ChartCandlestick, Clock, Crosshair, Target } from 'lucide-react'
+import { ArrowRight, Clock } from 'lucide-react'
 import type { User } from '@/lib/api/auth'
 import { getCurriculum } from '@/lib/api/concepts'
 import { listDrillKinds } from '@/lib/api/drills'
@@ -94,7 +94,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
       </header>
 
       <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StepCard n={1} to="/learn" icon={<BookOpen />} title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
+        <StepCard n={1} to="/learn" title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
           {learning && (
             <Progress
               value={learning.summary.complete / Math.max(1, learning.summary.concepts)}
@@ -102,26 +102,26 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
             />
           )}
         </StepCard>
-        <StepCard n={2} to="/drills" icon={<Crosshair />} title="Drills" line="Spot and name patterns on real charts, graded by the rule.">
+        <StepCard n={2} to="/drills" title="Drills" line="Spot and name patterns on real charts, graded by the rule.">
           {learning && drills.length > 0 && (
             <Progress value={drillsPassed / drills.length} text={`${drillsPassed} of ${drills.length} drills passed`} />
           )}
         </StepCard>
-        <StepCard n={3} to="/practice" icon={<Target />} title="Practice" line="A real day replayed bar by bar, the future hidden.">
+        <StepCard n={3} to="/practice" title="Practice" line="A real day replayed bar by bar, the future hidden.">
           {sessions && (
             <Figure>
               {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} · {trades} {trades === 1 ? 'trade' : 'trades'}
             </Figure>
           )}
         </StepCard>
-        <StepCard n={4} to="/chart" icon={<ChartCandlestick />} title="Chart" line="The whole history, every rule and drawing tool.">
+        <StepCard n={4} to="/chart" title="Chart" line="The whole history, every rule and drawing tool.">
           <Figure>Real NQ, every ICT layer</Figure>
         </StepCard>
       </ol>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section aria-label="Up next" className="flex flex-col rounded-card bg-accent/15 p-6 ring-1 ring-accent/30">
-          <h2 className="text-xs font-semibold tracking-widest text-accent uppercase">Up next</h2>
+        <section aria-label="Up next" className="flex flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
+          <h2 className="text-sm font-medium text-subtle">Up next</h2>
           {learning === undefined ? null : suggested ? (
             <>
               <p className="mt-3 font-display text-2xl font-bold tracking-tight text-ink">{name(suggested)}</p>
@@ -143,7 +143,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         </section>
 
         <section aria-label="Due for review" className="rounded-card border border-line bg-surface p-6 shadow-panel">
-          <h2 className="flex items-center gap-2 text-xs font-semibold tracking-widest text-subtle uppercase">
+          <h2 className="flex items-center gap-2 text-sm font-medium text-subtle">
             <Clock aria-hidden className="size-3.5" /> Due for review
           </h2>
           {learning && due.length === 0 && <p className="mt-3 text-sm text-subtle">Nothing due today.</p>}
@@ -162,7 +162,6 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
                         label={accuracy === undefined ? 'Not graded yet' : `${Math.round(accuracy * 100)}% recently`}
                       />
                       <span className="min-w-0 flex-1 truncate text-sm text-ink">{name(id)}</span>
-                      <span className="num text-xs text-subtle">{id}</span>
                       <ArrowRight aria-hidden className="size-4 text-subtle group-hover:text-ink" />
                     </Link>
                   </li>
@@ -173,7 +172,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         </section>
 
         <section aria-label="Practice so far" className="flex flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
-          <h2 className="text-xs font-semibold tracking-widest text-subtle uppercase">Practice so far</h2>
+          <h2 className="text-sm font-medium text-subtle">Practice so far</h2>
           {statistics && statistics.overall.trades > 0 && (
             <>
               <p
@@ -216,14 +215,12 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
 function StepCard({
   n,
   to,
-  icon,
   title,
   line,
   children,
 }: {
   n: number
   to: string
-  icon: ReactNode
   title: string
   line: string
   children?: ReactNode
@@ -238,13 +235,7 @@ function StepCard({
         to={to}
         className="flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <span className="flex items-center justify-between">
-          <span className="num text-xs text-subtle">STEP {n}</span>
-          <span aria-hidden className="text-accent [&_svg]:size-5">
-            {icon}
-          </span>
-        </span>
-        <span className="mt-6 font-display text-2xl font-bold tracking-tight text-ink">{title}</span>
+        <span className="font-display text-2xl font-bold tracking-tight text-ink">{title}</span>
         <span className="mt-1 text-sm text-subtle">{line}</span>
         <span className="mt-auto pt-5">{children}</span>
       </Link>
@@ -256,13 +247,13 @@ function Progress({ value, text }: { value: number; text: string }) {
   return (
     <span className="flex flex-col gap-2">
       <ProgressBar value={value} label={text} />
-      <span className="num text-xs text-subtle">{text}</span>
+      <span className="text-xs text-subtle">{text}</span>
     </span>
   )
 }
 
 function Figure({ children }: { children: ReactNode }) {
-  return <span className="num text-xs text-subtle">{children}</span>
+  return <span className="text-xs text-subtle">{children}</span>
 }
 
 /**
@@ -341,7 +332,7 @@ function NewsToday() {
 
   return (
     <section aria-label="News today" className="flex flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
-      <h2 className="text-xs font-semibold tracking-widest text-subtle uppercase">News today</h2>
+      <h2 className="text-sm font-medium text-subtle">News today</h2>
       {news && soon.length === 0 && <p className="mt-3 text-sm text-subtle">No high-impact news today or tomorrow.</p>}
       {news === null && <p className="mt-3 text-sm text-subtle">The calendar could not be loaded.</p>}
       {soon.length > 0 && (

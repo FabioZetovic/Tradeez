@@ -138,14 +138,13 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Step 3"
         title="Practice"
         description="A real day replayed bar by bar, the future hidden. Plan, execute, then review."
       />
 
       <section
         aria-label="New session"
-        className="flex flex-wrap items-end justify-between gap-6 rounded-card bg-accent/15 p-6 ring-1 ring-accent/30"
+        className="flex flex-wrap items-end justify-between gap-6 rounded-card border border-line bg-surface p-6 shadow-panel"
       >
         <div className="max-w-xl">
           <h2 className="font-display text-2xl font-bold tracking-tight text-ink">Start a session</h2>
@@ -344,13 +343,16 @@ function RiskLimitField({
     setDraft(null)
   }
   return (
-    <label className="mt-4 flex flex-wrap items-center gap-2 text-xs text-subtle">
-      Your risk limit per trade: $
+    <div className="mt-4 flex flex-col gap-1.5">
+      <label htmlFor="risk-limit-field" className="text-sm text-ink">
+        Risk limit per trade ($)
+      </label>
       <input
-        className={`${fieldClass} h-8 w-28`}
+        id="risk-limit-field"
+        className={`${fieldClass} h-9 w-36`}
         inputMode="decimal"
-        placeholder="none"
-        aria-label="Risk limit per trade ($)"
+        placeholder="No limit"
+        aria-describedby="risk-limit-hint"
         disabled={cents === undefined}
         value={text}
         onChange={(e) => setDraft(e.target.value)}
@@ -359,8 +361,10 @@ function RiskLimitField({
           if (e.key === 'Enter') commit()
         }}
       />
-      <span>— your rule: each scorecard says whether a trade kept it. It never blocks one.</span>
-    </label>
+      <p id="risk-limit-hint" className="text-xs text-subtle">
+        Each scorecard says whether a trade kept it. It never blocks one.
+      </p>
+    </div>
   )
 }
 

@@ -63,7 +63,6 @@ export function DrillsPage() {
   return (
     <section aria-label="Drills">
       <PageHeader
-        eyebrow="Step 2"
         title="Drills"
         description={`Short exercises on one idea at a time, on real ${market}.`}
         right={<Segmented<Market> options={MARKETS} value={market} onChange={chooseMarket} label="Market" />}
@@ -146,9 +145,7 @@ function Topic({
   return (
     <section aria-labelledby={id}>
       <h2 id={id} className="mb-4 flex items-center gap-2.5 font-display text-xl font-bold tracking-tight text-ink">
-        <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-accent/15 text-accent">
-          <Icon className="size-4" />
-        </span>
+        <Icon aria-hidden className="size-4 text-subtle" />
         {title}
       </h2>
       <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</ul>
@@ -200,7 +197,7 @@ function Card({
         <span className="mt-1 line-clamp-2 text-sm text-subtle" title={line}>
           {line}
         </span>
-        <span className="num mt-auto pt-4 text-xs text-subtle" data-testid="drill-record">
+        <span className="mt-auto pt-4 text-xs text-subtle" data-testid="drill-record">
           {record ?? ' '}
         </span>
       </Link>

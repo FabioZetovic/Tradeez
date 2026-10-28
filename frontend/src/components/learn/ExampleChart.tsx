@@ -39,6 +39,8 @@ export function ExampleChart({ example, tickSize, exchangeTimezone, adapterFacto
         axisTimezone="exchange"
         adapterFactory={adapterFactory}
         heightClass="h-64"
+        // An example to read, no position tool: the candles take the width (BUG-104).
+        rightOffset={2}
         overlay={(adapter) => (
           <>
             {example.companion && <AdapterOut adapter={adapter} onAdapter={setLeader} />}

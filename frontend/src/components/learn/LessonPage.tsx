@@ -106,9 +106,8 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
       {lesson && (
         <>
           <header>
-            <p className="num mb-2 text-sm text-accent">
-              {lesson.topic ?? 'Not taught'} · {lesson.id}
-            </p>
+            {/* The topic, not the catalogue id (BUG-105). */}
+            <p className="mb-2 text-sm text-subtle">{lesson.topic ?? 'Not taught'}</p>
             <h1 className="font-display text-4xl font-bold tracking-tight text-balance text-ink" data-testid="lesson-title">
               {lesson.name}
             </h1>
@@ -164,7 +163,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
                   <Link
                     key={drill.kind}
                     to={`/drills/${drill.kind}`}
-                    className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:shadow-glow"
+                    className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:brightness-110"
                   >
                     {MODE_NAMES[drill.mode]}: {drill.title}
                   </Link>
@@ -174,7 +173,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
                     <Link
                       key={kind.value}
                       to={`/drills/risk/${kind.slug}`}
-                      className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:shadow-glow"
+                      className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:brightness-110"
                     >
                       Sums: {kind.label}
                     </Link>

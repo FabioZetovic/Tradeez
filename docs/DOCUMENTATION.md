@@ -2096,7 +2096,18 @@ What else do you think feels the same"). The pill is gone (T50 D-1). Every scree
 decorative monospace, purple-tinted panels, icon squares, identical card grids, the greeting, filler copy — is logged
 as T50 D-2 … D-11 in REDESIGN §6, each with what, where, why and how; the real flaws as BUG-101 … BUG-110, the worst
 being BUG-101: the landing page's lower sections start invisible and only appear when scrolled to, so a full-page
-screenshot is blank below the chart. The logo waits for the app's real name (T51). Logged only, not fixed yet.
+screenshot is blank below the chart. The logo waits for the app's real name (T51).
+
+**T50's first pass** (`fix/t50-cleanup`, Fabio: "okay start working on it"; on BUG-103: "thats design decision"). The
+template layer came off: the glow token and every glow, the eyebrows (`PageHeader` lost the prop), the step numbers,
+decorative mono, the accent-tinted panels, the icon squares, the second two-tone headline and the sign-in filler. Fixed
+with it: the header no longer jumps (BUG-102, full width everywhere), drill and example charts fill their width (BUG-104, `rightOffset` per chart),
+learners no longer see catalogue ids (BUG-105), locked lessons are readable (BUG-106), no empty rings (BUG-107),
+taller toggles (BUG-108), the risk limit reads as one field (BUG-109), and the drill's marking bar lost its box
+(BUG-110). One found while checking: a wider `Segmented` pushed the chart toolbar's Layers button onto a second row at
+1366, so only its height changed. Kept by Fabio: BUG-101 ("thats okay" — decided in another session while this was
+built; the fix already made here was taken back out) and BUG-103. Four mutants, all caught; frontend 453 → 456. D-6
+and D-10 wait for Fabio.
 
 ---
 

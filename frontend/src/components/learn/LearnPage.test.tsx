@@ -89,14 +89,20 @@ describe('Learn, by topic (T45)', () => {
     )
     expect(await screen.findByRole('heading', { level: 2, name: 'Structure' })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Structure', 'Premium & discount'])
-    expect(screen.getByTestId('learn-total')).toHaveTextContent('0 / 4 lessons')
+    expect(screen.getByTestId('learn-total')).toHaveTextContent('0 of 4 lessons done')
     expect(within(screen.getByRole('region', { name: 'Structure' })).getByTestId('topic-progress')).toHaveTextContent('0 of 2')
     expect(tile('Swing high')).toHaveTextContent('Start here')
     expect(tile('Swing high')).toHaveAttribute('href', '/learn/ICT-01')
     expect(tile('Market structure')).toHaveTextContent('Pass the Swing high / swing low drill to unlock')
     expect(within(tile('Market structure')).getByLabelText('Locked')).toBeInTheDocument()
-    expect(tile('Standard deviation')).toHaveTextContent('Card')
+    expect(tile('Standard deviation')).toHaveTextContent('Read only')
     expect(within(tile('Standard deviation')).queryByLabelText('Locked')).toBeNull()
+    // No catalogue ids (BUG-105), no empty rings before any progress (BUG-107), nothing dimmed when locked (BUG-106).
+    for (const t of screen.getAllByTestId('lesson-tile')) {
+      expect(t).not.toHaveTextContent(/ICT-\d/)
+      expect(within(t).queryByRole('img', { name: /recently|Complete/ })).toBeNull()
+      expect(t.className).not.toMatch(/opacity-/)
+    }
   })
 
   it('later: done lessons ticked, the next one glowing "Next", one due for review says so', async () => {
@@ -121,7 +127,7 @@ describe('Learn, by topic (T45)', () => {
     expect(tile('Swing high')).toHaveTextContent('Done')
     expect(tile('Market structure')).toHaveTextContent('Next')
     expect(tile('Market structure')).not.toHaveTextContent('Start here')
-    expect(tile('Market structure').className).toContain('shadow-glow')
+    expect(tile('Market structure').className.split(' ')).toContain('border-accent')
     expect(tile('Premium')).toHaveTextContent('Review')
     expect(within(screen.getByRole('region', { name: 'Structure' })).getByTestId('topic-progress')).toHaveTextContent('1 of 2')
   })

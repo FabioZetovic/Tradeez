@@ -436,7 +436,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
         className="relative flex w-full shrink-0 flex-col gap-3 lg:w-[22rem] lg:overflow-y-auto lg:pr-1"
       >
         <section aria-label="Score" className="flex items-baseline justify-between rounded-card border border-line bg-surface px-4 py-3 shadow-panel">
-          <span className="text-xs font-semibold tracking-widest text-subtle uppercase">Session</span>
+          <span className="text-sm font-medium text-subtle">Session</span>
           <span className="num text-sm text-subtle" data-testid="session-score">
             {score.closedTrades} {score.closedTrades === 1 ? 'trade' : 'trades'}
             {score.closedTrades > 0 && (
