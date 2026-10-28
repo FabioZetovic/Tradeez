@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { PracticeView } from './PracticeView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
+import { onPhone } from '@/test/phone'
 import { recorder } from '@/test/canvasRecorder'
 import type {
   PracticeState,
@@ -1640,5 +1641,51 @@ describe('Practice — the session screen (T42)', () => {
     await startSession(user)
     expect(screen.getByRole('complementary', { name: 'Trading' })).toBeInTheDocument()
     expect(calls.filter((c) => is(c, 'GET', `/api/practice/sessions/${ID}`))).toHaveLength(0)
+  })
+})
+
+describe('Practice — the replay on a phone (T53)', () => {
+  beforeEach(() => {
+    mockApi(realServer())
+    onPhone()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('plans in a sheet with − and +, places, shows the trade in a strip, scores it on its own screen, and ends', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    const replay = screen.getByRole('group', { name: 'Replay' })
+    expect(within(replay).getByRole('button', { name: 'Next 10' })).toBeInTheDocument()
+    // The speed is one button that cycles.
+    await user.click(within(replay).getByRole('button', { name: /Replay speed 2×/ }))
+    expect(within(replay).getByRole('button', { name: /Replay speed 4×/ })).toBeInTheDocument()
+
+    await user.click(within(replay).getByRole('button', { name: 'Plan long' }))
+    const plan = screen.getByRole('region', { name: 'Plan' })
+    expect(screen.queryByRole('group', { name: 'Replay' })).toBeNull()
+    const stop = within(plan).getByRole('status', { name: 'Stop' })
+    const before = stop.textContent
+    await user.click(within(plan).getByRole('button', { name: 'Raise stop' }))
+    expect(stop.textContent).not.toBe(before)
+    await user.click(within(plan).getByRole('button', { name: 'More contracts' }))
+    expect(within(plan).getByRole('status', { name: 'Contracts' })).toHaveTextContent('2')
+    await user.click(within(plan).getByRole('button', { name: 'Place long trade' }))
+
+    const trade = await screen.findByRole('region', { name: 'Trade' })
+    expect(within(trade).getByTestId('trade-stop')).toHaveTextContent(/^SL /)
+    await user.click(screen.getByRole('button', { name: 'Skip to result' }))
+    const card = await screen.findByRole('region', { name: 'Scorecard' })
+    expect(within(card).getByTestId('result-outcome')).toHaveTextContent('Trade 1')
+    await user.click(within(card).getByRole('button', { name: 'Keep replaying' }))
+    expect(screen.queryByRole('region', { name: 'Scorecard' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'More: end session' }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'End session' })).getByRole('button', { name: 'End session' }))
+    const over = await screen.findByRole('region', { name: 'Session over' })
+    expect(within(over).getByTestId('revealed-date')).toHaveTextContent('Monday 7 April 2025')
+    // Its trades, each opening its scorecard again.
+    await user.click(within(over).getByRole('button', { name: /Long/ }))
+    expect(await screen.findByRole('region', { name: 'Scorecard' })).toBeInTheDocument()
   })
 })

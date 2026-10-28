@@ -4,6 +4,7 @@ import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { formatCents, formatR, outcomeLabel } from '@/lib/practice/plan'
 import { cx } from '@/lib/styles'
 import { Panel } from '../ui'
+import { revealedDate } from '@/lib/practice/session'
 
 const tableClass =
   'w-full border-collapse text-sm tabular-nums [&_td]:border-b [&_td]:border-line/60 [&_td]:px-2 [&_td]:py-1.5 [&_th]:border-b [&_th]:border-line [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-medium [&_th]:text-subtle'
@@ -185,23 +186,4 @@ function Stat({
 
 function toneClass(value: number | undefined): string {
   return value === undefined || value === 0 ? '' : value > 0 ? 'text-up' : 'text-down'
-}
-
-/**
- * "Monday 7 April 2025, 10:05" — the real moment, in New York time. Assembled from parts: how Intl
- * joins them (a comma, "at") differs between ICU versions.
- */
-function revealedDate(epochSeconds: number): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'America/New_York',
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(epochSeconds * 1000))
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value
-  return `${part('weekday')} ${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')}`
 }
