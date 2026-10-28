@@ -967,7 +967,7 @@ and in §10.
 | D-11 | open | **Boilerplate copy.** Sign-in: "Welcome back. Carry on where you left off." | Filler every generated sign-in page has | Delete it; the title "Sign in" is enough |
 | D-12 | ⏸ T51 | **The logo:** a purple rounded square with the "trending up" icon, and the purple initials avatar | The default logo of countless generated finance apps | Waits for the app's real name and domain (Fabio, 2026-10-28: "Logo i will fix later when i come up with an actual name of the app, i need to find the domain") |
 
-**Order.** D-2, D-3, D-4, D-5, D-7, D-8, D-9, D-11 with BUG-101 … BUG-110 in one pass on one branch; D-6 and D-10
+**Order.** D-2, D-3, D-4, D-5, D-7, D-8, D-9, D-11 with BUG-102 … BUG-110 in one pass (BUG-101 kept by Fabio: "thats okay") on one branch; D-6 and D-10
 after Fabio's yes; D-12 with T51.
 
 **Done when.** Every D item and bug above is fixed or deliberately kept (said here); a full-page screenshot of every

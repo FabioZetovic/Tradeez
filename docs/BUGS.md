@@ -74,6 +74,8 @@ a section that has not been reached yet is still fully visible — or remove the
 entrance. Test: render the landing page and assert no section starts with `opacity: 0`. Check live with a full-page
 screenshot.
 
+**⏸ KEPT — 2026-10-28, Fabio:** "thats okay". The scroll reveal stays as it is; nothing to fix. Revisit if a full-page screenshot of the landing page is needed for the thesis or the jury (scroll through it first, or take it with motion off in code).
+
 ---
 
 ### BUG-102 🟡 The header jumps sideways between screens
