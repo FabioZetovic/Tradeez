@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LessonPage } from './LessonPage'
 import type { ConceptProgress, Learning } from '@/lib/api/learning'
 import type { Lesson } from '@/lib/api/lessons'
+import { onPhone } from '@/test/phone'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
 
 const LESSON: Lesson = {
@@ -165,5 +166,31 @@ describe('a lesson (T45)', () => {
     renderLesson('ICT-05')
     expect(await screen.findByText('BOS / CHoCH')).toBeInTheDocument()
     expect(calls.some((u) => u.startsWith('/api/concepts/ICT-06/lesson'))).toBe(true)
+  })
+})
+
+describe('a lesson on a phone (T53)', () => {
+  it('a bar back with where it sits; its drill at the thumb with the record and Mark as read', async () => {
+    onPhone()
+    serve({ '/api/concepts/ICT-23/lesson': LESSON, '/api/learning': learning({}), '/api/concepts': CURRICULUM })
+    renderLesson('ICT-23')
+    expect(await screen.findByTestId('lesson-title')).toHaveTextContent('Inversion FVG')
+    expect(screen.getByRole('link', { name: 'Back to Learn' })).toHaveAttribute('href', '/learn')
+    expect(screen.getByText(/^Gaps & imbalances · \d+ of \d+$/)).toBeInTheDocument()
+    const bar = screen.getByRole('group', { name: 'Practise it' })
+    expect(within(bar).getByTestId('lesson-record')).toHaveTextContent('Drill: 2 tries · 50% recently')
+    expect(within(bar).getByRole('button', { name: 'Mark as read' })).toBeInTheDocument()
+    await userEvent.click(within(bar).getByRole('link', { name: /Practise it: Spot Inversion fair value gaps/ }))
+    expect(screen.getByTestId('opened')).toHaveTextContent('IFVG_IDENTIFICATION')
+  })
+
+  it('locked: the drill to pass, and no drill bar', async () => {
+    onPhone()
+    serve({ '/api/concepts/ICT-23/lesson': LESSON, '/api/learning': learning({ open: false }), '/api/concepts': CURRICULUM })
+    renderLesson('ICT-23')
+    const card = await screen.findByRole('region', { name: 'Locked' })
+    expect(card).toHaveTextContent('Locked until you pass one drill')
+    expect(within(card).getByRole('link', { name: /Go to Fair value gap/ })).toHaveAttribute('href', '/learn/ICT-20')
+    expect(screen.queryByRole('group', { name: 'Practise it' })).toBeNull()
   })
 })
