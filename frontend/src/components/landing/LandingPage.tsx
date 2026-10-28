@@ -60,14 +60,8 @@ export function LandingPage() {
 
       <main className="relative mx-auto w-full max-w-[1120px] flex-1 px-6">
         <section aria-labelledby="hero" className="flex flex-col items-center gap-7 pt-16 pb-16 text-center md:pt-24">
-          <motion.span
-            {...rise(0)}
-            className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 font-mono text-xs tracking-widest text-accent uppercase"
-          >
-            ICT on real NQ and ES
-          </motion.span>
           <motion.h1
-            {...rise(1)}
+            {...rise(0)}
             id="hero"
             className="max-w-[1100px] font-display text-[clamp(36px,5.5vw,62px)] leading-[1.04] font-semibold tracking-tight text-balance text-ink"
           >
@@ -75,11 +69,11 @@ export function LandingPage() {
             <br />
             <span className="text-subtle">On the real market, one rule at a time.</span>
           </motion.h1>
-          <motion.p {...rise(2)} className="max-w-[580px] text-lg leading-relaxed text-subtle">
+          <motion.p {...rise(1)} className="max-w-[580px] text-lg leading-relaxed text-subtle">
             Rules you can check, drills you can pass, and practice days replayed bar by bar from two years of real NQ
             and ES futures.
           </motion.p>
-          <motion.div {...rise(3)} className="mt-1 flex flex-wrap items-center justify-center gap-3">
+          <motion.div {...rise(2)} className="mt-1 flex flex-wrap items-center justify-center gap-3">
             <Link to="/sign-up" className={cx(PRIMARY, 'group')}>
               Start learning
               <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
@@ -254,7 +248,7 @@ function ReplayPreview() {
   const { candles, session, sweep, gap, cursor } = PICTURE
   return (
     <motion.figure
-      {...rise(4)}
+      {...rise(3)}
       aria-labelledby="replay-caption"
       className="overflow-hidden rounded-[18px] border border-line bg-surface shadow-[0_40px_120px_-40px_rgb(124_108_255/0.35)]"
     >

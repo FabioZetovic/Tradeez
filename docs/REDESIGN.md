@@ -64,6 +64,8 @@
 | T47 | ES as a full instrument (BUG-094) | NQ "perfect" | ✅ merged 2026-10-27 | `feat/t47-es` | NQ ▾ / ES on the Chart tab (remembered), SMT layer back with the other market under the chart, NQ/ES on Practice's start and on Drills; BUG-094 found and fixed in PriceChart. Screenshots docs/redesign/after/t47/ |
 | T48 | Public landing page | T36 | ✅ merged; redrawn 2026-10-27 | `feat/t48-landing`, then `fix/post-redesign-audit` | `/` signed out, redrawn from Fabio's Claude Design canvas: a centred hero, a drawn replay, the method, honest by design, the way in, the disclaimer in full; a session that just ended still goes to sign-in. Screenshots docs/redesign/after/t48/ |
 | T49 | AI chart assistant | everything | ⏸ | | paused 2026-10-27 by Fabio; needs his budget decision |
+| T50 | Design clean-up: off the template look | — | 🟡 logged 2026-10-28; D-1 done | `feat/motion` (D-1) | Fabio's critique request: D-1 … D-12 in §6 with BUG-101 … BUG-110; D-6 and D-10 need his yes. Screenshots docs/redesign/critique/ |
+| T51 | The logo and the name | Fabio's name and domain | ⏸ | | D-12; Fabio: "Logo i will fix later when i come up with an actual name of the app" |
 
 ---
 
@@ -229,6 +231,10 @@ state it was before him" — done; nothing of it remains on `master`.
 7. **English only** (Q-08). Dates in one English format everywhere (not the machine locale).
 8. **Accessible:** focus visible (accent ring), contrast AA for text, switches with `role="switch"` and
    `aria-checked`, menus closable with Esc, everything reachable by keyboard.
+9. **No template decoration (T50, Fabio 2026-10-28: "It looks vibewcodede and basic and bad").** The accent marks
+   the primary action and the current selection only — no glows, no tinted panels, no accent labels over titles,
+   no step numbers, no badges repeating the headline; monospace only for numbers that line up; never hide content
+   for an animation (BUG-101).
 
 ---
 
@@ -928,6 +934,52 @@ a last task"). Scoped when everything else is done: the provider (a Claude model
 decision by Fabio** (no money spent without him), privacy and **no peeking** — in practice and drills the
 assistant may only see what the learner has been shown (DEC-009, DEC-077).
 
+### T50 — Design clean-up: off the template look (Fabio, 2026-10-28)
+
+**Fabio:** "remove this purple ICT ON REAL NQ AND ES. It looks vibewcodede and basic and bad. What else do you think
+feels the same", then, after the critique: "put all of this as bugs or path or tasks wherever just log it somewhere
+and log fixes as well. Make it detailed with what why and how". The critique's screenshots, every screen at 1920:
+`docs/redesign/critique/`.
+
+**Goal.** The product parts (the Chart tab, the drill chart, the lesson texts, News) already look like a real tool.
+The layer around them looks generated: purple on everything, glows, small all-caps labels, step numbers, decorative
+monospace and the same rounded card around every piece of content. T50 removes that layer. It is mostly deletion.
+The real flaws found alongside are BUG-101 … BUG-110 in `BUGS.md`; fix them in the same pass.
+
+**Rule from now on (§4 principle 9):** the accent marks the one primary action and the current selection, nothing
+else; no glows; no decorative labels; monospace only for numbers that line up.
+
+Each item: what, where, why, how — and its state. **Log a fix here** (state column: ✅ date, branch, how checked)
+and in §10.
+
+| # | State | What and where | Why it reads as templated | How |
+|---|---|---|---|---|
+| D-1 | ✅ 2026-10-28, `feat/motion` | **The purple pill over the hero**, "ICT ON REAL NQ AND ES" (`LandingPage.tsx`, rounded-full, accent/10 fill, mono, uppercase, widest tracking) | The single most common AI landing-page element: a "badge" above the headline saying what the headline says next | Deleted; the hero's entrances renumbered so the headline comes first. Landing tests pass; checked in the browser |
+| D-2 | open | **Purple glows.** The radial blob behind the hero (`LandingPage.tsx:43`); the purple shadow under the drawn replay (`:259`); the faint radial on every page's background (`index.css:44`); `--shadow-glow` on primary buttons' hover (`ui.tsx:31`, the landing's PRIMARY, Guide, LessonPage ×2), on the open Layers button (`LayersMenu.tsx:42`) and on the next lesson's card (`LearnPage.tsx:156`) | A neon glow on a dark page is the default look of generated "fintech" sites. It also makes every button feel like a hover effect instead of a control | Delete the blob, the shadow and the background radial. Hover on a primary button: a slightly lighter accent. The open Layers button: the accent fill alone. The next lesson: an accent border alone. Then delete the `--shadow-glow` token and update `LearnPage.test.tsx:124`, which asserts it |
+| D-3 | open | **Small all-caps accent labels above titles.** PageHeader's `eyebrow` (`ui.tsx:157`) — STEP 1 on Learn, STEP 2 on Drills, STEP 3 on Practice, NEWS above "Economic calendar"; the drill's mode (SPOT, `DrillView.tsx:151`); SUMS (`RiskDrills.tsx:97`); UP NEXT (`HomePage.tsx:124`); NEXT STEP (`ui.tsx:399`); STEP n in the Guide. The same style in grey: Home's card titles, the stat tiles' labels, "SESSION" | Used once it is a design choice; used on every screen it is a tic. Several only repeat the nav ("NEWS" under the News tab) | Remove the page eyebrows (the nav already says where you are). The drill's mode joins its meta line: "Spot · NQ · 15m". Card and tile titles become sentence case, normal tracking, `text-sm font-medium`. Keep the `data-testid`s the tests use |
+| D-4 | open | **The grey second half of a headline**, twice on the landing page: "Learn ICT the way it is traded. *On the real market…*" and "Learn it. Drill it. *Then trade a day…*" | A popular trick; twice on one page it becomes a formula | Keep it on the hero only; the method's heading in one colour |
+| D-5 | open | **Step numbering.** The landing's "01 / 02 / 03" in accent monospace; Home's "STEP 1 … STEP 4" with an icon in each card's corner | Stock "how it works" pattern; the order is already in the words Learn, Drill, Practice | Remove the numbers. Home's cards keep title, line and progress; drop the corner icons too |
+| D-6 | open — **ask Fabio first** (changes two screens' look) | **The same card, 26 and 33 times.** Drills: every card has a mode chip, a clock "~2–3 min", a description cut off with "…" and "Not tried yet". Learn: every card an empty ring, an id and a title. Plus card-in-card (the lesson's examples) and boxes around near-empty content (Home's "Due for review: Nothing due today") | A grid of identical bordered boxes is the template's default for any list. The clock says the same on 23 cards, so it says nothing; the cut descriptions hide the part that explains the drill | Lists, not grids: one row per drill — name, one short line written to fit (no truncation), status at the right (Not tried · 3 of 5 · Passed). The time only on the three sums, where it is a real limit (30 s, 45 s). Learn the same, with BUG-105 and BUG-107. An empty Home card shrinks to one line |
+| D-7 | open | **Monospace as decoration.** "0 of 33 lessons complete", "Not tried yet", "Real NQ, every ICT layer", "0 marked", the landing's "Replay · 5m", "Date hidden", its figure caption and its step numbers | Mono text was a "developer tool" signal in every 2024–25 template. Here it makes ordinary sentences look like code | Mono (`num`, `font-mono`) only for prices, times and counts that line up in columns. Everything else in the sans |
+| D-8 | open | **Purple-tinted panels and chips.** Home's "Up next" (`bg-accent/15 ring-accent/30`, `HomePage.tsx:123`); Practice's "Start a session" (`PracticeView.tsx:148`); News's purple left edge on today; the landing's "Date hidden" chip and its purple session band | When the panels are purple the accent no longer points at anything | Neutral surface (`bg-surface`, `border-line`); the one primary button inside carries the accent. On News the word "Today" in accent is enough |
+| D-9 | open | **Purple icon squares** in front of each topic heading on Learn and Drills (`LearnPage.tsx:79`, `DrillsPage.tsx:149`) | An icon in a tinted rounded square is the icon-library default | Drop the square; a plain subtle icon or none |
+| D-10 | open — **ask Fabio first** (Home's top changes) | **Home's greeting.** A date line, "Good morning, X." in display size, and a line that repeats the landing page, above a grid of boxes | The stock dashboard opening; it spends the top of the screen on nothing to do | Lead with the next action: "Next: Swing high / swing low" and its Continue button at the top; the greeting small or gone |
+| D-11 | open | **Boilerplate copy.** Sign-in: "Welcome back. Carry on where you left off." | Filler every generated sign-in page has | Delete it; the title "Sign in" is enough |
+| D-12 | ⏸ T51 | **The logo:** a purple rounded square with the "trending up" icon, and the purple initials avatar | The default logo of countless generated finance apps | Waits for the app's real name and domain (Fabio, 2026-10-28: "Logo i will fix later when i come up with an actual name of the app, i need to find the domain") |
+
+**Order.** D-2, D-3, D-4, D-5, D-7, D-8, D-9, D-11 with BUG-101 … BUG-110 in one pass on one branch; D-6 and D-10
+after Fabio's yes; D-12 with T51.
+
+**Done when.** Every D item and bug above is fixed or deliberately kept (said here); a full-page screenshot of every
+screen at 1920 and 1366 in `docs/redesign/after/t50/`, compared with `docs/redesign/critique/`; no `shadow-glow`,
+`tracking-widest` or accent-tinted panel left (grep); tests, lint, tsc and knip clean.
+
+### T51 — The logo and the name (Fabio, later)
+
+The name "Tradeez" is a working name; Fabio will choose the real one once he has found a domain for it. Then: a
+wordmark (or a real mark — a candle, say) replacing the purple square, the favicon, the page titles, the avatar's
+colour, the README and the thesis text. Nothing to build until then.
+
 ---
 
 ## 7. Our code today, and what each piece becomes
@@ -1059,6 +1111,7 @@ due, open), `suggested`, `due`.
 | 2026-10-27 | T47 | SMT on the Chart tab draws the other market under the chart (moving with it, its own divergences marked); a practice replay still leaves SMT out — it shows one market | Claude |
 | 2026-10-27 | T48 | The landing page's screenshots are the app's own (four JPEGs, 56–106 KB, in the bundle), taken from the T45–T47 captures — real screens, as the page claims | Claude |
 | 2026-10-27 | T48 | A session that ends while the app is open still lands on sign-in with its notice (BUG-040), not on the landing page | Claude |
+| 2026-10-28 | T50 | Fabio called the hero's purple pill "vibecoded and basic and bad" and asked what else feels the same. Removed (D-1). The critique of every screen at 1920 logged as T50 D-2 … D-12 (the template look) and BUG-101 … BUG-110 (real flaws), each with what, why and how; §4 gains principle 9. The logo waits for the real name (T51) | Fabio + Claude |
 | 2026-10-28 | R-5 | The motion pass (`feat/motion`), Fabio: "add animations to the app for it to feel smoother". §4's list finished: the section highlight and every Segmented control's highlight slide to the new choice; buttons press; stat tiles and the Next step card lift, a tile's sentence, the phone menu and the footer's disclaimer open by height; progress bars and rings fill in; Practice's figures count up (600 ms, `CountUp`); the sign-in card, a drill's result, Home's step cards and News's days rise in; the landing page's hero rises line by line, its replay draws itself candle by candle and its sections rise in on scroll. All of it off under reduced motion (the shell's `MotionConfig`), and instant in tests (`skipAnimations`). The chart itself is not animated | Fabio + Claude |
 | 2026-10-27 | T48 | Redrawn from Fabio's Claude Design canvas ("claude design made a design i think is nice"): the four screenshots give way to one drawn replay. Built from the app's own tokens and font, not the canvas's Geist; the drawn replay says "An illustration, not market data" and is not labelled NQ, since the page promises real data never cherry-picked; its controls are a picture, not buttons that do nothing; the disclaimer stays in full (DEC-015) | Fabio + Claude |
 
