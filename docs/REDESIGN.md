@@ -66,6 +66,8 @@
 | T49 | AI chart assistant | everything | ⏸ | | paused 2026-10-27 by Fabio; needs his budget decision |
 | T50 | Design clean-up: off the template look | — | 🟢 first pass built 2026-10-28, waiting for "merge"; D-6 and D-10 wait for Fabio | `feat/motion` (D-1), `fix/t50-cleanup` | Fabio's critique request: D-1 … D-12 in §6 with BUG-101 … BUG-110; D-6 and D-10 need his yes. Screenshots docs/redesign/critique/ |
 | T51 | The logo and the name | Fabio's name and domain | ⏸ | | D-12; Fabio: "Logo i will fix later when i come up with an actual name of the app" |
+| T53 | The phone redesign from Claude Design | — | 🔨 started 2026-10-28 | `feat/phone-redesign` | Fabio's Claude Design canvas, 30 phone screens; six phases in §6 T53 |
+| T54 | Buttons with more than one shape | Fabio | ⏸ | | "all buttons look the same … we will change that later" |
 | T52 | Mobile pass | — | 🟢 built 2026-10-28, waiting for "merge" | `feat/mobile` | Fabio: "lets focus on mobile compatibility now". An audit of every screen at 390, 360 and 768 with touch (overflow, targets, text, real taps); BUG-111 … BUG-116 fixed. Screenshots docs/redesign/after/t52/ |
 
 ---
@@ -1015,6 +1017,52 @@ replay's three labels, now 12px. Unchanged on a desktop: checked at 1920 and 136
 
 **Rule from now on:** touch is tested with touch (`hasTouch`, taps), not with a mouse in a small window; sizes for a
 finger go behind `pointer-coarse:` so the desktop keeps its density.
+
+### T53 — The phone redesign from Claude Design (Fabio, 2026-10-28)
+
+**Fabio:** "Now phone compatibility. Its awful." Then, with the result: "this is what claude design made". The design:
+<https://claude.ai/artifact/XMtNusNPqmbpNHmUG2GBvH> — 30 phone screens (390 wide) built from our 63 snapshots, one
+shared stylesheet. Also: "all buttons look the same and take the same vibecoded shape. we will change that later" —
+logged as **T54**, not part of T53.
+
+**Its summary, in short.** A bottom tab bar (Home, Learn, Drills, Practice, Chart) replaces the menu; News behind a
+calendar icon on Home; the account, password, sign-out and help in a sheet from the avatar. The main action pinned
+where the thumb is ("Check answer", "Practise it", "Plan long / Plan short", play and speed). Tables become rows and
+cards (the journal two lines per trade; statistics a card per model). Drills full screen — no tab bar, an X to leave,
+answers as big buttons in a bottom bar, the sums drills with their own number pad. The replay reworked most: the chart
+takes the screen; planning opens a bottom sheet with − / + for stop, target and contracts and live risk, reward and
+R:R; in a trade a strip with Close; the scorecard an outcome card and a process checklist. Learn gets topic chips and a
+status circle per row (open, in progress, locked, read only); Drills chips by kind.
+
+**Decisions (Claude, 2026-10-28; Fabio may overrule):**
+- **Phones only** (below 768 px). The desktop stays as it is until Fabio decides on it.
+- **One theme.** The design's colours are within a shade of our tokens (its ground #0B0C10 against our canvas #0E1014,
+  its accent buttons #6553F0 against #7C6CFF): built from our tokens, not a second palette.
+- **Phone or not is decided in code** (`useIsPhone`, a media query), not only in CSS, wherever the phone and the desktop
+  differ in what is on the page (the tab bar, the bars, the sheets) — so the page holds one of each, and a screen
+  reader, the tests and the DOM never meet both.
+- **The disclaimer stays on every page** (DEC-015) as its one line at the foot of the content, above the tab bar —
+  the design's "Assumptions to check" offered exactly that.
+- **"What to take from it"** (the session-ended screen) is built only from that session's scorecard results, never
+  advice.
+- **The charts are ours.** The design's candles are placeholders; every chart is the real one.
+
+**Phases, each its own commit, screenshots at 390 and 360 with touch, desktop checked unchanged:**
+
+| Phase | What | State |
+|---|---|---|
+| 1 | **The frame:** the bottom tab bar; a top bar per page (Home: the mark, a calendar icon, the avatar; Learn, Drills, Practice: the title and the avatar); the account sheet (calendar, how it works, change password, sign out, sign out everywhere, the disclaimer); News and Help with a back bar; the old menu gone on a phone | ✅ 2026-10-28 (useIsPhone; `Sheet` in the kit; the account sheet; the tab bar; tests on a phone) |
+| 2 | **Drills:** the list with kind chips and rows (kind, name, tries, recent %); the next-lesson card; a drill full screen — an X, the title centred, the rule behind an ⓘ, the chart edge to edge, a bottom bar with the answer (Check answer with the count; two or three big answer buttons; the manage choices); the result as a sheet over the chart (a ring, found / missed rows that open, Try again / Next drill); the sums with a number pad and a ring for the clock | open |
+| 3 | **The replay:** a top bar (back, NQ and the price, the time, drawing tools, layers); timeframes as chips; a status line (flat / in trade, the session's R); the chart most of the screen; a bottom bar with Plan long / Plan short and step, play, next 10, speed (one button cycling), more (end session); planning as a sheet (side, − / + for stop, target and contracts by tick, risk, reward, R:R, the plan's four questions, Discard / Place); in a trade a strip (side, SL, TP, R, Close) with step, play, speed, skip to result; the scorecard its own screen (outcome card, process checklist, the review); the session-ended screen (the date revealed, four figures, the trades, what to take from it, New session) | open |
+| 4 | **Practice:** the start card (market, session time, risk limit, Start); "Your record" four tiles; open sessions as a sideways row of cards; the journal as two-line rows with filter chips (all, winners, losers, long, short, ambiguous) and "Load 20 more"; statistics its own screen: expectancy with its range drawn, break-down chips (model, killzone, weekday, side, checks, rules) with a card per row, calibration; the new-account empty states | open |
+| 5 | **Learn:** the progress line, topic chips, a status circle and one line per lesson; a lesson with a back bar (topic · n of m), a reading-progress line, the examples as a swipe row, the rule found as figures and a split bar, the drill in a bottom bar ("Practise it"); a locked lesson with its drill and the recent average against 70% | open |
+| 6 | **The rest:** Home (date and greeting, the next lesson card, three progress tiles, due for review, news today, the latest chart); the Chart tab (a top bar with the market and price, chips, Layers with its count, zoom and latest buttons) and the layers as a sheet with Done; sign in and sign up (a back bar, show-password, the rules as a strength bar); the landing page | open |
+
+### T54 — Buttons with more than one shape (Fabio, later)
+
+Fabio, 2026-10-28: "all buttons look the same and take the same vibecoded shape. we will change that later." Every
+button is the same rounded rectangle at the same weight. To decide with him: a hierarchy (one filled primary, quiet
+secondaries, text actions), sizes by place, and shapes that say what a control does. Not started.
 
 ### T51 — The logo and the name (Fabio, later)
 

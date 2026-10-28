@@ -8,10 +8,82 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, MotionGlobalConfig, animate, motion, useReducedMotion } from 'motion/react'
 import { Link } from 'react-router'
 import { ArrowRight, ChevronDown } from 'lucide-react'
 import { cx } from '@/lib/styles'
+import { EASE_OUT } from '@/lib/motion'
+import { useIsPhone } from '@/hooks/useIsPhone'
+
+/**
+ * A sheet that slides up from the foot of a phone's screen over a dimmed page (T53): the account, the layers, a plan,
+ * a drill's result. Escape or a tap on the dimmed page closes it. Drawn into the body, so no transformed parent can
+ * pin it anywhere but the screen's foot.
+ */
+export function Sheet({
+  open,
+  onClose,
+  label,
+  className,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  label: string
+  className?: string
+  children: ReactNode
+}) {
+  const panel = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    panel.current?.focus()
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-40">
+          <motion.div
+            aria-hidden
+            data-testid="sheet-scrim"
+            className="absolute inset-0 bg-black/60"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+          <motion.div
+            ref={panel}
+            role="dialog"
+            aria-modal="true"
+            aria-label={label}
+            tabIndex={-1}
+            className={cx(
+              'absolute inset-x-0 bottom-0 max-h-[88svh] overflow-y-auto rounded-t-3xl border-t border-line bg-surface px-4 pt-2',
+              'pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-[0_-16px_48px_rgb(0_0_0/0.55)] focus:outline-none',
+              className,
+            )}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.32, ease: EASE_OUT }}
+          >
+            <div aria-hidden className="mx-auto mt-0.5 mb-3.5 h-1.5 w-10 rounded-full bg-subtle/35" />
+            {children}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  )
+}
 
 /**
  * The few shared building blocks every screen is made of (DEC-044, restyled in T36 / DEC-078).
@@ -155,11 +227,13 @@ export function PageHeader({
   description?: ReactNode
   right?: ReactNode
 }) {
+  // On a phone the page's bar carries its title (T53): the heading stays for a screen reader.
+  const phone = useIsPhone()
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 max-md:mb-5">
       <div className="max-w-3xl">
-        <h1 className="font-display text-4xl font-bold tracking-tight text-ink">{title}</h1>
-        {description && <p className="mt-3 text-base text-subtle">{description}</p>}
+        <h1 className={cx('font-display text-4xl font-bold tracking-tight text-ink', phone && 'sr-only')}>{title}</h1>
+        {description && <p className={cx('text-base text-subtle', phone ? 'text-sm' : 'mt-3')}>{description}</p>}
       </div>
       {right}
     </div>

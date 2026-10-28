@@ -503,21 +503,60 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     }
   })
 
-  it('on a phone the sections fold into a menu: open it, pick one, and it closes (T46)', async () => {
-    render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByRole('heading', { name: /Fabio./ })
-    const button = screen.getByRole('button', { name: 'Menu' })
-    expect(button).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull()
-    await userEvent.click(button)
-    expect(button).toHaveAttribute('aria-expanded', 'true')
-    const menu = screen.getByRole('navigation', { name: 'Menu' })
-    expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Learn', 'Drills', 'Practice', 'Chart', 'News'])
-    await userEvent.click(within(menu).getByRole('link', { name: 'News' }))
-    expect(window.location.pathname).toBe('/news')
-    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull()
-    // The account keeps its name for a screen reader when only its initials show.
-    expect(screen.getByRole('button', { name: 'Fabio' })).toHaveAttribute('aria-label', 'Fabio')
+  describe('on a phone (T53)', () => {
+    // A phone's screen: the media query the frame asks matches.
+    beforeEach(() => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: query.includes('max-width'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    })
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('the sections sit in a tab bar at the foot, the current one marked; there is no menu', async () => {
+      render(<App adapterFactory={() => new FakeChartAdapter()} />)
+      await screen.findByRole('heading', { name: /Fabio./ })
+      const tabs = screen.getByRole('navigation', { name: 'Sections' })
+      expect(within(tabs).getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Learn', 'Drills', 'Practice', 'Chart'])
+      expect(within(tabs).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
+      expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull()
+      await userEvent.click(within(tabs).getByRole('link', { name: 'Learn' }))
+      expect(window.location.pathname).toBe('/learn')
+      expect(within(screen.getByRole('navigation', { name: 'Sections' })).getByRole('link', { name: 'Learn' })).toHaveAttribute('aria-current', 'page')
+    })
+
+    it('News is the calendar on Home, with a bar back; the account opens as a sheet with the calendar and the guide', async () => {
+      render(<App adapterFactory={() => new FakeChartAdapter()} />)
+      await screen.findByRole('heading', { name: /Fabio./ })
+      await userEvent.click(screen.getByRole('link', { name: 'Economic calendar' }))
+      expect(window.location.pathname).toBe('/news')
+      await userEvent.click(screen.getByRole('link', { name: 'Back to Home' }))
+      expect(window.location.pathname).toBe('/')
+
+      // The account keeps its name for a screen reader when only its initials show.
+      await userEvent.click(await screen.findByRole('button', { name: 'Fabio' }))
+      const sheet = await screen.findByRole('dialog', { name: 'Account' })
+      expect(within(sheet).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        '',
+        'Economic calendar',
+        'How Tradeez works',
+        'Change password',
+        'Sign out',
+        'Sign out of every device',
+      ])
+      await userEvent.click(within(sheet).getByRole('button', { name: 'How Tradeez works' }))
+      expect(window.location.pathname).toBe('/help')
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Account' })).toBeNull())
+    })
+
+    it('a drill fills the phone: no tab bar', async () => {
+      at('/drills/FVG_IDENTIFICATION')
+      render(<App adapterFactory={() => new FakeChartAdapter()} />)
+      await screen.findByRole('link', { name: /All drills/ })
+      expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull()
+    })
   })
 
   it('an unknown address lands on Home; the header switches sections', async () => {
