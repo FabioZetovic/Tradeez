@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { onPhone } from '@/test/phone'
 import App from './App'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
 import { recorder } from '@/test/canvasRecorder'
@@ -505,14 +506,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
 
   describe('on a phone (T53)', () => {
     // A phone's screen: the media query the frame asks matches.
-    beforeEach(() => {
-      vi.stubGlobal('matchMedia', (query: string) => ({
-        matches: query.includes('max-width'),
-        media: query,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-      }))
-    })
+    beforeEach(() => onPhone())
     afterEach(() => vi.unstubAllGlobals())
 
     it('the sections sit in a tab bar at the foot, the current one marked; there is no menu', async () => {
@@ -554,7 +548,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     it('a drill fills the phone: no tab bar', async () => {
       at('/drills/FVG_IDENTIFICATION')
       render(<App adapterFactory={() => new FakeChartAdapter()} />)
-      await screen.findByRole('link', { name: /All drills/ })
+      await screen.findByRole('link', { name: 'Exit drill' })
       expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull()
     })
   })

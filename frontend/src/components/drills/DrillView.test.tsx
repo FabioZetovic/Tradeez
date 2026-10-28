@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
 import { DrillView } from './DrillView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
+import { onPhone } from '@/test/phone'
 import type { DrillKindView, DrillResponse, ResultView } from '@/lib/api/drills'
 
 const T0 = 1_710_338_400
@@ -781,5 +782,34 @@ describe('Drills — judge (T45)', () => {
     expect(await screen.findByTestId('drill-summary')).toHaveTextContent('Not quite — Discount; you chose Premium')
     expect(screen.getByText(/its equilibrium, is 20000.00/)).toBeInTheDocument()
     expect(screen.getByTestId('drill-grade')).toHaveTextContent('Graded against judge-pd-1.0.0.')
+  })
+})
+
+describe('a drill on a phone (T53)', () => {
+  beforeEach(() => {
+    mockApi(server())
+    onPhone()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('fills the screen: an X to leave, the rule behind its button, the answer in a bar, the result in a panel', async () => {
+    const user = await startDrill()
+    expect(screen.getByRole('link', { name: 'Exit drill' })).toHaveAttribute('href', '/drills')
+    expect(screen.queryByRole('link', { name: /All drills/ })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'The rule Tradeez uses' }))
+    expect(within(await screen.findByRole('dialog', { name: 'The rule Tradeez uses' })).getByTestId('graded')).toHaveTextContent(
+      'Graded against fvg-1.0.0',
+    )
+    await user.keyboard('{Escape}')
+
+    const bar = screen.getByRole('group', { name: 'Answer' })
+    clickCandle(5)
+    expect(within(bar).getByTestId('mark-count')).toHaveTextContent('1marked')
+    await user.click(within(bar).getByRole('button', { name: 'Check answer' }))
+    const result = await screen.findByRole('region', { name: 'Result' })
+    expect(within(result).getByTestId('drill-summary')).toBeInTheDocument()
+    expect(within(result).getByRole('button', { name: 'Next drill' })).toBeInTheDocument()
+    expect(within(result).getByRole('link', { name: 'All drills' })).toHaveAttribute('href', '/drills')
+    expect(screen.queryByRole('group', { name: 'Answer' })).toBeNull()
   })
 })

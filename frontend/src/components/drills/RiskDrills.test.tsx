@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
 import { RiskDrills } from './RiskDrills'
 import { RISK_KINDS, type RiskDrill } from '@/lib/api/drills'
+import { onPhone } from '@/test/phone'
 
 /** The screen as its card opens it (T43): the first question is asked on arrival. */
 const open = (kind: RiskDrill['kind']) =>
@@ -207,5 +208,31 @@ describe('risk drills, against the clock (T26)', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(calls).toHaveLength(2))
     expect(calls[1].body).toEqual({ kind: 'RECOVERY' })
+  })
+})
+
+describe('the sums on a phone (T53)', () => {
+  it('answer on a number pad of their own — the keyboard never covers the question — with the clock as a ring', async () => {
+    onPhone()
+    const calls = serve({
+      '/api/drills/risk:STREAK': STREAK,
+      '/api/drills/risk/r2/answer': {
+        ...STREAK,
+        result: { given: 14.9, answer: 14.92, correct: true, seconds: 9, inTime: true, working: ['0.98 to the 8th is 0.8508.'], answered: 1, right: 1 },
+      },
+    })
+    const user = userEvent.setup()
+    open('STREAK')
+    await screen.findByTestId('risk-question')
+    expect(screen.getByRole('timer')).toHaveAccessibleName('45 seconds left')
+    expect(screen.queryByRole('textbox')).toBeNull()
+    const pad = screen.getByRole('group', { name: 'Number pad' })
+    for (const key of ['1', '4', 'Decimal point', 'Decimal point', '9', '9', 'Delete']) await user.click(within(pad).getByRole('button', { name: key }))
+    expect(screen.getByText('14.9')).toBeInTheDocument()
+    await user.click(within(pad).getByRole('button', { name: 'Answer' }))
+    expect(await screen.findByTestId('risk-result')).toHaveTextContent('Right')
+    expect(calls[1]).toEqual({ method: 'POST', url: '/api/drills/risk/r2/answer', body: { value: 14.9 } })
+    expect(screen.queryByRole('group', { name: 'Number pad' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Next question' })).toBeInTheDocument()
   })
 })
