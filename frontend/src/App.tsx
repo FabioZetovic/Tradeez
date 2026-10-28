@@ -19,6 +19,7 @@ import { LessonPage } from '@/components/learn/LessonPage'
 import { Notice } from '@/components/ui'
 import { DISCLAIMER } from '@/lib/disclaimer'
 import type { ChartAdapter } from '@/lib/chart/types'
+import { enter } from '@/lib/motion'
 
 type AdapterFactory = () => ChartAdapter
 
@@ -124,9 +125,7 @@ function AuthPage({ children }: { children: ReactNode }) {
     <div className="flex min-h-svh flex-col items-center justify-center px-4 py-12">
       <motion.div
         className="w-full max-w-sm"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
+        {...enter()}
       >
         <div className="mb-8 flex justify-center">
           <Logo large />

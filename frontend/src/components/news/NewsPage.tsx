@@ -5,6 +5,7 @@ import { getNews, type News, type NewsEvent } from '@/lib/api/news'
 import { byDay, newsDay, newsTime } from '@/lib/news'
 import { cx } from '@/lib/styles'
 import { Notice, PageHeader, Panel, Segmented } from '../ui'
+import { enter } from '@/lib/motion'
 
 const IMPACTS = ['High', 'High + medium'] as const
 
@@ -69,9 +70,7 @@ export function NewsPage() {
         {byDay(shown).map(({ day, events }, index) => (
           <motion.div
             key={day}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut', delay: Math.min(index, 8) * 0.04 }}
+            {...enter(index, { max: 8 })}
           >
             <Panel
               aria-label={day}

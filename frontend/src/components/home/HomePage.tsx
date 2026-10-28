@@ -20,6 +20,7 @@ import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
 import { ProgressBar, Ring } from '../ui'
 import { ImpactFolder } from '../news/NewsPage'
+import { enter } from '@/lib/motion'
 
 const DAY = 86_400
 
@@ -227,9 +228,7 @@ function StepCard({
 }) {
   return (
     <motion.li
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut', delay: n * 0.05 }}
+      {...enter(n)}
     >
       <Link
         to={to}

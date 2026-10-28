@@ -6,6 +6,7 @@ import { DISCLAIMER, DISCLAIMER_SHORT } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
 import { AccountMenu } from './AccountMenu'
 import type { User } from '@/lib/api/auth'
+import { enter } from '@/lib/motion'
 
 /** Home, the sections in the order they build on one another, and the economic calendar (T40). */
 const NAV = [
@@ -146,9 +147,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
       >
         <motion.div
           key={section}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          {...enter(0, { rise: 8 })}
         >
           {children}
         </motion.div>

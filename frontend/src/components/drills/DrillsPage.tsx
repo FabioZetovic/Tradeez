@@ -10,6 +10,7 @@ import { topicIcon } from '@/lib/topics'
 import { cx, errorClass } from '@/lib/styles'
 import { drillMarket, MARKETS, setDrillMarket, type Market } from '@/lib/markets'
 import { Chip, NextStep, PageHeader, Segmented } from '../ui'
+import { enter } from '@/lib/motion'
 
 /**
  * Drills (T43, Lovable's §5.5): sections of cards, one click to start. Each card carries the learner's real record — from
@@ -172,9 +173,7 @@ function Card({
 }) {
   return (
     <motion.li
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut', delay: index * 0.04 }}
+      {...enter(index, { step: 0.04 })}
     >
       <Link
         to={to}

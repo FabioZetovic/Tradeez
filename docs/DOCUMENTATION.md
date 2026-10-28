@@ -2123,6 +2123,17 @@ account name wrapping on a tablet (BUG-116). A first try at the Chart tab's row 
 screenshot caught it. BUG-117: a practice test failed once while the audit loaded the machine. Five mutants, all
 caught; frontend 456 → 458.
 
+**Fabio, on the mobile pass:** "Its awful. Send me a whole snapshot of every single page of our app and i will let claude
+design redesign everything for you to change." Every page and state, full page, desktop (1920) and phone (390 at 2x,
+touch): 63 pictures with a README, `docs/redesign/tradeez-screens-2026-10-28.zip` (10 MB, kept out of git). The pages
+with a history come from the local test account, read only; the account menu was retaken with a demo user so the test
+account's address is in none of them; the flows that write (drills answered, a trade placed and closed) ran on a fresh
+user.
+
+**Entrances retimed** (BUG-118; Fabio: "animations load too early, you cant even see them"). Measured in painted frames
+on the built app: they were over 0.23 s after appearing and the landing hero ran through the load's stalls. Now one
+timing, `lib/motion.ts`: a beat after the paint, half a second, a visible rise. 46–71 frames each. Frontend 458 → 460.
+
 ---
 
 ## For the presentation: the disclaimer slide

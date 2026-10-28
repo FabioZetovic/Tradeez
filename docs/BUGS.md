@@ -470,6 +470,22 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-118 🟡 The entrance animations were over before anyone could see them
+
+**Status:** verified (2026-10-28). Fabio: "animations load too early, you cant even see them". Measured on the built
+app at 1366, sampling every painted frame from navigation: Home's step cards and the Drills cards were fully in about
+0.23 s after they first showed, over 23–26 painted frames; the landing page's hero started while the browser was still
+stalling 70–110 ms at a time finishing the page. **Affects:** every entrance of the motion pass (R-5).
+
+**Why.** The entrances started at the first paint, lasted 0.2–0.25 s and moved 8 px: they ran while the page was still
+being finished and the eye was still landing, so what a person saw was the end.
+
+**✅ FIXED — 2026-10-28, `feat/mobile`.** One timing for every entrance, `lib/motion.ts`: a 0.15 s beat after the paint
+(`SETTLE`), half a second each, 14 px of rise, a stagger capped for long lists; the landing page's hero 0.7 s a line,
+its replay drawing once the hero is in. Measured again: 46–71 painted frames per entrance, every one starting after the
+load's stalls. Test: the timing itself (`motion.test.ts`).
+**Lesson:** measure an animation in painted frames on a cold load, not by its duration in the code.
+
 ### BUG-111 🟠 On a touch screen a tap could not mark a candle in a drill
 
 **Status:** verified (the mobile audit, 2026-10-28): at 390×844 with touch, three taps on a swing-high drill's chart left
