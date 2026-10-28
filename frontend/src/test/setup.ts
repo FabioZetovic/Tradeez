@@ -24,6 +24,22 @@ class ResizeObserverStub implements ResizeObserver {
 
 globalThis.ResizeObserver ??= ResizeObserverStub
 
+/** Nor IntersectionObserver, which a section revealed on scroll (the landing page) is watched with. */
+class IntersectionObserverStub implements IntersectionObserver {
+  readonly root = null
+  readonly rootMargin = '0px'
+  readonly scrollMargin = '0px'
+  readonly thresholds = [0]
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return []
+  }
+}
+
+globalThis.IntersectionObserver ??= IntersectionObserverStub
+
 if (typeof HTMLCanvasElement !== 'undefined') {
   // Returning null is what jsdom does anyway, and the overlay already has to handle it — a real
   // browser returns null too when the context is unavailable.

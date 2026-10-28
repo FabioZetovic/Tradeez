@@ -1,5 +1,14 @@
-import { useEffect, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, type RefObject } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type ReactNode,
+  type RefObject,
+} from 'react'
+import { AnimatePresence, MotionGlobalConfig, animate, motion, useReducedMotion } from 'motion/react'
 import { Link } from 'react-router'
 import { ArrowRight, ChevronDown } from 'lucide-react'
 import { cx } from '@/lib/styles'
@@ -65,7 +74,7 @@ export function Button({
     <button
       type={type}
       className={cx(
-        'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg transition-all',
+        'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg transition-all enabled:active:scale-[0.97]',
         FOCUS_RING,
         'disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none',
         variant === 'link' ? 'text-sm' : BUTTON_SIZES[size],
@@ -77,7 +86,10 @@ export function Button({
   )
 }
 
-/** One choice out of a few short options — timeframes, date jumps. Each option is a pressed/unpressed button. */
+/**
+ * One choice out of a few short options — timeframes, date jumps. Each option is a pressed/unpressed button; the
+ * highlight slides from the old choice to the new one.
+ */
 export function Segmented<T extends string>({
   options,
   value,
@@ -89,6 +101,8 @@ export function Segmented<T extends string>({
   onChange: (option: T) => void
   label: string
 }) {
+  // One highlight per group: two groups on a screen must not trade theirs.
+  const highlight = useId()
   return (
     <div role="group" aria-label={label} className="inline-flex rounded-lg bg-sunken p-0.5">
       {options.map((option) => (
@@ -98,12 +112,20 @@ export function Segmented<T extends string>({
           aria-pressed={option === value}
           onClick={() => onChange(option)}
           className={cx(
-            'num h-7 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors',
+            'num relative h-7 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors',
             FOCUS_RING,
-            option === value ? 'bg-accent text-accent-ink' : 'text-subtle hover:text-ink',
+            option === value ? 'text-accent-ink' : 'text-subtle hover:text-ink',
           )}
         >
-          {option}
+          {option === value && (
+            <motion.span
+              layoutId={highlight}
+              aria-hidden
+              className="absolute inset-0 rounded-md bg-accent"
+              transition={{ type: 'spring', bounce: 0.15, duration: 0.3 }}
+            />
+          )}
+          <span className="relative">{option}</span>
         </button>
       ))}
     </div>
@@ -275,7 +297,12 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
       aria-valuenow={percent}
       className="h-1 w-full overflow-hidden rounded-full bg-sunken"
     >
-      <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${percent}%` }} />
+      <motion.div
+        className="h-full rounded-full bg-accent"
+        initial={{ width: 0 }}
+        animate={{ width: `${percent}%` }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+      />
     </div>
   )
 }
@@ -289,7 +316,7 @@ export function Ring({ value, size = 36, label }: { value?: number; size?: numbe
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={label} className="shrink-0 -rotate-90">
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-sunken" />
-      <circle
+      <motion.circle
         cx={size / 2}
         cy={size / 2}
         r={r}
@@ -297,7 +324,9 @@ export function Ring({ value, size = 36, label }: { value?: number; size?: numbe
         strokeWidth={stroke}
         strokeLinecap="round"
         strokeDasharray={circumference}
-        strokeDashoffset={circumference * (1 - shown)}
+        initial={{ strokeDashoffset: circumference }}
+        animate={{ strokeDashoffset: circumference * (1 - shown) }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
         className="stroke-accent"
       />
     </svg>
@@ -329,16 +358,28 @@ export function StatTile({
       onClick={() => setOpen((o) => !o)}
       className={cx(
         'flex cursor-pointer flex-col items-start rounded-card border border-line bg-surface p-5 text-left shadow-panel',
-        'transition-colors hover:border-accent/40',
+        'transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/40',
         FOCUS_RING,
       )}
     >
       <span className="flex w-full items-center justify-between text-xs font-semibold tracking-widest text-subtle uppercase">
         {label}
-        <ChevronDown aria-hidden className={cx('size-4 transition-transform', open && 'rotate-180')} />
+        <ChevronDown aria-hidden className={cx('size-4 transition-transform duration-200', open && 'rotate-180')} />
       </span>
       <span className={cx('num mt-3 text-3xl font-semibold', TILE_TONES[tone])}>{value}</span>
-      {open && <span className="mt-3 text-sm text-subtle">{detail}</span>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.span
+            className="block overflow-hidden text-sm text-subtle"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <span className="block pt-3">{detail}</span>
+          </motion.span>
+        )}
+      </AnimatePresence>
     </button>
   )
 }
@@ -350,7 +391,7 @@ export function NextStep({ to, title, line }: { to: string; title: string; line:
       to={to}
       className={cx(
         'group mt-10 flex items-center justify-between gap-4 rounded-card border border-line bg-surface p-5 shadow-panel',
-        'transition-colors hover:border-accent/40 hover:bg-raised',
+        'transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised',
         FOCUS_RING,
       )}
     >
@@ -362,4 +403,27 @@ export function NextStep({ to, title, line }: { to: string; title: string; line:
       <ArrowRight aria-hidden className="size-5 shrink-0 text-accent transition-transform group-hover:translate-x-1" />
     </Link>
   )
+}
+
+/**
+ * A figure that counts up to its value once, when it is first shown, and on to a new one when it changes (REDESIGN
+ * §4: 600 ms). Still when the OS asks for less motion — and in tests, which assert where it ends.
+ */
+export function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+  const still = useReducedMotion() === true || MotionGlobalConfig.skipAnimations === true
+  const [shown, setShown] = useState(0)
+  const from = useRef(0)
+  useEffect(() => {
+    if (still) return
+    const controls = animate(from.current, value, {
+      duration: 0.6,
+      ease: 'easeOut',
+      onUpdate: (n) => {
+        from.current = n
+        setShown(n)
+      },
+    })
+    return () => controls.stop()
+  }, [value, still])
+  return <>{format(still ? value : shown)}</>
 }

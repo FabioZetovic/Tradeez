@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { Link } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 import { PriceChart } from '../PriceChart'
@@ -299,25 +300,32 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           )}
 
           {drill.result && (
-            <Panel aria-label="Result">
-              {identify ? (
-                <SpotResult drill={drill} result={drill.result} />
-              ) : predict ? (
-                <PredictResult drill={drill} result={drill.result} />
-              ) : manage ? (
-                <ManageResult drill={drill} result={drill.result} />
-              ) : judge ? (
-                <JudgeResult drill={drill} result={drill.result} />
-              ) : (
-                <NameResult drill={drill} result={drill.result} />
-              )}
-              <div className="mt-5 flex flex-wrap items-center gap-4">
-                <Button variant="primary" disabled={busy} onClick={() => void start()}>
-                  {busy ? 'Finding a chart…' : 'Next drill'}
-                </Button>
-                <AllDrills />
-              </div>
-            </Panel>
+            <motion.div
+              key={drill.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              <Panel aria-label="Result">
+                {identify ? (
+                  <SpotResult drill={drill} result={drill.result} />
+                ) : predict ? (
+                  <PredictResult drill={drill} result={drill.result} />
+                ) : manage ? (
+                  <ManageResult drill={drill} result={drill.result} />
+                ) : judge ? (
+                  <JudgeResult drill={drill} result={drill.result} />
+                ) : (
+                  <NameResult drill={drill} result={drill.result} />
+                )}
+                <div className="mt-5 flex flex-wrap items-center gap-4">
+                  <Button variant="primary" disabled={busy} onClick={() => void start()}>
+                    {busy ? 'Finding a chart…' : 'Next drill'}
+                  </Button>
+                  <AllDrills />
+                </div>
+              </Panel>
+            </motion.div>
           )}
         </>
       )}

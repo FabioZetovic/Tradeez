@@ -26,7 +26,7 @@ import { formatSessionDate, formatSessionTime } from '@/lib/chart/timeAxis'
 import { parseDecimal } from '@/lib/decimal'
 import { formatCents, formatR, outcomeLabel, STATUS_LABEL } from '@/lib/practice/plan'
 import { MARKETS, type Market } from '@/lib/markets'
-import { Button, PageHeader, Panel, Segmented, StatTile } from '../ui'
+import { Button, CountUp, PageHeader, Panel, Segmented, StatTile } from '../ui'
 import { cx, errorClass, fieldClass, panelTitle } from '@/lib/styles'
 
 const tableClass =
@@ -292,7 +292,7 @@ function Tiles({ statistics }: { statistics: Statistics }) {
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-testid="practice-tiles">
       <StatTile
         label="Total"
-        value={formatR(overall.totalR)}
+        value={<CountUp value={overall.totalR} format={formatR} />}
         tone={overall.totalR > 0 ? 'up' : overall.totalR < 0 ? 'down' : 'neutral'}
         detail={
           n === 0
@@ -302,7 +302,7 @@ function Tiles({ statistics }: { statistics: Statistics }) {
       />
       <StatTile
         label="Win rate"
-        value={overall.winRate === undefined ? '—' : `${Math.round(overall.winRate)}%`}
+        value={overall.winRate === undefined ? '—' : <CountUp value={overall.winRate} format={(r) => `${Math.round(r)}%`} />}
         detail={n === 0 ? 'No finished trades yet.' : `${overall.wins} of ${trades} made money after costs. ${overall.reading}`}
       />
       <StatTile
@@ -316,7 +316,7 @@ function Tiles({ statistics }: { statistics: Statistics }) {
       />
       <StatTile
         label="Costs paid"
-        value={formatCents(costsPaidCents)}
+        value={<CountUp value={costsPaidCents} format={(c) => formatCents(Math.round(c))} />}
         detail="Every trade pays the standard costs: a tick of slippage in, a tick at the stop, $4.50 a round trip."
       />
     </div>

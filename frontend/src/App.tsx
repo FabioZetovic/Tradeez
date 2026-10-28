@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router'
-import { MotionConfig } from 'motion/react'
+import { MotionConfig, motion } from 'motion/react'
 import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
 import { AppShell, Logo } from '@/components/shell/AppShell'
@@ -118,17 +118,22 @@ function RiskDrill() {
   return kind ? <RiskDrills key={kind.value} kind={kind} /> : <Navigate to="/drills" replace />
 }
 
-/** Sign-in, sign-up and loading: Lovable's centred card under the logo, the disclaimer below (T36). */
+/** Sign-in, sign-up and loading: Lovable's centred card under the logo, the disclaimer below (T36); it rises in. */
 function AuthPage({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
+      <motion.div
+        className="w-full max-w-sm"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+      >
         <div className="mb-8 flex justify-center">
           <Logo large />
         </div>
         {children}
         <p className="mt-8 text-center text-xs text-subtle">{DISCLAIMER}</p>
-      </div>
+      </motion.div>
     </div>
   )
 }

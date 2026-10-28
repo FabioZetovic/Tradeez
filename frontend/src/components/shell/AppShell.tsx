@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Menu, TrendingUp, X } from 'lucide-react'
 import { DISCLAIMER, DISCLAIMER_SHORT } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
@@ -64,13 +64,26 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
                 to={to}
                 className={({ isActive }) =>
                   cx(
-                    'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                    'relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-                    isActive ? 'bg-sunken text-ink' : 'text-subtle hover:text-ink',
+                    isActive ? 'text-ink' : 'text-subtle hover:text-ink',
                   )
                 }
               >
-                {label}
+                {({ isActive }) => (
+                  <>
+                    {/* The highlight slides from the section left to the one opened. */}
+                    {isActive && (
+                      <motion.span
+                        layoutId="section-highlight"
+                        aria-hidden
+                        className="absolute inset-0 rounded-lg bg-sunken"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
+                    <span className="relative">{label}</span>
+                  </>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -93,25 +106,37 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
             />
           </div>
         </div>
-        {menu && (
-          <nav id="section-menu" aria-label="Menu" className="flex flex-col gap-1 border-t border-line px-4 py-3 md:hidden">
-            {NAV.map(({ to, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                onClick={() => setMenu(false)}
-                className={({ isActive }) =>
-                  cx(
-                    'rounded-lg px-3 py-2.5 text-base font-medium',
-                    isActive ? 'bg-sunken text-ink' : 'text-subtle hover:text-ink',
-                  )
-                }
-              >
-                {label}
-              </NavLink>
-            ))}
-          </nav>
-        )}
+        <AnimatePresence initial={false}>
+          {menu && (
+            <motion.nav
+              id="section-menu"
+              aria-label="Menu"
+              className="overflow-hidden border-t border-line md:hidden"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <div className="flex flex-col gap-1 px-4 py-3">
+                {NAV.map(({ to, label }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    onClick={() => setMenu(false)}
+                    className={({ isActive }) =>
+                      cx(
+                        'rounded-lg px-3 py-2.5 text-base font-medium',
+                        isActive ? 'bg-sunken text-ink' : 'text-subtle hover:text-ink',
+                      )
+                    }
+                  >
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* BUG-032: w-full and min-w-0 give the page a definite width, so the chart — which holds the
@@ -151,7 +176,19 @@ function Footer() {
       >
         {more ? 'Less' : 'Read more'}
       </button>
-      {more && <p className="mx-auto mt-2 max-w-3xl">{DISCLAIMER}</p>}
+      <AnimatePresence initial={false}>
+        {more && (
+          <motion.p
+            className="mx-auto max-w-3xl overflow-hidden"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <span className="block pt-2">{DISCLAIMER}</span>
+          </motion.p>
+        )}
+      </AnimatePresence>
     </footer>
   )
 }
