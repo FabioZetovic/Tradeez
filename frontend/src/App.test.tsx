@@ -136,7 +136,8 @@ describe('App — signed out', () => {
       'Rules, not promises',
       'Simulated, with costs',
     ])
-    expect(screen.getAllByRole('img').length).toBe(4)
+    // The replay on the page is drawn, and says so.
+    expect(screen.getByRole('figure')).toHaveTextContent(/An illustration, not market data/)
     expect(screen.getByTestId('landing-disclaimer')).toHaveTextContent(/not financial advice/)
     expect(screen.queryByTestId('price-chart')).toBeNull()
     await userEvent.click(screen.getByRole('link', { name: /Start learning/ }))

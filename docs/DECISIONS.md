@@ -303,6 +303,22 @@ unlocks the next session". Asked at the start: a drill is passed at **5 answers 
 **Reconsider if** 5 at 70% proves too easy or too hard in use — the two numbers are constants of the rule, and a new
 version says so.
 
+**DEC-083 — A volume imbalance's minimum is set per market: vi-1.1.0** · `IMPLEMENTED` · Fabio + Claude, 2026-10-27
+(BUG-099)
+
+The post-redesign audit found the volume imbalance rule finding almost nothing on ES: its minimum, four ticks between
+the bodies, was measured on NQ, and ES moves about a fifth as many points. Per 30 candles on 2025 (5m, 15m, 1h), a gap
+of 4 ticks or more: NQ 1.4, ES 0.01; 2 ticks: ES 0.2; any gap: ES 3.9. Offered a minimum per market or ES leaving the
+drill and layer, Fabio chose the first ("1.").
+
+- **vi-1.1.0**: at least a point (4 ticks) on NQ, as before; at least a tick on ES — any gap, ICT's own definition. A
+  market not named (the simulated one) takes NQ's. Each hit keeps the minimum it was found under in its evidence, so its
+  explanation reads its own market's number.
+- A detector is now told which market it reads (`Detector.detect(segment, symbol, companion, timeframe)`); every other
+  rule ignores it. The scanner and the evidence pass it along; the new version re-scans and re-counts on its own.
+
+**Reconsider if** another market is added — its minimum is measured the same way first.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and

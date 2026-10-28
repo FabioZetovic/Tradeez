@@ -96,7 +96,8 @@ public class EvidenceService {
 			for (Detector detector : due) {
 				String other = detector.companionOf(instrument.getSymbol());
 				store(instrument, timeframe, detector, other == null
-					? EvidenceCalculator.measure(detector, timeframe, segments)
+					? EvidenceCalculator.measure(detector, instrument.getSymbol(), timeframe, segments,
+						segment -> Detector.Companion.NONE)
 					: beside(instrument, timeframe, detector, marketData.requireInstrument(other), bars, rolls, coverage),
 					coverage[1]);
 				made++;
@@ -115,7 +116,7 @@ public class EvidenceService {
 			List<Bar> bars, List<Instant> rolls, Instant[] coverage) {
 		List<Bar> theirs = marketData.internalBars(companion, timeframe, coverage[0], coverage[1], 0).bars();
 		List<Instant> splits = Segments.merged(rolls, marketData.rolls(companion, coverage[0], coverage[1]));
-		return EvidenceCalculator.measure(detector, timeframe, Segments.atRolls(bars, splits),
+		return EvidenceCalculator.measure(detector, instrument.getSymbol(), timeframe, Segments.atRolls(bars, splits),
 			segment -> Segments.beside(segment, companion.getSymbol(), theirs));
 	}
 

@@ -111,7 +111,7 @@ export function LearnPage() {
         })}
       </div>
 
-      <NextStep to="/drills" title="Drill what you've learned" line="Spot and name the patterns on real NQ charts." />
+      <NextStep to="/drills" title="Drill what you've learned" line="Spot and name the patterns on real NQ and ES charts." />
     </section>
   )
 }

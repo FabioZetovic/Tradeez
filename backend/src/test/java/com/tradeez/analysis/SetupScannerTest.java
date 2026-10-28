@@ -115,6 +115,29 @@ class SetupScannerTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("BUG-099: a rule is told which market it reads")
+	void toldTheMarket() {
+		List<String> seen = new java.util.concurrent.CopyOnWriteArrayList<>();
+		Detector recording = new Detector() {
+			public String id() { return "RECORDING"; }
+			public String ruleVersion() { return "recording-1.0.0"; }
+			public String methodologySource() { return "a test's own"; }
+			public String conceptId() { return "ICT-01"; }
+			public java.util.Map<String, Object> parameters() { return java.util.Map.of(); }
+			public int lookbackBars(Timeframe timeframe) { return 0; }
+			public List<Detection> detect(List<Bar> segment, Timeframe timeframe) {
+				return List.of();
+			}
+			public List<Detection> detect(List<Bar> segment, String symbol, Companion companion, Timeframe timeframe) {
+				seen.add(String.valueOf(symbol));
+				return List.of();
+			}
+		};
+		scanner.ensureScanned(recording, nq, Timeframe.M5, 42, FROM, TO);
+		assertThat(seen).isNotEmpty().containsOnly("DEMO-NQ");
+	}
+
+	@Test
 	@DisplayName("a stretch whose market was imported since is scanned again, though its rows are all there")
 	void rescansAfterAnImport() {
 		java.util.concurrent.atomic.AtomicInteger scans = new java.util.concurrent.atomic.AtomicInteger();

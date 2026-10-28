@@ -6,7 +6,7 @@ const STEPS = [
   {
     to: '/learn',
     name: 'Learn',
-    text: 'Each ICT concept as a rule, in words, with real examples and how often the rule found it in two years of NQ.',
+    text: 'Each ICT concept as a rule, in words, with real examples and how often the rule found it in two years of NQ and ES.',
   },
   {
     to: '/drills',
@@ -37,7 +37,7 @@ export function Guide() {
       <PageHeader
         eyebrow="How it works"
         title="How Tradeez works"
-        description="Tradeez teaches ICT's method on two years of real NQ futures history. You practise on the past: nothing you do here reaches a market."
+        description="Tradeez teaches ICT's method on two years of real NQ and ES futures history. You practise on the past: nothing you do here reaches a market."
       />
       <ol className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {STEPS.map((step, i) => (
@@ -60,7 +60,7 @@ export function Guide() {
         that the method works, and nothing here is advice.
       </p>
       <p className="mb-6 max-w-3xl text-sm text-subtle" data-testid="guide-sources">
-        Where the data comes from: NQ candles from Massive; the economic calendar from the US agencies&apos; release
+        Where the data comes from: NQ and ES candles from Massive; the economic calendar from the US agencies&apos; release
         schedules via FRED, and the Federal Reserve. This product uses the FRED® API but is not endorsed or certified by
         the Federal Reserve Bank of St. Louis. Using the calendar, you agree to the{' '}
         <a

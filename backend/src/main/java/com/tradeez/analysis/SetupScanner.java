@@ -212,7 +212,7 @@ public class SetupScanner {
 		for (List<Bar> segment : Segments.atRolls(bars, splits)) {
 			Detector.Companion beside = companion == null ? Detector.Companion.NONE
 				: Segments.beside(segment, companion.getSymbol(), theirs);
-			for (Detection detection : detector.detect(segment, beside, timeframe)) {
+			for (Detection detection : detector.detect(segment, instrument.getSymbol(), beside, timeframe)) {
 				if (!detection.confirmedAt().isAfter(to) && !detection.confirmedAt().isBefore(from)) {
 					found.add(detection);
 				}

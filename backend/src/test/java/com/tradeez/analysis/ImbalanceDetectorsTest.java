@@ -188,7 +188,7 @@ class ImbalanceDetectorsTest {
 	}
 
 	@Nested
-	@DisplayName("vi-1.0.0 — volume imbalance")
+	@DisplayName("vi-1.1.0 — volume imbalance")
 	class VolumeImbalance {
 
 		@Test
@@ -214,6 +214,28 @@ class ImbalanceDetectorsTest {
 				candles(new long[] { 100, 103, 99, 102 }, new long[] { 105, 108, 101, 107 }), TF)).isEmpty();
 			assertThat(new VolumeImbalanceDetector().detect(
 				candles(new long[] { 100, 103, 99, 102 }, new long[] { 106, 108, 104, 107 }), TF)).isEmpty();
+		}
+
+		@Test
+		@DisplayName("BUG-099: a tick apart is enough on ES, whose candles move a fifth as far; NQ still asks for a point")
+		void perMarket() {
+			VolumeImbalanceDetector rule = new VolumeImbalanceDetector();
+			List<Bar> threeApart = candles(new long[] { 100, 103, 99, 102 }, new long[] { 105, 108, 101, 107 });
+			List<Bar> oneApart = candles(new long[] { 100, 103, 99, 102 }, new long[] { 103, 108, 101, 107 });
+			List<Bar> touching = candles(new long[] { 100, 103, 99, 102 }, new long[] { 102, 108, 101, 107 });
+			assertThat(rule.detect(threeApart, "ES", Detector.Companion.NONE, TF)).singleElement().satisfies(v -> {
+				assertThat(v.lowTicks()).isEqualTo(102);
+				assertThat(v.highTicks()).isEqualTo(105);
+				assertThat(v.evidence()).containsEntry("minTicks", 1);
+			});
+			assertThat(rule.detect(oneApart, "ES", Detector.Companion.NONE, TF)).hasSize(1);
+			assertThat(rule.detect(touching, "ES", Detector.Companion.NONE, TF)).isEmpty();
+			assertThat(rule.detect(threeApart, "NQ", Detector.Companion.NONE, TF)).isEmpty();
+			assertThat(rule.detect(oneApart, null, Detector.Companion.NONE, TF)).isEmpty();
+			List<Bar> pointApart = candles(new long[] { 100, 103, 99, 102 }, new long[] { 106, 108, 101, 107 });
+			assertThat(rule.detect(pointApart, "NQ", Detector.Companion.NONE, TF)).singleElement()
+				.satisfies(v -> assertThat(v.evidence()).containsEntry("minTicks", 4));
+			assertThat(rule.parameters()).containsEntry("minTicksNQ", 4).containsEntry("minTicksES", 1);
 		}
 	}
 

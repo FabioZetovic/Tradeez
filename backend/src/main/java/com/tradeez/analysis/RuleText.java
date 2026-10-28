@@ -59,7 +59,8 @@ public final class RuleText {
 				+ "is known with it. When several earlier gaps qualify, the most recent is paired.";
 			case "VI" -> "Two consecutive candles whose bodies — open to close — do not touch, while their "
 				+ "wicks overlap. Bullish when the second body is wholly above the first, bearish when "
-				+ "below. The space between the bodies is at least " + p.get("minTicks") + " ticks.";
+				+ "below. The space between the bodies is at least " + p.get("minTicksNQ") + " ticks (a point) on NQ and "
+				+ p.get("minTicksES") + " tick on ES, whose candles move about a fifth as far.";
 			case "VOID" -> "A gap: two consecutive candles whose ranges do not overlap at all, known at the "
 				+ "second's close. A liquidity void: at least " + p.get("minCandles") + " consecutive "
 				+ "candles closing the same way, each closing beyond the one before and overlapping it by "
@@ -452,7 +453,7 @@ public final class RuleText {
 			: "The bodies do not touch, but the wicks overlap: candle 2's high, "
 				+ price.of(n(e, "candle2HighTicks")) + ", is not below candle 1's low, "
 				+ price.of(n(e, "candle1LowTicks")) + ".";
-		String minimum = "At least the rule's " + s.getParams().get("minTicks") + " ticks between the bodies: a "
+		String minimum = "At least the rule's " + ticks(n(e, "minTicks")) + " between the bodies on this market: a "
 			+ (bullish ? "bullish" : "bearish") + " volume imbalance.";
 		return List.of(bodies, wicks, minimum);
 	}

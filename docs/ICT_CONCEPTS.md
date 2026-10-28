@@ -135,7 +135,7 @@ and genuinely useful to a learner: a beginner who sees "ICT says X; on 500 real 
 | ICT-22 | FVG lifecycle (tapped, CE, filled) | 3 | D | ✅ `fvg-state-1.0.0` (DEC-050) | `fvg-state-1.0.0` | 1m |
 | ICT-23 | Inversion FVG | 3 | D | ✅ `ifvg-1.0.0` (DEC-050) | `ifvg-1.0.0` | 1m |
 | ICT-24 | Balanced price range | 3 | D | ✅ `bpr-1.0.0` (DEC-050) | `bpr-1.0.0` | 1m |
-| ICT-25 | Volume imbalance | 3 | D | ✅ `vi-1.0.0` (DEC-050) | `vi-1.0.0` | 1m |
+| ICT-25 | Volume imbalance | 3 | D | ✅ `vi-1.1.0` (DEC-050, DEC-083) | `vi-1.1.0` | 1m |
 | ICT-26 | Gap and liquidity void | 3 | D / R | ✅ `void-1.0.0` (DEC-050) | `void-1.0.0` | 1m |
 | ICT-27 | New week / new day opening gaps (NWOG, NDOG) | 3 | D | ✅ `opening-gap-1.0.0` (DEC-050) | `opening-gap-1.0.0` | 1m, sessions |
 | ICT-28 | Opening range gap (RTH gap) | 3 | D | ✅ `org-1.0.0` (DEC-050) | `org-1.0.0` | 1m, sessions |
@@ -759,7 +759,7 @@ the way of the second gap.
 small gap between one candle's close and the next one's open. ICT treats it as a minor imbalance
 that price often returns to close.
 
-**Tradeez rule — `vi-1.0.0` ✅ (DEC-050).** Bullish: candle 2's body is entirely above candle 1's body,
+**Tradeez rule — `vi-1.1.0` ✅ (DEC-050, DEC-083).** Bullish: candle 2's body is entirely above candle 1's body,
 and candle 2's low is at or below candle 1's high. The zone runs between candle 1's body top and
 candle 2's body bottom. Bearish mirrors. Consecutive, same contract.
 **Confirmation:** candle 2's close.
@@ -768,6 +768,10 @@ candle 2's body bottom. Bearish mirrors. Consecutive, same contract.
 body gaps of any size occur about 7 times per 30 candles on every timeframe — the space between two
 trades does not grow with the candle — so a threshold relative to range would remove them all above
 5m. One point leaves about 1.6 per 30 everywhere.
+
+*1.1.0 — per market (DEC-083, BUG-099):* ES moves about a fifth as many points as NQ, and a point between its bodies
+came 0.01 times per 30 candles. On ES the minimum is one tick — any gap, as ICT defines it — about 3.9 per 30. NQ keeps
+its point.
 
 **Teach.** A, B ("volume imbalance, FVG or neither?").
 
