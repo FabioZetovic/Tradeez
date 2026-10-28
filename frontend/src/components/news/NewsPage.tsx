@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'motion/react'
 import { ExternalLink, Folder } from 'lucide-react'
 import { getNews, type News, type NewsEvent } from '@/lib/api/news'
 import { byDay, newsDay, newsTime } from '@/lib/news'
@@ -66,43 +67,49 @@ export function NewsPage() {
       {news && shown.length === 0 && <p className="text-sm text-subtle">No releases in these two weeks.</p>}
 
       <div className="flex flex-col gap-4">
-        {byDay(shown).map(({ day, events }) => (
-          <Panel
+        {byDay(shown).map(({ day, events }, index) => (
+          <motion.div
             key={day}
-            aria-label={day}
-            className={cx('p-0', day === today && 'border-l-4 border-l-accent')}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut', delay: Math.min(index, 8) * 0.04 }}
           >
-            <h2 className="flex items-center gap-2 border-b border-line px-5 py-3 text-sm font-semibold text-ink">
-              {day}
-              {day === today && <span className="text-xs font-medium text-accent">Today</span>}
-            </h2>
-            <ul>
-              {events.map((event) => (
-                <li
-                  key={`${event.key}-${event.at}`}
-                  className={cx(
-                    // On a phone (T46) the source wraps under the event rather than squeezing it.
-                    'flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line/60 px-4 py-3 last:border-b-0 sm:px-5',
-                    event.at < now && 'opacity-50',
-                  )}
-                >
-                  <span className="num w-12 text-sm text-ink">{newsTime(event.at)}</span>
-                  <span className="num hidden w-9 text-xs text-subtle sm:inline">USD</span>
-                  <ImpactFolder impact={event.impact} />
-                  <span className="min-w-0 flex-1 basis-40 text-sm text-ink">{event.title}</span>
-                  <a
-                    href={event.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-subtle hover:text-ink"
+            <Panel
+              aria-label={day}
+              className={cx('p-0', day === today && 'border-l-4 border-l-accent')}
+            >
+              <h2 className="flex items-center gap-2 border-b border-line px-5 py-3 text-sm font-semibold text-ink">
+                {day}
+                {day === today && <span className="text-xs font-medium text-accent">Today</span>}
+              </h2>
+              <ul>
+                {events.map((event) => (
+                  <li
+                    key={`${event.key}-${event.at}`}
+                    className={cx(
+                      // On a phone (T46) the source wraps under the event rather than squeezing it.
+                      'flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line/60 px-4 py-3 last:border-b-0 sm:px-5',
+                      event.at < now && 'opacity-50',
+                    )}
                   >
-                    {event.agency}
-                    <ExternalLink aria-hidden className="size-3" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </Panel>
+                    <span className="num w-12 text-sm text-ink">{newsTime(event.at)}</span>
+                    <span className="num hidden w-9 text-xs text-subtle sm:inline">USD</span>
+                    <ImpactFolder impact={event.impact} />
+                    <span className="min-w-0 flex-1 basis-40 text-sm text-ink">{event.title}</span>
+                    <a
+                      href={event.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-subtle hover:text-ink"
+                    >
+                      {event.agency}
+                      <ExternalLink aria-hidden className="size-3" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          </motion.div>
         ))}
       </div>
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { motion } from 'motion/react'
 import { Link } from 'react-router'
 import { ArrowRight, BookOpen, ChartCandlestick, Clock, Crosshair, Target } from 'lucide-react'
 import type { User } from '@/lib/api/auth'
@@ -228,7 +229,11 @@ function StepCard({
   children?: ReactNode
 }) {
   return (
-    <li>
+    <motion.li
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut', delay: n * 0.05 }}
+    >
       <Link
         to={to}
         className="flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent"
@@ -243,7 +248,7 @@ function StepCard({
         <span className="mt-1 text-sm text-subtle">{line}</span>
         <span className="mt-auto pt-5">{children}</span>
       </Link>
-    </li>
+    </motion.li>
   )
 }
 
@@ -297,7 +302,7 @@ function LatestSession({ adapterFactory }: { adapterFactory?: () => ChartAdapter
     <Link
       to="/chart"
       aria-label="NQ, the latest session — open the Chart tab"
-      className="block rounded-card border border-line bg-surface p-5 shadow-panel transition-colors hover:border-accent/40"
+      className="block rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/40"
     >
       <span className="mb-3 flex items-baseline gap-3">
         <span className="text-sm text-subtle">NQ · 5m · latest data</span>

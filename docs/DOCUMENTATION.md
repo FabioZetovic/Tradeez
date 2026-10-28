@@ -2086,6 +2086,18 @@ Backend 723 → 748, frontend 443 → 442 (the old Learn screen's tests went wit
 
 **The landing page, redrawn.** Fabio liked a landing page Claude Design drew from it, and it replaces T48's: a centred hero under a soft glow, a drawn replay (a range, a sweep of its low, a displacement leaving a gap, the cursor and the hidden bars), the method as three numbered lines, the honesty points, the way in. Built with the app's tokens and Space Grotesk; the drawn replay is captioned as an illustration, not market data. The four screenshots (290 KB) are gone from the bundle. One full frontend run had a single failing test while the backend suite loaded the machine; two reruns passed and it was not caught again.
 
+**2026-10-28 — the audit and the landing page merged.** `--no-ff` merge 4a2de0c after its fresh-clone check (450 tests, the build, 0 vulnerabilities, the backend packaged).
+
+**The motion pass** (`feat/motion`, REDESIGN R-5). Fabio asked for the app to feel smoother. The plan's motion list (§4) was half done; now: the header's section highlight and every Segmented control's highlight slide to the new choice (`layoutId`, one per group); buttons press in a little; cards lift on hover; a stat tile's sentence, the phone menu and the footer's disclaimer open by height; progress bars and rings fill in on first view; Practice's figures count up once (`CountUp`, 600 ms); the sign-in card, a drill's result, Home's step cards and News's days rise in. The landing page's hero rises line by line, the drawn replay draws itself candle by candle with its level, gap and cursor after, and each section rises in as it scrolls into view. Under the OS's reduced motion it all stays still (checked live: every section readable without scrolling animation), and tests run with animations finished at once; jsdom gained an IntersectionObserver stub, as it has a ResizeObserver one. Mutations: 3, all caught. Frontend 450 → 453.
+
+**The design critique** (Fabio: "remove this purple ICT ON REAL NQ AND ES. It looks vibewcodede and basic and bad.
+What else do you think feels the same"). The pill is gone (T50 D-1). Every screen was screenshotted at 1920
+(`docs/redesign/critique/`) and reviewed. The template layer — glows, accent labels over titles, step numbers,
+decorative monospace, purple-tinted panels, icon squares, identical card grids, the greeting, filler copy — is logged
+as T50 D-2 … D-11 in REDESIGN §6, each with what, where, why and how; the real flaws as BUG-101 … BUG-110, the worst
+being BUG-101: the landing page's lower sections start invisible and only appear when scrolled to, so a full-page
+screenshot is blank below the chart. The logo waits for the app's real name (T51). Logged only, not fixed yet.
+
 ---
 
 ## For the presentation: the disclaimer slide
