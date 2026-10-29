@@ -327,7 +327,7 @@ function PhoneDrills({
                 {MODE_NAMES[next.mode]} · {record(nextConcept) ?? 'Not tried yet'} · need 70%
               </span>
             </span>
-            <span aria-hidden className="grid size-12 shrink-0 place-items-center rounded-xl bg-accent text-accent-ink">
+            <span aria-hidden className="grid size-12 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
               <ArrowRight className="size-5" />
             </span>
           </Link>

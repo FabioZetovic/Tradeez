@@ -125,7 +125,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
             </span>
             <span className="mt-2.5 block text-[22px] font-semibold text-ink">{name(suggested)}</span>
             {summary && <span className="mt-1.5 line-clamp-3 block text-sm text-subtle">{summary}</span>}
-            <span className="mt-4 flex h-12 items-center justify-center gap-2 rounded-xl bg-accent text-[15px] font-semibold text-accent-ink">
+            <span className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-accent text-[15px] font-semibold text-accent-ink">
               {fresh ? 'Start the first lesson' : 'Continue lesson'}
               <ArrowRight aria-hidden className="size-4" />
             </span>
@@ -232,54 +232,29 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
 
   return (
     <div className="flex flex-col gap-6 py-2">
-      <header>
-        <p className="text-sm text-subtle">{longDate(now)}</p>
-        <h1 className="mt-1 font-display text-5xl font-bold tracking-tight text-ink">
+      {/* D-10 (T50): the greeting is a line; what to do next leads the page. */}
+      <header className="flex flex-wrap items-baseline gap-x-3">
+        <h1 className="font-display text-2xl font-bold tracking-tight text-ink">
           {greeting(now.getHours())}, {user.displayName.split(/\s+/)[0]}.
         </h1>
-        <p className="mt-3 max-w-xl text-lg text-subtle">
-          Learn the rule, drill it, then practise it on a real day you can&apos;t see ahead of.
-        </p>
+        <p className="text-sm text-subtle">{longDate(now)}</p>
       </header>
 
-      <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StepCard n={1} to="/learn" title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
-          {learning && (
-            <Progress
-              value={learning.summary.complete / Math.max(1, learning.summary.concepts)}
-              text={`${learning.summary.complete} of ${learning.summary.concepts} lessons complete`}
-            />
-          )}
-        </StepCard>
-        <StepCard n={2} to="/drills" title="Drills" line="Spot and name patterns on real charts, graded by the rule.">
-          {learning && drills.length > 0 && (
-            <Progress value={drillsPassed / drills.length} text={`${drillsPassed} of ${drills.length} drills passed`} />
-          )}
-        </StepCard>
-        <StepCard n={3} to="/practice" title="Practice" line="A real day replayed bar by bar, the future hidden.">
-          {sessions && (
-            <Figure>
-              {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} · {trades} {trades === 1 ? 'trade' : 'trades'}
-            </Figure>
-          )}
-        </StepCard>
-        <StepCard n={4} to="/chart" title="Chart" line="The whole history, every rule and drawing tool.">
-          <Figure>Real NQ, every ICT layer</Figure>
-        </StepCard>
-      </ol>
-
       <div className="grid gap-4 lg:grid-cols-3">
-        <section aria-label="Up next" className="flex flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
-          <h2 className="text-sm font-medium text-subtle">Up next</h2>
+        <section
+          aria-label="Up next"
+          className="flex flex-col rounded-card border border-accent/30 bg-accent/[0.07] p-7 shadow-panel lg:col-span-2"
+        >
+          <h2 className="text-sm font-medium text-accent">Up next</h2>
           {learning === undefined ? null : suggested ? (
             <>
-              <p className="mt-3 font-display text-2xl font-bold tracking-tight text-ink">{name(suggested)}</p>
-              <p className="mt-2 line-clamp-4 text-sm text-subtle">
+              <p className="mt-2 font-display text-3xl font-bold tracking-tight text-ink">{name(suggested)}</p>
+              <p className="mt-2.5 line-clamp-3 max-w-2xl text-base text-subtle">
                 {curriculum?.concepts.find((c) => c.concept.id === suggested)?.concept.summary}
               </p>
               <Link
                 to={`/learn/${suggested}`}
-                className="mt-auto inline-flex items-center gap-1.5 pt-5 text-sm font-semibold text-accent hover:underline"
+                className="mt-6 inline-flex h-11 items-center gap-2 self-start rounded-full bg-accent px-6 text-sm font-semibold text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.18)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 Continue lesson <ArrowRight aria-hidden className="size-4" />
               </Link>
@@ -288,35 +263,6 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
             <p className="mt-3 text-sm text-subtle">
               {learning === null ? 'Your progress could not be loaded.' : "Everything open is complete — review what's due."}
             </p>
-          )}
-        </section>
-
-        <section aria-label="Due for review" className="rounded-card border border-line bg-surface p-6 shadow-panel">
-          <h2 className="flex items-center gap-2 text-sm font-medium text-subtle">
-            <Clock aria-hidden className="size-3.5" /> Due for review
-          </h2>
-          {learning && due.length === 0 && <p className="mt-3 text-sm text-subtle">Nothing due today.</p>}
-          {due.length > 0 && (
-            <ul className="mt-3 flex flex-col">
-              {due.map((id) => {
-                const accuracy = learning?.concepts.find((c) => c.id === id)?.recentAccuracy
-                return (
-                  <li key={id}>
-                    <Link
-                      to={`/learn/${id}`}
-                      className="group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-sunken"
-                    >
-                      <Ring
-                        value={accuracy}
-                        label={accuracy === undefined ? 'Not graded yet' : `${Math.round(accuracy * 100)}% recently`}
-                      />
-                      <span className="min-w-0 flex-1 truncate text-sm text-ink">{name(id)}</span>
-                      <ArrowRight aria-hidden className="size-4 text-subtle group-hover:text-ink" />
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
           )}
         </section>
 
@@ -351,12 +297,65 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         </section>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StepCard n={1} to="/learn" title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
+          {learning && (
+            <Progress
+              value={learning.summary.complete / Math.max(1, learning.summary.concepts)}
+              text={`${learning.summary.complete} of ${learning.summary.concepts} lessons complete`}
+            />
+          )}
+        </StepCard>
+        <StepCard n={2} to="/drills" title="Drills" line="Spot and name patterns on real charts, graded by the rule.">
+          {learning && drills.length > 0 && (
+            <Progress value={drillsPassed / drills.length} text={`${drillsPassed} of ${drills.length} drills passed`} />
+          )}
+        </StepCard>
+        <StepCard n={3} to="/practice" title="Practice" line="A real day replayed bar by bar, the future hidden.">
+          {sessions && (
+            <Figure>
+              {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} · {trades} {trades === 1 ? 'trade' : 'trades'}
+            </Figure>
+          )}
+        </StepCard>
+        <StepCard n={4} to="/chart" title="Chart" line="The whole history, every rule and drawing tool.">
+          <Figure>Real NQ, every ICT layer</Figure>
+        </StepCard>
+      </ol>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section aria-label="Due for review" className="rounded-card border border-line bg-surface p-6 shadow-panel">
+          <h2 className="flex items-center gap-2 text-sm font-medium text-subtle">
+            <Clock aria-hidden className="size-3.5" /> Due for review
+          </h2>
+          {learning && due.length === 0 && <p className="mt-3 text-sm text-subtle">Nothing due today.</p>}
+          {due.length > 0 && (
+            <ul className="mt-3 flex flex-col">
+              {due.map((id) => {
+                const accuracy = learning?.concepts.find((c) => c.id === id)?.recentAccuracy
+                return (
+                  <li key={id}>
+                    <Link
+                      to={`/learn/${id}`}
+                      className="group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-sunken"
+                    >
+                      <Ring
+                        value={accuracy}
+                        label={accuracy === undefined ? 'Not graded yet' : `${Math.round(accuracy * 100)}% recently`}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm text-ink">{name(id)}</span>
+                      <ArrowRight aria-hidden className="size-4 text-subtle group-hover:text-ink" />
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+
         <NewsToday />
-        <div className="lg:col-span-2">
-          <LatestSession adapterFactory={adapterFactory} />
-        </div>
       </div>
+      <LatestSession adapterFactory={adapterFactory} />
     </div>
   )
 }

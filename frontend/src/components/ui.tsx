@@ -98,14 +98,28 @@ type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 // Two utilities for the same property (text-subtle and text-accent, say) are not resolved by their
 // order in the class list but by their order in the generated stylesheet. So a button's resting and
 // active looks are separate, complete sets — never one layered on the other.
+// T54 (Fabio: "all buttons look the same and take the same vibecoded shape"): a hierarchy you can read at a glance. The
+// one main action is filled and pill-shaped; a secondary one is an outline on the page; a tertiary one is text alone;
+// trade actions keep their side's colour and the pill; an icon button is round.
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  default: 'bg-sunken font-medium text-ink hover:bg-raised',
-  primary: 'bg-accent font-semibold text-accent-ink hover:brightness-110',
+  default: 'border border-line bg-transparent font-medium text-ink hover:border-subtle/50 hover:bg-raised/60',
+  primary: 'bg-accent font-semibold text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.18)] hover:brightness-110',
   buy: 'border border-up/60 font-semibold text-up hover:bg-up/10',
   sell: 'border border-down/60 font-semibold text-down hover:bg-down/10',
   danger: 'font-medium text-down hover:bg-down/10',
   ghost: 'font-medium text-subtle hover:bg-sunken hover:text-ink',
   link: 'text-accent underline-offset-4 hover:underline',
+}
+
+/** The shape says the role (T54): a pill acts, a rectangle offers, a circle is an icon. */
+const BUTTON_SHAPES: Record<ButtonVariant, string> = {
+  default: 'rounded-lg',
+  primary: 'rounded-full',
+  buy: 'rounded-full',
+  sell: 'rounded-full',
+  danger: 'rounded-lg',
+  ghost: 'rounded-lg',
+  link: 'rounded-sm',
 }
 
 const BUTTON_ACTIVE: Record<ButtonVariant, string> = {
@@ -147,10 +161,11 @@ export function Button({
     <button
       type={type}
       className={cx(
-        'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg transition-all enabled:active:scale-[0.97]',
+        'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 transition-all enabled:active:scale-[0.97]',
         FOCUS_RING,
         'disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none',
         variant === 'link' ? 'text-sm' : BUTTON_SIZES[size],
+        size === 'icon' ? 'rounded-full' : BUTTON_SHAPES[variant],
         active ? BUTTON_ACTIVE[variant] : BUTTON_VARIANTS[variant],
         className,
       )}

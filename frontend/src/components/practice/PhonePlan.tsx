@@ -151,7 +151,7 @@ export function PhonePlan({
           type="button"
           disabled={busy}
           onClick={onDiscard}
-          className="h-12 flex-1 cursor-pointer rounded-xl border border-line bg-raised text-[15px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+          className="h-12 flex-1 cursor-pointer rounded-xl border border-line bg-transparent text-[15px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
         >
           Discard
         </button>
@@ -159,7 +159,7 @@ export function PhonePlan({
           type="button"
           disabled={problem !== null || busy}
           onClick={() => onLock(plan)}
-          className="h-12 flex-[2] cursor-pointer rounded-xl bg-accent text-[15px] font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+          className="h-12 flex-[2] cursor-pointer rounded-full bg-accent text-[15px] font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
         >
           Place {long ? 'long' : 'short'} trade
         </button>
@@ -212,7 +212,7 @@ function Stepper({
       onPointerUp={stop}
       onPointerLeave={stop}
       onPointerCancel={stop}
-      className="grid size-11 shrink-0 cursor-pointer touch-none place-items-center rounded-xl border border-line bg-raised text-ink select-none focus-visible:outline-2 focus-visible:outline-accent"
+      className="grid size-11 shrink-0 cursor-pointer touch-none place-items-center rounded-full border border-line bg-transparent text-ink select-none focus-visible:outline-2 focus-visible:outline-accent"
     >
       {icon}
     </button>
