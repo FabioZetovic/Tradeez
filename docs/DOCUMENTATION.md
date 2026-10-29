@@ -2156,6 +2156,12 @@ main action a filled pill, secondaries outlines, the least as text, icons round 
 bars. D-10: the desktop Home's greeting is one line and the next lesson leads. D-6 dropped: Fabio keeps the cards and
 asks for colour instead ("website really is missing colors rn. It is too stale").
 
+**Topic colours** (`feat/topic-colours`, from `feat/home-buttons`; Fabio: "i like the idea do it"). T55: each of
+Learn's nine topics has a colour token and a small line picture of its pattern (`TopicGlyph`), handed out by
+`topicTone()` in `lib/topics.ts` as whole class names. Learn's and Drills' headings, cards and rings, Home's four steps
+and their bars, and a lesson's topic line wear them; the purple accent is left for the next step and the buttons. 480
+frontend tests; ten mutants caught; checked at 1920 and 390.
+
 ---
 
 ## For the presentation: the disclaimer slide

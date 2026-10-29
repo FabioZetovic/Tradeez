@@ -26,6 +26,18 @@
   --color-news-high: #e5484d; /* Forex Factory's red folder */
   --color-news-medium: #f5a524; /* Forex Factory's orange folder */
 
+  /* Each Learn topic's own colour (T55; Fabio: "website really is missing colors rn"): one family with the chart's
+     killzone colours, telling topics apart on Learn, Drills, Home and a lesson. The accent stays for actions. */
+  --color-t-structure: #6ea8fe;
+  --color-t-liquidity: #3fc5c9;
+  --color-t-gaps: #b392f0;
+  --color-t-premium: #f2c35b;
+  --color-t-blocks: #f47a9a;
+  --color-t-bias: #ff9b5e;
+  --color-t-models: #7fd88a;
+  --color-t-risk: #e07bd6;
+  --color-t-time: #9fb0cc;
+
   --radius-card: 1.125rem;
   --shadow-panel: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 20px 40px -24px rgb(0 0 0 / 0.6);
 }

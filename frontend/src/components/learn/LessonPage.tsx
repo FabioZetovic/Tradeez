@@ -12,6 +12,8 @@ import { getLesson, LESSON_TIMEFRAMES, type Lesson } from '@/lib/api/lessons'
 import type { ChartAdapter } from '@/lib/chart/types'
 import { MODE_NAMES } from '@/lib/drills/modes'
 import { cx, errorClass, panelTitle } from '@/lib/styles'
+import { topicTone } from '@/lib/topics'
+import { TopicGlyph } from '../TopicGlyph'
 import { Button, Notice, Panel, Segmented } from '../ui'
 
 /** The risk questions practise ICT-83 (DEC-081): its lesson offers them as its drills. */
@@ -100,6 +102,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
     .at(-1)
   const locked = progress !== undefined && !progress.open
   const done = progress?.state === 'SOLID' || progress?.state === 'DONE'
+  const tone = topicTone(topic?.title ?? lesson?.topic)
 
   if (phone) {
     const place = topic ? `${topic.title} · ${topic.concepts.indexOf(id) + 1} of ${topic.concepts.length}` : (lesson?.topic ?? '')
@@ -126,7 +129,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
             {progress?.due && <span className="rounded-full bg-warn/15 px-2 py-0.5 text-[11px] font-semibold text-warn">Review</span>}
           </div>
           <div aria-hidden className="h-[3px] bg-line">
-            <div className="h-full bg-accent" style={{ width: `${Math.round(readShare * 100)}%` }} />
+            <div className={cx('h-full', tone.fill)} style={{ width: `${Math.round(readShare * 100)}%` }} />
           </div>
         </header>
 
@@ -271,7 +274,10 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
         <>
           <header>
             {/* The topic, not the catalogue id (BUG-105). */}
-            <p className="mb-2 text-sm text-subtle">{lesson.topic ?? 'Not taught'}</p>
+            <p className={cx('mb-2 flex items-center gap-2 text-sm font-medium', lesson.topic ? tone.text : 'text-subtle')}>
+              {lesson.topic && <TopicGlyph topic={lesson.topic} className="h-4 w-6" />}
+              {lesson.topic ?? 'Not taught'}
+            </p>
             <h1 className="font-display text-4xl font-bold tracking-tight text-balance text-ink" data-testid="lesson-title">
               {lesson.name}
             </h1>

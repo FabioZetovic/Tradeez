@@ -68,6 +68,7 @@
 | T51 | The logo and the name | Fabio's name and domain | ⏸ | | D-12; Fabio: "Logo i will fix later when i come up with an actual name of the app" |
 | T53 | The phone redesign from Claude Design | — | ✅ merged 2026-10-29 | `feat/phone-redesign` (master 5415758) | Fabio's Claude Design canvas, 30 phone screens; six phases in §6 T53 |
 | T54 | Buttons with more than one shape | — | 🟢 built 2026-10-29, waiting for "merge" | `feat/home-buttons` | A hierarchy: the main action a filled pill, a secondary an outline rectangle, text for the least, icons round, trade actions their side's colour |
+| T55 | Topic colours | — | 🟢 built 2026-10-29, waiting for "merge" | `feat/topic-colours` (from `feat/home-buttons`) | Fabio: "website really is missing colors rn. It is too stale" — each of Learn's nine topics a colour and a small picture of its own pattern, on Learn, Drills, Home and the lesson; the purple left for actions |
 | T52 | Mobile pass | — | 🟢 built 2026-10-28, waiting for "merge" | `feat/mobile` | Fabio: "lets focus on mobile compatibility now". An audit of every screen at 390, 360 and 768 with touch (overflow, targets, text, real taps); BUG-111 … BUG-116 fixed. Screenshots docs/redesign/after/t52/ |
 
 ---
@@ -1066,6 +1067,33 @@ secondaries, text actions), sizes by place, and shapes that say what a control d
 
 **Built 2026-10-29** (Fabio: "i like the t54 do that"): `Button`'s `default` is an outline on the page (was a filled grey block), `primary` a filled pill with a faint top light, `buy`/`sell` pills in their side's colour, `size="icon"` a circle — the shape kept apart from the colour (`BUTTON_SHAPES`) so the two never fight in the stylesheet. The phone's own bars follow it: Check answer, Place trade, Start session, Next drill, Done are pills; Clear, Discard, All drills, Load more are outlines; step, speed, more, Mark as read and the steppers are circles.
 
+### T55 — Topic colours (Fabio, 2026-10-29)
+
+Fabio: "website really is missing colors rn. It is too stale", keeping the cards (D-6 dropped). The proposal he took
+("i like the idea do it"): colour that means something rather than decoration — each of Learn's nine topics gets a hue
+and a small drawn picture of its own pattern, and the one purple stays for what you click.
+
+**Built 2026-10-29** on `feat/topic-colours`:
+- **Tokens** (`index.css`): `t-structure` blue, `t-liquidity` teal, `t-gaps` violet, `t-premium` amber, `t-blocks`
+  rose, `t-bias` orange, `t-models` green, `t-risk` magenta, `t-time` slate — chosen apart from up/down, warn and
+  the accent so none reads as a trade's side or a warning.
+- **`lib/topics.ts`**: `topicTone(topic)` gives a topic's classes whole (text, wash, hover edge, ring stroke, fill),
+  written out so Tailwind generates them; a topic it does not know ("More drills") gets the plain set.
+  `SECTION_TOPICS` dresses Home's four steps as a topic each. `topicIcon` and its lucide icons removed: the pictures
+  replace them.
+- **`TopicGlyph`**: a 48×32 line drawing per topic — swings, a swept level, three candles and their gap, a range and
+  its midline, a block, a rising arrow, a model's boxes, stop and target, session bands — in currentColor.
+- **Learn**: a topic's heading carries its picture; a tile before any progress shows the picture in a tinted square
+  (where BUG-107 removed the empty ring), its ring under way in the topic's colour, its hover edge too; the "next" tile
+  keeps the accent. On a phone the rows' open and in-progress circles and the done disc are the topic's colour.
+- **Drills**: headings and cards as Learn (picture square beside the mode chip, hover edge); a phone's section headings.
+- **Home**: the four step cards wear a picture square and their bars the colour; the phone's tiles a small picture by
+  their name; a due lesson's ring its topic's colour.
+- **Lesson**: the topic line above the title in its colour with its picture; the phone's reading line too.
+
+Tests: `topics.test.ts` (4), `TopicGlyph.test.tsx` (2), colour checks in Learn, Drills and Home's tests; ten mutants,
+one at a time, all caught. Checked live at 1920 and at 390 with touch.
+
 ### T51 — The logo and the name (Fabio, later)
 
 The name "Tradeez" is a working name; Fabio will choose the real one once he has found a domain for it. Then: a
@@ -1203,6 +1231,7 @@ due, open), `suggested`, `due`.
 | 2026-10-27 | T47 | SMT on the Chart tab draws the other market under the chart (moving with it, its own divergences marked); a practice replay still leaves SMT out — it shows one market | Claude |
 | 2026-10-27 | T48 | The landing page's screenshots are the app's own (four JPEGs, 56–106 KB, in the bundle), taken from the T45–T47 captures — real screens, as the page claims | Claude |
 | 2026-10-27 | T48 | A session that ends while the app is open still lands on sign-in with its notice (BUG-040), not on the landing page | Claude |
+| 2026-10-29 | T55 | Colour by meaning: each Learn topic a hue and a picture, the accent kept for actions; Fabio: "i like the idea do it" | Fabio + Claude |
 | 2026-10-29 | T54, D-10, D-6 | Buttons as a hierarchy (T54) and the desktop Home led by the next lesson (D-10) built; D-6 dropped — Fabio keeps the cards ("a list would make it lose character") and finds the app "too stale", missing colour: the next question | Fabio + Claude |
 | 2026-10-29 | T53 | The phone redesign built, six phases, every one with phone tests, mutants and screenshots at 390 with touch; the desktop checked unchanged at 1920 and 1366. Kept from earlier decisions over the canvas: no accent-tinted fills beyond the one "next" card per screen the canvas puts there, the disclaimer's line on every page (DEC-015), "Sign in" without the "Welcome back" filler (T50 D-11), partials on the desktop panel only. Not built from the canvas: search on Learn, zoom buttons and full screen on the chart (pinch and drag already do both), "Try again" on a drill (a drill is a new chart each time) | Claude |
 | 2026-10-28 | R-5 | Entrances retimed (BUG-118): `lib/motion.ts`'s `enter()` — 0.15 s after the paint, 0.5 s, 14 px — for every one; "Fabio: animations load too early, you cant even see them". And every screen snapshotted for Claude Design (desktop 1920 and phone 390, 63 full pages, `docs/redesign/tradeez-screens-2026-10-28.zip`, not committed): Fabio will have the whole app redesigned there, phone first ("Its awful") | Fabio + Claude |

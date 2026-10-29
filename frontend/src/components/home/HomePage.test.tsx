@@ -115,6 +115,12 @@ describe('Home (T39)', () => {
     expect(link(/Learn/)).toHaveAttribute('href', '/learn')
     expect(link(/Drills/)).toHaveAttribute('href', '/drills')
     expect(link(/The whole history/)).toHaveAttribute('href', '/chart')
+    // Each step in a colour of its own (T55), its bar too.
+    expect(link(/Learn/).querySelector('.text-t-structure svg')).not.toBeNull()
+    expect(link(/Drills/).querySelector('.text-t-liquidity svg')).not.toBeNull()
+    expect(link(/Practice/).querySelector('.text-t-premium svg')).not.toBeNull()
+    expect(link(/The whole history/).querySelector('.text-t-gaps svg')).not.toBeNull()
+    expect(learn.querySelector('.bg-t-structure')).not.toBeNull()
   })
 
   it('suggests the next lesson, and lists what is due in curriculum order with its recent accuracy', async () => {

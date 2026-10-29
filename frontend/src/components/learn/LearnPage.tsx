@@ -5,7 +5,8 @@ import { BookOpen, Check, ChevronRight, Clock, Lock } from 'lucide-react'
 import { useIsPhone } from '@/hooks/useIsPhone'
 import { getCurriculum, type Curriculum } from '@/lib/api/concepts'
 import { getLearning, type ConceptProgress, type Learning } from '@/lib/api/learning'
-import { topicIcon } from '@/lib/topics'
+import { topicTone } from '@/lib/topics'
+import { TopicGlyph } from '../TopicGlyph'
 import { cx, errorClass } from '@/lib/styles'
 import { Chip, NextStep, PageHeader, Ring } from '../ui'
 import { enter } from '@/lib/motion'
@@ -70,13 +71,12 @@ export function LearnPage() {
 
       <div className="flex flex-col gap-10">
         {learning?.topics.map((topic) => {
-          const Icon = topicIcon(topic.title)
           const id = `topic-${topic.title.toLowerCase().replace(/[^a-z]+/g, '-')}`
           return (
             <section key={topic.title} aria-labelledby={id}>
               <div className="mb-4 flex items-baseline justify-between gap-4">
                 <h2 id={id} className="flex items-center gap-2.5 font-display text-xl font-bold tracking-tight text-ink">
-                  <Icon aria-hidden className="size-4 text-subtle" />
+                  <TopicGlyph topic={topic.title} className={cx('h-5 w-7', topicTone(topic.title).text)} />
                   {topic.title}
                 </h2>
                 <span className="num text-xs text-subtle" data-testid="topic-progress">
@@ -100,6 +100,7 @@ export function LearnPage() {
                       next={learning.suggested === conceptId}
                       startHere={fresh && learning.suggested === conceptId}
                       lockedBy={before && name(before)}
+                      topic={topic.title}
                     />
                   )
                 })}
@@ -126,6 +127,7 @@ function LessonTile({
   next,
   startHere,
   lockedBy,
+  topic,
 }: {
   index: number
   progress: ConceptProgress
@@ -133,7 +135,10 @@ function LessonTile({
   next: boolean
   startHere: boolean
   lockedBy?: string
+  /** Its topic, whose colour and picture it carries (T55). */
+  topic: string
 }) {
+  const tone = topicTone(topic)
   const done = progress.state === 'SOLID' || progress.state === 'DONE'
   const locked = !progress.open
   const card = progress.kind === 'REFERENCE'
@@ -150,10 +155,17 @@ function LessonTile({
         className={cx(
           'flex h-full items-center gap-4 rounded-card border bg-surface p-4 shadow-panel transition-all duration-150',
           'hover:-translate-y-0.5 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent',
-          next ? 'border-accent' : 'border-line hover:border-accent/40',
+          next ? 'border-accent' : cx('border-line', tone.edge),
         )}
       >
-        {ring > 0 && <Ring value={ring} size={40} label={done ? 'Complete' : `${Math.round(ring * 100)}% recently`} />}
+        {ring > 0 ? (
+          <Ring value={ring} size={40} label={done ? 'Complete' : `${Math.round(ring * 100)}% recently`} tone={tone.stroke} />
+        ) : (
+          // Before any progress, the topic's own picture in its colour (T55) — not an empty ring (BUG-107).
+          <span aria-hidden className={cx('grid size-10 shrink-0 place-items-center rounded-xl', tone.soft, tone.text)}>
+            <TopicGlyph topic={topic} className="h-5 w-7" />
+          </span>
+        )}
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-ink">{name}</span>
           {why && <span className="mt-0.5 block text-xs text-subtle">{why}</span>}
@@ -262,7 +274,8 @@ function PhoneLearn({
                 return (
                   <section key={t.title} aria-labelledby={id}>
                     <div className="mb-2.5 flex items-baseline justify-between">
-                      <h2 id={id} className="text-[17px] font-semibold text-ink">
+                      <h2 id={id} className="flex items-center gap-2 text-[17px] font-semibold text-ink">
+                        <TopicGlyph topic={t.title} className={cx('h-4 w-6', topicTone(t.title).text)} />
                         {t.title}
                       </h2>
                       <span className="num text-[13px] text-subtle" data-testid="topic-progress">
@@ -285,6 +298,7 @@ function PhoneLearn({
                             next={learning.suggested === conceptId}
                             startHere={fresh && learning.suggested === conceptId}
                             lockedBy={before && name(before)}
+                            topic={t.title}
                           />
                         )
                       })}
@@ -306,13 +320,16 @@ function LessonRow({
   next,
   startHere,
   lockedBy,
+  topic,
 }: {
   progress: ConceptProgress
   name: string
   next: boolean
   startHere: boolean
   lockedBy?: string
+  topic: string
 }) {
+  const tone = topicTone(topic)
   const done = p.state === 'SOLID' || p.state === 'DONE'
   const locked = !p.open
   const card = p.kind === 'REFERENCE'
@@ -348,11 +365,12 @@ function LessonRow({
           aria-label={status}
           className={cx(
             'grid size-[30px] shrink-0 place-items-center rounded-full',
-            done && 'bg-accent text-accent-ink',
+            done && cx(tone.fill, 'text-canvas'),
             locked && 'bg-sunken text-subtle',
             card && !locked && !done && 'bg-sunken text-subtle',
-            under && !locked && 'border-[2.5px] border-line border-t-accent border-r-accent',
-            !done && !locked && !card && !under && 'border-[2.5px] border-accent',
+            // The circle in its topic's colour (T55): a quarter turn under way, whole when open.
+            under && !locked && cx('border-[2.5px] border-line border-t-current border-r-current', tone.text),
+            !done && !locked && !card && !under && cx('border-[2.5px] border-current', tone.text),
           )}
         >
           {done && <Check aria-hidden className="size-4" />}
