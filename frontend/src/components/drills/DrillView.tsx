@@ -271,7 +271,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
                           type="button"
                           disabled={busy}
                           onClick={() => void choose(target.value)}
-                          className={cx(DOCK_BASE, 'h-auto min-h-20 flex-col items-start gap-0.5 px-3.5 py-3 text-left', sideTone(target.label))}
+                          className={cx(DOCK_BASE, 'h-auto min-h-20 flex-col items-start gap-0.5 rounded-xl px-3.5 py-3 text-left', sideTone(target.label))}
                         >
                           <span className="text-[15px] font-semibold">{target.label}</span>
                           <span className="text-xs font-normal opacity-80" data-testid="target-facts">
@@ -587,15 +587,15 @@ const DOCK =
 // Two utilities for one property are resolved by the stylesheet's order, not the class list's: a button's colours are one
 // complete set, either the quiet one or the primary — never one laid over the other.
 const DOCK_BASE =
-  'inline-flex h-12 cursor-pointer items-center gap-2 rounded-xl border text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40'
-const QUIET = 'border-line bg-raised text-ink'
+  'inline-flex h-12 cursor-pointer items-center gap-2 border text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40'
+const QUIET = 'rounded-xl border-line bg-transparent text-ink'
 const DOCK_BUTTON = cx(DOCK_BASE, QUIET, 'justify-center')
-const PRIMARY_BUTTON = cx(DOCK_BASE, 'justify-center border-transparent bg-accent text-accent-ink')
+const PRIMARY_BUTTON = cx(DOCK_BASE, 'justify-center rounded-full border-transparent bg-accent text-accent-ink')
 
 /** A prediction's target in the colour of its side: buy-side above in green, sell-side below in red. */
 function sideTone(label: string): string {
-  if (/buy|above|high/i.test(label)) return 'border-up/40 bg-up/10 text-up'
-  if (/sell|below|low/i.test(label)) return 'border-down/40 bg-down/10 text-down'
+  if (/buy|above|high/i.test(label)) return 'rounded-xl border-up/40 bg-up/10 text-up'
+  if (/sell|below|low/i.test(label)) return 'rounded-xl border-down/40 bg-down/10 text-down'
   return QUIET
 }
 

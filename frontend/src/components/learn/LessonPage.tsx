@@ -181,7 +181,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
                   {before && (
                     <Link
                       to={`/learn/${before}`}
-                      className="mt-2 inline-flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent"
+                      className="mt-2 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent"
                     >
                       Go to {name(before)}
                       <ArrowRight aria-hidden className="size-4" />
@@ -227,7 +227,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
                 title={progress?.readAt !== undefined ? 'Read' : done ? 'Mark as reviewed' : 'Mark as read'}
                 disabled={marking || progress?.readAt !== undefined}
                 onClick={() => void read()}
-                className="grid h-12 w-13 shrink-0 cursor-pointer place-items-center rounded-xl border border-line bg-raised text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+                className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border border-line bg-transparent text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
               >
                 <BookCheck aria-hidden className="size-5" />
               </button>
@@ -236,8 +236,8 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
                   key={link.to}
                   to={link.to}
                   className={cx(
-                    'inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold whitespace-nowrap focus-visible:outline-2 focus-visible:outline-accent',
-                    i === 0 ? 'min-w-0 flex-1 bg-accent text-accent-ink' : 'border border-line bg-raised text-ink',
+                    'inline-flex h-12 shrink-0 items-center justify-center gap-2 px-4 text-[15px] font-semibold whitespace-nowrap focus-visible:outline-2 focus-visible:outline-accent',
+                    i === 0 ? 'min-w-0 flex-1 rounded-full bg-accent text-accent-ink' : 'rounded-xl border border-line bg-transparent text-ink',
                   )}
                 >
                   <span className="truncate">{link.label}</span>

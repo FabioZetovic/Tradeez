@@ -180,7 +180,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             type="button"
             disabled={starting}
             onClick={() => void start()}
-            className="mt-4 inline-flex h-13 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+            className="mt-4 inline-flex h-13 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
           >
             <Play aria-hidden className="size-4 fill-current" />
             {starting ? 'Finding a moment…' : 'Start session'}
@@ -635,7 +635,7 @@ function PhoneJournal({
             if (kept.length <= shown + JOURNAL_PAGE && further) onLoad(trades.length + JOURNAL_PAGE)
             setShown((n) => n + JOURNAL_PAGE)
           }}
-          className="mt-2.5 h-12 w-full cursor-pointer rounded-xl border border-line bg-raised text-[15px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent"
+          className="mt-2.5 h-12 w-full cursor-pointer rounded-xl border border-line bg-transparent text-[15px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent"
         >
           Load {further ? JOURNAL_PAGE : Math.min(JOURNAL_PAGE, kept.length - shown)} more
         </button>

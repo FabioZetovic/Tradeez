@@ -129,7 +129,7 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
             <button
               type="button"
               onClick={close}
-              className="h-12 w-full cursor-pointer rounded-xl bg-accent text-[15px] font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent"
+              className="h-12 w-full cursor-pointer rounded-full bg-accent text-[15px] font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent"
             >
               Done
             </button>

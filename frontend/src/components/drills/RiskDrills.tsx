@@ -192,7 +192,7 @@ export function RiskDrills({ kind }: { kind: (typeof RISK_KINDS)[number] }) {
                 type="button"
                 disabled={busy || value === ''}
                 onClick={() => void submit()}
-                className="col-span-3 h-13 cursor-pointer rounded-xl bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+                className="col-span-3 h-13 cursor-pointer rounded-full bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
               >
                 Answer
               </button>
@@ -203,7 +203,7 @@ export function RiskDrills({ kind }: { kind: (typeof RISK_KINDS)[number] }) {
                 type="button"
                 disabled={busy}
                 onClick={() => void ask()}
-                className="h-13 w-full cursor-pointer rounded-xl bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+                className="h-13 w-full cursor-pointer rounded-full bg-accent text-base font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
               >
                 {drill ? 'Next question' : 'Try again'}
               </button>

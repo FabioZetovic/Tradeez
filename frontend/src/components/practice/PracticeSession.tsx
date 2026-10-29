@@ -365,7 +365,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
     const scored = viewing === null ? undefined : closed.find((t) => t.number === viewing)
     const replay = status !== 'COMPLETE' && (
       <div className="flex items-center gap-2">
-        <button type="button" aria-label="Next bar" disabled={busy || playing} onClick={() => void advance(1)} className={cx(QUIET, 'w-12')}>
+        <button type="button" aria-label="Next bar" disabled={busy || playing} onClick={() => void advance(1)} className={cx(ROUND, 'w-12')}>
           <StepForward aria-hidden className="size-5" />
         </button>
         <button
@@ -386,12 +386,12 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
           type="button"
           aria-label={`Replay speed ${speed}×, tap to change`}
           onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])}
-          className={cx(QUIET, 'num w-14')}
+          className={cx(ROUND, 'num w-14')}
         >
           {speed}×
         </button>
         {status === 'ANALYSING' ? (
-          <button type="button" aria-label="More: end session" onClick={() => setMore(true)} className={cx(QUIET, 'w-12')}>
+          <button type="button" aria-label="More: end session" onClick={() => setMore(true)} className={cx(ROUND, 'w-12')}>
             <Ellipsis aria-hidden className="size-5" />
           </button>
         ) : (
@@ -589,11 +589,11 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
             )}
             {status === 'ANALYSING' && (
               <div className="mb-2 grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => place('LONG')} className={cx(BASE, 'justify-center border-up/40 bg-up/10 text-up')}>
+                <button type="button" onClick={() => place('LONG')} className={cx(BASE, 'justify-center rounded-full border-up/40 bg-up/10 text-up')}>
                   <TrendingUp aria-hidden className="size-5" />
                   Plan long
                 </button>
-                <button type="button" onClick={() => place('SHORT')} className={cx(BASE, 'justify-center border-down/40 bg-down/10 text-down')}>
+                <button type="button" onClick={() => place('SHORT')} className={cx(BASE, 'justify-center rounded-full border-down/40 bg-down/10 text-down')}>
                   <TrendingDown aria-hidden className="size-5" />
                   Plan short
                 </button>
@@ -625,7 +625,7 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
                     {openTrade.plan.plannedRewardRisk.toFixed(2)}R
                   </p>
                 </div>
-                <button type="button" disabled={busy} onClick={() => void close()} className={cx(BASE, 'h-11 border-down/40 bg-down/10 px-3 text-sm text-down')}>
+                <button type="button" disabled={busy} onClick={() => void close()} className={cx(BASE, 'h-11 rounded-full border-down/40 bg-down/10 px-4 text-sm text-down')}>
                   Close
                 </button>
               </section>
@@ -945,9 +945,11 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
 
 /** The phone's controls (T53). Colours are one complete set per button: a utility never laid over another. */
 const BASE =
-  'inline-flex h-12 cursor-pointer items-center gap-2 rounded-xl border text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40'
-const QUIET = cx(BASE, 'justify-center border-line bg-raised text-ink')
-const PRIMARY = cx(BASE, 'justify-center border-transparent bg-accent text-accent-ink')
+  'inline-flex h-12 cursor-pointer items-center gap-2 border text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40'
+const QUIET = cx(BASE, 'justify-center rounded-xl border-line bg-transparent text-ink')
+/** An icon button at the thumb (T54): round. */
+const ROUND = cx(BASE, 'justify-center rounded-full border-line bg-transparent text-ink')
+const PRIMARY = cx(BASE, 'justify-center rounded-full border-transparent bg-accent text-accent-ink')
 const ICON = 'grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl text-ink focus-visible:outline-2 focus-visible:outline-accent'
 const DOCK =
   'fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/95 px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur'

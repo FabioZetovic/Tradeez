@@ -2151,6 +2151,11 @@ unchanged. On the way: a test helper that runs a test on a phone (`test/phone.ts
 **Merged.** Fabio: "u can merge it". After a fresh-clone check of `feat/phone-redesign` (474 tests, the build, 0
 vulnerabilities, the backend packaged): `feat/mobile` (1aedf3b) and `feat/phone-redesign` (5415758) into master, `--no-ff`.
 
+**Buttons and the desktop Home** (`feat/home-buttons`; Fabio: "D10 i approve. and i like the t54 do that"). T54: one
+main action a filled pill, secondaries outlines, the least as text, icons round — in `Button` and in the phone's own
+bars. D-10: the desktop Home's greeting is one line and the next lesson leads. D-6 dropped: Fabio keeps the cards and
+asks for colour instead ("website really is missing colors rn. It is too stale").
+
 ---
 
 ## For the presentation: the disclaimer slide

@@ -227,7 +227,7 @@ it) — its layout, Home, tiles and chart-with-layers, **not** its lime colours.
 | T51 | **Logo and name** | Fabio's name and domain | D-12 |
 | T52 | **Mobile pass** | — | Every screen on a phone and tablet with touch; BUG-111 … BUG-116 |
 | T53 | **The phone redesign** | — | Fabio's Claude Design canvas, built in six phases (REDESIGN §6 T53) |
-| T54 | **Buttons** | Fabio | Not one shape for every button; later |
+| T54 | **Buttons** | — | A hierarchy: filled pill, outline, text, round icons — built on feat/home-buttons |
 
 **Order:** T36 → T37 → T38 → T39 → T40 → T41 → T42 → T43 → T45, with T44 early (it needs Fabio's time),
 then T46, T47, T48, T49. Each task its own branch, merged when Fabio says "merge".

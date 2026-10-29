@@ -8,7 +8,7 @@ import { cx } from '@/lib/styles'
 import { EASE_OUT, SETTLE } from '@/lib/motion'
 
 const PRIMARY =
-  'inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3.5 text-[15px] font-medium text-accent-ink hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+  'inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3.5 text-[15px] font-medium text-accent-ink hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const QUIET =
   'rounded-xl px-4 py-3.5 text-[15px] text-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const H2 = 'font-display text-[clamp(26px,3.4vw,36px)] font-semibold tracking-tight text-ink'
