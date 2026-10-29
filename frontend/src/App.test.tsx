@@ -195,7 +195,13 @@ describe('App — signed out', () => {
     await screen.findByRole('heading', { name: /sign in/i })
 
     await userEvent.type(screen.getByLabelText(/email/i), 'ghost@example.com')
-    await userEvent.type(screen.getByLabelText(/password/i), 'whatever-i-typed')
+    await userEvent.type(screen.getByLabelText('Password'), 'whatever-i-typed')
+    // What was typed can be checked, and hidden again (T53).
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+    await userEvent.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'text')
+    await userEvent.click(screen.getByRole('button', { name: 'Hide password' }))
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
     await userEvent.click(screen.getByRole('button', { name: /^sign in$/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password.')
@@ -581,7 +587,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
 
     mockApi({ ...signedIn, '/api/auth/login': { body: USER } })
     await userEvent.type(screen.getByLabelText(/email/i), 'fabio@example.com')
-    await userEvent.type(screen.getByLabelText(/password/i), 'whatever-i-typed')
+    await userEvent.type(screen.getByLabelText('Password'), 'whatever-i-typed')
     await userEvent.click(screen.getByRole('button', { name: /^sign in$/i }))
     expect(await screen.findByRole('region', { name: 'New session' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/practice')

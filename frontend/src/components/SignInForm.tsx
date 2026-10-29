@@ -1,5 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
+import { Eye, EyeOff } from 'lucide-react'
+import { useIsPhone } from '@/hooks/useIsPhone'
 import { errorMessage } from '@/lib/api/auth'
 import { PasswordRules } from './PasswordRules'
 import { Button } from './ui'
@@ -22,6 +24,8 @@ interface SignInFormProps {
 export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [shown, setShown] = useState(false)
+  const phone = useIsPhone()
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -50,7 +54,8 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
   }
 
   return (
-    <section className="w-full rounded-card border border-line bg-surface p-7 shadow-panel">
+    // On a phone (T53) the form stands on the page, not in a card.
+    <section className={phone ? 'w-full' : 'w-full rounded-card border border-line bg-surface p-7 shadow-panel'}>
       <h2 className={cx('font-display text-2xl font-bold tracking-tight text-ink', !isRegister && 'mb-6')}>
         {isRegister ? 'Create an account' : 'Sign in'}
       </h2>
@@ -83,11 +88,12 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
         </label>
 
         <div className="flex flex-col gap-1.5">
+          <div className="relative">
           <label className={labelClass}>
             Password
             <input
-              className={fieldClass}
-              type="password"
+              className={cx(fieldClass, 'pr-12')}
+              type={shown ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -96,6 +102,17 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
               aria-describedby={isRegister ? rulesId : undefined}
             />
           </label>
+          {/* T53: to check what was typed — on a phone's keyboard most of all. */}
+          <button
+            type="button"
+            aria-label={shown ? 'Hide password' : 'Show password'}
+            aria-pressed={shown}
+            onClick={() => setShown((s) => !s)}
+            className="absolute right-0.5 bottom-0 grid size-10 cursor-pointer place-items-center rounded-lg text-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-accent pointer-coarse:size-11"
+          >
+            {shown ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
+          </button>
+          </div>
           {isRegister && <PasswordRules id={rulesId} password={password} email={email} displayName={displayName} />}
         </div>
 

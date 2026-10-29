@@ -3,7 +3,8 @@ import { Layers, Search, X } from 'lucide-react'
 import type { ChartLayers } from '@/hooks/useChartLayers'
 import { LAYER_GROUPS, PRESETS, type Layer } from '@/lib/layers'
 import { cx } from '@/lib/styles'
-import { Glass, Switch } from '../ui'
+import { Glass, Sheet, Switch } from '../ui'
+import { useIsPhone } from '@/hooks/useIsPhone'
 
 interface LayersProps {
   layers: ChartLayers
@@ -21,6 +22,8 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
   const root = useRef<HTMLDivElement>(null)
   const close = useCallback(() => setOpen(false), [])
   const searchId = useId()
+  // A phone (T53): the layers slide up as a sheet, with Done at its foot.
+  const phone = useIsPhone()
 
   const offered = layers.layers.filter((layer) => clockAvailable || layer.kind !== 'clock')
   const count = offered.filter((layer) => layers.isOn(layer.id)).length
@@ -28,6 +31,71 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
   const found = needle
     ? layers.layers.filter((l) => l.label.toLowerCase().includes(needle) || l.title.toLowerCase().includes(needle))
     : layers.layers
+
+  const content = (
+    <>
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <h2 className="text-base font-semibold text-ink">Layers</h2>
+        <button
+          type="button"
+          onClick={() => layers.setOnly([])}
+          className="tap cursor-pointer text-xs text-subtle underline-offset-2 hover:text-ink hover:underline"
+        >
+          Clear all
+        </button>
+      </div>
+      <div className="px-4">
+        <label htmlFor={searchId} className="sr-only">
+          Search layers
+        </label>
+        <div className="relative">
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
+          <input
+            id={searchId}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search ${layers.layers.length} layers`}
+            className="h-9 w-full rounded-lg border border-line bg-canvas/60 pr-3 pl-9 text-sm text-ink placeholder:text-subtle focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none"
+          />
+        </div>
+        <div role="group" aria-label="Presets" className="mt-3 flex flex-wrap gap-1.5">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              onClick={() => layers.setOnly(preset.layers)}
+              className="cursor-pointer rounded-full border border-line px-2.5 py-1 text-xs text-subtle transition-colors hover:border-accent/60 hover:text-ink pointer-coarse:py-2.5"
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        {LAYER_GROUPS.map((group) => {
+          const rows = found.filter((layer) => layer.group === group)
+          if (rows.length === 0) return null
+          return (
+            <section key={group} aria-label={group} className="mt-2 first:mt-0">
+              <h3 className="px-2 py-1.5 text-sm font-medium text-subtle">{group}</h3>
+              {rows.map((layer) => (
+                <LayerRow
+                  key={layer.id}
+                  layer={layer}
+                  on={layers.isOn(layer.id)}
+                  available={clockAvailable || layer.kind !== 'clock'}
+                  onToggle={() => layers.toggle(layer.id)}
+                />
+              ))}
+            </section>
+          )
+        })}
+        {found.length === 0 && <p className="px-2 py-3 text-sm text-subtle">No layer matches “{query.trim()}”.</p>}
+      </div>
+    </>
+  )
 
   return (
     <div ref={root} className="relative">
@@ -54,75 +122,31 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
         )}
       </button>
 
-      <Glass
-        open={open}
-        onClose={close}
-        anchor={root}
-        role="dialog"
-        aria-label="Layers"
-        className="flex max-h-[70vh] w-[22rem] flex-col"
-      >
-        <div className="flex items-center justify-between px-4 pt-4 pb-3">
-          <h2 className="text-base font-semibold text-ink">Layers</h2>
-          <button
-            type="button"
-            onClick={() => layers.setOnly([])}
-            className="tap cursor-pointer text-xs text-subtle underline-offset-2 hover:text-ink hover:underline"
-          >
-            Clear all
-          </button>
-        </div>
-        <div className="px-4">
-          <label htmlFor={searchId} className="sr-only">
-            Search layers
-          </label>
-          <div className="relative">
-            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
-            <input
-              id={searchId}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search ${layers.layers.length} layers`}
-              className="h-9 w-full rounded-lg border border-line bg-canvas/60 pr-3 pl-9 text-sm text-ink placeholder:text-subtle focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none"
-            />
+      {phone ? (
+        <Sheet open={open} onClose={close} label="Layers" className="flex max-h-[85svh] flex-col px-0 pb-0">
+          {content}
+          <div className="border-t border-line px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              onClick={close}
+              className="h-12 w-full cursor-pointer rounded-xl bg-accent text-[15px] font-semibold text-accent-ink focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              Done
+            </button>
           </div>
-          <div role="group" aria-label="Presets" className="mt-3 flex flex-wrap gap-1.5">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                type="button"
-                onClick={() => layers.setOnly(preset.layers)}
-                className="cursor-pointer rounded-full border border-line px-2.5 py-1 text-xs text-subtle transition-colors hover:border-accent/60 hover:text-ink pointer-coarse:py-2.5"
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          {LAYER_GROUPS.map((group) => {
-            const rows = found.filter((layer) => layer.group === group)
-            if (rows.length === 0) return null
-            return (
-              <section key={group} aria-label={group} className="mt-2 first:mt-0">
-                <h3 className="px-2 py-1.5 text-sm font-medium text-subtle">{group}</h3>
-                {rows.map((layer) => (
-                  <LayerRow
-                    key={layer.id}
-                    layer={layer}
-                    on={layers.isOn(layer.id)}
-                    available={clockAvailable || layer.kind !== 'clock'}
-                    onToggle={() => layers.toggle(layer.id)}
-                  />
-                ))}
-              </section>
-            )
-          })}
-          {found.length === 0 && <p className="px-2 py-3 text-sm text-subtle">No layer matches “{query.trim()}”.</p>}
-        </div>
-      </Glass>
+        </Sheet>
+      ) : (
+        <Glass
+          open={open}
+          onClose={close}
+          anchor={root}
+          role="dialog"
+          aria-label="Layers"
+          className="flex max-h-[70vh] w-[22rem] flex-col"
+        >
+          {content}
+        </Glass>
+      )}
     </div>
   )
 }

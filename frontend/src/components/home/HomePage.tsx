@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router'
-import { ArrowRight, Clock } from 'lucide-react'
+import { ArrowRight, ChevronRight, Clock } from 'lucide-react'
+import { useIsPhone } from '@/hooks/useIsPhone'
+import { formatR } from '@/lib/practice/plan'
 import type { User } from '@/lib/api/auth'
 import { getCurriculum } from '@/lib/api/concepts'
 import { listDrillKinds } from '@/lib/api/drills'
@@ -64,6 +66,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
   const sessions = useLoaded(listSessions)
   const statistics = useLoaded(getStatistics)
   const [now] = useState(() => new Date())
+  const phone = useIsPhone()
 
   const name = useCallback(
     (id: string) => curriculum?.concepts.find((c) => c.concept.id === id)?.concept.name ?? id,
@@ -81,6 +84,151 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
   const suggested = learning?.suggested
   const order = curriculum?.concepts.map((c) => c.concept.id) ?? []
   const due = [...(learning?.due ?? [])].sort((a, b) => order.indexOf(a) - order.indexOf(b)).slice(0, 5)
+
+  if (phone) {
+    // Nothing done anywhere yet: the path, instead of figures that are all zero.
+    const fresh =
+      learning !== undefined &&
+      learning !== null &&
+      learning.summary.complete === 0 &&
+      learning.summary.ratedAttempts + learning.summary.predictions === 0 &&
+      trades === 0
+    const summary = curriculum?.concepts.find((c) => c.concept.id === suggested)?.concept.summary
+    const topicOf = (id: string) => learning?.topics?.find((t) => t.concepts.includes(id))?.title
+    const totalR = statistics?.overall.totalR ?? 0
+    return (
+      // Home on a phone (T53, Claude Design): the next lesson first, three figures, what is due, the news, the market.
+      <div className="flex flex-col gap-5">
+        <header>
+          <p className="text-[13px] text-subtle">{longDate(now)}</p>
+          <h1 className="mt-0.5 font-display text-[28px] leading-tight font-bold tracking-tight text-ink">
+            {greeting(now.getHours())}, {user.displayName.split(/\s+/)[0]}.
+          </h1>
+          {fresh && (
+            <p className="mt-1.5 text-sm text-subtle">Learn the rule, drill it, then practise it on a day you can&apos;t see ahead of.</p>
+          )}
+        </header>
+
+        {suggested && (
+          <Link
+            to={`/learn/${suggested}`}
+            aria-label={`Up next: ${name(suggested)}`}
+            className="block rounded-card border border-accent/30 bg-accent/10 p-4.5 focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <span className="flex items-center justify-between">
+              <span className="text-xs font-semibold tracking-wide text-accent uppercase">{fresh ? 'Start here · Lesson 1' : 'Up next · Lesson'}</span>
+              {learning?.due.includes(suggested) && (
+                <span className="flex items-center gap-1 rounded-full bg-warn/15 px-2 py-0.5 text-[11px] font-semibold text-warn">
+                  <Clock aria-hidden className="size-3" /> Review
+                </span>
+              )}
+            </span>
+            <span className="mt-2.5 block text-[22px] font-semibold text-ink">{name(suggested)}</span>
+            {summary && <span className="mt-1.5 line-clamp-3 block text-sm text-subtle">{summary}</span>}
+            <span className="mt-4 flex h-12 items-center justify-center gap-2 rounded-xl bg-accent text-[15px] font-semibold text-accent-ink">
+              {fresh ? 'Start the first lesson' : 'Continue lesson'}
+              <ArrowRight aria-hidden className="size-4" />
+            </span>
+          </Link>
+        )}
+
+        {fresh ? (
+          <section aria-labelledby="your-path">
+            <h2 id="your-path" className="mb-2.5 text-base font-semibold text-ink">
+              Your path
+            </h2>
+            <ol className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
+              {[
+                ['Read a lesson', `0 of ${learning?.summary.concepts ?? 0} lessons`],
+                ['Pass its drill', '5 answers averaging 70% unlock the next lesson'],
+                ['Practise a replayed day', 'Plan, place, get a scorecard'],
+              ].map(([title, line], i) => (
+                <li key={title} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
+                  <span
+                    className={cx(
+                      'grid size-[30px] shrink-0 place-items-center rounded-full text-[13px] font-bold',
+                      i === 0 ? 'border-[2.5px] border-accent text-accent' : 'bg-sunken text-subtle',
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <span>
+                    <span className="block text-[15px] font-medium text-ink">{title}</span>
+                    <span className="block text-[13px] text-subtle">{line}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : (
+          <section aria-label="Progress" className="grid grid-cols-3 gap-2">
+            <Link to="/learn" className={TILE}>
+              <span className="text-[13px] text-subtle">Learn</span>
+              <span className="num mt-0.5 text-xl font-semibold text-ink">
+                {learning?.summary.complete ?? 0}
+                <span className="text-[13px] text-subtle">/{learning?.summary.concepts ?? 0}</span>
+              </span>
+              <span className="mt-2">
+                <ProgressBar
+                  value={(learning?.summary.complete ?? 0) / Math.max(1, learning?.summary.concepts ?? 0)}
+                  label={`${learning?.summary.complete ?? 0} of ${learning?.summary.concepts ?? 0} lessons complete`}
+                />
+              </span>
+            </Link>
+            <Link to="/drills" className={TILE}>
+              <span className="text-[13px] text-subtle">Drills</span>
+              <span className="num mt-0.5 text-xl font-semibold text-ink">
+                {drillsPassed}
+                <span className="text-[13px] text-subtle">/{drills.length}</span>
+              </span>
+              <span className="mt-2">
+                <ProgressBar value={drillsPassed / Math.max(1, drills.length)} label={`${drillsPassed} of ${drills.length} drills passed`} />
+              </span>
+            </Link>
+            <Link to="/practice" className={TILE}>
+              <span className="text-[13px] text-subtle">Practice</span>
+              <span className={cx('num mt-1 text-[17px] font-semibold', totalR > 0 ? 'text-up' : totalR < 0 ? 'text-down' : 'text-ink')} data-testid="total-r">
+                {formatR(totalR)}
+              </span>
+              <span className="mt-1 text-[13px] text-subtle">
+                {trades} {trades === 1 ? 'trade' : 'trades'}
+              </span>
+            </Link>
+          </section>
+        )}
+
+        {due.length > 0 && (
+          <section aria-label="Due for review">
+            <div className="mb-2.5 flex items-baseline justify-between">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+                <Clock aria-hidden className="size-4 text-warn" /> Due for review
+              </h2>
+              <Link to="/learn" className="min-h-11 content-center text-[13px] font-semibold text-accent">
+                See all {learning?.due.length}
+              </Link>
+            </div>
+            <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
+              {due.slice(0, 3).map((id) => (
+                <li key={id}>
+                  <Link to={`/learn/${id}`} className="flex min-h-14 items-center gap-3 py-2.5 pr-3.5 pl-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent">
+                    <Ring value={learning?.concepts.find((c) => c.id === id)?.recentAccuracy} size={30} label="Recent accuracy" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium text-ink">{name(id)}</span>
+                      <span className="block text-[13px] text-subtle">{topicOf(id)}</span>
+                    </span>
+                    <ChevronRight aria-hidden className="size-4 text-subtle" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <NewsToday />
+        <LatestSession adapterFactory={adapterFactory} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 py-2">
@@ -212,6 +360,10 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
     </div>
   )
 }
+
+/** A figure tile on the phone's Home (T53). */
+const TILE =
+  'flex min-w-0 flex-col rounded-[14px] border border-line bg-surface px-3.5 py-3 focus-visible:outline-2 focus-visible:outline-accent'
 
 function StepCard({
   n,
