@@ -2,6 +2,8 @@ import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LearnPage } from './LearnPage'
+import { onPhone } from '@/test/phone'
+import userEvent from '@testing-library/user-event'
 import type { ConceptProgress, Learning } from '@/lib/api/learning'
 
 const p = (id: string, topic: string, over: Partial<ConceptProgress> = {}): ConceptProgress => ({
@@ -182,5 +184,42 @@ describe('Learn, the states that could clash', () => {
     expect(tile('Market structure')).not.toHaveTextContent('Review')
     expect(tile('Swing high')).not.toHaveTextContent('Start here')
     expect(tile('Swing high')).toHaveTextContent('Next')
+  })
+})
+
+describe('Learn on a phone (T53)', () => {
+  it('a row a lesson with a circle saying where it stands; chips keep to one topic', async () => {
+    onPhone()
+    serve(
+      learning(
+        [
+          p('ICT-01', 'Structure', { open: true }),
+          p('ICT-03', 'Structure', { due: true }),
+          p('ICT-41', 'Premium & discount', { open: true, due: true, attempts: 2, recentAccuracy: 0.5, state: 'LEARNING' }),
+          p('ICT-44', 'Premium & discount', { kind: 'REFERENCE', drilled: false, state: 'UNREAD', open: true }),
+        ],
+        'ICT-01',
+      ),
+    )
+    render(
+      <MemoryRouter>
+        <LearnPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('heading', { level: 2, name: 'Structure' })).toBeInTheDocument()
+    const state = (name: string) => within(tile(name)).getByRole('img').getAttribute('aria-label')
+    expect(state('Swing high')).toBe('Open')
+    // Not a newcomer — a lesson has been tried — so the suggested one says Next, not Start here.
+    expect(tile('Swing high')).toHaveTextContent('Next')
+    expect(state('Market structure')).toBe('Locked')
+    expect(tile('Market structure')).toHaveTextContent('Unlocks after the Swing high / swing low drill')
+    // Due, but locked: no review it cannot open.
+    expect(tile('Market structure')).not.toHaveTextContent('Review')
+    expect(state('Premium')).toBe('In progress')
+    expect(tile('Premium')).toHaveTextContent('Review')
+    expect(state('Standard deviation')).toBe('Read only')
+
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Topics' })).getByRole('button', { name: /Premium/ }))
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Premium & discount'])
   })
 })

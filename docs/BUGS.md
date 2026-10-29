@@ -382,6 +382,11 @@ just its daemon — no Docker process was left, so the database and the running 
 Starting Docker Desktop again brought the daemon back within a minute and the database container with
 it, its data intact. Possibly memory pressure (the machine had little free); not investigated further.
 
+**Recurred 2026-10-29 (T53):** Docker Desktop had quit again, and the backend's restart failed on "Connection to
+localhost:5432 refused". Starting Docker Desktop brought the daemon back, but the database container stayed stopped
+this time ("Exited (0) 11 hours ago") until `docker start tradeez-postgres`. So the check after a restart is
+`docker ps` too, not only `docker version`.
+
 ---
 
 ## Known limitations

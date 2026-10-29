@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Info, X } from 'lucide-react'
 import { PriceChart } from '../PriceChart'
 import { AdapterOut, CompanionChart } from '../CompanionChart'
 import { SimulatedDataBanner } from '../SimulatedDataBanner'
@@ -13,7 +13,8 @@ import type { ChartAdapter } from '@/lib/chart/types'
 import { formatSessionTime } from '@/lib/chart/timeAxis'
 import { toggleMark } from '@/lib/drills/marks'
 import { drillMarket } from '@/lib/markets'
-import { Button, Chip, Notice, Panel } from '../ui'
+import { Button, Chip, Notice, Panel, Sheet } from '../ui'
+import { useIsPhone } from '@/hooks/useIsPhone'
 import { cx, errorClass, panelTitle } from '@/lib/styles'
 import { enter } from '@/lib/motion'
 
@@ -56,6 +57,8 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
   const [marks, setMarks] = useState<number[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const phone = useIsPhone()
+  const [ruleOpen, setRuleOpen] = useState(false)
 
   const answered = drill?.result !== undefined
   const shownMarks = answered ? (drill?.marks ?? []) : marks
@@ -123,6 +126,248 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
   const judge = drill?.mode === 'JUDGE'
   // Both are answered by what price did after the chart stopped, and show it afterwards.
   const future = predict || manage
+
+  if (phone) {
+    const chart = drill && (
+      <PriceChart
+        key={future && answered ? `${drill.id}-answered` : drill.id}
+        bars={chartBars}
+        tickSize={drill.tickSize}
+        exchangeTimezone={drill.exchangeTimezone}
+        axisTimezone="exchange"
+        rightOffset={DRILL_RIGHT_OFFSET}
+        heightClass={drill.companion ? 'h-[36svh]' : 'h-[54svh]'}
+        adapterFactory={adapterFactory}
+        overlay={(adapter) => (
+          <>
+            {drill.companion && <AdapterOut adapter={adapter} onAdapter={setLeader} />}
+            <DrillOverlay
+              adapter={adapter}
+              bars={chartBars}
+              marks={shownMarks}
+              onToggle={identify ? toggle : undefined}
+              subject={drill.subject}
+              result={drill.result}
+              question={drill.question}
+              moment={moment}
+            />
+          </>
+        )}
+      />
+    )
+    return (
+      // A drill on a phone (T53, Claude Design): the whole screen — an X to leave, the chart edge to edge, the answer in
+      // a bar at the thumb, the result in a panel over the chart's foot.
+      <section aria-label="Drill" className="flex min-h-svh flex-col pb-44">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-1 bg-canvas/95 px-1 backdrop-blur">
+          <Link to="/drills" aria-label="Exit drill" className={ICON_BUTTON}>
+            <X aria-hidden className="size-5" />
+          </Link>
+          <div className="min-w-0 flex-1 text-center">
+            <h1 className="truncate text-base font-semibold text-ink">{drill?.title ?? 'Drill'}</h1>
+            {drill && (
+              <p className="text-[13px] text-subtle">
+                <span data-testid="drill-mode">{MODE_NAMES[drill.mode]}</span> ·{' '}
+                <span data-testid="drill-chart">
+                  {drill.instrument} · {drill.timeframe}
+                </span>
+              </p>
+            )}
+          </div>
+          <button type="button" aria-label="The rule Tradeez uses" disabled={!drill} onClick={() => setRuleOpen(true)} className={ICON_BUTTON}>
+            <Info aria-hidden className="size-5" />
+          </button>
+        </header>
+
+        {!drill && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            {busy && (
+              <p role="status" className="text-sm text-subtle">
+                Finding a chart…
+              </p>
+            )}
+            {error && (
+              <>
+                <p role="alert" className={errorClass}>
+                  {error}
+                </p>
+                <Button disabled={busy} onClick={() => void start()}>
+                  Try again
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {drill && (
+          <>
+            <p className="mx-4 mt-1 mb-3 text-[15px] text-ink/85">{drill.instructions}</p>
+            <SimulatedDataBanner dataClass={drill.dataClass} />
+            {drill.fixture && (
+              <Notice role="note" data-testid="fixture-notice" className="mx-4 mb-2">
+                {drill.fixtureNotice}
+              </Notice>
+            )}
+            <div className="border-y border-line bg-surface">{chart}</div>
+            {drill.companion && (
+              <div className="border-b border-line bg-surface">
+                <CompanionChart
+                  companion={drill.companion}
+                  leader={leader}
+                  exchangeTimezone={drill.exchangeTimezone}
+                  axisTimezone="exchange"
+                  adapterFactory={adapterFactory}
+                />
+              </div>
+            )}
+            {identify && !answered && (
+              <p className="mx-4 mt-3 text-[13px] text-subtle">Tap a candle to mark it, tap again to unmark. Pinch to zoom.</p>
+            )}
+
+            <Sheet open={ruleOpen} onClose={() => setRuleOpen(false)} label="The rule Tradeez uses">
+              <h2 className="text-lg font-semibold text-ink">The rule Tradeez uses</h2>
+              <p className="mt-1 text-[13px] text-subtle" data-testid="graded">
+                {drill.graded
+                  ? future
+                    ? `Graded by what price did · ${drill.question?.version}, on ${drill.rule.version}`
+                    : `Graded against ${judge ? drill.question?.version : drill.rule.version}`
+                  : predict
+                    ? `${drill.question?.version}, on ${drill.rule.version}`
+                    : drill.rule.version}
+              </p>
+              <div className="mt-3 text-sm text-ink/85">
+                <RuleText drill={drill} />
+              </div>
+            </Sheet>
+
+            {!answered && (
+              <div aria-label="Answer" role="group" className={DOCK}>
+                {error && (
+                  <p role="alert" className={cx(errorClass, 'mb-2')}>
+                    {error}
+                  </p>
+                )}
+                {identify && (
+                  <div className="flex items-center gap-2">
+                    <span data-testid="mark-count" className="flex-1 text-sm text-subtle">
+                      <span className="num block text-lg font-semibold text-ink">{marks.length}</span>
+                      marked
+                    </span>
+                    <button type="button" className={cx(DOCK_BUTTON, 'px-4')} disabled={busy || marks.length === 0} onClick={() => setMarks([])}>
+                      Clear
+                    </button>
+                    <button type="button" className={cx(PRIMARY_BUTTON, 'px-5')} disabled={busy} onClick={() => void check()}>
+                      Check answer
+                    </button>
+                  </div>
+                )}
+                {predict && drill.question && (
+                  <>
+                    <p className="mb-2.5 text-[13px] text-subtle">Which does price reach first?</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {drill.question.targets.map((target) => (
+                        <button
+                          key={target.value}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void choose(target.value)}
+                          className={cx(DOCK_BASE, 'h-auto min-h-20 flex-col items-start gap-0.5 px-3.5 py-3 text-left', sideTone(target.label))}
+                        >
+                          <span className="text-[15px] font-semibold">{target.label}</span>
+                          <span className="text-xs font-normal opacity-80" data-testid="target-facts">
+                            {facts(target)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {manage && (
+                  <>
+                    <p className="mb-2.5 text-[13px] text-subtle">The trade is open and in profit. What do you do with it?</p>
+                    <div className="flex flex-col gap-2">
+                      {drill.options?.map((option) => {
+                        const [head, ...rest] = option.label.split(' — ')
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void choose(option.value)}
+                            className={cx(DOCK_BASE, QUIET, 'h-14 w-full justify-between px-4 text-left')}
+                          >
+                            <span>{head}</span>
+                            {rest.length > 0 && <span className="text-xs font-normal text-subtle">{rest.join(' — ')}</span>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+                {!identify && !future && (
+                  <>
+                    {!judge && (
+                      <p className="mb-2.5 text-[13px] text-subtle">
+                        The marked {drill.subject?.side === 'HIGH' ? 'high' : 'low'} is…
+                      </p>
+                    )}
+                    <div className={cx('grid gap-2', (drill.options?.length ?? 0) > 2 ? 'grid-cols-3' : 'grid-cols-2')}>
+                      {drill.options?.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void choose(option.value)}
+                          className={cx(DOCK_BUTTON, 'h-16 px-2 text-center whitespace-normal')}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {drill.result && (
+              <section
+                aria-label="Result"
+                className="fixed inset-x-0 bottom-0 z-30 max-h-[58svh] overflow-y-auto rounded-t-3xl border-t border-line bg-surface px-4 pt-2 shadow-[0_-16px_48px_rgb(0_0_0/0.55)]"
+              >
+                <div aria-hidden className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-subtle/35" />
+                <div className="text-sm">
+                  {identify ? (
+                    <SpotResult drill={drill} result={drill.result} />
+                  ) : predict ? (
+                    <PredictResult drill={drill} result={drill.result} />
+                  ) : manage ? (
+                    <ManageResult drill={drill} result={drill.result} />
+                  ) : judge ? (
+                    <JudgeResult drill={drill} result={drill.result} />
+                  ) : (
+                    <NameResult drill={drill} result={drill.result} />
+                  )}
+                </div>
+                {error && (
+                  <p role="alert" className={cx(errorClass, 'mt-2')}>
+                    {error}
+                  </p>
+                )}
+                <div className="sticky bottom-0 -mx-4 mt-4 flex gap-2 bg-surface px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                  <Link to="/drills" className={cx(DOCK_BUTTON, 'flex-1')}>
+                    All drills
+                  </Link>
+                  <button type="button" className={cx(PRIMARY_BUTTON, 'flex-[1.4]')} disabled={busy} onClick={() => void start()}>
+                    {busy ? 'Finding a chart…' : 'Next drill'}
+                  </button>
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </section>
+    )
+  }
 
   return (
     <section aria-label="Drill" className="mx-auto flex max-w-[1600px] flex-col gap-4">
@@ -219,12 +464,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
                 <span>{predict ? `${drill.question?.version}, on ${drill.rule.version}` : drill.rule.version}</span>
               )}
             </summary>
-            {(predict || judge) && <p className="mt-2 max-w-4xl">{drill.question?.definition}</p>}
-            <p className="mt-2 max-w-4xl">{drill.rule.definition}</p>
-            <p className="mt-2 text-subtle">
-              {drill.rule.methodologySource}. Reproducible under this rule — not proof that a pattern
-              matters, or that the method it comes from is right.
-            </p>
+            <RuleText drill={drill} />
           </details>
 
           {!answered && identify && (
@@ -336,6 +576,41 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
         </>
       )}
     </section>
+  )
+}
+
+/** The phone's controls (T53): 44px icon buttons in the bar, 48px buttons in the answer bar at the thumb. */
+const ICON_BUTTON =
+  'grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40'
+const DOCK =
+  'fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/95 px-4 pt-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur'
+// Two utilities for one property are resolved by the stylesheet's order, not the class list's: a button's colours are one
+// complete set, either the quiet one or the primary — never one laid over the other.
+const DOCK_BASE =
+  'inline-flex h-12 cursor-pointer items-center gap-2 rounded-xl border text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40'
+const QUIET = 'border-line bg-raised text-ink'
+const DOCK_BUTTON = cx(DOCK_BASE, QUIET, 'justify-center')
+const PRIMARY_BUTTON = cx(DOCK_BASE, 'justify-center border-transparent bg-accent text-accent-ink')
+
+/** A prediction's target in the colour of its side: buy-side above in green, sell-side below in red. */
+function sideTone(label: string): string {
+  if (/buy|above|high/i.test(label)) return 'border-up/40 bg-up/10 text-up'
+  if (/sell|below|low/i.test(label)) return 'border-down/40 bg-down/10 text-down'
+  return QUIET
+}
+
+/** The rule behind a drill, in words, and what it is not (DEC-026). */
+function RuleText({ drill }: { drill: DrillResponse }) {
+  const asks = drill.mode === 'PREDICT' || drill.mode === 'JUDGE'
+  return (
+    <>
+      {asks && <p className="mt-2 max-w-4xl">{drill.question?.definition}</p>}
+      <p className="mt-2 max-w-4xl">{drill.rule.definition}</p>
+      <p className="mt-2 text-subtle">
+        {drill.rule.methodologySource}. Reproducible under this rule — not proof that a pattern matters, or that the method
+        it comes from is right.
+      </p>
+    </>
   )
 }
 

@@ -2134,6 +2134,20 @@ user.
 on the built app: they were over 0.23 s after appearing and the landing hero ran through the load's stalls. Now one
 timing, `lib/motion.ts`: a beat after the paint, half a second, a visible rise. 46–71 frames each. Frontend 458 → 460.
 
+**The phone redesign** (`feat/phone-redesign`, T53). Fabio's Claude Design canvas (30 phone screens, read from the
+artifact with its stylesheet) built below 768 px in six phases, each committed on its own: the frame (a tab bar at the
+thumb, a bar per page, the account and the layers as sheets — `useIsPhone` decides it in code, so a page holds one
+frame, and `Sheet` joined the kit); drills (kind chips, rows, a full-screen drill with its answer at the thumb and the
+result over the chart's foot, the sums' own number pad); the replay (the chart first, `PhonePlan` with − / + for stop,
+target and contracts, the trade in a strip with Close, the scorecard and the session's end as screens — "what to take
+from it" is only the scorecards' own lines); Practice (the journal as rows with filters, counting every trade and
+loading further back; statistics as a screen with the expectancy's range drawn); Learn (topic chips, a status circle a
+lesson, the drill in a bar at the thumb, the locked lesson); and the rest (Home, the Chart tab, sign in and sign up
+with show-password). Every phase checked with touch at 390 and its mutants run (19, all caught); the desktop checked
+unchanged. On the way: a test helper that runs a test on a phone (`test/phone.ts`); the journal header had counted the
+50 trades loaded rather than all of them; a locked lesson had offered a review it could not open; ENV-001 recurred
+(the database container stayed down after Docker came back). Frontend 460 → 474.
+
 ---
 
 ## For the presentation: the disclaimer slide

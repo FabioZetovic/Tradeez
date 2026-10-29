@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HomePage } from './HomePage'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
+import { onPhone } from '@/test/phone'
 import { getCurriculum, type Curriculum } from '@/lib/api/concepts'
 import { listDrillKinds, type DrillKindView } from '@/lib/api/drills'
 import { getLearning, type Learning } from '@/lib/api/learning'
@@ -215,5 +216,24 @@ describe('Home (T39)', () => {
     vi.mocked(getNews).mockRejectedValue(new Error('503'))
     renderHome()
     expect(await within(card('News today')).findByText('The calendar could not be loaded.')).toBeInTheDocument()
+  })
+})
+
+describe('Home on a phone (T53)', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('the next lesson first, three figures, what is due, the news and the market', async () => {
+    onPhone()
+    renderHome()
+    const next = await screen.findByRole('link', { name: /^Up next: / })
+    await waitFor(() => expect(next).toHaveAccessibleName('Up next: Fair value gap'))
+    expect(next).toHaveAttribute('href', '/learn/ICT-20')
+    expect(next).toHaveTextContent('Continue lesson')
+    const figures = await screen.findByRole('region', { name: 'Progress' })
+    expect(within(figures).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/learn', '/drills', '/practice'])
+    expect(await screen.findByRole('progressbar', { name: '18 of 72 lessons complete' })).toBeInTheDocument()
+    const due = screen.getByRole('region', { name: 'Due for review' })
+    expect(within(due).getAllByRole('link').map((r) => r.getAttribute('href'))).toEqual(['/learn', '/learn/ICT-01', '/learn/ICT-20'])
+    expect(await screen.findByRole('region', { name: 'News today' })).toBeInTheDocument()
   })
 })

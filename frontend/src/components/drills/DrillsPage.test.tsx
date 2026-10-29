@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DrillsPage } from './DrillsPage'
 import type { DrillKindView, RiskKindView } from '@/lib/api/drills'
 import type { ConceptProgress } from '@/lib/api/learning'
+import { onPhone } from '@/test/phone'
 
 const kind = (id: string, mode: DrillKindView['mode'], title: string, conceptId: string): DrillKindView => ({
   kind: id,
@@ -195,5 +196,29 @@ describe('Drills, the cards (T43)', () => {
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the list of drills')
     expect(screen.queryByRole('region', { name: 'Risk' })).toBeNull()
+  })
+})
+
+describe('Drills on a phone (T53)', () => {
+  it('a row per drill, filtered by kind with chips; the sums under Risk & management', async () => {
+    onPhone()
+    serve(ALL)
+    renderPage()
+    const gaps = await screen.findByRole('region', { name: 'Gaps & imbalances' })
+    expect(within(gaps).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/drills/FVG_IDENTIFICATION', '/drills/VI_IDENTIFICATION'])
+    const chips = screen.getByRole('navigation', { name: 'Drill kind' })
+    expect(within(chips).getAllByRole('button').map((b) => b.textContent)).toEqual(['All 9', 'Spot', 'Name', 'Predict', 'Judge', 'Manage', 'Sums'])
+
+    await userEvent.click(within(chips).getByRole('button', { name: 'Sums' }))
+    expect(within(chips).getByRole('button', { name: 'Sums' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Risk & management'])
+    expect(screen.getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
+      '/drills/risk/position-size',
+      '/drills/risk/losing-streak',
+      '/drills/risk/recovery',
+    ])
+
+    await userEvent.click(within(chips).getByRole('button', { name: 'Name' }))
+    expect(screen.getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/drills/BOS_CHOCH_CLASSIFICATION'])
   })
 })

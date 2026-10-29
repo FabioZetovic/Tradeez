@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LayerChips, LayersMenu } from './LayersMenu'
 import { useChartLayers } from '@/hooks/useChartLayers'
+import { onPhone } from '@/test/phone'
 import { getCurriculum, type Curriculum } from '@/lib/api/concepts'
 
 vi.mock('@/lib/api/concepts', () => ({ getCurriculum: vi.fn() }))
@@ -147,5 +148,20 @@ describe('the layers menu (T38)', () => {
     expect(screen.getByRole('region', { name: 'Time & sessions' })).toHaveTextContent('intraday charts, up to 4h')
     await userEvent.click(await screen.findByRole('switch', { name: 'FVG' }))
     expect(chips()).toEqual(['FVG'])
+  })
+})
+
+describe('the layers on a phone (T53)', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('slide up as a sheet with Done at its foot', async () => {
+    onPhone()
+    render(<Harness />)
+    await userEvent.click(screen.getByRole('button', { name: /Layers/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'Layers' })
+    expect(sheet).toHaveAttribute('aria-modal', 'true')
+    await within(sheet).findByRole('switch', { name: 'BSL/SSL' })
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Layers' })).toBeNull())
   })
 })

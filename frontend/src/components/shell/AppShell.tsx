@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { Menu, TrendingUp, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, CalendarDays, ChartCandlestick, CirclePlay, House, Target, TrendingUp } from 'lucide-react'
+import { useIsPhone } from '@/hooks/useIsPhone'
 import { DISCLAIMER, DISCLAIMER_SHORT } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
 import { AccountMenu } from './AccountMenu'
@@ -42,8 +43,14 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
   const section = '/' + (pathname.split('/')[1] ?? '')
   const full = fills(pathname)
   const wide = full || wides(pathname)
-  // Phones (T46): the sections fold into a menu under the header.
-  const [menu, setMenu] = useState(false)
+  const phone = useIsPhone()
+  if (phone) {
+    return (
+      <PhoneShell user={user} onChangePassword={onChangePassword} onLogout={onLogout} onLogoutEverywhere={onLogoutEverywhere}>
+        {children}
+      </PhoneShell>
+    )
+  }
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -54,7 +61,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
           <Link to="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
             <Logo />
           </Link>
-          <nav aria-label="Sections" className="hidden gap-1 md:flex">
+          <nav aria-label="Sections" className="flex gap-1">
             {NAV.map(({ to, label }) => (
               <NavLink
                 key={to}
@@ -85,16 +92,6 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1">
-            <button
-              type="button"
-              aria-expanded={menu}
-              aria-controls="section-menu"
-              onClick={() => setMenu((m) => !m)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink hover:bg-sunken focus-visible:outline-2 focus-visible:outline-accent md:hidden pointer-coarse:min-h-11"
-            >
-              {menu ? <X aria-hidden className="size-4" /> : <Menu aria-hidden className="size-4" />}
-              Menu
-            </button>
             <AccountMenu
               user={user}
               onChangePassword={onChangePassword}
@@ -103,37 +100,6 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
             />
           </div>
         </div>
-        <AnimatePresence initial={false}>
-          {menu && (
-            <motion.nav
-              id="section-menu"
-              aria-label="Menu"
-              className="overflow-hidden border-t border-line md:hidden"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              <div className="flex flex-col gap-1 px-4 py-3">
-                {NAV.map(({ to, label }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    onClick={() => setMenu(false)}
-                    className={({ isActive }) =>
-                      cx(
-                        'rounded-lg px-3 py-2.5 text-base font-medium',
-                        isActive ? 'bg-sunken text-ink' : 'text-subtle hover:text-ink',
-                      )
-                    }
-                  >
-                    {label}
-                  </NavLink>
-                ))}
-              </div>
-            </motion.nav>
-          )}
-        </AnimatePresence>
       </header>
 
       {/* BUG-032: w-full and min-w-0 give the page a definite width, so the chart — which holds the
@@ -155,6 +121,114 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
 
       <Footer />
     </div>
+  )
+}
+
+/** The phone's sections, for the tab bar (T53): News moved behind the calendar on Home. */
+const TABS = [
+  { to: '/', label: 'Home', icon: House },
+  { to: '/learn', label: 'Learn', icon: BookOpen },
+  { to: '/drills', label: 'Drills', icon: Target },
+  { to: '/practice', label: 'Practice', icon: CirclePlay },
+  { to: '/chart', label: 'Chart', icon: ChartCandlestick },
+] as const
+
+/** A drill, a practice session or a lesson fills the phone: no tab bar, its own bar to leave by. */
+const immersive = (pathname: string) => /^\/(drills|practice|learn)\/./.test(pathname)
+
+/** Pages reached from Home or the account sheet, with a bar back. */
+const SUBPAGES: Record<string, string> = { '/news': 'Economic calendar', '/help': 'How it works' }
+
+/** The sections' own titles in the phone's top bar. */
+const TITLES: Record<string, string> = { '/learn': 'Learn', '/drills': 'Drills', '/practice': 'Practice' }
+
+/**
+ * The frame on a phone (T53, Claude Design): a top bar per page, the sections in a tab bar at the thumb, the account in
+ * a sheet. A drill, a session or a lesson takes the whole screen and brings its own bar; the Chart tab its own too.
+ */
+function PhoneShell({ user, onChangePassword, onLogout, onLogoutEverywhere, children }: AppShellProps) {
+  const { pathname } = useLocation()
+  const section = '/' + (pathname.split('/')[1] ?? '')
+  const full = immersive(pathname)
+  const sub = SUBPAGES[pathname]
+  const account = (
+    <AccountMenu user={user} onChangePassword={onChangePassword} onLogout={onLogout} onLogoutEverywhere={onLogoutEverywhere} />
+  )
+
+  return (
+    <div className={cx('flex min-h-svh flex-col', !full && 'pb-[calc(4.25rem+env(safe-area-inset-bottom))]')}>
+      {!full && pathname !== '/chart' && (
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 bg-canvas/90 pr-2 pl-4 backdrop-blur">
+          {sub ? (
+            <>
+              <Link
+                to="/"
+                aria-label="Back to Home"
+                className="-ml-3 grid size-11 place-items-center rounded-xl text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <ArrowLeft aria-hidden className="size-5" />
+              </Link>
+              <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink">{sub}</p>
+            </>
+          ) : pathname === '/' ? (
+            <>
+              <Link to="/" className="flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-accent">
+                <Logo />
+              </Link>
+              <Link
+                to="/news"
+                aria-label="Economic calendar"
+                className="grid size-11 place-items-center rounded-xl text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <CalendarDays aria-hidden className="size-[22px]" />
+              </Link>
+            </>
+          ) : (
+            <p aria-hidden className="min-w-0 flex-1 truncate font-display text-[28px] font-bold tracking-tight text-ink">
+              {TITLES[section] ?? ''}
+            </p>
+          )}
+          {account}
+        </header>
+      )}
+
+      <main className={cx('w-full min-w-0 flex-1', full || pathname === '/chart' ? 'p-0' : 'px-4 pt-2 pb-6')}>
+        <motion.div key={section} {...enter(0, { rise: 8 })}>
+          {children}
+        </motion.div>
+      </main>
+
+      <Footer />
+      {!full && <TabBar />}
+    </div>
+  )
+}
+
+/** The five sections at the thumb (T53): the current one in the accent. */
+function TabBar() {
+  return (
+    <nav
+      aria-label="Sections"
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-canvas/95 px-1.5 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] backdrop-blur"
+    >
+      {TABS.map(({ to, label, icon: Icon }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={to === '/'}
+          className={({ isActive }) =>
+            cx(
+              'flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium',
+              'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+              isActive ? 'text-ink [&_svg]:text-accent' : 'text-subtle',
+            )
+          }
+        >
+          <Icon aria-hidden className="size-[22px]" strokeWidth={1.8} />
+          {label}
+        </NavLink>
+      ))}
+    </nav>
   )
 }
 

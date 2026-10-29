@@ -39,6 +39,8 @@ import type { SnapMode } from '@/lib/drawing/snap'
 import type { DrawingKind } from '@/lib/drawing/types'
 import { Button, Notice, Segmented } from '../ui'
 import { cx, errorClass } from '@/lib/styles'
+import { useIsPhone } from '@/hooks/useIsPhone'
+import { PencilLine } from 'lucide-react'
 
 /** Why candles are missing from the window, and what brings them back (BUG-085, BUG-086). */
 function hiddenNotice(hidden: HiddenStretch[]): string {
@@ -241,13 +243,15 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
   // The zone is named for the candles on screen — a January chart is EST, whenever it is viewed — and,
   // before any have loaded, for the moment the chart opened.
   const [openedAt] = useState(() => new Date())
+  const phone = useIsPhone()
+  const [toolsShown, setToolsShown] = useState(false)
   const zoneAt = lastBar ? new Date(lastBar.time * 1000) : openedAt
   const clockAvailable = drawsClock(timeframe)
   const ready = instrument !== null && series !== null && error === null
 
   return (
-    <section aria-label="Chart" className="flex flex-col gap-3 lg:h-[calc(100svh-8.25rem)] lg:min-h-[32rem] lg:flex-row">
-      {ready && (
+    <section aria-label="Chart" className="flex flex-col gap-3 lg:h-[calc(100svh-8.25rem)] lg:min-h-[32rem] lg:flex-row max-md:gap-0">
+      {ready && (!phone || toolsShown) && (
         <DrawingToolbar
           activeTool={activeTool}
           onSelectTool={setActiveTool}
@@ -269,7 +273,12 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
       )}
 
       {/* Stacked under the drawing bar on a phone or tablet (T46), the chart keeps most of the screen. */}
-      <div className="flex h-[75svh] min-w-0 flex-col lg:flex-1 gap-3 rounded-card border border-line bg-surface p-3 shadow-panel lg:h-auto">
+      <div
+        className={cx(
+          'flex min-w-0 flex-col gap-3 lg:flex-1',
+          phone ? 'h-[calc(100svh-4.25rem-env(safe-area-inset-bottom))] px-3 pt-2 pb-2' : 'h-[75svh] rounded-card border border-line bg-surface p-3 shadow-panel lg:h-auto',
+        )}
+      >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-baseline gap-3 pr-1 max-md:w-full">
             <h1 className="sr-only">{SYMBOL}</h1>
@@ -349,7 +358,22 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
           )}
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            {phone && (
+              // A phone (T53): the drawing tools behind a button, so the chart keeps the screen.
+              <button
+                type="button"
+                aria-label="Drawing tools"
+                aria-pressed={toolsShown}
+                onClick={() => setToolsShown((t) => !t)}
+                className={cx(
+                  'grid size-11 cursor-pointer place-items-center rounded-xl text-ink focus-visible:outline-2 focus-visible:outline-accent',
+                  toolsShown && 'bg-accent/15 text-accent',
+                )}
+              >
+                <PencilLine aria-hidden className="size-5" />
+              </button>
+            )}
             <LayersMenu layers={layers} clockAvailable={clockAvailable} />
           </div>
         </div>

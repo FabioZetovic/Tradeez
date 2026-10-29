@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router'
+import { ArrowLeft } from 'lucide-react'
+import { useIsPhone } from '@/hooks/useIsPhone'
 import { MotionConfig, motion } from 'motion/react'
 import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
@@ -121,6 +123,30 @@ function RiskDrill() {
 
 /** Sign-in, sign-up and loading: Lovable's centred card under the logo, the disclaimer below (T36); it rises in. */
 function AuthPage({ children }: { children: ReactNode }) {
+  const phone = useIsPhone()
+  if (phone) {
+    // On a phone (T53, Claude Design): a bar back to the landing page, the form on the page, the disclaimer at the foot.
+    return (
+      <div className="flex min-h-svh flex-col px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        <div className="-ml-4 flex h-14 items-center">
+          <Link
+            to="/"
+            aria-label="Back"
+            className="grid size-11 place-items-center rounded-xl text-ink focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <ArrowLeft aria-hidden className="size-5" />
+          </Link>
+        </div>
+        <motion.div className="flex flex-1 flex-col" {...enter()}>
+          <div className="mb-6">
+            <Logo large />
+          </div>
+          {children}
+          <p className="mt-auto pt-8 text-center text-xs leading-relaxed text-subtle">{DISCLAIMER}</p>
+        </motion.div>
+      </div>
+    )
+  }
   return (
     <div className="flex min-h-svh flex-col items-center justify-center px-4 py-12">
       <motion.div
