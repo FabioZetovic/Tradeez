@@ -9,6 +9,7 @@ import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -99,6 +100,11 @@ public class SecurityConfig {
 				} else {
 					auth.requestMatchers(API_DOCS).permitAll();
 				}
+				auth.requestMatchers("/api/**", "/actuator/**").authenticated();
+				// T31 (DEC-084): the page itself — index.html, its assets and its routes (SpaConfig) — is public; what
+				// it shows still comes from the API above, which is not.
+				auth.requestMatchers(HttpMethod.GET, "/**").permitAll();
+				auth.requestMatchers(HttpMethod.HEAD, "/**").permitAll();
 				auth.anyRequest().authenticated();
 			})
 			// Return 401 rather than redirecting to a login page; this backend serves an SPA.

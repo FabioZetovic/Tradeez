@@ -19,8 +19,8 @@
 
 ### BUG-073 🟠 Deployed on two sites, the page could not send the CSRF token, and Safari would drop the session
 
-**Status:** reasoned (session 017's security pass, 2026-10-17) — not deployed, so not reproduced. **Deferred by
-Fabio** with all hosting until the app is finished (2026-10-17)
+**Status:** fixed on `feat/deploy` (2026-10-29, DEC-084) — reasoned in session 017's security pass; seen for real
+when Fabio deployed the page alone to Vercel ("its not communicating with server now")
 **Affects:** the planned deployment (DEC-002: the SPA on Vercel, the API on its own host); `client.ts`,
 `SecurityConfig`, `CookieService`
 
@@ -37,6 +37,10 @@ by default and Chrome is restricting. Nothing in the code is wrong for one site;
 suffices and CORS is not needed; or (b) sibling subdomains of one domain (`app.` and `api.`), with the
 cookies' domain set to the parent. (a) is the smaller change and the one recommended. Left open: it is
 a hosting decision, not a code fix.
+
+**Fixed** by a third way, stronger than (a): the backend serves the page itself (DEC-084), so there is one site and
+nothing to proxy. Checked in the built image at http://localhost:8090 with `COOKIES_SECURE=true`: register 201, a
+signed-in read 200, the CSRF cookie visible to the page, sign-out 204, then 401. `SpaConfigTest` (4).
 
 ---
 

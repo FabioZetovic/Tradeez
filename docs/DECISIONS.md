@@ -319,6 +319,23 @@ drill and layer, Fabio chose the first ("1.").
 
 **Reconsider if** another market is added — its minimum is measured the same way first.
 
+**DEC-084 — One server for the page and the API, as one Docker image** · `IMPLEMENTED` · Fabio + Claude, 2026-10-29
+(T31; supersedes DEC-002's split; fixes BUG-073)
+
+Fabio put the frontend on Vercel for a beta and it could not reach a server: there was none. Offered one server or a
+split, he chose one server, host-neutral ("i will buy a domain later i dont want vercel code left there").
+
+- The backend serves the built page from `classpath:/static/` (`SpaConfig`): a file when there is one, `index.html`
+  for every other path outside `/api` and `/actuator`, so a link or a refresh on `/learn/ICT-20` works. Built assets
+  are cached a year (their names carry their hash), the page itself never.
+- Reading the page (GET, HEAD) is public; the API stays signed-in only, writes still need the CSRF token.
+- One origin, so the session and CSRF cookies are first-party and no CORS is needed: BUG-073 cannot happen.
+- `Dockerfile` at the root: Node builds the page, Maven the jar with the page inside, a JRE runs it as a non-root user.
+  No host's own files in the repo; any host that runs an image and gives it PostgreSQL will do, and the domain points
+  at it later.
+
+**Reconsider if** the page needs a CDN in front of it — the image can still sit behind one unchanged.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and
