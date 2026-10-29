@@ -2148,6 +2148,9 @@ unchanged. On the way: a test helper that runs a test on a phone (`test/phone.ts
 50 trades loaded rather than all of them; a locked lesson had offered a review it could not open; ENV-001 recurred
 (the database container stayed down after Docker came back). Frontend 460 → 474.
 
+**Merged.** Fabio: "u can merge it". After a fresh-clone check of `feat/phone-redesign` (474 tests, the build, 0
+vulnerabilities, the backend packaged): `feat/mobile` (1aedf3b) and `feat/phone-redesign` (5415758) into master, `--no-ff`.
+
 ---
 
 ## For the presentation: the disclaimer slide

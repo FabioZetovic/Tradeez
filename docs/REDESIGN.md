@@ -66,7 +66,7 @@
 | T49 | AI chart assistant | everything | ⏸ | | paused 2026-10-27 by Fabio; needs his budget decision |
 | T50 | Design clean-up: off the template look | — | 🟢 first pass built 2026-10-28, waiting for "merge"; D-6 and D-10 wait for Fabio | `feat/motion` (D-1), `fix/t50-cleanup` | Fabio's critique request: D-1 … D-12 in §6 with BUG-101 … BUG-110; D-6 and D-10 need his yes. Screenshots docs/redesign/critique/ |
 | T51 | The logo and the name | Fabio's name and domain | ⏸ | | D-12; Fabio: "Logo i will fix later when i come up with an actual name of the app" |
-| T53 | The phone redesign from Claude Design | — | 🟢 built 2026-10-29, waiting for "merge" | `feat/phone-redesign` | Fabio's Claude Design canvas, 30 phone screens; six phases in §6 T53 |
+| T53 | The phone redesign from Claude Design | — | ✅ merged 2026-10-29 | `feat/phone-redesign` (master 5415758) | Fabio's Claude Design canvas, 30 phone screens; six phases in §6 T53 |
 | T54 | Buttons with more than one shape | Fabio | ⏸ | | "all buttons look the same … we will change that later" |
 | T52 | Mobile pass | — | 🟢 built 2026-10-28, waiting for "merge" | `feat/mobile` | Fabio: "lets focus on mobile compatibility now". An audit of every screen at 390, 360 and 768 with touch (overflow, targets, text, real taps); BUG-111 … BUG-116 fixed. Screenshots docs/redesign/after/t52/ |
 
