@@ -46,11 +46,12 @@ const BUTTON_ACTIVE: Record<ButtonVariant, string> = {
   link: BUTTON_VARIANTS.link,
 }
 
+// On a touch screen every button is at least 44px tall (BUG-115); the mouse keeps the compact sizes.
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-xs',
-  md: 'h-9 px-4 text-sm',
+  sm: 'h-8 px-3 text-xs pointer-coarse:h-11',
+  md: 'h-9 px-4 text-sm pointer-coarse:h-11',
   lg: 'h-11 px-5 text-sm',
-  icon: 'size-8 text-base leading-none',
+  icon: 'size-8 text-base leading-none pointer-coarse:size-11',
 }
 
 /** The focus ring every control shares: the accent, outside the control, keyboard only. */
@@ -104,7 +105,8 @@ export function Segmented<T extends string>({
   // One highlight per group: two groups on a screen must not trade theirs.
   const highlight = useId()
   return (
-    <div role="group" aria-label={label} className="inline-flex rounded-lg bg-sunken p-0.5">
+    // A group wider than its row (eight timeframes at touch size on a 360px phone) scrolls inside itself (BUG-115).
+    <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-lg bg-sunken p-0.5 [scrollbar-width:none]">
       {options.map((option) => (
         <button
           key={option}
@@ -113,7 +115,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(option)}
           className={cx(
             // 32px to click, 44px to touch (BUG-108).
-            'relative h-8 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors pointer-coarse:h-11',
+            'relative h-8 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors pointer-coarse:h-11 pointer-coarse:min-w-11',
             FOCUS_RING,
             option === value ? 'text-accent-ink' : 'text-subtle hover:text-ink',
           )}
@@ -367,7 +369,7 @@ export function StatTile({
         {label}
         <ChevronDown aria-hidden className={cx('size-4 transition-transform duration-200', open && 'rotate-180')} />
       </span>
-      <span className={cx('num mt-3 text-3xl font-semibold', TILE_TONES[tone])}>{value}</span>
+      <span className={cx('num mt-3 text-2xl font-semibold sm:text-3xl', TILE_TONES[tone])}>{value}</span>
       <AnimatePresence initial={false}>
         {open && (
           <motion.span

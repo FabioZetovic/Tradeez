@@ -197,6 +197,8 @@ describe('Home (T39)', () => {
     renderHome()
     const card = await screen.findByRole('region', { name: 'News today' })
     await waitFor(() => expect(within(card).getAllByRole('listitem')).toHaveLength(2))
+    // A grid item shrinks only with min-w-0: without it a long title pushed a phone's page sideways (BUG-112).
+    expect(card.className.split(' ')).toContain('min-w-0')
     expect(within(card).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'Today 08:30CPI title',
       'Tomorrow 14:00FOMC title',

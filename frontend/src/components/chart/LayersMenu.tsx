@@ -37,7 +37,7 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cx(
-          'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-all',
+          'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-all pointer-coarse:h-11',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
           open ? 'bg-accent text-accent-ink' : 'bg-sunken text-ink hover:bg-raised',
         )}
@@ -67,7 +67,7 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
           <button
             type="button"
             onClick={() => layers.setOnly([])}
-            className="cursor-pointer text-xs text-subtle underline-offset-2 hover:text-ink hover:underline"
+            className="tap cursor-pointer text-xs text-subtle underline-offset-2 hover:text-ink hover:underline"
           >
             Clear all
           </button>
@@ -93,7 +93,7 @@ export function LayersMenu({ layers, clockAvailable }: LayersProps) {
                 key={preset.name}
                 type="button"
                 onClick={() => layers.setOnly(preset.layers)}
-                className="cursor-pointer rounded-full border border-line px-2.5 py-1 text-xs text-subtle transition-colors hover:border-accent/60 hover:text-ink"
+                className="cursor-pointer rounded-full border border-line px-2.5 py-1 text-xs text-subtle transition-colors hover:border-accent/60 hover:text-ink pointer-coarse:py-2.5"
               >
                 {preset.name}
               </button>
@@ -140,7 +140,18 @@ function LayerRow({
 }) {
   const nameId = useId()
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-sunken/60">
+    // The whole row toggles the layer (BUG-115): on a phone the switch alone is a 36×20 target. The switch stays the
+    // control a keyboard and a screen reader use; a press on it is its own, not the row's.
+    <div
+      className={cx(
+        'flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-sunken/60 pointer-coarse:min-h-11',
+        available && 'cursor-pointer',
+      )}
+      data-testid="layer-row"
+      onClick={(event) => {
+        if (available && !(event.target as HTMLElement).closest('[role="switch"]')) onToggle()
+      }}
+    >
       <span id={nameId} title={layer.title} className={cx('text-sm', available ? 'text-ink' : 'text-subtle')}>
         {layer.label}
         {!available && <span className="ml-2 text-xs">intraday charts, up to 4h</span>}
@@ -170,7 +181,7 @@ export function LayerChips({ layers, clockAvailable }: LayersProps) {
             type="button"
             aria-label={`Remove ${layer.label}`}
             onClick={() => layers.toggle(layer.id)}
-            className="grid size-4 cursor-pointer place-items-center rounded-full hover:bg-accent/25"
+            className="tap grid size-4 cursor-pointer place-items-center rounded-full hover:bg-accent/25"
           >
             <X aria-hidden className="size-3" />
           </button>

@@ -104,14 +104,16 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, 
     const frame = area?.parentElement
     if (!area || !frame || result || !onToggle) return
 
+    // A press and its release, not a click (BUG-111): on a touch screen the chart library takes the tap for its own
+    // panning and no click follows, so a finger could never mark a candle. A release far from its press was a drag.
     let down: { x: number; y: number } | null = null
     const onDown = (event: PointerEvent) => {
-      down = { x: event.clientX, y: event.clientY }
+      down = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
     }
-    const onClick = (event: MouseEvent) => {
+    const onUp = (event: PointerEvent) => {
       const start = down
       down = null
-      if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > DRAG_TOLERANCE_PX) {
+      if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > DRAG_TOLERANCE_PX) {
         return
       }
       const projection = adapter?.getProjection()
@@ -122,10 +124,10 @@ export function DrillOverlay({ adapter, bars, marks, onToggle, subject, result, 
     }
 
     frame.addEventListener('pointerdown', onDown)
-    frame.addEventListener('click', onClick)
+    frame.addEventListener('pointerup', onUp)
     return () => {
       frame.removeEventListener('pointerdown', onDown)
-      frame.removeEventListener('click', onClick)
+      frame.removeEventListener('pointerup', onUp)
     }
   }, [adapter, bars, onToggle, result])
 

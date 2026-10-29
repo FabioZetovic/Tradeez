@@ -65,6 +65,17 @@ describe('the layers menu (T38)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
+  it('toggles a layer from anywhere on its row, and once — not twice — from its switch (BUG-115)', async () => {
+    render(<Harness />)
+    const menu = await openMenu()
+    await within(menu).findByRole('switch', { name: 'BSL/SSL' })
+    expect(checked('BSL/SSL')).toBe('false')
+    await userEvent.click(within(menu).getByText('BSL/SSL'))
+    expect(checked('BSL/SSL')).toBe('true')
+    await userEvent.click(screen.getByRole('switch', { name: 'BSL/SSL' }))
+    expect(checked('BSL/SSL')).toBe('false')
+  })
+
   it("groups the clock's parts and the rules; SMT with them on the Chart tab, which shows the other market (T47)", async () => {
     render(<Harness />)
     const menu = await openMenu()

@@ -15,6 +15,7 @@ import { toggleMark } from '@/lib/drills/marks'
 import { drillMarket } from '@/lib/markets'
 import { Button, Chip, Notice, Panel } from '../ui'
 import { cx, errorClass, panelTitle } from '@/lib/styles'
+import { enter } from '@/lib/motion'
 
 /** The answer under the chart; on a phone (T46) held at the screen's foot, so it stays in reach as you scroll. */
 const ANSWER_BAR = 'sticky bottom-2 z-10 lg:static'
@@ -31,7 +32,7 @@ export function AllDrills({ className }: { className?: string }) {
   return (
     <Link
       to="/drills"
-      className={`inline-flex items-center gap-1.5 text-sm font-medium text-subtle hover:text-ink ${className ?? ''}`}
+      className={`inline-flex items-center gap-1.5 text-sm font-medium text-subtle hover:text-ink pointer-coarse:min-h-11 ${className ?? ''}`}
     >
       <ArrowLeft aria-hidden className="size-4" />
       All drills
@@ -309,9 +310,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
           {drill.result && (
             <motion.div
               key={drill.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
+              {...enter()}
             >
               <Panel aria-label="Result">
                 {identify ? (

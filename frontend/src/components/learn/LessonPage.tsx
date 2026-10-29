@@ -89,7 +89,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
 
   return (
     <article aria-label={lesson ? `Lesson: ${lesson.name}` : 'Lesson'} className="mx-auto flex max-w-4xl flex-col gap-6">
-      <Link to="/learn" className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-subtle hover:text-ink">
+      <Link to="/learn" className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-subtle hover:text-ink pointer-coarse:min-h-11">
         <ArrowLeft aria-hidden className="size-4" />
         Learn
       </Link>
@@ -163,7 +163,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
                   <Link
                     key={drill.kind}
                     to={`/drills/${drill.kind}`}
-                    className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:brightness-110"
+                    className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:brightness-110 pointer-coarse:h-11"
                   >
                     {MODE_NAMES[drill.mode]}: {drill.title}
                   </Link>
@@ -173,7 +173,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
                     <Link
                       key={kind.value}
                       to={`/drills/risk/${kind.slug}`}
-                      className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:brightness-110"
+                      className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:brightness-110 pointer-coarse:h-11"
                     >
                       Sums: {kind.label}
                     </Link>

@@ -45,7 +45,7 @@ export function Guide() {
               <span className="text-sm text-subtle">Step {i + 1}</span>
               <Link
                 to={step.to}
-                className="text-lg font-semibold tracking-tight text-ink hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+                className="text-lg font-semibold tracking-tight text-ink hover:text-accent focus-visible:outline-2 focus-visible:outline-accent pointer-coarse:py-2"
               >
                 {step.name}
               </Link>

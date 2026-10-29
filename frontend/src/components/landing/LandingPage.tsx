@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { Logo } from '../shell/AppShell'
 import { DISCLAIMER } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
+import { EASE_OUT, SETTLE } from '@/lib/motion'
 
 const PRIMARY =
   'inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3.5 text-[15px] font-medium text-accent-ink hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
@@ -12,13 +13,11 @@ const QUIET =
   'rounded-xl px-4 py-3.5 text-[15px] text-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const H2 = 'font-display text-[clamp(26px,3.4vw,36px)] font-semibold tracking-tight text-ink'
 
-const EASE = [0.22, 1, 0.36, 1] as const
-
 /** The hero's lines rise in one after another as the page opens. */
 const rise = (order: number) => ({
-  initial: { opacity: 0, y: 14 },
+  initial: { opacity: 0, y: 18 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.6, ease: EASE, delay: 0.08 * order },
+  transition: { duration: 0.7, ease: EASE_OUT, delay: SETTLE + 0.1 * order },
 })
 
 /** A section rises in the first time it scrolls into view (BUG-101: kept so by Fabio). */
@@ -26,7 +25,7 @@ const reveal = {
   initial: { opacity: 0, y: 24 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: '-80px' },
-  transition: { duration: 0.6, ease: EASE },
+  transition: { duration: 0.6, ease: EASE_OUT },
 }
 
 /**
@@ -37,7 +36,7 @@ const reveal = {
 export function LandingPage() {
   return (
     <div className="relative flex min-h-svh flex-col overflow-hidden">
-      <header className="relative mx-auto flex w-full max-w-[1120px] items-center justify-between gap-4 px-6 py-7">
+      <header className="relative mx-auto flex w-full max-w-[1120px] items-center justify-between gap-3 px-4 py-7 sm:gap-4 sm:px-6">
         <Logo />
         <nav aria-label="Account" className="flex items-center gap-2">
           <Link to="/sign-in" className="px-2.5 py-3 text-sm whitespace-nowrap text-subtle hover:text-ink sm:px-3.5">
@@ -52,7 +51,7 @@ export function LandingPage() {
         </nav>
       </header>
 
-      <main className="relative mx-auto w-full max-w-[1120px] flex-1 px-6">
+      <main className="relative mx-auto w-full max-w-[1120px] flex-1 px-4 sm:px-6">
         <section aria-labelledby="hero" className="flex flex-col items-center gap-7 pt-16 pb-16 text-center md:pt-24">
           <motion.h1
             {...rise(0)}
@@ -132,7 +131,7 @@ export function LandingPage() {
       </main>
 
       <footer className="relative border-t border-line">
-        <div className="mx-auto flex max-w-[1120px] flex-wrap justify-between gap-x-12 gap-y-4 px-6 pt-7 pb-9 text-[13px] leading-relaxed text-subtle">
+        <div className="mx-auto flex max-w-[1120px] flex-wrap justify-between gap-x-12 gap-y-4 px-4 pt-7 sm:px-6 pb-9 text-[13px] leading-relaxed text-subtle">
           <span>© Tradeez</span>
           <p className="max-w-[720px]" data-testid="landing-disclaimer">
             {DISCLAIMER}
@@ -229,6 +228,9 @@ const PICTURE = (() => {
 
 const pct = (n: number) => `${n.toFixed(2)}%`
 
+/** The replay starts drawing once the hero's lines are in. */
+const REPLAY_START = SETTLE + 0.6
+
 /** Fades in once the candles under it have been drawn. */
 const after = (delay: number) => ({
   initial: { opacity: 0 },
@@ -265,27 +267,27 @@ function ReplayPreview() {
 
       <div aria-hidden className="relative mx-5 mt-6 mb-2 h-[260px] md:h-[360px]">
         <motion.div
-          {...after(0.5)}
+          {...after(REPLAY_START + 0.1)}
           className="absolute inset-y-0 border-x border-line bg-ink/[0.03]"
           style={{ left: pct(session.left), width: pct(session.width) }}
         />
-        <span className="absolute -top-[18px] pl-1.5 text-[11px] text-subtle" style={{ left: pct(session.left) }}>
+        <span className="absolute -top-[18px] pl-1.5 text-xs text-subtle" style={{ left: pct(session.left) }}>
           NY AM
         </span>
         <motion.div
-          {...after(0.9)}
+          {...after(REPLAY_START + 0.5)}
           className="absolute inset-x-0 border-t border-dashed border-subtle/60"
           style={{ top: pct(sweep) }}
         />
-        <span className="absolute left-0 mt-1.5 text-[11px] text-subtle" style={{ top: pct(sweep) }}>
+        <span className="absolute left-0 mt-1.5 text-xs text-subtle" style={{ top: pct(sweep) }}>
           Sell-side liquidity
         </span>
         <motion.div
-          {...after(1.3)}
+          {...after(REPLAY_START + 0.9)}
           className="absolute right-0 border-y border-accent/40 bg-accent/[0.12]"
           style={{ left: pct(gap.left), top: pct(gap.top), height: pct(gap.height) }}
         />
-        <span className="absolute right-2 mt-1 text-[11px] text-accent" style={{ top: pct(gap.top) }}>
+        <span className="absolute right-2 mt-1 text-xs text-accent" style={{ top: pct(gap.top) }}>
           FVG
         </span>
         <div className="absolute inset-0 flex gap-[3px]">
@@ -295,7 +297,7 @@ function ReplayPreview() {
               className="relative h-full min-w-0 flex-1"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut', delay: 0.4 + i * 0.018 }}
+              transition={{ duration: 0.3, ease: 'easeOut', delay: REPLAY_START + i * 0.02 }}
             >
               <div
                 className={cx('absolute left-1/2 -ml-px w-px', c.up ? 'bg-ink/85' : 'bg-accent')}
@@ -308,7 +310,7 @@ function ReplayPreview() {
             </motion.div>
           ))}
         </div>
-        <motion.div {...after(1.5)} className="absolute inset-y-0 border-l border-line" style={{ left: pct(cursor) }} />
+        <motion.div {...after(REPLAY_START + 1.2)} className="absolute inset-y-0 border-l border-line" style={{ left: pct(cursor) }} />
         <div
           className="absolute inset-y-0 right-0 bg-[linear-gradient(90deg,rgb(21_24_29/0.6),var(--color-surface)_30%)]"
           style={{ left: pct(cursor) }}

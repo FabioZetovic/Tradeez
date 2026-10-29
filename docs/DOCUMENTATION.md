@@ -2109,6 +2109,31 @@ taller toggles (BUG-108), the risk limit reads as one field (BUG-109), and the d
 built; the fix already made here was taken back out) and BUG-103. Four mutants, all caught; frontend 453 → 456. D-6
 and D-10 wait for Fabio.
 
+**Merged.** Fabio: "merge everything". After a fresh-clone check of `fix/t50-cleanup` (456 tests, the build, 0
+vulnerabilities, the backend packaged): `feat/motion` (2ca9ca3) and `fix/t50-cleanup` (5b433b9) into master,
+`--no-ff`.
+
+**The mobile pass** (`feat/mobile`, T52; Fabio: "lets focus on mobile compatibility now"). Every screen at 390, 360
+and 768 with touch emulated, measured (overflow, controls under 44px, text under 12px) and driven by touch. The worst
+find: a tap on a drill's chart marked nothing (BUG-111) — the chart library takes a touch for panning and no click
+follows, and T46 had checked with a mouse. Also fixed: Home scrolled sideways (BUG-112, a grid item without
+`min-w-0`), the replay bar covered a third of a phone (BUG-113, now 126px), the Chart tab's controls did too (BUG-114,
+one scrolling row), touch targets everywhere (BUG-115, behind `pointer-coarse:` so the desktop is unchanged), the
+account name wrapping on a tablet (BUG-116). A first try at the Chart tab's row squeezed its toggles to a sliver; the
+screenshot caught it. BUG-117: a practice test failed once while the audit loaded the machine. Five mutants, all
+caught; frontend 456 → 458.
+
+**Fabio, on the mobile pass:** "Its awful. Send me a whole snapshot of every single page of our app and i will let claude
+design redesign everything for you to change." Every page and state, full page, desktop (1920) and phone (390 at 2x,
+touch): 63 pictures with a README, `docs/redesign/tradeez-screens-2026-10-28.zip` (10 MB, kept out of git). The pages
+with a history come from the local test account, read only; the account menu was retaken with a demo user so the test
+account's address is in none of them; the flows that write (drills answered, a trade placed and closed) ran on a fresh
+user.
+
+**Entrances retimed** (BUG-118; Fabio: "animations load too early, you cant even see them"). Measured in painted frames
+on the built app: they were over 0.23 s after appearing and the landing hero ran through the load's stalls. Now one
+timing, `lib/motion.ts`: a beat after the paint, half a second, a visible rise. 46–71 frames each. Frontend 458 → 460.
+
 ---
 
 ## For the presentation: the disclaimer slide

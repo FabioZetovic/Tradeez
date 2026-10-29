@@ -271,7 +271,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
       {/* Stacked under the drawing bar on a phone or tablet (T46), the chart keeps most of the screen. */}
       <div className="flex h-[75svh] min-w-0 flex-col lg:flex-1 gap-3 rounded-card border border-line bg-surface p-3 shadow-panel lg:h-auto">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="flex items-baseline gap-3 pr-1">
+          <div className="flex items-baseline gap-3 pr-1 max-md:w-full">
             <h1 className="sr-only">{SYMBOL}</h1>
             <label className="relative flex items-center">
               <span className="sr-only">Market</span>
@@ -279,7 +279,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
                 value={SYMBOL}
                 onChange={(e) => choose(e.target.value)}
                 disabled={(instruments?.length ?? 0) < 2}
-                className="cursor-pointer appearance-none bg-transparent pr-6 font-display text-xl font-bold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-default"
+                className="cursor-pointer appearance-none bg-transparent pr-6 font-display text-xl font-bold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-default pointer-coarse:min-h-11"
               >
                 {(instruments ?? [{ symbol: SYMBOL }]).map((i) => (
                   <option key={i.symbol} value={i.symbol}>
@@ -301,6 +301,12 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
             )}
           </div>
 
+          {/* On a phone the timeframes, the jumps, the date and the clock share one row that scrolls sideways, beside
+              Layers, so the chart keeps the screen (BUG-114). From a tablet up the wrapper steps aside (contents). */}
+          <div
+            data-testid="chart-controls"
+            className="flex items-center gap-x-4 gap-y-2 max-md:min-w-0 max-md:flex-1 max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&>*]:shrink-0 md:contents"
+          >
           <Segmented options={TIMEFRAMES} value={timeframe} onChange={setTimeframe} label="Timeframe" />
 
           {dataFrom !== undefined && dataTo !== undefined && windowEnd !== null && (
@@ -314,7 +320,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
                 }}
                 label="Go back"
               />
-              <label className="flex h-8 items-center gap-2 rounded-lg bg-sunken pr-1 pl-3 text-xs text-subtle">
+              <label className="flex h-8 shrink-0 items-center gap-2 rounded-lg bg-sunken pr-1 pl-3 text-xs text-subtle pointer-coarse:h-11">
                 Date
                 <input
                   type="date"
@@ -341,6 +347,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
               <span className="num">{timezoneLabel(instrument.exchangeTimezone, axisTimezone, zoneAt)}</span>
             </Button>
           )}
+          </div>
 
           <div className="ml-auto">
             <LayersMenu layers={layers} clockAvailable={clockAvailable} />

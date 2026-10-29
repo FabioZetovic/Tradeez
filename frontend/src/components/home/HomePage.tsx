@@ -20,6 +20,7 @@ import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
 import { ProgressBar, Ring } from '../ui'
 import { ImpactFolder } from '../news/NewsPage'
+import { enter } from '@/lib/motion'
 
 const DAY = 86_400
 
@@ -227,9 +228,7 @@ function StepCard({
 }) {
   return (
     <motion.li
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut', delay: n * 0.05 }}
+      {...enter(n)}
     >
       <Link
         to={to}
@@ -331,7 +330,8 @@ function NewsToday() {
   const soon = news?.events.filter((e) => e.impact === 'HIGH' && days.has(newsDay(e.at))) ?? []
 
   return (
-    <section aria-label="News today" className="flex flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
+    // min-w-0: a grid item is otherwise as wide as its longest title, and the page scrolled sideways on a phone (BUG-112).
+    <section aria-label="News today" className="flex min-w-0 flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
       <h2 className="text-sm font-medium text-subtle">News today</h2>
       {news && soon.length === 0 && <p className="mt-3 text-sm text-subtle">No high-impact news today or tomorrow.</p>}
       {news === null && <p className="mt-3 text-sm text-subtle">The calendar could not be loaded.</p>}

@@ -7,6 +7,7 @@ import { getLearning, type ConceptProgress, type Learning } from '@/lib/api/lear
 import { topicIcon } from '@/lib/topics'
 import { cx, errorClass } from '@/lib/styles'
 import { Chip, NextStep, PageHeader, Ring } from '../ui'
+import { enter } from '@/lib/motion'
 
 /**
  * Learn (T45, Lovable's §5.3, DEC-081): ICT's ideas grouped by topic, each topic a short path of lessons in the order
@@ -134,9 +135,7 @@ function LessonTile({
   const why = locked && lockedBy ? `Pass the ${lockedBy} drill to unlock` : undefined
   return (
     <motion.li
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut', delay: index * 0.03 }}
+      {...enter(index, { step: 0.04 })}
     >
       <Link
         to={`/learn/${progress.id}`}
