@@ -2164,6 +2164,41 @@ frontend tests; ten mutants caught; checked at 1920 and 390.
 
 ---
 
+## Deploying (T31, DEC-084)
+
+One Docker image holds the whole app: the backend serving the built page beside `/api`, so the page and the API are
+one site. Nothing in the repo belongs to a particular host.
+
+**Build and try it locally**
+
+```
+docker build -t tradeez .
+docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/tradeez -e JWT_SECRET=<32 random bytes, base64> -e COOKIES_SECURE=true tradeez
+```
+
+**On a host** (any that runs a Docker image from the GitHub repo and gives it PostgreSQL 17): point it at the root
+`Dockerfile` and set, in the host's own secret settings, never in the repo:
+
+| Variable | What |
+|---|---|
+| `DATABASE_URL` | `jdbc:postgresql://<host>:<port>/<db>` (the JDBC form, not `postgres://`) |
+| `DATABASE_USER`, `DATABASE_PASSWORD` | the database's account |
+| `JWT_SECRET` | 32 random bytes in base64 (`openssl rand -base64 32`); the app refuses to start with the development one |
+| `COOKIES_SECURE` | `true` (the host gives HTTPS) |
+| `CORS_ALLOWED_ORIGINS` | the app's own address, e.g. `https://<name>.onrender.com`, later the domain |
+| `TRUSTED_PROXIES` | `1` behind the host's proxy, so rate limits see the real caller |
+| `FRED_API_KEY` | for the news calendar; without it the news stays empty |
+| `PORT` | set by most hosts; the app listens on it (8080 otherwise) |
+
+Flyway creates the tables on the first start. **The market data is not in the image**: a new database has no candles
+until the importer is run against it (README "Running it locally", the import step, with the same `DATABASE_*` variables and `MASSIVE_API_KEY`)
+or the local database is copied over (`pg_dump` / `pg_restore`). Before anyone but Fabio and the jury signs in, Q-09:
+the data is Massive's free plan, for individual use (DEC-040, INVARIANT 7), and FRED asks for a privacy policy (DEC-079).
+
+The Vercel project Fabio made for the beta is no longer needed: the image serves the page.
+
+---
+
 ## For the presentation: the disclaimer slide
 
 DEC-015 asks for the disclaimer on a slide as well as in the app. Its text, as the app states it:

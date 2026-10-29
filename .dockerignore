@@ -1,0 +1,15 @@
+# What the image never takes: secrets, local data, builds and dependencies made on this machine.
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/target
+**/*.pem
+**/*.key
+data/
+docs/*
+# The curriculum is the concept registry's source; the build copies it into the jar (pom.xml).
+!docs/ICT_CONCEPTS.md
+.git
+.claude
