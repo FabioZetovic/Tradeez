@@ -147,6 +147,12 @@ describe('Drills, the cards (T43)', () => {
     expect(card('Manage an open trade')).toHaveTextContent('Manage')
     expect(card('Losing streak')).toHaveTextContent('Sums45 s eachLosing streak')
     expect(card('Position size')).toHaveTextContent('30 s each')
+    // In its lesson's topic's colour and picture (T55); one no topic names in the plain one.
+    expect(screen.getByRole('heading', { name: 'Gaps & imbalances' }).querySelector('svg')).toHaveClass('text-t-gaps')
+    expect(card('Fair value gaps').querySelector('.text-t-gaps svg')).not.toBeNull()
+    expect(card('Fair value gaps').className).toMatch(/hover:border-t-gaps/)
+    expect(card('Losing streak').querySelector('.text-t-risk svg')).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'More drills' }).querySelector('svg')).toHaveClass('text-subtle')
   })
 
   it("carries the real record: the lesson's tries and recent accuracy — predictions too — and risk's tally", async () => {

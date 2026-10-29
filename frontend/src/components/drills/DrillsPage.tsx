@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { motion } from 'motion/react'
-import { ArrowRight, Clock, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Clock } from 'lucide-react'
 import { listDrillKinds, listRiskKinds, RISK_KINDS, type DrillKindView, type RiskKindView } from '@/lib/api/drills'
 import { MODE_NAMES } from '@/lib/drills/modes'
 import { getLearning, type ConceptProgress } from '@/lib/api/learning'
 import { getCurriculum, type Curriculum } from '@/lib/api/concepts'
-import { topicIcon } from '@/lib/topics'
+import { topicTone } from '@/lib/topics'
+import { TopicGlyph } from '../TopicGlyph'
 import { cx, errorClass } from '@/lib/styles'
 import { drillMarket, MARKETS, setDrillMarket, type Market } from '@/lib/markets'
 import { Chip, NextStep, PageHeader, Segmented } from '../ui'
@@ -103,7 +104,7 @@ export function DrillsPage() {
 
       <div className="flex flex-col gap-10">
         {sections.map(({ title, drills }) => (
-          <Topic key={title} title={title} icon={topicIcon(title)}>
+          <Topic key={title} title={title}>
             {drills.map((kind, i) => (
               <Card
                 key={kind.kind}
@@ -113,6 +114,7 @@ export function DrillsPage() {
                 line={kind.instructions}
                 badge={MODE_NAMES[kind.mode]}
                 time="~2–3 min"
+                topic={title}
                 record={record(concepts.get(kind.conceptId))}
               />
             ))}
@@ -128,6 +130,7 @@ export function DrillsPage() {
                   line={kind.line}
                   badge="Sums"
                   time={tally ? `${tally.limitSeconds} s each` : undefined}
+                  topic={title}
                   record={tally && (tally.answered === 0 ? 'Not tried yet' : `${tally.right} of ${tally.answered} right`)}
                 />
               )
@@ -155,20 +158,12 @@ function record(concept?: ConceptProgress): string | undefined {
   return concept.recentAccuracy === undefined ? tries : `${tries} · ${Math.round(concept.recentAccuracy * 100)}% recently`
 }
 
-function Topic({
-  title,
-  icon: Icon,
-  children,
-}: {
-  title: string
-  icon: LucideIcon
-  children: ReactNode
-}) {
+function Topic({ title, children }: { title: string; children: ReactNode }) {
   const id = `topic-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`
   return (
     <section aria-labelledby={id}>
       <h2 id={id} className="mb-4 flex items-center gap-2.5 font-display text-xl font-bold tracking-tight text-ink">
-        <Icon aria-hidden className="size-4 text-subtle" />
+        <TopicGlyph topic={title} className={cx('h-5 w-7', topicTone(title).text)} />
         {title}
       </h2>
       <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</ul>
@@ -184,6 +179,7 @@ function Card({
   badge,
   time,
   record,
+  topic,
 }: {
   index: number
   to: string
@@ -192,7 +188,10 @@ function Card({
   badge: string
   time?: string
   record?: string
+  /** Its lesson's topic, whose colour and picture it carries (T55). */
+  topic: string
 }) {
+  const tone = topicTone(topic)
   return (
     <motion.li
       {...enter(index, { step: 0.04 })}
@@ -201,14 +200,18 @@ function Card({
         to={to}
         className={cx(
           'flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150',
-          'hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised',
+          'hover:-translate-y-0.5 hover:bg-raised',
+          tone.edge,
           'focus-visible:outline-2 focus-visible:outline-accent',
         )}
       >
-        <span className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2.5">
+          <span aria-hidden className={cx('grid size-9 shrink-0 place-items-center rounded-lg', tone.soft, tone.text)}>
+            <TopicGlyph topic={topic} className="h-4 w-6" />
+          </span>
           <Chip tone="accent">{badge}</Chip>
           {time && (
-            <span className="flex items-center gap-1 text-xs text-subtle">
+            <span className="ml-auto flex items-center gap-1 text-xs text-subtle">
               <Clock aria-hidden className="size-3.5" />
               {time}
             </span>
@@ -341,7 +344,8 @@ function PhoneDrills({
           return (
             <section key={title} aria-labelledby={id}>
               <div className="mb-2.5 flex items-baseline justify-between">
-                <h2 id={id} className="text-[17px] font-semibold text-ink">
+                <h2 id={id} className="flex items-center gap-2 text-[17px] font-semibold text-ink">
+                  <TopicGlyph topic={title} className={cx('h-4 w-6', topicTone(title).text)} />
                   {title}
                 </h2>
                 <span className="num text-[13px] text-subtle">

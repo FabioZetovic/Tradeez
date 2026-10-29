@@ -18,6 +18,8 @@ import { formatPrice } from '@/lib/chart/priceFormat'
 import { previousSessionClose, sessionStart } from '@/lib/chart/dateNavigation'
 import type { ClockLayerKey } from '@/lib/clock/layers'
 import { cx } from '@/lib/styles'
+import { SECTION_TOPICS, topicTone } from '@/lib/topics'
+import { TopicGlyph } from '../TopicGlyph'
 import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
 import { ProgressBar, Ring } from '../ui'
@@ -83,6 +85,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
 
   const suggested = learning?.suggested
   const order = curriculum?.concepts.map((c) => c.concept.id) ?? []
+  const topicOf = (id: string) => learning?.topics?.find((t) => t.concepts.includes(id))?.title
   const due = [...(learning?.due ?? [])].sort((a, b) => order.indexOf(a) - order.indexOf(b)).slice(0, 5)
 
   if (phone) {
@@ -94,7 +97,6 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
       learning.summary.ratedAttempts + learning.summary.predictions === 0 &&
       trades === 0
     const summary = curriculum?.concepts.find((c) => c.concept.id === suggested)?.concept.summary
-    const topicOf = (id: string) => learning?.topics?.find((t) => t.concepts.includes(id))?.title
     const totalR = statistics?.overall.totalR ?? 0
     return (
       // Home on a phone (T53, Claude Design): the next lesson first, three figures, what is due, the news, the market.
@@ -163,30 +165,35 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         ) : (
           <section aria-label="Progress" className="grid grid-cols-3 gap-2">
             <Link to="/learn" className={TILE}>
-              <span className="text-[13px] text-subtle">Learn</span>
+              <TileLabel topic={SECTION_TOPICS.learn}>Learn</TileLabel>
               <span className="num mt-0.5 text-xl font-semibold text-ink">
                 {learning?.summary.complete ?? 0}
                 <span className="text-[13px] text-subtle">/{learning?.summary.concepts ?? 0}</span>
               </span>
               <span className="mt-2">
                 <ProgressBar
+                  tone={topicTone(SECTION_TOPICS.learn).fill}
                   value={(learning?.summary.complete ?? 0) / Math.max(1, learning?.summary.concepts ?? 0)}
                   label={`${learning?.summary.complete ?? 0} of ${learning?.summary.concepts ?? 0} lessons complete`}
                 />
               </span>
             </Link>
             <Link to="/drills" className={TILE}>
-              <span className="text-[13px] text-subtle">Drills</span>
+              <TileLabel topic={SECTION_TOPICS.drills}>Drills</TileLabel>
               <span className="num mt-0.5 text-xl font-semibold text-ink">
                 {drillsPassed}
                 <span className="text-[13px] text-subtle">/{drills.length}</span>
               </span>
               <span className="mt-2">
-                <ProgressBar value={drillsPassed / Math.max(1, drills.length)} label={`${drillsPassed} of ${drills.length} drills passed`} />
+                <ProgressBar
+                  tone={topicTone(SECTION_TOPICS.drills).fill}
+                  value={drillsPassed / Math.max(1, drills.length)}
+                  label={`${drillsPassed} of ${drills.length} drills passed`}
+                />
               </span>
             </Link>
             <Link to="/practice" className={TILE}>
-              <span className="text-[13px] text-subtle">Practice</span>
+              <TileLabel topic={SECTION_TOPICS.practice}>Practice</TileLabel>
               <span className={cx('num mt-1 text-[17px] font-semibold', totalR > 0 ? 'text-up' : totalR < 0 ? 'text-down' : 'text-ink')} data-testid="total-r">
                 {formatR(totalR)}
               </span>
@@ -211,7 +218,12 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
               {due.slice(0, 3).map((id) => (
                 <li key={id}>
                   <Link to={`/learn/${id}`} className="flex min-h-14 items-center gap-3 py-2.5 pr-3.5 pl-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent">
-                    <Ring value={learning?.concepts.find((c) => c.id === id)?.recentAccuracy} size={30} label="Recent accuracy" />
+                    <Ring
+                      value={learning?.concepts.find((c) => c.id === id)?.recentAccuracy}
+                      size={30}
+                      label="Recent accuracy"
+                      tone={topicTone(topicOf(id)).stroke}
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-medium text-ink">{name(id)}</span>
                       <span className="block text-[13px] text-subtle">{topicOf(id)}</span>
@@ -298,27 +310,28 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
       </div>
 
       <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StepCard n={1} to="/learn" title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
+        <StepCard n={1} to="/learn" topic={SECTION_TOPICS.learn} title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
           {learning && (
             <Progress
+              tone={topicTone(SECTION_TOPICS.learn).fill}
               value={learning.summary.complete / Math.max(1, learning.summary.concepts)}
               text={`${learning.summary.complete} of ${learning.summary.concepts} lessons complete`}
             />
           )}
         </StepCard>
-        <StepCard n={2} to="/drills" title="Drills" line="Spot and name patterns on real charts, graded by the rule.">
+        <StepCard n={2} to="/drills" topic={SECTION_TOPICS.drills} title="Drills" line="Spot and name patterns on real charts, graded by the rule.">
           {learning && drills.length > 0 && (
-            <Progress value={drillsPassed / drills.length} text={`${drillsPassed} of ${drills.length} drills passed`} />
+            <Progress tone={topicTone(SECTION_TOPICS.drills).fill} value={drillsPassed / drills.length} text={`${drillsPassed} of ${drills.length} drills passed`} />
           )}
         </StepCard>
-        <StepCard n={3} to="/practice" title="Practice" line="A real day replayed bar by bar, the future hidden.">
+        <StepCard n={3} to="/practice" topic={SECTION_TOPICS.practice} title="Practice" line="A real day replayed bar by bar, the future hidden.">
           {sessions && (
             <Figure>
               {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} · {trades} {trades === 1 ? 'trade' : 'trades'}
             </Figure>
           )}
         </StepCard>
-        <StepCard n={4} to="/chart" title="Chart" line="The whole history, every rule and drawing tool.">
+        <StepCard n={4} to="/chart" topic={SECTION_TOPICS.chart} title="Chart" line="The whole history, every rule and drawing tool.">
           <Figure>Real NQ, every ICT layer</Figure>
         </StepCard>
       </ol>
@@ -342,6 +355,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
                       <Ring
                         value={accuracy}
                         label={accuracy === undefined ? 'Not graded yet' : `${Math.round(accuracy * 100)}% recently`}
+                        tone={topicTone(topicOf(id)).stroke}
                       />
                       <span className="min-w-0 flex-1 truncate text-sm text-ink">{name(id)}</span>
                       <ArrowRight aria-hidden className="size-4 text-subtle group-hover:text-ink" />
@@ -364,27 +378,47 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
 const TILE =
   'flex min-w-0 flex-col rounded-[14px] border border-line bg-surface px-3.5 py-3 focus-visible:outline-2 focus-visible:outline-accent'
 
+/** A tile's name with its section's picture, so the tiles carry colour before there is any progress (T55). */
+function TileLabel({ topic, children }: { topic: string; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-1.5 text-[13px] text-subtle">
+      <TopicGlyph topic={topic} className={cx('h-3.5 w-5', topicTone(topic).text)} />
+      {children}
+    </span>
+  )
+}
+
 function StepCard({
   n,
   to,
+  topic,
   title,
   line,
   children,
 }: {
   n: number
   to: string
+  /** The topic whose colour and picture the step wears (T55). */
+  topic: string
   title: string
   line: string
   children?: ReactNode
 }) {
+  const tone = topicTone(topic)
   return (
     <motion.li
       {...enter(n)}
     >
       <Link
         to={to}
-        className="flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent"
+        className={cx(
+          'flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150 hover:-translate-y-0.5 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent',
+          tone.edge,
+        )}
       >
+        <span aria-hidden className={cx('mb-4 grid size-10 place-items-center rounded-xl', tone.soft, tone.text)}>
+          <TopicGlyph topic={topic} className="h-5 w-7" />
+        </span>
         <span className="font-display text-2xl font-bold tracking-tight text-ink">{title}</span>
         <span className="mt-1 text-sm text-subtle">{line}</span>
         <span className="mt-auto pt-5">{children}</span>
@@ -393,10 +427,10 @@ function StepCard({
   )
 }
 
-function Progress({ value, text }: { value: number; text: string }) {
+function Progress({ value, text, tone }: { value: number; text: string; tone: string }) {
   return (
     <span className="flex flex-col gap-2">
-      <ProgressBar value={value} label={text} />
+      <ProgressBar value={value} label={text} tone={tone} />
       <span className="text-xs text-subtle">{text}</span>
     </span>
   )

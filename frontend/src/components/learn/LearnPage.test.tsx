@@ -105,6 +105,8 @@ describe('Learn, by topic (T45)', () => {
       expect(within(t).queryByRole('img', { name: /recently|Complete/ })).toBeNull()
       expect(t.className).not.toMatch(/opacity-/)
     }
+    // Before any progress, the topic's picture in its colour (T55).
+    expect(tile('Swing high').querySelector('.text-t-structure svg')).not.toBeNull()
   })
 
   it('later: done lessons ticked, the next one glowing "Next", one due for review says so', async () => {
@@ -132,6 +134,11 @@ describe('Learn, by topic (T45)', () => {
     expect(tile('Market structure').className.split(' ')).toContain('border-accent')
     expect(tile('Premium')).toHaveTextContent('Review')
     expect(within(screen.getByRole('region', { name: 'Structure' })).getByTestId('topic-progress')).toHaveTextContent('1 of 2')
+    // Each topic in its own colour (T55): the heading's picture, a ring under way, the picture before any progress.
+    expect(screen.getByRole('heading', { level: 2, name: 'Structure' }).querySelector('svg')).toHaveClass('text-t-structure')
+    expect(within(tile('Market structure')).getByRole('img').querySelector('.stroke-t-structure')).not.toBeNull()
+    expect(tile('Premium').querySelector('.stroke-t-premium')).not.toBeNull()
+    expect(tile('Premium').className).toMatch(/hover:border-t-premium/)
   })
 
   it('says so when the lessons cannot be loaded', async () => {
@@ -216,6 +223,8 @@ describe('Learn on a phone (T53)', () => {
     // Due, but locked: no review it cannot open.
     expect(tile('Market structure')).not.toHaveTextContent('Review')
     expect(state('Premium')).toBe('In progress')
+    expect(within(tile('Premium')).getByRole('img')).toHaveClass('text-t-premium')
+    expect(within(tile('Swing high')).getByRole('img')).toHaveClass('text-t-structure')
     expect(tile('Premium')).toHaveTextContent('Review')
     expect(state('Standard deviation')).toBe('Read only')
 

@@ -378,7 +378,7 @@ export function Switch({
 }
 
 /** How far along, as a thin bar in the accent (T39). `value` is 0 to 1. */
-export function ProgressBar({ value, label }: { value: number; label: string }) {
+export function ProgressBar({ value, label, tone = 'bg-accent' }: { value: number; label: string; tone?: string }) {
   const percent = Math.round(Math.min(1, Math.max(0, value)) * 100)
   return (
     <div
@@ -390,7 +390,7 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
       className="h-1 w-full overflow-hidden rounded-full bg-sunken"
     >
       <motion.div
-        className="h-full rounded-full bg-accent"
+        className={cx('h-full rounded-full', tone)}
         initial={{ width: 0 }}
         animate={{ width: `${percent}%` }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -400,7 +400,18 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
 }
 
 /** A progress ring (T39): `value` 0 to 1, or none — an empty ring, nothing measured yet. */
-export function Ring({ value, size = 36, label }: { value?: number; size?: number; label: string }) {
+export function Ring({
+  value,
+  size = 36,
+  label,
+  tone = 'stroke-accent',
+}: {
+  value?: number
+  size?: number
+  label: string
+  /** The fill's colour, a stroke class: a topic's own (T55), the accent else. */
+  tone?: string
+}) {
   const stroke = 3
   const r = (size - stroke) / 2
   const circumference = 2 * Math.PI * r
@@ -419,7 +430,7 @@ export function Ring({ value, size = 36, label }: { value?: number; size?: numbe
         initial={{ strokeDashoffset: circumference }}
         animate={{ strokeDashoffset: circumference * (1 - shown) }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="stroke-accent"
+        className={tone}
       />
     </svg>
   )
