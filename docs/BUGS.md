@@ -17,30 +17,332 @@
 
 ## Open
 
-### BUG-073 🟠 Deployed on two sites, the page could not send the CSRF token, and Safari would drop the session
+### Security audit, 2026-10-30 — read first
 
-**Status:** fixed on `feat/deploy` (2026-10-29, DEC-084) — reasoned in session 017's security pass; seen for real
-when Fabio deployed the page alone to Vercel ("its not communicating with server now")
-**Affects:** the planned deployment (DEC-002: the SPA on Vercel, the API on its own host); `client.ts`,
-`SecurityConfig`, `CookieService`
+Fabio: "act as a hacker … find every vulnerability possible … We need to protect this user data with our lives. After
+that find all the bugs that could affect user activities … THe next run after that we will start fiying all of that."
+Nothing below is fixed yet; this is the list to fix.
 
-DEC-032 puts the session in HttpOnly cookies and protects writes with Spring's CSRF cookie, which the
-page reads and echoes as a header. That works locally because Vite proxies `/api`, so page and API are
-one origin. Deployed on two sites, the `XSRF-TOKEN` cookie belongs to the API's site, and
-`document.cookie` on the page's site cannot see it: no header is sent, and every POST, PUT and DELETE —
-plans, drawings, drills, sign-out — would be refused with 403, the refresh too, signing the user out.
-And the session cookies themselves are then third-party cookies (`SameSite=None`), which Safari blocks
-by default and Chrome is restricting. Nothing in the code is wrong for one site; the plan of two is.
+**How it was done.** Every endpoint mapped, every request parameter and body read for limits, every lookup by id
+checked for the owner, the identity package read line by line, the frontend searched for raw HTML, stored tokens and
+redirects, git history searched for every real key, and the built Docker image attacked live at http://localhost:8090
+with throwaway `@example.test` accounts (script in the session's scratchpad, `attack.mjs`) — then run against a brand-new
+empty database, as a new host gets it.
 
-**Fix, for Fabio to choose with the host:** (a) serve both from one site — the page's host proxies
-`/api` to the backend (a Vercel rewrite does this), so the cookies are first-party, `SameSite=Lax`
-suffices and CORS is not needed; or (b) sibling subdomains of one domain (`app.` and `api.`), with the
-cookies' domain set to the parent. (a) is the smaller change and the one recommended. Left open: it is
-a hosting decision, not a code fix.
+**What held — no change needed.** One account cannot read, change, advance, end or delete another's practice
+sessions, drills or drawings (all 404, the drawing untouched); writes without the CSRF token are refused (403); a
+hostile origin gets no CORS grant (preflight 403); path tricks on the page (`..%2f`, `/WEB-INF`, `/.env`,
+`/BOOT-INF/classes/application.yml`) return only the page or a 400, never a file; no drill or replay response carries
+its answer; sign-in takes the same time for a known and an unknown address (82 ms against 80 ms, median of six); error
+bodies name no class, table or SQL; tokens are only in HttpOnly cookies and nothing on the page uses raw HTML; no real
+API key has ever been committed (Massive and FRED checked against every commit); the access token's signature, issuer
+and generation are checked, refresh tokens are random, hashed and rotated with reuse detection.
 
-**Fixed** by a third way, stronger than (a): the backend serves the page itself (DEC-084), so there is one site and
-nothing to proxy. Checked in the built image at http://localhost:8090 with `COOKIES_SECURE=true`: register 201, a
-signed-in read 200, the CSRF cookie visible to the page, sign-out 204, then 401. `SpaConfigTest` (4).
+In order of how much they matter:
+
+---
+
+### BUG-119 🔴 Anyone can sign up as anyone: an email address is never shown to belong to the person
+
+**Status:** verified (2026-10-30) · **Affects:** `AuthService.register`, `AppUser`, the sign-up and sign-in pages ·
+**Task:** T56
+
+**What.** Registration takes any address and signs the account straight in. `elon@tesla.com`, a classmate's address,
+a jury member's, `admin@` anything — all accepted (201), and the account is fully usable at once.
+
+**Why it matters.** (1) Impersonation: the address is the account's identity, shown in the account menu and the only
+thing tying a person to their record. (2) The real owner of the address can never sign up — it is "already
+registered" (409). (3) Nobody can recover a forgotten password: there is no reset, because there is no proven address
+to send one to. (4) Every other abuse below (BUG-128 mass accounts, BUG-121's forged sessions needing an account)
+gets cheaper when accounts are free and anonymous.
+
+**How to fix (T56).** An account is *unverified* until its owner opens a single-use link sent to the address:
+- On sign-up: store the account unverified, send a link with a random token (stored only as its SHA-256, like refresh
+  tokens), valid 24 hours, single use. Until it is used: no sign-in, or a signed-in screen that says only "check your
+  inbox" with a throttled "send again".
+- The sign-up answer is the same whether the address is new or taken: "Check your inbox". A taken address gets an email
+  saying someone tried to sign up with it (with a reset link) — so the sign-up form no longer tells anyone which addresses have accounts (today it answers 409, verified).
+- Unverified accounts are deleted after 7 days (closes most of BUG-128).
+- With proven addresses, add "Forgot password" (same token machinery, 1 hour, signs out every session after) and a
+  verified email change.
+- Sending email needs a provider with a free tier (e.g. Resend or Brevo — no money, Fabio's sign-up) and, for mail that
+  is not marked spam, a domain with SPF/DKIM records: **this waits on Fabio's domain** (T51). Until then the links can
+  be sent from the provider's test sender to Fabio's own address only, enough to build and test.
+
+---
+
+### BUG-120 🔴 No way to delete an account or take its data out, and no privacy policy
+
+**Status:** verified by reading (2026-10-30): `/api/me` has only GET; no delete or export endpoint exists ·
+**Affects:** identity, every user-owned table, the landing page
+
+**What.** A user cannot delete their account, cannot download what the app holds about them, and nothing tells them
+what is kept, why, or for how long.
+
+**Why it matters.** Fabio and his users are in the EU: under the GDPR a person may ask for their data (Art. 15, 20)
+and for it to be erased (Art. 17), and must be told what is processed (Art. 13). FRED's terms also ask for a privacy
+policy from an app serving other people (DEC-079). The data is small — an email, a name, a password hash, sign-in
+records with browser names (BUG-130), practice trades and drill answers — but it is personal.
+
+**How to fix.** `DELETE /api/me` behind the current password (and the CSRF token), deleting the user and every row
+that hangs off it (the schema already cascades in 15 places — check every user-owned table does), signing out
+everywhere; `GET /api/me/export` returning everything as JSON; a short privacy page (what, why, how long, how to
+delete) linked from sign-up and the footer; a retention rule for sign-in records (BUG-130).
+
+---
+
+### BUG-121 🔴 A deployment that forgets `COOKIES_SECURE=true` runs on the public development secrets
+
+**Status:** reasoned (2026-10-30) · **Affects:** `application.yml`, `JwtSecretGuard`, `SecurityConfig`
+
+**What.** `JWT_SECRET` and `DATABASE_PASSWORD` fall back to development values written in `application.yml`, which is
+in the repository. `JwtSecretGuard` refuses the development JWT secret only when `cookies.secure` is true. Deploy
+without that one variable and the app starts happily with the known secret — and also with SameSite=Lax cookies that
+are not Secure, the API description open, and CORS accepting any localhost port.
+
+**Why it matters.** With the development secret anyone who has read the repository can sign a session token for any
+account whose id they learn — no password needed. One forgotten variable on a host's settings page is all it takes.
+
+**How to fix.** Make "deployed" a single explicit switch that fails closed: e.g. a `prod` profile set in the
+Dockerfile, in which `JWT_SECRET`, `DATABASE_URL` and `DATABASE_PASSWORD` have **no defaults** (start-up fails without
+them), the development secret is refused, cookies are Secure, the API docs are off. Local development keeps its
+defaults outside that profile. A test starts the app with the profile and no secret and expects it to refuse.
+
+---
+
+### BUG-122 🔴 After a redeploy, returning visitors keep the old page and get a blank screen
+
+**Status:** verified (2026-10-30, the built image) · **Affects:** `SpaConfig`, the Docker build
+
+**What.** Every file in the jar carries the zip format's date, 1 February 1980, as `Last-Modified`. `index.html` is
+served with `no-cache`, so the browser asks again each visit with `If-Modified-Since: 1980` — and the server answers
+**304 Not Modified, forever**, also after a new version is deployed (checked: 304 for `/` and `/learn/ICT-20`).
+
+**Why it matters.** After any deploy, everyone who has visited before keeps the old `index.html`. It points at the old
+build's scripts (`/assets/index-<old hash>.js`), which the new image no longer has: 404, and the app does not start —
+a blank page until they clear their cache. Every release would break every returning user.
+
+**How to fix.** Serve `index.html` (and the fallback) with an ETag from its content, or without `Last-Modified`, and
+`Cache-Control: no-cache`; or set the files' times at build. A test: request `/` with `If-Modified-Since` far in the
+past and an old ETag, expect 200 when the content differs.
+
+---
+
+### BUG-123 🟠 A request body of any size is read into memory, signed in or not
+
+**Status:** verified in part (2026-10-30): an 8 MB sign-in body was read whole and answered 400 in 167 ms; larger not
+tried · **Affects:** every `@RequestBody` endpoint, Tomcat configuration
+
+**What.** No limit on a JSON body's size. Field limits (`@Size`) are checked only after the whole body has been read
+and turned into strings.
+
+**Why it matters.** A free host gives the app about 512 MB. A handful of concurrent 100 MB requests to `/api/auth/login`
+— no account needed, and the per-address limit allows 20 per 5 minutes per address — can exhaust the memory and take
+the app down for everyone (denial of service).
+
+**How to fix.** Refuse any request whose body is over a small limit before reading it: a filter checking
+`Content-Length` and capping the stream (e.g. 32 KB everywhere; the largest real body, a drawing, is under 2 KB), plus
+Tomcat's `max-swallow-size`. Test: a 1 MB body gets 413 without being read.
+
+---
+
+### BUG-124 🟠 The cookies are cross-site cookies though the app is now one site
+
+**Status:** verified (2026-10-30, `CookieService` and the image's headers) · **Affects:** `CookieService`,
+`SecurityConfig` (CSRF cookie)
+
+**What.** Deployed, the session cookies are `SameSite=None` — written for the old plan of the page and the API on two
+sites (DEC-002, superseded by DEC-084). The CSRF cookie (`XSRF-TOKEN`) is sent with no `Secure` and no `SameSite` at
+all.
+
+**Why it matters.** `SameSite=None` sends the session with requests started by any other site. The CSRF token still
+blocks writes, but `None` gives up the browser's own first line of defence for nothing: a hostile page can, for
+example, make the browser call `/api/auth/refresh` (exempt from CSRF) and rotate the session. Safari's tracking
+protection also treats such cookies as third-party. A CSRF cookie without `Secure` can travel over plain HTTP.
+
+**How to fix.** `SameSite=Lax` (or `Strict` for the refresh cookie, scoped to `/api/auth`) in both environments;
+CSRF cookie Secure and SameSite=Lax when deployed (`CookieCsrfTokenRepository.setCookieCustomizer`). Cookie names
+with the `__Host-` prefix when deployed, so a sibling subdomain can never set them.
+
+---
+
+### BUG-125 🟠 Deployed, the security headers a browser needs are missing
+
+**Status:** verified (2026-10-30, the image; `X-Forwarded-Proto: https` sent as a host's proxy would) ·
+**Affects:** `SecurityConfig`, `application.yml`
+
+**What.** No `Strict-Transport-Security` (the app does not read the proxy's `X-Forwarded-Proto`, so it believes every
+request is plain HTTP — `server.forward-headers-strategy` is not set), no `Content-Security-Policy`, no
+`Referrer-Policy`, no `Permissions-Policy`. Present: `nosniff`, `X-Frame-Options: DENY`.
+
+**Why it matters.** Without HSTS the first visit can be downgraded to HTTP on a hostile network. Without a CSP, any
+future XSS (none found today) could load scripts from anywhere and send data out. A CSP is the safety net behind
+React's escaping.
+
+**How to fix.** `server.forward-headers-strategy: framework` (with the proxy trusted, as BUG-070's `TRUSTED_PROXIES`),
+HSTS one year; CSP `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self';
+frame-ancestors 'none'; base-uri 'none'; form-action 'self'` (check the chart library and fonts against it);
+`Referrer-Policy: strict-origin-when-cross-origin`; `Permissions-Policy` denying camera, microphone, geolocation.
+
+---
+
+### BUG-126 🟠 A copied session cookie keeps working for up to 15 minutes after signing out
+
+**Status:** verified (2026-10-30): the access cookie copied before sign-out still read `/api/me` (200) after it ·
+**Affects:** `AuthController.logout`, `JwtAuthenticationFilter`
+
+**What.** Signing out revokes the refresh token and clears the cookies in *this* browser, but the access token itself
+stays valid until it expires (15 minutes). "Sign out everywhere" and a password change do end it (BUG-077); plain sign
+out does not.
+
+**Why it matters.** On a shared or school computer, or if the cookie was stolen, "Sign out" does not end access at
+once — the person believes they are out and are not, for a quarter of an hour.
+
+**How to fix.** On sign-out, record the token's id (`jti`) in a short-lived deny list until its expiry (in memory with
+the rate limiter's eviction, or a table), or give each refresh family its own generation checked with the access
+token. Test: the copied cookie gets 401 after sign-out.
+
+---
+
+### BUG-127 🟠 Names and addresses accept look-alikes and invisible characters
+
+**Status:** verified (2026-10-30): all registered (201) · **Affects:** `RegisterRequest`, `AppUser`
+
+**What.** A display name may contain a right-to-left override (`Admin‮gnp.exe` shows as "Adminexe.png"),
+zero-width spaces (`Tra​deez Support`), newlines and markup. An email may use Cyrillic letters that look Latin
+(`fаbio@…` with a Cyrillic "а") and may have no domain ending (`x@localhost`).
+
+**Why it matters.** Impersonation of staff or other users, confusing displays, and — once T56 sends email — text
+injected into messages (a newline in a name inside an email). React escapes markup today, so no XSS, but the name is
+stored as typed for whatever renders it next.
+
+**How to fix.** Display name: Unicode-normalise (NFC), refuse control and format characters (`\p{C}`) and bidi
+overrides, collapse spaces, 1–40 characters, refuse reserved names ("Tradeez", "admin", "support", "moderator").
+Email: lower-case and NFC; require a dot in the domain; refuse mixed-script addresses (or IDN-encode and show the
+punycode). T56's verification covers the address being real.
+
+---
+
+### BUG-128 🟠 Free, unverified accounts make the database fillable by one script
+
+**Status:** reasoned (2026-10-30) · **Affects:** registration, `DrillService`, `PracticeService`, the drawings
+
+**What.** Each account has hourly caps (600 drills, 60 sessions, 500 drawings a chart), but accounts are free: 20
+sign-ups per 5 minutes per address is 5,760 accounts a day from one machine, each able to write to its caps.
+
+**Why it matters.** A free database is small (Render's free Postgres: 1 GB). Filling it stops every real user's writes;
+on a paid plan it costs money.
+
+**How to fix.** T56 first (no writes before the address is verified; unverified accounts deleted after 7 days); then a
+global sign-up ceiling per hour, a size watch on the database, and old finished drills pruned.
+
+---
+
+### BUG-129 🟠 The planned free database has no backups and expires
+
+**Status:** reasoned (2026-10-30) · **Affects:** the deployment (DOCUMENTATION "Deploying")
+
+**What.** Render's free Postgres (the easiest free option written in "Deploying") has no backups and is deleted 30 days
+after creation. No backup is taken by the app either.
+
+**Why it matters.** "Protect this user data with our lives": one expiry, one mistaken migration or one bad deploy and
+every account and record is gone with no way back.
+
+**How to fix.** Before real users: a host with daily backups, or a scheduled `pg_dump` of the user tables (not the
+market data, which can be re-imported) to storage Fabio controls, encrypted, kept 14 days; a restore tried once.
+
+---
+
+### BUG-130 🟡 Every sign-in record is kept forever, with the browser's name
+
+**Status:** verified by reading (2026-10-30): nothing deletes `refresh_token` rows · **Affects:** `RefreshToken`,
+`AuthService`
+
+**What.** Each refresh (every 15 minutes of use) adds a row, with the browser's user-agent string; rotated and expired
+rows are never deleted.
+
+**Why it matters.** Personal data kept with no purpose and no limit (GDPR data minimisation, BUG-120), and a table that
+only grows.
+
+**How to fix.** A scheduled job deleting rows expired or revoked more than 30 days ago (keeping recent ones for reuse
+detection); store a coarse browser name ("Chrome on Windows") rather than the full string.
+
+---
+
+### BUG-131 🟡 Rate limits forget on restart, and behind a proxy can lock everyone out at once
+
+**Status:** reasoned (2026-10-30) · **Affects:** `RateLimiter`, `ClientAddress`, the deployment's `TRUSTED_PROXIES`
+
+**What.** Limits live in memory: a free host that sleeps and wakes, or any restart, gives every guesser a fresh quota.
+And if `TRUSTED_PROXIES` is left at 0 behind a host's proxy, every visitor arrives from the proxy's address — the
+whole site shares one quota of 20 sign-ins per 5 minutes, so one attacker (or a class signing in together) locks
+everyone out.
+
+**How to fix.** Start-up warning (or refusal in the `prod` profile, BUG-121) when requests carry `X-Forwarded-For` but
+no proxy is trusted; keep the per-account limit as the main guard; a shared store if ever more than one instance.
+
+---
+
+### BUG-132 🟡 Small leaks that help an attacker map the server
+
+**Status:** verified (2026-10-30, the image) · **Affects:** `HealthController`, Spring's auto-configuration, springdoc,
+`SecurityConfig.passwordEncoder`
+
+- `/api/health` tells anyone the application's name and when it was started and built — enough to time deploys and
+  restarts. Signed out it should say only UP or DOWN.
+- Spring logs "Using generated security password: …" at every start: an unused default user, harmless (form and basic
+  sign-in are off) but it puts a password in the logs. Exclude `UserDetailsServiceAutoConfiguration`.
+- springdoc still builds the API description in production; security refuses it, but it should be switched off there
+  (`springdoc.api-docs.enabled=false` in the `prod` profile).
+- BCrypt runs at cost 10. Fine today; 12 is the current advice for new hashes (rehash on sign-in).
+
+---
+
+### BUG-133 🟡 The local test account's address and password are in git
+
+**Status:** verified (2026-10-30) · **Affects:** `backend/.env.example` (comments)
+
+**What.** The local test account's email and password sit in comments in `.env.example`, committed. The repository is
+private and nothing creates the account automatically.
+
+**Why it matters.** Anyone given access to the repository knows them; if that account is ever registered on a deployed
+instance with the same password, it is open to them.
+
+**How to fix.** Move them to the untracked `backend/.env`, rewrite the scripts to read them from there, and never
+register that account on a deployed instance (write it in "Deploying").
+
+---
+
+### BUG-134 🟠 On a new deployment with no market data, a new user walks into dead ends
+
+**Status:** verified (2026-10-30, the image on an empty database) · **Affects:** Home, Drills, the drill screen, Chart,
+News, lesson examples
+
+**What.** Before any history is imported (as on every new host): Home still invites "Start the first lesson" and shows
+the path; every drill opens to "No real NQ history has been imported yet…" with a **Try again** button that can never
+succeed; Practice cannot start a session; the Chart tab is an empty frame with a faint line of text; lesson examples
+are empty; News says "No high-impact news today or tomorrow" when the truth is that the calendar was never loaded (no
+FRED key).
+
+**Why it matters.** This is exactly what the jury or a beta tester would see on Fabio's first deploy: an app that looks
+broken.
+
+**How to fix.** One "market data not loaded yet" state from the API (instruments carry whether they have history),
+shown once and plainly wherever a chart would be; no "Try again" when trying again cannot help; News says the calendar
+is not loaded rather than that there is no news. And the deploy checklist imports the data before anyone is invited.
+
+---
+
+### BUG-135 🟡 Two saves of a new drawing at once answer 500
+
+**Status:** reasoned (2026-10-30) · **Affects:** `ChartDrawingController.save`
+
+**What.** A new drawing's id is chosen by the page, and a drag can send more than one save before the first commits.
+Both find no row (owner-scoped lookup and `existsById` both see nothing uncommitted), both insert, the second breaks
+the primary key: 500, and the page shows a save error for a drawing that was saved.
+
+**How to fix.** Catch the duplicate-key failure on create and retry as an update for the owner (the row now exists and
+is theirs), or insert with `ON CONFLICT DO NOTHING` and then update. Test with two concurrent PUTs of a new id.
 
 ---
 
@@ -478,6 +780,34 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-073 🟠 Deployed on two sites, the page could not send the CSRF token, and Safari would drop the session
+
+**Status:** ✅ fixed, merged 2026-10-29 (master 7818ad3, DEC-084) — reasoned in session 017's security pass; seen for real
+when Fabio deployed the page alone to Vercel ("its not communicating with server now")
+**Affects:** the planned deployment (DEC-002: the SPA on Vercel, the API on its own host); `client.ts`,
+`SecurityConfig`, `CookieService`
+
+DEC-032 puts the session in HttpOnly cookies and protects writes with Spring's CSRF cookie, which the
+page reads and echoes as a header. That works locally because Vite proxies `/api`, so page and API are
+one origin. Deployed on two sites, the `XSRF-TOKEN` cookie belongs to the API's site, and
+`document.cookie` on the page's site cannot see it: no header is sent, and every POST, PUT and DELETE —
+plans, drawings, drills, sign-out — would be refused with 403, the refresh too, signing the user out.
+And the session cookies themselves are then third-party cookies (`SameSite=None`), which Safari blocks
+by default and Chrome is restricting. Nothing in the code is wrong for one site; the plan of two is.
+
+**Fix, for Fabio to choose with the host:** (a) serve both from one site — the page's host proxies
+`/api` to the backend (a Vercel rewrite does this), so the cookies are first-party, `SameSite=Lax`
+suffices and CORS is not needed; or (b) sibling subdomains of one domain (`app.` and `api.`), with the
+cookies' domain set to the parent. (a) is the smaller change and the one recommended. Left open: it is
+a hosting decision, not a code fix.
+
+**Fixed** by a third way, stronger than (a): the backend serves the page itself (DEC-084), so there is one site and
+nothing to proxy. Checked in the built image at http://localhost:8090 with `COOKIES_SECURE=true`: register 201, a
+signed-in read 200, the CSRF cookie visible to the page, sign-out 204, then 401. `SpaConfigTest` (4).
+
+
+---
 
 ### BUG-118 🟡 The entrance animations were over before anyone could see them
 
