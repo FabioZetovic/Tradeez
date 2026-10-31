@@ -64,5 +64,8 @@ public abstract class AbstractIntegrationTest {
 		registry.add("tradeez.evidence.refresh-on-start", () -> "false");
 		// Nor FRED: the economic calendar is filled by the tests that mean to (EconomicCalendarServiceTest).
 		registry.add("tradeez.news.refresh-enabled", () -> "false");
+		// BCrypt at cost 12 (BUG-132) is a quarter second a hash; hundreds of sign-ups would add minutes. The cost is the
+		// setting's business, tested on its own (PasswordRehashTest); 5 keeps it above the cost a rehash is tested from.
+		registry.add("tradeez.password.bcrypt-strength", () -> "5");
 	}
 }

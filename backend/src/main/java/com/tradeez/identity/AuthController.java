@@ -39,11 +39,14 @@ public class AuthController {
 	private final AuthService authService;
 	private final CookieService cookies;
 	private final ClientAddress clientAddress;
+	private final JwtService jwtService;
 
-	public AuthController(AuthService authService, CookieService cookies, ClientAddress clientAddress) {
+	public AuthController(AuthService authService, CookieService cookies, ClientAddress clientAddress,
+			JwtService jwtService) {
 		this.authService = authService;
 		this.cookies = cookies;
 		this.clientAddress = clientAddress;
+		this.jwtService = jwtService;
 	}
 
 	@PostMapping("/register")
@@ -104,6 +107,10 @@ public class AuthController {
 	public ResponseEntity<Void> logout(HttpServletRequest request) {
 		JwtAuthenticationFilter.readCookie(request, CookieService.REFRESH_TOKEN_COOKIE)
 			.ifPresent(authService::logout);
+		// BUG-126: the access token ends now too, not when its 15 minutes run out — a copy of the cookie is useless.
+		JwtAuthenticationFilter.readCookie(request, CookieService.ACCESS_TOKEN_COOKIE)
+			.flatMap(jwtService::read)
+			.ifPresent(authService::signOutAccessToken);
 
 		return ResponseEntity.noContent()
 			.header(HttpHeaders.SET_COOKIE, cookies.clearAccessCookie().toString())

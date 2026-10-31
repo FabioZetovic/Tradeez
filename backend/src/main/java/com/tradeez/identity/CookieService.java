@@ -16,9 +16,9 @@ import org.springframework.stereotype.Service;
  *   <li>{@code Secure} in deployed environments; relaxed on plain-HTTP localhost only, because a
  *       {@code Secure} cookie is silently dropped over HTTP and local development would appear
  *       broken for a non-obvious reason.</li>
- *   <li>{@code SameSite=None} when deployed, because the SPA on Vercel and the API on its own host
- *       are genuinely cross-site; {@code Lax} locally, where Vite proxies the API to same-origin.
- *       {@code None} requires {@code Secure}, which is why the two settings move together.</li>
+ *   <li>{@code SameSite=Strict} everywhere (BUG-124): the page and the API are one site (DEC-084), so the browser
+ *       never needs to send these with a request another site started. The {@code None} written for the old
+ *       two-site plan (DEC-002) gave that defence up for nothing.</li>
  *   <li>The refresh cookie is scoped to {@code /api/auth}, so it is not attached to ordinary API
  *       calls and has a smaller exposure surface than the access cookie.</li>
  * </ul>
@@ -66,7 +66,7 @@ public class CookieService {
 		return ResponseCookie.from(name, value)
 			.httpOnly(true)
 			.secure(secure)
-			.sameSite(secure ? "None" : "Lax")
+			.sameSite("Strict")
 			.path(path);
 	}
 }

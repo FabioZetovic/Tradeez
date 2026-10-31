@@ -45,6 +45,13 @@ export const logoutEverywhere = () => apiFetch<void>('/api/auth/logout-all', { m
 export const changePassword = (input: { currentPassword: string; newPassword: string }) =>
   apiFetch<User>('/api/auth/password', { method: 'POST', body: JSON.stringify(input) })
 
+/** Everything the app holds about the signed-in account, as the server writes it (BUG-120). */
+export const exportAccount = () => apiFetch<Record<string, unknown>>('/api/me/export')
+
+/** The account and all of it, for good (BUG-120). A wrong password is a 403. */
+export const deleteAccount = (password: string) =>
+  apiFetch<void>('/api/me', { method: 'DELETE', body: JSON.stringify({ password }) })
+
 /** The server's words for a failed request — its own message, unrephrased — or a fallback when it said none. */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError && typeof error.body === 'object' && error.body !== null) {

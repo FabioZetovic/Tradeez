@@ -103,6 +103,15 @@ describe('App — signed out', () => {
     window.history.replaceState(null, '', '/sign-in')
   })
 
+  it('BUG-120 the privacy page is open to a visitor, and sign-in links to it', async () => {
+    render(<App />)
+    await screen.findByRole('heading', { name: /sign in/i })
+    await userEvent.click(screen.getByRole('link', { name: 'Privacy: what is kept and why' }))
+    expect(window.location.pathname).toBe('/privacy')
+    expect(await screen.findByRole('heading', { name: 'Privacy' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'What is kept' })).toBeInTheDocument()
+  })
+
   it('shows the sign-in form when no session can be restored', async () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
@@ -542,6 +551,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
         '',
         'Economic calendar',
         'How Tradeez works',
+        'Your data',
         'Change password',
         'Sign out',
         'Sign out of every device',

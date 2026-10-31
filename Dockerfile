@@ -34,5 +34,7 @@ RUN useradd --system --uid 10001 tradeez
 WORKDIR /app
 COPY --from=server /backend/app.jar app.jar
 USER tradeez
+# BUG-121: the deployed profile — no secret has a default, so a missing one stops the start (application-prod.yml).
+ENV SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]

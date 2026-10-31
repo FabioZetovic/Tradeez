@@ -38,6 +38,10 @@ public final class AuthDtos {
 		@NotBlank @Size(max = MAX_PASSWORD_INPUT) String password) {
 	}
 
+	@Schema(description = "Deleting the signed-in account: its current password, so a borrowed session cannot (BUG-120)")
+	public record DeleteAccountRequest(@NotBlank @Size(max = MAX_PASSWORD_INPUT) String password) {
+	}
+
 	@Schema(description = "A new password for the signed-in account (DEC-064)")
 	public record ChangePasswordRequest(
 		@NotBlank @Size(max = MAX_PASSWORD_INPUT) String currentPassword,

@@ -2,6 +2,11 @@ spring:
   application:
     name: tradeez-backend
 
+  # BUG-132. Spring's in-memory default user is never used (sign-in is by our cookies only) and logged a generated
+  # password at every start.
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
   # Reads backend/.env (KEY=VALUE lines) as properties when it exists. The file is gitignored, so
   # secrets such as DATABENTO_API_KEY live on the machine and never in the repository (DEC-032).
   config:
@@ -80,6 +85,8 @@ tradeez:
     refresh-enabled: ${NEWS_REFRESH_ENABLED:true}
 
   password:
+    # BUG-132. BCrypt's cost: 12 is the current advice. A hash made at a lower cost is redone at the next sign-in.
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
     breach-check:
       # DEC-064. Have I Been Pwned's k-anonymous range API: only five hex characters of the password's SHA-1
       # leave the server. Fails open when the service does not answer in time.

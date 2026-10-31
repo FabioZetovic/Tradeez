@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   changePassword as apiChangePassword,
+  deleteAccount as apiDeleteAccount,
   login as apiLogin,
   logout as apiLogout,
   logoutEverywhere as apiLogoutEverywhere,
@@ -92,5 +93,11 @@ export function useSession() {
     setState({ status: 'signedIn', user })
   }, [])
 
-  return { state, login, register, logout, logoutEverywhere, changePassword }
+  /** BUG-120: the account is gone, so this session is too. Only on success: a wrong password keeps them here. */
+  const deleteAccount = useCallback(async (password: string) => {
+    await apiDeleteAccount(password)
+    setState({ status: 'signedOut' })
+  }, [])
+
+  return { state, login, register, logout, logoutEverywhere, changePassword, deleteAccount }
 }

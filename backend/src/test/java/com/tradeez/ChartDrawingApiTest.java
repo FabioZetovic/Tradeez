@@ -322,7 +322,9 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 		UUID id = UUID.randomUUID();
 		String huge = body(id, "horizontal-line", 1710338400L, 80_000L)
 			.replace("\"style\":{\"color\":\"#58a6ff\"}", "\"style\":{\"color\":\"" + "f".repeat(100_000) + "\"}");
-		save(huge, id).andExpect(status().isBadRequest());
+		// Past the request size limit it is not even read (BUG-123); under it, the style rule refuses it.
+		save(huge, id).andExpect(status().isPayloadTooLarge());
+		save(huge.replace("f".repeat(100_000), "f".repeat(10_000)), id).andExpect(status().isBadRequest());
 		StringBuilder many = new StringBuilder("\"style\":{");
 		for (int i = 0; i < 9; i++) {
 			many.append(i == 0 ? "" : ",").append("\"k").append(i).append("\":1");
@@ -383,5 +385,33 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 			UUID id = UUID.randomUUID();
 			save(body(id, "trend-line", point[0], point[1]), id).andExpect(status().isCreated());
 		}
+	}
+
+	@Test
+	@DisplayName("BUG-135 overlapping first saves of a new drawing all succeed, and leave one drawing, its owner's")
+	void overlappingFirstSaves() throws Exception {
+		for (int round = 0; round < 5; round++) {
+			UUID id = UUID.randomUUID();
+			String json = body(id, "horizontal-line", 1710338400, 80000);
+			java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(4);
+			java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+			java.util.List<java.util.concurrent.Future<Integer>> saves = new java.util.ArrayList<>();
+			for (int i = 0; i < 4; i++) {
+				saves.add(pool.submit(() -> {
+					start.await();
+					return mockMvc.perform(put("/api/charts/DEMO-NQ/drawings/" + id).cookie(alice).with(csrf())
+							.contentType(MediaType.APPLICATION_JSON).content(json))
+						.andReturn().getResponse().getStatus();
+				}));
+			}
+			start.countDown();
+			for (var save : saves) {
+				org.assertj.core.api.Assertions.assertThat(save.get(30, java.util.concurrent.TimeUnit.SECONDS)).isIn(200, 201);
+			}
+			pool.shutdown();
+			org.assertj.core.api.Assertions.assertThat(drawings.findByIdAndUserId(id,
+				users.findByEmailIgnoreCase("alice@example.com").orElseThrow().getId())).isPresent();
+		}
+		org.assertj.core.api.Assertions.assertThat(drawings.count()).isEqualTo(5);
 	}
 }

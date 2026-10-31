@@ -31,10 +31,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtService jwtService;
 	private final AppUserRepository users;
+	private final RevokedAccessTokenRepository revoked;
 
-	public JwtAuthenticationFilter(JwtService jwtService, AppUserRepository users) {
+	public JwtAuthenticationFilter(JwtService jwtService, AppUserRepository users, RevokedAccessTokenRepository revoked) {
 		this.jwtService = jwtService;
 		this.users = users;
+		this.revoked = revoked;
 	}
 
 	@Override
@@ -44,6 +46,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		if (SecurityContextHolder.getContext().getAuthentication() == null) {
 			readCookie(request, CookieService.ACCESS_TOKEN_COOKIE)
 				.flatMap(jwtService::read)
+				// BUG-126: a token signed out before its expiry is over.
+				.filter(token -> token.jti() == null || !revoked.existsById(token.jti()))
 				// BUG-077: a token issued before "sign out everywhere" or a password change is over, whatever its expiry.
 				.flatMap(token -> users.findById(token.userId())
 					.filter(u -> u.getTokenGeneration() == token.generation()))

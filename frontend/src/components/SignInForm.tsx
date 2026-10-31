@@ -70,7 +70,7 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
-              maxLength={60}
+              maxLength={40}
             />
           </label>
         )}

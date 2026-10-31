@@ -1,6 +1,6 @@
 import { useCallback, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, CircleHelp, KeyRound, LogOut, MonitorOff, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, CircleHelp, FileLock2, KeyRound, LogOut, MonitorOff, X } from 'lucide-react'
 import { errorMessage, type User } from '@/lib/api/auth'
 import { passwordRules } from '@/lib/password'
 import { cx, errorClass, fieldClass, labelClass } from '@/lib/styles'
@@ -82,6 +82,9 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
                 <SheetRow icon={<CircleHelp />} onClick={() => go('/help')}>
                   How Tradeez works
                 </SheetRow>
+                <SheetRow icon={<FileLock2 />} onClick={() => go('/account')}>
+                  Your data
+                </SheetRow>
                 <SheetRow icon={<KeyRound />} onClick={() => setView('password')}>
                   Change password
                 </SheetRow>
@@ -129,6 +132,15 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
         <div className="border-t border-line pt-1.5">
           {view === 'menu' ? (
             <>
+              <MenuRow
+                icon={<FileLock2 />}
+                onClick={() => {
+                  close()
+                  void navigate('/account')
+                }}
+              >
+                Your data
+              </MenuRow>
               <MenuRow icon={<KeyRound />} onClick={() => setView('password')}>
                 Change password
               </MenuRow>

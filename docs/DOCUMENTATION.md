@@ -2173,7 +2173,7 @@ one site. Nothing in the repo belongs to a particular host.
 
 ```
 docker build -t tradeez .
-docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/tradeez -e JWT_SECRET=<32 random bytes, base64> -e COOKIES_SECURE=true tradeez
+docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/tradeez -e DATABASE_USER=tradeez -e DATABASE_PASSWORD=tradeez -e JWT_SECRET=<32 random bytes, base64> tradeez
 ```
 
 **On a host** (any that runs a Docker image from the GitHub repo and gives it PostgreSQL 17): point it at the root
@@ -2184,18 +2184,27 @@ docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5
 | `DATABASE_URL` | `jdbc:postgresql://<host>:<port>/<db>` (the JDBC form, not `postgres://`) |
 | `DATABASE_USER`, `DATABASE_PASSWORD` | the database's account |
 | `JWT_SECRET` | 32 random bytes in base64 (`openssl rand -base64 32`); the app refuses to start with the development one |
-| `COOKIES_SECURE` | `true` (the host gives HTTPS) |
-| `CORS_ALLOWED_ORIGINS` | the app's own address, e.g. `https://<name>.onrender.com`, later the domain |
 | `TRUSTED_PROXIES` | `1` behind the host's proxy, so rate limits see the real caller |
 | `FRED_API_KEY` | for the news calendar; without it the news stays empty |
 | `PORT` | set by most hosts; the app listens on it (8080 otherwise) |
 
-Flyway creates the tables on the first start. **The market data is not in the image**: a new database has no candles
+The image runs the `prod` profile (BUG-121): without `JWT_SECRET` or the three `DATABASE_*` settings it refuses to
+start, cookies are always Secure, the proxy's HTTPS is believed, the API description is off. No CORS setting is
+needed — the page and the API are one site. Flyway creates the tables on the first start. **The market data is not in the image**: a new database has no candles
 until the importer is run against it (README "Running it locally", the import step, with the same `DATABASE_*` variables and `MASSIVE_API_KEY`)
 or the local database is copied over (`pg_dump` / `pg_restore`). Before anyone but Fabio and the jury signs in, Q-09:
 the data is Massive's free plan, for individual use (DEC-040, INVARIANT 7), and FRED asks for a privacy policy (DEC-079).
 
 The Vercel project Fabio made for the beta is no longer needed: the image serves the page.
+
+**Security fixes (T57, 2026-10-31).** From the audit of 2026-10-30, on `fix/security-audit`: the prod profile with no
+development secrets (BUG-121); the page cached by content, so a deploy is always seen (BUG-122); bodies over 64 KB
+refused unread (BUG-123); strict same-site cookies (BUG-124); HSTS, a CSP, referrer and permissions policies
+(BUG-125); sign-out ending the access token at once (BUG-126); names and addresses that cannot impersonate (BUG-127);
+old sign-ins deleted and only a coarse browser name kept (BUG-130); a warning for untrusted proxies (BUG-131); a quieter
+health check, no generated password, BCrypt 12 (BUG-132); overlapping drawing saves (BUG-135); and "Your data" —
+download everything, delete the account, a privacy page (BUG-120). Backend 787 + new tests, frontend 485; sixteen
+mutants, all caught.
 
 ---
 

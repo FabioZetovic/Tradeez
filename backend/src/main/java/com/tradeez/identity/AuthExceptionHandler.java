@@ -27,6 +27,12 @@ public class AuthExceptionHandler {
 		return body(HttpStatus.CONFLICT, "That email address is already registered.");
 	}
 
+	@ExceptionHandler(Identities.InvalidIdentityException.class)
+	public ResponseEntity<Map<String, Object>> invalidIdentity(Identities.InvalidIdentityException e) {
+		// BUG-127: the message says what to change; it is written here, never built from the input.
+		return body(HttpStatus.BAD_REQUEST, e.getMessage());
+	}
+
 	@ExceptionHandler(AuthService.InvalidCredentialsException.class)
 	public ResponseEntity<Map<String, Object>> badCredentials() {
 		return body(HttpStatus.UNAUTHORIZED, "Invalid email or password.");

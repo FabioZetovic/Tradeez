@@ -32,7 +32,7 @@ class HealthControllerTest {
 			.thenThrow(new CannotGetJdbcConnectionException("jdbc:postgresql://db:5432/tradeez refused, password=hunter2"));
 		ObjectProvider<BuildProperties> build = mock(ObjectProvider.class);
 
-		Map<String, Object> body = new HealthController(jdbc, build).health();
+		Map<String, Object> body = new HealthController(jdbc, build, false).health();
 
 		assertThat(body).containsEntry("status", "DEGRADED").containsEntry("database", "DOWN");
 		assertThat(body.toString()).doesNotContain("jdbc:").doesNotContain("hunter2");

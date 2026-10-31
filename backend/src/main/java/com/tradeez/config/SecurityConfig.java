@@ -20,6 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -48,21 +49,35 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
+	/**
+	 * BUG-125. What the page may load: its own scripts, styles, fonts and data; images and fonts also as data: URIs (the
+	 * build inlines small font files, the chart its snapshots); inline style attributes, which motion and the chart set.
+	 * No plugins, no other site's frames.
+	 */
+	static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+		+ "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; "
+		+ "form-action 'self'; frame-ancestors 'none'";
+
+	static final String PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+
 	/** The API's description and its UI (springdoc). */
 	static final String[] API_DOCS = { "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html" };
 
 	private final List<String> allowedOrigins;
 	private final boolean deployed;
+	private final int bcryptStrength;
 	private final JwtAuthenticationFilter jwtFilter;
 
 	public SecurityConfig(
 			@Value("${tradeez.cors.allowed-origins}") String allowedOrigins,
 			@Value("${tradeez.cookies.secure}") boolean deployed,
+			@Value("${tradeez.password.bcrypt-strength:12}") int bcryptStrength,
 			JwtAuthenticationFilter jwtFilter) {
 		this.allowedOrigins = List.of(allowedOrigins.split("\\s*,\\s*"));
 		// cookies.secure is false only on plain-HTTP localhost, which makes it a reliable signal
 		// for "this is a real environment" — the same discriminator JwtSecretGuard uses.
 		this.deployed = deployed;
+		this.bcryptStrength = bcryptStrength;
 		this.jwtFilter = jwtFilter;
 	}
 
@@ -70,15 +85,25 @@ public class SecurityConfig {
 	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
 		csrfHandler.setCsrfRequestAttributeName(null);
+		// BUG-124: the page reads this cookie, so it cannot be HttpOnly, but it is first-party only and, deployed, HTTPS only.
+		CookieCsrfTokenRepository csrfTokens = CookieCsrfTokenRepository.withHttpOnlyFalse();
+		csrfTokens.setCookieCustomizer(cookie -> cookie.secure(deployed).sameSite("Strict"));
 
 		http
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 			.csrf(csrf -> csrf
-				.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+				.csrfTokenRepository(csrfTokens)
 				.csrfTokenRequestHandler(csrfHandler)
 				// Auth endpoints are exempt only until a session cookie exists to protect.
 				.ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh"))
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			// BUG-125. HSTS is Spring's default on HTTPS requests (the prod profile makes the proxy's HTTPS visible). The
+			// CSP is the net behind React's escaping: the page's own scripts and data only, never framed.
+			.headers(headers -> headers
+				.httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31_536_000))
+				.contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+				.referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+				.permissionsPolicyHeader(permissions -> permissions.policy(PERMISSIONS_POLICY)))
 			.authorizeHttpRequests(auth -> {
 				// BUG-078: Spring answers a refused request by forwarding it to /error, a second pass through this
 				// chain on which the access-token filter does not run. Refused there as anonymous, every such error
@@ -146,6 +171,7 @@ public class SecurityConfig {
 
 	@Bean
 	PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
+		// BUG-132: cost 12 (tradeez.password.bcrypt-strength); AuthService redoes an older, cheaper hash at sign-in.
+		return new BCryptPasswordEncoder(bcryptStrength);
 	}
 }

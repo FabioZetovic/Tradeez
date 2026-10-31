@@ -31,7 +31,8 @@ import com.tradeez.identity.RefreshTokenRepository;
  * empty 401. And the API's description is closed when deployed (BUG-082), which only this configuration shows.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = "tradeez.cookies.secure=true")
+	// As the prod profile has it (BUG-125): the host's proxy says the request was HTTPS.
+	properties = { "tradeez.cookies.secure=true", "server.forward-headers-strategy=framework" })
 class DeployedServerTest extends AbstractIntegrationTest {
 
 	/** A fresh secret per run: the guard refuses the development one when deployed. */
@@ -55,6 +56,9 @@ class DeployedServerTest extends AbstractIntegrationTest {
 
 	private String accessCookie;
 
+	/** Every cookie the sign-up set, with its attributes. */
+	private java.util.List<String> signUpCookies;
+
 	@BeforeEach
 	void signUp() throws Exception {
 		refreshTokens.deleteAllInBatch();
@@ -64,6 +68,7 @@ class DeployedServerTest extends AbstractIntegrationTest {
 			.POST(HttpRequest.BodyPublishers.ofString(
 				"{\"email\":\"deployed@example.com\",\"password\":\"a-perfectly-fine-passphrase\",\"displayName\":\"D\"}")));
 		assertThat(registered.statusCode()).isEqualTo(201);
+		signUpCookies = registered.headers().allValues("Set-Cookie");
 		accessCookie = registered.headers().allValues("Set-Cookie").stream()
 			.filter(c -> c.startsWith(CookieService.ACCESS_TOKEN_COOKIE + "="))
 			.map(c -> c.substring(0, c.indexOf(';')))
@@ -130,5 +135,37 @@ class DeployedServerTest extends AbstractIntegrationTest {
 			assertThat(health.body()).contains("\"status\":\"UP\"")
 				.doesNotContain("components", "details", "db", "diskSpace", "path");
 		}
+	}
+
+	@Test
+	@DisplayName("BUG-132 deployed, /api/health says only whether it is up — not what it is or when it started")
+	void apiHealthSaysLittle() throws Exception {
+		HttpResponse<String> health = get("/api/health", false);
+		assertThat(health.statusCode()).isEqualTo(200);
+		assertThat(health.body()).contains("\"status\":\"UP\"").doesNotContain("startedAt", "builtAt", "application");
+	}
+
+	@Test
+	@DisplayName("BUG-124 deployed, the session cookies are Secure, HttpOnly and SameSite=Strict; the CSRF cookie Secure and Strict")
+	void cookiesAreFirstPartyOnly() throws Exception {
+		assertThat(signUpCookies).filteredOn(c -> c.startsWith("tradeez_")).hasSize(2)
+			.allSatisfy(c -> assertThat(c).contains("Secure", "HttpOnly", "SameSite=Strict").doesNotContain("SameSite=None"));
+		HttpResponse<String> page = send(HttpRequest.newBuilder(uri("/api/health")).header("X-Forwarded-Proto", "https").GET());
+		assertThat(page.headers().allValues("Set-Cookie")).filteredOn(c -> c.startsWith("XSRF-TOKEN=")).singleElement()
+			.satisfies(c -> assertThat(c).contains("Secure", "SameSite=Strict"));
+	}
+
+	@Test
+	@DisplayName("BUG-125 behind the host's HTTPS proxy: HSTS, a CSP, a referrer policy and a permissions policy")
+	void securityHeaders() throws Exception {
+		HttpResponse<String> overHttps = send(HttpRequest.newBuilder(uri("/api/health")).header("X-Forwarded-Proto", "https").GET());
+		assertThat(overHttps.headers().firstValue("Strict-Transport-Security")).hasValueSatisfying(
+			v -> assertThat(v).contains("max-age=31536000", "includeSubDomains"));
+		assertThat(overHttps.headers().firstValue("Content-Security-Policy")).hasValueSatisfying(
+			v -> assertThat(v).contains("default-src 'self'", "frame-ancestors 'none'", "object-src 'none'"));
+		assertThat(overHttps.headers().firstValue("Referrer-Policy")).hasValue("strict-origin-when-cross-origin");
+		assertThat(overHttps.headers().firstValue("Permissions-Policy")).hasValueSatisfying(v -> assertThat(v).contains("camera=()"));
+		// Over plain HTTP no HSTS: a browser must only ever learn it over HTTPS.
+		assertThat(get("/api/health", false).headers().firstValue("Strict-Transport-Security")).isEmpty();
 	}
 }

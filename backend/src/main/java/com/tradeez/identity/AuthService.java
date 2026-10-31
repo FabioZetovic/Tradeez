@@ -58,6 +58,13 @@ public class AuthService {
 	private final JwtService jwtService;
 	private final RateLimiter rateLimiter;
 	private final PasswordPolicy passwordPolicy;
+	private RevokedAccessTokenRepository revokedAccessTokens;
+
+	/** BUG-126. Set by Spring; a test that builds this service by hand has no access tokens to sign out. */
+	@org.springframework.beans.factory.annotation.Autowired(required = false)
+	void setRevokedAccessTokens(RevokedAccessTokenRepository revokedAccessTokens) {
+		this.revokedAccessTokens = revokedAccessTokens;
+	}
 
 	public AuthService(AppUserRepository users, RefreshTokenRepository refreshTokens,
 			PasswordEncoder passwordEncoder, JwtService jwtService, RateLimiter rateLimiter,
@@ -76,17 +83,20 @@ public class AuthService {
 
 	@Transactional
 	public IssuedTokens register(RegisterRequest request, String userAgent) {
+		// BUG-127: the address and the name as they will be stored, or refused.
+		String email = Identities.email(request.email());
+		String displayName = Identities.displayName(request.displayName());
 		// password-1.0.0 first: a weak password is refused before anything is looked up (DEC-064).
-		passwordPolicy.require(request.password(), request.email(), request.displayName());
-		if (users.existsByEmailIgnoreCase(request.email())) {
+		passwordPolicy.require(request.password(), email, displayName);
+		if (users.existsByEmailIgnoreCase(email)) {
 			throw new EmailAlreadyRegisteredException();
 		}
 		AppUser user;
 		try {
 			user = users.saveAndFlush(new AppUser(
-				request.email().trim(),
+				email,
 				passwordEncoder.encode(request.password()),
-				request.displayName().trim()));
+				displayName));
 		} catch (DataIntegrityViolationException raced) {
 			// Two sign-ups for one address at once both pass the check above; the unique index on
 			// lower(email) lets one in, and the other is the same answer as a taken address, not a 500.
@@ -128,6 +138,11 @@ public class AuthService {
 		}
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 			throw new InvalidCredentialsException();
+		}
+		// BUG-132: a hash made at a lower cost than today's is redone now, while the password is in hand.
+		if (passwordEncoder.upgradeEncoding(user.getPasswordHash())) {
+			user.changePasswordHash(passwordEncoder.encode(request.password()));
+			users.save(user);
 		}
 
 		// Clear the counter on success, so someone who mistyped their password a few times is not
@@ -253,6 +268,34 @@ public class AuthService {
 			});
 	}
 
+	/**
+	 * BUG-120: the account and everything hanging off it — sessions, trades, drills, drawings, sign-ins — deleted for
+	 * good (the schema cascades from app_user). Needs the current password, and is throttled as a password change is, so
+	 * a session left open on a shared computer cannot be used to destroy the account or to guess its password.
+	 */
+	@Transactional
+	public void deleteAccount(UUID userId, String password) {
+		String throttleKey = "password:" + userId;
+		if (!rateLimiter.tryAcquire(throttleKey, PASSWORD_CHANGES, ACCOUNT_WINDOW)) {
+			throw new TooManyAttemptsException();
+		}
+		AppUser user = users.findById(userId).orElseThrow(InvalidRefreshTokenException::new);
+		if (PasswordPolicy.tooLong(password) || !passwordEncoder.matches(password, user.getPasswordHash())) {
+			throw new WrongCurrentPasswordException();
+		}
+		users.delete(user);
+		rateLimiter.reset(throttleKey);
+		log.info("Account {} deleted at its owner's request.", userId);
+	}
+
+	/** BUG-126: this access token is refused from now until it would have expired. */
+	@Transactional
+	public void signOutAccessToken(JwtService.AccessToken token) {
+		if (token.jti() != null && revokedAccessTokens != null && token.expiresAt().isAfter(Instant.now())) {
+			revokedAccessTokens.save(new RevokedAccessToken(token.jti(), token.expiresAt()));
+		}
+	}
+
 	/** Every session: the refresh tokens, and the access tokens already handed out (BUG-077). */
 	@Transactional
 	public void logoutEverywhere(UUID userId) {
@@ -277,7 +320,7 @@ public class AuthService {
 			user,
 			jwtService.hash(rawRefresh),
 			Instant.now().plus(jwtService.getRefreshTokenTtl()),
-			userAgent));
+			Devices.describe(userAgent)));
 		return new IssuedTokens(user, jwtService.issueAccessToken(user), rawRefresh);
 	}
 

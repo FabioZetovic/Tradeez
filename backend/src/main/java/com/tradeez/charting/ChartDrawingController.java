@@ -4,10 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -89,10 +92,13 @@ public class ChartDrawingController {
 
 	private final ChartDrawingRepository drawings;
 	private final MarketDataService marketData;
+	private final TransactionTemplate transactions;
 
-	public ChartDrawingController(ChartDrawingRepository drawings, MarketDataService marketData) {
+	public ChartDrawingController(ChartDrawingRepository drawings, MarketDataService marketData,
+			PlatformTransactionManager transactionManager) {
 		this.drawings = drawings;
 		this.marketData = marketData;
+		this.transactions = new TransactionTemplate(transactionManager);
 	}
 
 	@Schema(description = "A point in market space. priceTicks is an INTEGER TICK COUNT (DEC-024).")
@@ -130,12 +136,22 @@ public class ChartDrawingController {
 	@Operation(summary = "Create or update a drawing",
 		description = "Idempotent by id, so a retried save after a dropped connection cannot "
 			+ "produce a duplicate shape.")
-	@Transactional
 	public ResponseEntity<DrawingDto> save(
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable String symbol,
 			@PathVariable UUID id,
 			@Valid @RequestBody DrawingDto body) {
+		try {
+			return transactions.execute(status -> saveOnce(principal, symbol, id, body));
+		} catch (DataIntegrityViolationException raced) {
+			// BUG-135: a new drawing's first saves can overlap (a drag sends several): both found no row, both inserted,
+			// and the second broke the key — a 500 for a drawing that was saved. Once more, the row is there: an update
+			// for its owner, still a 404 for anyone else.
+			return transactions.execute(status -> saveOnce(principal, symbol, id, body));
+		}
+	}
+
+	private ResponseEntity<DrawingDto> saveOnce(AuthenticatedUser principal, String symbol, UUID id, DrawingDto body) {
 
 		if (!id.equals(body.id())) {
 			throw new IllegalArgumentException("Drawing id in the path and body must match.");
@@ -207,7 +223,7 @@ public class ChartDrawingController {
 
 		ChartDrawing created = new ChartDrawing(
 			id, principal.id(), instrument.getId(), body.kind(), anchors, style, text);
-		return ResponseEntity.status(HttpStatus.CREATED).body(toDto(drawings.save(created)));
+		return ResponseEntity.status(HttpStatus.CREATED).body(toDto(drawings.saveAndFlush(created)));
 	}
 
 	@DeleteMapping("/{id}")

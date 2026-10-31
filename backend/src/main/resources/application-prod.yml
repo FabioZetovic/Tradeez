@@ -1,0 +1,33 @@
+# BUG-121 (T57). The deployed profile: the Docker image always runs with it (Dockerfile). Every secret below has NO
+# default, so an instance missing one refuses to start instead of running on the development values written in
+# application.yml. Local development never uses this profile.
+
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+
+server:
+  # BUG-125. Behind the host's HTTPS proxy: believe its X-Forwarded-Proto and Host, so the app knows the request was
+  # HTTPS (HSTS, Secure cookies, same-origin checks). Which proxies to believe for the caller's address is still
+  # tradeez.rate-limit.trusted-proxies (BUG-070).
+  forward-headers-strategy: framework
+
+tradeez:
+  jwt:
+    secret: ${JWT_SECRET}
+  cookies:
+    # Deployed means HTTPS: never configurable off here.
+    secure: true
+  cors:
+    # The page and the API are one site (DEC-084): no other origin is needed. Set only if another site must call it.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+
+# BUG-132. The API's description is for building against it locally; security refuses it deployed, and here it is
+# not built at all.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
