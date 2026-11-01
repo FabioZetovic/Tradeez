@@ -84,6 +84,22 @@ tradeez:
     # Fed's FOMC list. Tests switch it off: they never call FRED.
     refresh-enabled: ${NEWS_REFRESH_ENABLED:true}
 
+  # T56 (BUG-119). Where the app is reached: the start of every link in an email. Locally, Vite's page.
+  app-url: ${APP_URL:http://localhost:5173}
+
+  signup:
+    # T56. A new account cannot sign in until its owner opens the link sent to the address. Off only in tests that say
+    # so; the prod profile refuses to start without it (MailGuard).
+    verify-email: ${SIGNUP_VERIFY_EMAIL:true}
+
+  mail:
+    # T56. outbox: the mail stays on this machine, written to outbox-dir (gitignored) — local development. resend: sent
+    # through Resend's HTTP API with RESEND_API_KEY from MAIL_FROM — deployed. MailGuard refuses outbox in production.
+    provider: ${MAIL_PROVIDER:outbox}
+    outbox-dir: ${MAIL_OUTBOX_DIR:outbox}
+    from: ${MAIL_FROM:}
+    resend-api-key: ${RESEND_API_KEY:}
+
   password:
     # BUG-132. BCrypt's cost: 12 is the current advice. A hash made at a lower cost is redone at the next sign-in.
     bcrypt-strength: ${BCRYPT_STRENGTH:12}

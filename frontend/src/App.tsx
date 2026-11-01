@@ -9,6 +9,7 @@ import { AppShell, Logo } from '@/components/shell/AppShell'
 import { Guide } from '@/components/Guide'
 import { AccountPage } from '@/components/AccountPage'
 import { PrivacyPage } from '@/components/PrivacyPage'
+import { ForgotPassword, ResetPassword, VerifyEmail } from '@/components/EmailLinks'
 import { HomePage } from '@/components/home/HomePage'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { NewsPage } from '@/components/news/NewsPage'
@@ -39,7 +40,7 @@ export default function App({ adapterFactory }: { adapterFactory?: AdapterFactor
 }
 
 function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
-  const { state, login, register, logout, logoutEverywhere, changePassword, deleteAccount } = useSession()
+  const { state, login, register, signedIn, logout, logoutEverywhere, changePassword, deleteAccount } = useSession()
   const location = useLocation()
 
   if (state.status === 'loading') {
@@ -71,6 +72,10 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/" element={state.expired ? signIn('login') : <LandingPage />} />
         <Route path="/sign-in" element={signIn('login')} />
         <Route path="/sign-up" element={signIn('register')} />
+        {/* T56: the pages the emailed links open, and asking for a reset. */}
+        <Route path="/verify-email" element={<AuthPage><VerifyEmail onSignedIn={signedIn} /></AuthPage>} />
+        <Route path="/forgot-password" element={<AuthPage><ForgotPassword /></AuthPage>} />
+        <Route path="/reset-password" element={<AuthPage><ResetPassword onSignedIn={signedIn} /></AuthPage>} />
         {/* BUG-120: what is kept and why, readable before signing up. */}
         <Route
           path="/privacy"

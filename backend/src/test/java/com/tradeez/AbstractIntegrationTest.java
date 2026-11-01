@@ -27,7 +27,10 @@ import com.tradeez.identity.RateLimiter;
 public abstract class AbstractIntegrationTest {
 
 	@SuppressWarnings("resource") // lifecycle is managed by Testcontainers
-	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
+	// Every distinct test configuration keeps a Spring context, each with its own pool of ten connections; past about ten
+	// of them PostgreSQL's default of 100 ran out ("too many clients already", T56).
+	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine")
+		.withCommand("postgres", "-c", "max_connections=400");
 
 	static {
 		// Tests start Spring without main(), so they set the JVM zone themselves (BUG-036).
@@ -67,5 +70,10 @@ public abstract class AbstractIntegrationTest {
 		// BCrypt at cost 12 (BUG-132) is a quarter second a hash; hundreds of sign-ups would add minutes. The cost is the
 		// setting's business, tested on its own (PasswordRehashTest); 5 keeps it above the cost a rehash is tested from.
 		registry.add("tradeez.password.bcrypt-strength", () -> "5");
+		// T56: most tests sign up to test something else, and are signed in at once. EmailSignUpTest switches confirmation
+		// on; the prod profile cannot run without it (MailGuard). No mail is written to disk, only kept in memory.
+		// A placeholder, so a subclass can say otherwise: a second registration of the same name would not win.
+		registry.add("tradeez.signup.verify-email", () -> "${tradeez.test.verify-email:false}");
+		registry.add("tradeez.mail.outbox-dir", () -> "");
 	}
 }

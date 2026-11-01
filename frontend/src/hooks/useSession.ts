@@ -5,6 +5,7 @@ import {
   login as apiLogin,
   logout as apiLogout,
   logoutEverywhere as apiLogoutEverywhere,
+  isPendingSignUp,
   register as apiRegister,
   restoreSession,
   type User,
@@ -60,13 +61,19 @@ export function useSession() {
     setState({ status: 'signedIn', user })
   }, [])
 
+  /** T56: 'check-inbox' when the address must be confirmed first — nobody is signed in yet. */
   const register = useCallback(
-    async (email: string, password: string, displayName: string) => {
-      const user = await apiRegister({ email, password, displayName })
-      setState({ status: 'signedIn', user })
+    async (email: string, password: string, displayName: string): Promise<'signed-in' | 'check-inbox'> => {
+      const result = await apiRegister({ email, password, displayName })
+      if (isPendingSignUp(result)) return 'check-inbox'
+      setState({ status: 'signedIn', user: result })
+      return 'signed-in'
     },
     [],
   )
+
+  /** T56: an emailed link confirmed the address or set a new password, and the server signed this browser in. */
+  const signedIn = useCallback((user: User) => setState({ status: 'signedIn', user }), [])
 
   const logout = useCallback(async () => {
     try {
@@ -99,5 +106,5 @@ export function useSession() {
     setState({ status: 'signedOut' })
   }, [])
 
-  return { state, login, register, logout, logoutEverywhere, changePassword, deleteAccount }
+  return { state, login, register, signedIn, logout, logoutEverywhere, changePassword, deleteAccount }
 }

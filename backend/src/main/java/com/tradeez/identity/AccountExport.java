@@ -26,9 +26,10 @@ public class AccountExport {
 
 	private static Map<String, String> sections() {
 		Map<String, String> s = new LinkedHashMap<>();
-		s.put("account", "SELECT id, email, display_name, created_at FROM app_user WHERE id = ?");
+		s.put("account", "SELECT id, email, display_name, created_at, email_verified_at FROM app_user WHERE id = ?");
 		s.put("signIns", "SELECT issued_at, expires_at, revoked_at, user_agent FROM refresh_token WHERE user_id = ?"
 			+ " ORDER BY issued_at");
+		s.put("emailLinks", "SELECT purpose, created_at, expires_at, used_at FROM email_token WHERE user_id = ? ORDER BY created_at");
 		s.put("lessonsRead", "SELECT * FROM concept_read WHERE user_id = ?");
 		s.put("drills", "SELECT * FROM drill WHERE user_id = ? ORDER BY created_at");
 		s.put("drillMarks", "SELECT ds.* FROM drill_setup ds JOIN drill d ON d.id = ds.drill_id WHERE d.user_id = ?");

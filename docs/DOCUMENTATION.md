@@ -2185,6 +2185,9 @@ docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5
 | `DATABASE_USER`, `DATABASE_PASSWORD` | the database's account |
 | `JWT_SECRET` | 32 random bytes in base64 (`openssl rand -base64 32`); the app refuses to start with the development one |
 | `TRUSTED_PROXIES` | `1` behind the host's proxy, so rate limits see the real caller |
+| `APP_URL` | the app's `https://` address — the start of every link in its emails (T56) |
+| `MAIL_PROVIDER` | `resend` (the local `outbox` is refused deployed) |
+| `RESEND_API_KEY`, `MAIL_FROM` | Resend's API key and the sender, e.g. `Tradeez <hello@your-domain>`; Resend sends from a domain whose DNS records you add, so this waits on the domain (T51) — until then its test sender delivers only to the account owner's own address |
 | `FRED_API_KEY` | for the news calendar; without it the news stays empty |
 | `PORT` | set by most hosts; the app listens on it (8080 otherwise) |
 
@@ -2205,6 +2208,12 @@ old sign-ins deleted and only a coarse browser name kept (BUG-130); a warning fo
 health check, no generated password, BCrypt 12 (BUG-132); overlapping drawing saves (BUG-135); and "Your data" —
 download everything, delete the account, a privacy page (BUG-120). Backend 787 + new tests, frontend 485; sixteen
 mutants, all caught.
+
+**Real email addresses (T56, 2026-11-01).** An account is usable only once its owner opens a link sent to the address:
+sign-up answers "check your inbox" whether or not the address had an account; the link (token after a `#`, 24 hours,
+single use) confirms and signs in; forgot password sends a one-hour reset link. Each sign-up's link carries its own
+password, so signing up first with someone else's address gets nothing (pre-hijacking). Mail: the local `outbox` folder,
+or Resend deployed; the prod profile needs `MAIL_PROVIDER` and `APP_URL`. BUG-119 and BUG-128 fixed.
 
 ---
 

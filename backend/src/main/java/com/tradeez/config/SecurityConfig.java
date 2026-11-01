@@ -95,7 +95,8 @@ public class SecurityConfig {
 				.csrfTokenRepository(csrfTokens)
 				.csrfTokenRequestHandler(csrfHandler)
 				// Auth endpoints are exempt only until a session cookie exists to protect.
-				.ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh"))
+				.ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/api/auth/verify",
+					"/api/auth/verify/resend", "/api/auth/password/forgot", "/api/auth/password/reset"))
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			// BUG-125. HSTS is Spring's default on HTTPS requests (the prod profile makes the proxy's HTTPS visible). The
 			// CSP is the net behind React's escaping: the page's own scripts and data only, never framed.
@@ -116,7 +117,12 @@ public class SecurityConfig {
 						"/api/auth/register",
 						// Authenticated by the refresh cookie itself, not by an access token.
 						"/api/auth/refresh",
-						"/api/auth/logout")
+						"/api/auth/logout",
+						// T56: the emailed links and asking for them — before anyone is signed in.
+						"/api/auth/verify",
+						"/api/auth/verify/resend",
+						"/api/auth/password/forgot",
+						"/api/auth/password/reset")
 					.permitAll();
 				// BUG-082: the API's description is for building against it here; deployed, it is a map for anyone
 				// probing the API, so nobody is given it.

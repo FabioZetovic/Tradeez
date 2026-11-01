@@ -17,6 +17,12 @@ server:
 tradeez:
   jwt:
     secret: ${JWT_SECRET}
+  # T56. The address the app is reached at (https://…), for the links in its emails, and how mail is sent: no default,
+  # and MailGuard refuses the local outbox here — an email nobody can read would leave every sign-up stuck.
+  app-url: ${APP_URL}
+  mail:
+    provider: ${MAIL_PROVIDER}
+    outbox-dir: ""
   cookies:
     # Deployed means HTTPS: never configurable off here.
     secure: true

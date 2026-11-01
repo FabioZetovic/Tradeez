@@ -21,8 +21,8 @@
 
 Fabio: "act as a hacker … find every vulnerability possible … We need to protect this user data with our lives. After
 that find all the bugs that could affect user activities … THe next run after that we will start fiying all of that."
-T57 (2026-10-31) fixed BUG-120 to BUG-127, BUG-130 to BUG-132 and BUG-135 — moved to [Fixed](#fixed). Left here: BUG-119 and
-BUG-128 (T56, real email addresses, next), BUG-129, BUG-133, BUG-134.
+T57 (2026-10-31) fixed BUG-120 to BUG-127, BUG-130 to BUG-132 and BUG-135 — moved to [Fixed](#fixed). T56 (2026-11-01) fixed BUG-119 and BUG-128.
+Left here: BUG-129, BUG-133, BUG-134.
 
 **How it was done.** Every endpoint mapped, every request parameter and body read for limits, every lookup by id
 checked for the owner, the identity package read line by line, the frontend searched for raw HTML, stored tokens and
@@ -52,50 +52,6 @@ The test expected "neither level within 100 candles" in the drill's explanation;
 market open beyond the stop 51 candles later ("Hold: … −5.33R"). Examples are picked at random, so the test assumes
 something about the example that is not always true — the same family as BUG-093 and BUG-117. To fix: pin the example
 (a seed or a fixed date) or assert on what holds for every example.
-
----
-
-### BUG-119 🔴 Anyone can sign up as anyone: an email address is never shown to belong to the person
-
-**Status:** verified (2026-10-30) · **Affects:** `AuthService.register`, `AppUser`, the sign-up and sign-in pages ·
-**Task:** T56
-
-**What.** Registration takes any address and signs the account straight in. `elon@tesla.com`, a classmate's address,
-a jury member's, `admin@` anything — all accepted (201), and the account is fully usable at once.
-
-**Why it matters.** (1) Impersonation: the address is the account's identity, shown in the account menu and the only
-thing tying a person to their record. (2) The real owner of the address can never sign up — it is "already
-registered" (409). (3) Nobody can recover a forgotten password: there is no reset, because there is no proven address
-to send one to. (4) Every other abuse below (BUG-128 mass accounts, BUG-121's forged sessions needing an account)
-gets cheaper when accounts are free and anonymous.
-
-**How to fix (T56).** An account is *unverified* until its owner opens a single-use link sent to the address:
-- On sign-up: store the account unverified, send a link with a random token (stored only as its SHA-256, like refresh
-  tokens), valid 24 hours, single use. Until it is used: no sign-in, or a signed-in screen that says only "check your
-  inbox" with a throttled "send again".
-- The sign-up answer is the same whether the address is new or taken: "Check your inbox". A taken address gets an email
-  saying someone tried to sign up with it (with a reset link) — so the sign-up form no longer tells anyone which addresses have accounts (today it answers 409, verified).
-- Unverified accounts are deleted after 7 days (closes most of BUG-128).
-- With proven addresses, add "Forgot password" (same token machinery, 1 hour, signs out every session after) and a
-  verified email change.
-- Sending email needs a provider with a free tier (e.g. Resend or Brevo — no money, Fabio's sign-up) and, for mail that
-  is not marked spam, a domain with SPF/DKIM records: **this waits on Fabio's domain** (T51). Until then the links can
-  be sent from the provider's test sender to Fabio's own address only, enough to build and test.
-
----
-
-### BUG-128 🟠 Free, unverified accounts make the database fillable by one script
-
-**Status:** reasoned (2026-10-30) · **Affects:** registration, `DrillService`, `PracticeService`, the drawings
-
-**What.** Each account has hourly caps (600 drills, 60 sessions, 500 drawings a chart), but accounts are free: 20
-sign-ups per 5 minutes per address is 5,760 accounts a day from one machine, each able to write to its caps.
-
-**Why it matters.** A free database is small (Render's free Postgres: 1 GB). Filling it stops every real user's writes;
-on a paid plan it costs money.
-
-**How to fix.** T56 first (no writes before the address is verified; unverified accounts deleted after 7 days); then a
-global sign-up ceiling per hour, a size watch on the database, and old finished drills pruned.
 
 ---
 
@@ -198,6 +154,10 @@ second by default) timed out under load, as in the one-off failure noted with th
 2026-10-28). **Next:** if it fails again, run it alone at once and keep the output; if it is the wait, give the session
 start a longer `findBy` timeout.
 
+
+**Seen again** (2026-11-01, T56): `DrillView.test.tsx` "lets its candles take the width: two empty bars after the last"
+failed once in the full frontend run while the backend suite loaded the machine, and passed three times alone straight
+after — the same load-dependent family.
 ---
 
 *BUG-075 to BUG-092 are the bug hunt of 2026-10-21* — Fabio: "go through the app and mark every single bug you can
@@ -583,6 +543,74 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-128 🟠 Free, unverified accounts make the database fillable by one script
+
+**Status:** ✅ fixed on `fix/security-audit` (T56, 2026-11-01) — reasoned (2026-10-30) · **Affects:** registration, `DrillService`, `PracticeService`, the drawings
+
+**What.** Each account has hourly caps (600 drills, 60 sessions, 500 drawings a chart), but accounts are free: 20
+sign-ups per 5 minutes per address is 5,760 accounts a day from one machine, each able to write to its caps.
+
+**Why it matters.** A free database is small (Render's free Postgres: 1 GB). Filling it stops every real user's writes;
+on a paid plan it costs money.
+
+**How to fix.** T56 first (no writes before the address is verified; unverified accounts deleted after 7 days); then a
+global sign-up ceiling per hour, a size watch on the database, and old finished drills pruned.
+
+**✅ FIXED** (T56, 2026-11-01). T56: an account cannot sign in, and so cannot write anything, until its address is confirmed; one never confirmed is
+deleted after seven days (`SessionHousekeeping`, `EmailSignUpTest.unconfirmedDeleted`); the whole site takes at most 300
+sign-ups an hour (`AuthService.SIGN_UPS_PER_HOUR`), and an address at most three emails per 15 minutes. Not done: a watch
+on the database's size.
+
+---
+
+### BUG-119 🔴 Anyone can sign up as anyone: an email address is never shown to belong to the person
+
+**Status:** ✅ fixed on `fix/security-audit` (T56, 2026-11-01) — verified (2026-10-30) · **Affects:** `AuthService.register`, `AppUser`, the sign-up and sign-in pages ·
+**Task:** T56
+
+**What.** Registration takes any address and signs the account straight in. `elon@tesla.com`, a classmate's address,
+a jury member's, `admin@` anything — all accepted (201), and the account is fully usable at once.
+
+**Why it matters.** (1) Impersonation: the address is the account's identity, shown in the account menu and the only
+thing tying a person to their record. (2) The real owner of the address can never sign up — it is "already
+registered" (409). (3) Nobody can recover a forgotten password: there is no reset, because there is no proven address
+to send one to. (4) Every other abuse below (BUG-128 mass accounts, BUG-121's forged sessions needing an account)
+gets cheaper when accounts are free and anonymous.
+
+**How to fix (T56).** An account is *unverified* until its owner opens a single-use link sent to the address:
+- On sign-up: store the account unverified, send a link with a random token (stored only as its SHA-256, like refresh
+  tokens), valid 24 hours, single use. Until it is used: no sign-in, or a signed-in screen that says only "check your
+  inbox" with a throttled "send again".
+- The sign-up answer is the same whether the address is new or taken: "Check your inbox". A taken address gets an email
+  saying someone tried to sign up with it (with a reset link) — so the sign-up form no longer tells anyone which addresses have accounts (today it answers 409, verified).
+- Unverified accounts are deleted after 7 days (closes most of BUG-128).
+- With proven addresses, add "Forgot password" (same token machinery, 1 hour, signs out every session after) and a
+  verified email change.
+- Sending email needs a provider with a free tier (e.g. Resend or Brevo — no money, Fabio's sign-up) and, for mail that
+  is not marked spam, a domain with SPF/DKIM records: **this waits on Fabio's domain** (T51). Until then the links can
+  be sent from the provider's test sender to Fabio's own address only, enough to build and test.
+
+**✅ FIXED** (T56, 2026-11-01). T56 on `fix/security-audit`. Sign-up signs nobody in: it answers 202 "check your inbox" and emails a single-use link
+(24 hours; only its SHA-256 is stored, in `email_token`, V34) whose token sits after a `#`, so no server, proxy or
+`Referer` ever sees it. Opening it (`/verify-email`) confirms the address and signs in. Until then the right password
+gets 403 `EMAIL_NOT_VERIFIED`, and the page offers the link again — which needs the password. The answer to a sign-up is
+the same whether the address was new or taken, in the same time (a password is hashed on both paths): a taken,
+confirmed address only gets an email telling its owner. So sign-up no longer reveals which addresses have accounts.
+**Pre-hijacking** — signing up first with someone else's address and a password of one's own, waiting for the owner to
+confirm — is closed: each sign-up's link carries the password chosen at that sign-up and sets it when opened, and the
+other links die. "Forgot password" (`/forgot-password`, always 202) emails a one-hour reset link to a confirmed account
+(`/reset-password`: a new password, every session signed out) and only a note, no link, to an unconfirmed one. Each
+address gets at most three emails per 15 minutes. Existing accounts were marked confirmed by V34 (the local test account
+signs in as before). Mail goes through `Mailer`: `outbox` locally (files in `backend/outbox/`, gitignored; the log names
+the file and subject, never the address or the link) and `resend` deployed (Resend's HTTP API, the key only in the
+Authorization header). The `prod` profile needs `MAIL_PROVIDER` and `APP_URL`, and `MailGuard` refuses to start with
+confirmation off, with the outbox, or with an `http://` app address. `EmailSignUpTest` (7), `MailTest` (3),
+`EmailLinks.test.tsx` (7); checked live — sign-up, the link from the outbox, sign-in on Home with the token gone from
+the address bar; forgot, reset, signed in. Not done: changing the address of an existing account (there is no such
+feature yet — when there is, it must confirm the new address the same way).
+
+---
 
 ### BUG-135 🟡 Two saves of a new drawing at once answer 500
 

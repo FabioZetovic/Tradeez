@@ -38,6 +38,30 @@ public final class AuthDtos {
 		@NotBlank @Size(max = MAX_PASSWORD_INPUT) String password) {
 	}
 
+	@Schema(description = "A single-use link's token, as the page read it after the # (T56)")
+	public record LinkRequest(@NotBlank @Size(max = 200) String token) {
+	}
+
+	@Schema(description = "An address to send a link to (T56). Answered the same whether or not it has an account.")
+	public record EmailRequest(@NotBlank @Size(max = 254) String email) {
+	}
+
+	@Schema(description = "The confirmation link again (T56): the address and the account's password")
+	public record ResendRequest(
+		@NotBlank @Size(max = 254) String email,
+		@NotBlank @Size(max = MAX_PASSWORD_INPUT) String password) {
+	}
+
+	@Schema(description = "A new password from a reset link (T56): the link's token and the password, password-1.0.0")
+	public record ResetPasswordRequest(
+		@NotBlank @Size(max = 200) String token,
+		@NotBlank @Size(max = MAX_PASSWORD_INPUT) String newPassword) {
+	}
+
+	@Schema(description = "A sign-up waiting for its email to be confirmed (T56): nobody is signed in yet")
+	public record PendingSignUp(boolean verifyEmail, String email, String message) {
+	}
+
 	@Schema(description = "Deleting the signed-in account: its current password, so a borrowed session cannot (BUG-120)")
 	public record DeleteAccountRequest(@NotBlank @Size(max = MAX_PASSWORD_INPUT) String password) {
 	}

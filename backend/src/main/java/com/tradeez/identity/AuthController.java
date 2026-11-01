@@ -15,6 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.tradeez.identity.AuthService.IssuedTokens;
 import com.tradeez.identity.JwtAuthenticationFilter.AuthenticatedUser;
 import com.tradeez.identity.dto.AuthDtos.ChangePasswordRequest;
+import com.tradeez.identity.dto.AuthDtos.EmailRequest;
+import com.tradeez.identity.dto.AuthDtos.LinkRequest;
+import com.tradeez.identity.dto.AuthDtos.PendingSignUp;
+import com.tradeez.identity.dto.AuthDtos.ResendRequest;
+import com.tradeez.identity.dto.AuthDtos.ResetPasswordRequest;
 import com.tradeez.identity.dto.AuthDtos.LoginRequest;
 import com.tradeez.identity.dto.AuthDtos.RegisterRequest;
 import com.tradeez.identity.dto.AuthDtos.UserResponse;
@@ -50,11 +55,49 @@ public class AuthController {
 	}
 
 	@PostMapping("/register")
-	@Operation(summary = "Create an account and sign in")
-	public ResponseEntity<UserResponse> register(
+	@Operation(summary = "Create an account",
+		description = "T56: answered 202 with nobody signed in — a link goes to the address, whether it was new or not. "
+			+ "Only where email confirmation is switched off (some tests) is the account signed in at once, 201.")
+	public ResponseEntity<?> register(
 			@Valid @RequestBody RegisterRequest request,
 			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
-		return respond(authService.register(request, userAgent), HttpStatus.CREATED);
+		AuthService.SignUp signUp = authService.register(request, userAgent);
+		if (signUp.signedIn() != null) {
+			return respond(signUp.signedIn(), HttpStatus.CREATED);
+		}
+		return ResponseEntity.accepted().body(new PendingSignUp(true, signUp.email(),
+			"Check your inbox: we sent a link to " + signUp.email() + " to confirm it is yours."));
+	}
+
+	@PostMapping("/verify")
+	@Operation(summary = "Confirm an email address with the link sent to it, and sign in (T56)")
+	public ResponseEntity<UserResponse> verify(@Valid @RequestBody LinkRequest request,
+			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+		return respond(authService.verify(request.token(), userAgent), HttpStatus.OK);
+	}
+
+	@PostMapping("/verify/resend")
+	@Operation(summary = "Send the confirmation link again (T56)",
+		description = "Needs the account's password. Always 202: the answer does not say whether the address has an "
+			+ "account or the password was right.")
+	public ResponseEntity<Void> resendVerification(@Valid @RequestBody ResendRequest request) {
+		authService.resendVerification(request.email(), request.password());
+		return ResponseEntity.accepted().build();
+	}
+
+	@PostMapping("/password/forgot")
+	@Operation(summary = "Email a link to set a new password (T56)",
+		description = "Always 202: the answer does not say whether the address has an account.")
+	public ResponseEntity<Void> forgotPassword(@Valid @RequestBody EmailRequest request) {
+		authService.forgotPassword(request.email());
+		return ResponseEntity.accepted().build();
+	}
+
+	@PostMapping("/password/reset")
+	@Operation(summary = "Set a new password with the emailed link; signs out every other session (T56)")
+	public ResponseEntity<UserResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
+			@RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+		return respond(authService.resetPassword(request.token(), request.newPassword(), userAgent), HttpStatus.OK);
 	}
 
 	@PostMapping("/login")

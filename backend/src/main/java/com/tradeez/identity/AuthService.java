@@ -77,32 +77,158 @@ public class AuthService {
 		this.passwordPolicy = passwordPolicy;
 	}
 
+	/** BUG-128: sign-ups the whole site takes in an hour, from everyone together. */
+	static final int SIGN_UPS_PER_HOUR = 300;
+
+	private AccountEmails emails;
+	private boolean verifyEmail;
+
+	/**
+	 * T56 (BUG-119). Set by Spring; a test that builds this service by hand signs accounts in at once, as before. Off
+	 * only where a test says so — the prod profile refuses to start without it (MailGuard).
+	 */
+	@org.springframework.beans.factory.annotation.Autowired(required = false)
+	void setEmailVerification(AccountEmails emails,
+			@org.springframework.beans.factory.annotation.Value("${tradeez.signup.verify-email:true}") boolean verifyEmail) {
+		this.emails = emails;
+		this.verifyEmail = verifyEmail;
+	}
+
+	/**
+	 * What a sign-up ends in: signed in at once ({@code signedIn}), or — T56 — waiting for the link sent to the address
+	 * ({@code signedIn} null). The second is the same answer whether the address was new or already had an account.
+	 */
+	public record SignUp(IssuedTokens signedIn, String email) {
+	}
+
 	/** Issued credentials. The raw refresh token exists only long enough to become a cookie. */
 	public record IssuedTokens(AppUser user, String accessToken, String refreshToken) {
 	}
 
 	@Transactional
-	public IssuedTokens register(RegisterRequest request, String userAgent) {
+	public SignUp register(RegisterRequest request, String userAgent) {
 		// BUG-127: the address and the name as they will be stored, or refused.
 		String email = Identities.email(request.email());
 		String displayName = Identities.displayName(request.displayName());
 		// password-1.0.0 first: a weak password is refused before anything is looked up (DEC-064).
 		passwordPolicy.require(request.password(), email, displayName);
+		if (verifyEmail) {
+			return signUpByEmail(email, displayName, request.password());
+		}
 		if (users.existsByEmailIgnoreCase(email)) {
 			throw new EmailAlreadyRegisteredException();
 		}
 		AppUser user;
 		try {
-			user = users.saveAndFlush(new AppUser(
-				email,
-				passwordEncoder.encode(request.password()),
-				displayName));
+			user = new AppUser(email, passwordEncoder.encode(request.password()), displayName);
+			user.verifyEmail(Instant.now());
+			user = users.saveAndFlush(user);
 		} catch (DataIntegrityViolationException raced) {
 			// Two sign-ups for one address at once both pass the check above; the unique index on
 			// lower(email) lets one in, and the other is the same answer as a taken address, not a 500.
 			throw new EmailAlreadyRegisteredException();
 		}
+		return new SignUp(issueFor(user, userAgent), email);
+	}
+
+	/**
+	 * T56 (BUG-119): nobody is signed in by signing up. A new address gets an unverified account and a link; an address
+	 * that already has one gets an email telling its owner (or the link again, if it was never confirmed). Either way
+	 * the answer is the same, and takes the same time — a password is hashed on both paths — so sign-up no longer says
+	 * which addresses have accounts.
+	 */
+	private SignUp signUpByEmail(String email, String displayName, String password) {
+		if (!rateLimiter.tryAcquire("sign-ups", SIGN_UPS_PER_HOUR, java.time.Duration.ofHours(1))) {
+			throw new TooManyAttemptsException();
+		}
+		String hash = passwordEncoder.encode(password);
+		var existing = users.findByEmailIgnoreCase(email);
+		if (existing.isPresent()) {
+			if (existing.get().isEmailVerified()) {
+				emails.sendAlreadyRegistered(existing.get());
+			} else {
+				// Never confirmed: this sign-up's own link, carrying this sign-up's password (pre-hijacking, AccountEmails).
+				emails.sendVerification(existing.get(), hash);
+			}
+			return new SignUp(null, email);
+		}
+		try {
+			emails.sendVerification(users.saveAndFlush(new AppUser(email, hash, displayName)), hash);
+		} catch (DataIntegrityViolationException raced) {
+			// The same address signing up twice at once: one account, and the same answer to both.
+		}
+		return new SignUp(null, email);
+	}
+
+	/** T56: the address is proven — the account is confirmed, and signed in. */
+	@Transactional
+	public IssuedTokens verify(String rawToken, String userAgent) {
+		EmailToken link = emails.use(rawToken, EmailToken.Purpose.VERIFY);
+		AppUser user = link.getUser();
+		// The password chosen at the sign-up this link came from (pre-hijacking, AccountEmails).
+		if (link.getPasswordHash() != null) {
+			user.changePasswordHash(link.getPasswordHash());
+		}
+		user.verifyEmail(Instant.now());
+		users.save(user);
 		return issueFor(user, userAgent);
+	}
+
+	/**
+	 * T56: the link again, for an account never confirmed — only to someone who knows its password, so it cannot be used
+	 * to send its owner a link to an account with someone else's password. Says nothing either way, in the same time.
+	 */
+	@Transactional
+	public void resendVerification(String email, String password) {
+		var user = known(email);
+		if (user.isEmpty() || PasswordPolicy.tooLong(password)) {
+			passwordEncoder.encode(TIMING_STAND_IN);
+			return;
+		}
+		if (passwordEncoder.matches(password, user.get().getPasswordHash()) && !user.get().isEmailVerified()) {
+			emails.sendVerification(user.get(), null);
+		}
+	}
+
+	/**
+	 * T56: a link to set a new password — or, for an account never confirmed, a note to sign up again, with no link:
+	 * only a proven address may set a password. Says nothing either way.
+	 */
+	@Transactional
+	public void forgotPassword(String email) {
+		known(email).ifPresent(user -> {
+			if (user.isEmailVerified()) {
+				emails.sendReset(user);
+			} else {
+				emails.sendUnconfirmed(user);
+			}
+		});
+	}
+
+	/**
+	 * T56: a new password from a reset link. Every session ends, as with a password change — the reason for a reset is
+	 * often that someone else has the old one — and this one starts. Opening the link also proves the address.
+	 */
+	@Transactional
+	public IssuedTokens resetPassword(String rawToken, String newPassword, String userAgent) {
+		AppUser user = emails.use(rawToken, EmailToken.Purpose.RESET).getUser();
+		passwordPolicy.require(newPassword, user.getEmail(), user.getDisplayName());
+		user.changePasswordHash(passwordEncoder.encode(newPassword));
+		user.verifyEmail(Instant.now());
+		user.revokeAccessTokens();
+		users.save(user);
+		refreshTokens.revokeAllForUser(user.getId(), Instant.now());
+		log.info("Password reset for user {} from an emailed link; every session signed out.", user.getId());
+		return issueFor(user, userAgent);
+	}
+
+	/** The account at an address, if the address is one at all. */
+	private java.util.Optional<AppUser> known(String email) {
+		try {
+			return users.findByEmailIgnoreCase(Identities.email(email));
+		} catch (Identities.InvalidIdentityException notAnAddress) {
+			return java.util.Optional.empty();
+		}
 	}
 
 	/**
@@ -138,6 +264,10 @@ public class AuthService {
 		}
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 			throw new InvalidCredentialsException();
+		}
+		// T56: the right password, but the address was never proven. Told only to someone who knows the password.
+		if (verifyEmail && !user.isEmailVerified()) {
+			throw new EmailNotVerifiedException();
 		}
 		// BUG-132: a hash made at a lower cost than today's is redone now, while the password is in hand.
 		if (passwordEncoder.upgradeEncoding(user.getPasswordHash())) {
@@ -342,5 +472,8 @@ public class AuthService {
 	}
 
 	public static class WrongCurrentPasswordException extends RuntimeException {
+	}
+
+	public static class EmailNotVerifiedException extends RuntimeException {
 	}
 }

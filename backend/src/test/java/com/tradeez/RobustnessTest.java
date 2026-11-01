@@ -266,6 +266,8 @@ class RobustnessTest extends AbstractIntegrationTest {
 		List<String> open = new ArrayList<>();
 		for (MockHttpServletRequestBuilder request : List.of(
 				get("/api/me"),
+				get("/api/me/export"),
+				delete("/api/me"),
 				get("/api/market/instruments"),
 				get("/api/market/instruments/NQ"),
 				get("/api/market/instruments/NQ/bars").param("from", "0").param("to", "60"),
@@ -321,7 +323,7 @@ class RobustnessTest extends AbstractIntegrationTest {
 		// The sweep above covers every path the API publishes, so a new endpoint cannot be forgotten.
 		List<String> paths = new ArrayList<>();
 		docs.get("paths").propertyNames().forEach(paths::add);
-		assertThat(paths).containsExactlyInAnyOrder("/api/me", "/api/market/instruments", "/api/market/instruments/{symbol}",
+		assertThat(paths).containsExactlyInAnyOrder("/api/me", "/api/me/export", "/api/market/instruments", "/api/market/instruments/{symbol}",
 			"/api/market/instruments/{symbol}/bars", "/api/market/instruments/{symbol}/clock",
 			"/api/market/instruments/{symbol}/setups", "/api/charts/{symbol}/drawings", "/api/charts/{symbol}/drawings/{id}",
 			"/api/concepts", "/api/concepts/{id}/lesson", "/api/drills/kinds", "/api/drills", "/api/drills/{id}",
@@ -330,6 +332,8 @@ class RobustnessTest extends AbstractIntegrationTest {
 			"/api/practice/sessions/{id}/plan", "/api/practice/sessions/{id}/context", "/api/practice/sessions/{id}/advance", "/api/practice/sessions/{id}/skip",
 			"/api/practice/sessions/{id}/close", "/api/practice/sessions/{id}/end", "/api/practice/sessions/{id}/trades/{number}/review", "/api/practice/calibration", "/api/practice/statistics", "/api/practice/trades",
 			"/api/practice/settings", "/api/auth/register", "/api/auth/login",
-			"/api/auth/refresh", "/api/auth/logout", "/api/auth/logout-all", "/api/auth/password", "/api/health");
+			"/api/auth/refresh", "/api/auth/logout", "/api/auth/logout-all", "/api/auth/password", "/api/health",
+			// T56: the emailed links and asking for them, public like sign-in.
+			"/api/auth/verify", "/api/auth/verify/resend", "/api/auth/password/forgot", "/api/auth/password/reset");
 	}
 }

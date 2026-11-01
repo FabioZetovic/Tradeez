@@ -2,7 +2,7 @@ import { useId, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Eye, EyeOff } from 'lucide-react'
 import { useIsPhone } from '@/hooks/useIsPhone'
-import { errorMessage } from '@/lib/api/auth'
+import { errorCode, errorMessage, resendVerification } from '@/lib/api/auth'
 import { PasswordRules } from './PasswordRules'
 import { Button } from './ui'
 import { cx, errorClass, fieldClass, labelClass } from '@/lib/styles'
@@ -11,7 +11,8 @@ interface SignInFormProps {
   /** Which page this is: /sign-in or /sign-up (T36). */
   mode: 'login' | 'register'
   onLogin: (email: string, password: string) => Promise<void>
-  onRegister: (email: string, password: string, displayName: string) => Promise<void>
+  /** T56: 'check-inbox' when the account waits for its address to be confirmed. */
+  onRegister: (email: string, password: string, displayName: string) => Promise<'signed-in' | 'check-inbox' | void>
 }
 
 /**
@@ -29,6 +30,10 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // T56: the sign-up went through and a link is on its way; or sign-in found the address unconfirmed.
+  const [checkInbox, setCheckInbox] = useState(false)
+  const [unconfirmed, setUnconfirmed] = useState(false)
+  const [resent, setResent] = useState(false)
   const rulesId = useId()
 
   const isRegister = mode === 'register'
@@ -36,14 +41,17 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+    setUnconfirmed(false)
+    setResent(false)
     setBusy(true)
     try {
       if (isRegister) {
-        await onRegister(email, password, displayName)
+        if ((await onRegister(email, password, displayName)) === 'check-inbox') setCheckInbox(true)
       } else {
         await onLogin(email, password)
       }
     } catch (e) {
+      setUnconfirmed(errorCode(e) === 'EMAIL_NOT_VERIFIED')
       // Surface the server's wording rather than inventing our own: the backend deliberately
       // returns the same message for a wrong password and an unknown account so the API cannot be
       // used to discover which addresses are registered. Rephrasing here could undo that.
@@ -51,6 +59,37 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
     } finally {
       setBusy(false)
     }
+  }
+
+  /** T56: the link again. The answer never says whether it went — nor does this. */
+  async function sendAgain() {
+    setResent(false)
+    try {
+      await resendVerification(email, password)
+    } finally {
+      setResent(true)
+    }
+  }
+
+  if (checkInbox) {
+    return (
+      <section className={phone ? 'w-full' : 'w-full rounded-card border border-line bg-surface p-7 shadow-panel'}>
+        <h2 className="font-display text-2xl font-bold tracking-tight text-ink">Check your inbox</h2>
+        <p className="mt-3 text-sm text-subtle">
+          We sent a link to <span className="font-medium text-ink">{email}</span>. Open it within 24 hours to confirm the
+          address is yours — then you are signed in.
+        </p>
+        <p className="mt-3 text-sm text-subtle">Nothing there? Look in spam, or send it again.</p>
+        <Button className="mt-5 w-full" onClick={() => void sendAgain()}>
+          Send the link again
+        </Button>
+        {resent && (
+          <p role="status" className="mt-3 text-sm text-subtle">
+            If that address has an account waiting, a new link is on its way.
+          </p>
+        )}
+      </section>
+    )
   }
 
   return (
@@ -121,12 +160,30 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
             {error}
           </p>
         )}
+        {unconfirmed && (
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => void sendAgain()}>Send the link again</Button>
+            {resent && (
+              <p role="status" className="text-sm text-subtle">
+                A new link is on its way to {email}.
+              </p>
+            )}
+          </div>
+        )}
 
         <Button type="submit" variant="primary" size="lg" disabled={busy} className="mt-1 w-full">
           {busy ? 'Working…' : isRegister ? 'Create account' : 'Sign in'}
         </Button>
       </form>
 
+      {!isRegister && (
+        <Link
+          to="/forgot-password"
+          className="mt-4 block text-center text-sm text-subtle underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-accent pointer-coarse:py-3"
+        >
+          Forgot your password?
+        </Link>
+      )}
       <Link
         to={isRegister ? '/sign-in' : '/sign-up'}
         className="mt-5 block text-center text-sm text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent pointer-coarse:py-3"

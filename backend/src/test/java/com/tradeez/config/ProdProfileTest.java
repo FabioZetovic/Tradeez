@@ -15,7 +15,7 @@ import com.tradeez.TradeezApplication;
 class ProdProfileTest {
 
 	@Test
-	@DisplayName("the prod profile without JWT_SECRET or the database's settings refuses to start")
+	@DisplayName("the prod profile without its secrets, the database's settings or the mail's refuses to start")
 	void refusesWithoutSecrets() {
 		assertThatThrownBy(() -> new SpringApplicationBuilder(TradeezApplication.class)
 				.profiles("prod")
@@ -25,7 +25,7 @@ class ProdProfileTest {
 			.satisfies(e -> {
 				String trace = org.assertj.core.util.Throwables.getStackTrace(e);
 				org.assertj.core.api.Assertions.assertThat(trace).containsAnyOf("JWT_SECRET", "DATABASE_URL", "DATABASE_USER",
-					"DATABASE_PASSWORD");
+					"DATABASE_PASSWORD", "MAIL_PROVIDER", "APP_URL");
 			});
 	}
 }
