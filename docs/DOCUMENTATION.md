@@ -2263,4 +2263,7 @@ Temporary test files were removed. No full regression-suite or production-host/r
 [PATH.md](PATH.md) now lists **T58**, the future repair batch, starting with the proxy/session boundaries and safe export,
 then recovery, availability, chart persistence, practice/journal behavior and remaining UX issues.
 
+The audit was committed locally (`643ff1c`). Publishing that commit to the shared GitHub branch was blocked by GitHub
+authentication; the findings and repair plan remain available in this checkout. Existing application edits were not committed.
+
 *Next session entry goes here.*
