@@ -2233,4 +2233,34 @@ DEC-015 asks for the disclaimer on a slide as well as in the app. Its text, as t
 
 ---
 
+### Session 018 — 2026-11-01 — Security and user-experience audit (CODEX)
+
+Fabio asked for another detailed audit of the finished redesign: try to break the actual app, find ways to obtain
+information or bypass its rules, then identify bugs that disrupt ordinary use. This session recorded findings and
+future repair tasks; it made no application fixes and preserved Claude's email-registration work and other existing edits.
+
+**35 new findings are in [BUGS.md](BUGS.md), BUG-137–171: 19 verified and 16 reasoned.** Each says how it was identified,
+who/what is affected, what would go wrong, and what a repair must prove. The most serious verified problems were:
+
+- Forged forwarded addresses bypassed both sign-in limits on a real local HTTP server configured with production's
+  forwarded-header handling. Correct sanitization at a future host's trusted proxy must also be checked there.
+- A recently rotated refresh token obtained a new authenticated session even after signing out or changing the password.
+- Downloading account data exposed an unanswered drill's exact answer and an active replay's hidden date and future result.
+- Password-reset and mail-budget probes found concurrent link redemption and recovery paths an attacker could interfere with.
+
+The user-experience checks reproduced drawing edits silently lost by request races, NQ prices retained under an ES
+heading during loading, practice state/settings lost from the display on direct entry or remount, journal paging/filter
+dead ends, sign-out that only looked successful after a network failure, and keyboard focus escaping phone dialogs.
+Other code-based findings are clearly marked as requiring reproduction; their proposed checks are included with each entry.
+
+**Validation:** the saved runner passed 12 backend and 11 frontend probes. These are forensic probes that confirm
+the reported defect, not assertions that the app is secure. One successful control confirmed that React StrictMode
+does not spend the verification token twice. The frontend dependency audit reported zero advisories. Backend probes
+used a disposable database, throwaway accounts and in-memory mail; existing user data and real email services were untouched.
+Temporary test files were removed. No full regression-suite or production-host/real-device pass is claimed.
+
+[The audit report, evidence and rerun instructions](audits/2026-11-01/README.md) are retained in the repository.
+[PATH.md](PATH.md) now lists **T58**, the future repair batch, starting with the proxy/session boundaries and safe export,
+then recovery, availability, chart persistence, practice/journal behavior and remaining UX issues.
+
 *Next session entry goes here.*

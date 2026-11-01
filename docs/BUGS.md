@@ -17,6 +17,608 @@
 
 ## Open
 
+### CODEX security and UX audit — 2026-11-01 (Session 018)
+
+**Scope:** the current working copy on `fix/security-audit`, HEAD `70c4d33`, including the source edits already
+present when this audit began. Logging only, at Fabio's request. Claude's email work and existing changes were
+not edited. **35 new findings: 19 verified, 16 reasoned.** These are additional to the older entries below;
+old closed bugs have not been reopened merely because a related, different bypass exists.
+
+**Evidence and reruns:** [audit report and instructions](audits/2026-11-01/README.md),
+[12 backend probes](audits/2026-11-01/BackendAuditTest.java),
+[8 frontend hook/dialog probes](audits/2026-11-01/frontend-audit.test.tsx), and
+[3 frontend page probes](audits/2026-11-01/frontend-pages-audit.test.tsx).
+All 23 probes passed; a passing forensic probe means its documented behavior occurred, **not** that the app is safe.
+One frontend probe is a successful control: email verification survives React StrictMode and submits once.
+The backend used a real local HTTP server and a disposable PostgreSQL container; no existing user database,
+real mailbox, production service, or paid market-data API was attacked. `npm audit` reported zero advisories.
+No claim of complete vulnerability coverage or a full regression-suite pass is made.
+
+**Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
+then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
+
+---
+
+### BUG-137 🔴 Production forwarded-header processing defeats both sign-in limits
+
+**Status:** verified (2026-11-01, real HTTP) · **Affects:** `application-prod.yml`, `AuthRateLimitFilter`,
+`ClientAddress`, `AuthService.login` · **Prerequisite:** incoming forwarded headers reach the app without trusted-edge sanitization.
+
+**What and how to reproduce.** With production's `server.forward-headers-strategy=framework`, send wrong-password
+POSTs to `/api/auth/login` for the same address from one connection source. Without spoofing, the probes hit 429.
+Changing only `X-Forwarded-For` between requests produced **25 consecutive 401s, no 429**; changing RFC `Forwarded:
+for=...` produced another 25. No account is needed. Spring's filter rewrites `getRemoteAddr()` and removes the header
+before `ClientAddress` runs, so the latter's `trusted-proxies=0` check no longer protects the original connection address.
+The account-and-address limit is keyed on that same forged address. Trusting one proxy in this helper does not undo
+earlier rewriting by Spring.
+
+**Impact.** An attacker can keep guessing or spending BCrypt work beyond both limits. The old direct-header fix
+BUG-070 and warning BUG-131 do not cover this filter ordering. Whether a particular host strips/replaces both header
+families must be verified on that host; the app's deployment configuration itself accepts the forgery.
+
+**Future fix / acceptance.** Establish one trusted proxy boundary, strip untrusted `Forwarded` and `X-Forwarded-*`
+headers there, preserve the connection peer for app-side trust checks, and avoid independently interpreting forwarded
+addresses twice. Repeat this real-server test with both header families and the intended hosting proxy; spoofing must
+not buy a new quota. [Spring's trust-boundary guidance](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/filters.html#filters-forwarded-headers).
+
+---
+
+### BUG-138 🔴 A rotated refresh token can undo sign-out and a password change
+
+**Status:** verified (three independent service/API probes) · **Affects:** `AuthService.refresh`, `withinReuseGrace`,
+`RefreshTokenRepository.revokeAllForUser`
+
+**Attack.** Obtain refresh token R, rotate it to R2, then have the owner sign out of every device or change their
+password. Replay R within 20 seconds of its original rotation. `isAlreadyRotated()` enters the grace branch before
+checking activity or the account's revocation state and calls `issueFor` with the user's **current** generation.
+The new access token reads `/api/me` with **200**. The same bypass works after ordinary logout of R2.
+
+**Impact.** A thief holding a recently rotated cookie regains a fresh 30-day session after the recovery action
+intended to remove them. This is distinct from simply accepting a concurrent duplicate before any sign-out.
+
+**Future fix / acceptance.** Bind rotation families to a revocation/session generation and refuse grace after any
+family or account revocation. A grace duplicate should resolve to a still-live successor, not mint an unrelated family.
+Keep legitimate simultaneous-tab refresh working. All three probes must reject the old ancestor after revocation.
+
+---
+
+### BUG-139 🟠 Detecting refresh-token theft leaves already-issued access tokens working
+
+**Status:** verified · **Affects:** the reuse-detection branch of `AuthService.refresh`
+
+**Reproduce.** Rotate a token; replay its ancestor outside the grace period. The probe moved its test database timestamp
+back 30 seconds rather than sleeping. Reuse is detected and active refresh tokens are revoked, but the successor's
+access token still reads `/api/me` with **200**. This branch never increments `AppUser.tokenGeneration`.
+
+**Impact.** The log says every session was invalidated while a stolen access token retains data access and authenticated
+writes until its remaining 15-minute lifetime ends. The password-change and logout-all paths already do invalidate it.
+
+**Future fix / acceptance.** Commit access-generation revocation together with refresh-family revocation on detected
+reuse, including the exception path. Every previously issued access and refresh token must then be rejected.
+
+---
+
+### BUG-140 🔴 Downloading account data exposes answers and practice outcomes before they are revealed
+
+**Status:** verified (authenticated export and correct answer submission) · **Affects:** `AccountExport.SECTIONS`,
+`MeController.export`, the no-lookahead boundaries
+
+**Attack.** Start a risk question and GET `/api/me/export`. `riskDrills` contains its exact `answer`, `tolerance`, and
+`question.working` while the ordinary drill result is still absent; submitting that exported answer was graded correct.
+Start real-data practice, place a bracket, and export before advancing: the normal response withholds the result, but
+`tradeResults` includes its future outcome/exit and `practiceSessions` its real hidden start date. The probe reproduced
+both. Raw `drills`, `drillMarks`, and prediction `question`/`outcome` columns are exported through the same unrestricted
+table queries too; these additional drill modes were traced in code rather than individually exercised.
+
+**Impact.** The account menu provides a normal, discoverable way to bypass the training rules, recover hidden dates,
+and corrupt progress/calibration. This exposes the caller's own training secrets; no cross-account export was found.
+
+**Future fix / acceptance.** Define a safe export schema: user-provided answers and already-revealed results only;
+withhold server answer keys and hidden replay metadata until their exercise/session is over. Test every drill mode,
+an active real replay, early-close counterfactuals, and completed sessions. Do not remove the ability to export personal data.
+
+---
+
+### BUG-141 🟠 A single-use reset link can reset the password twice in a race
+
+**Status:** verified (two concurrent transactions in disposable PostgreSQL) · **Affects:** `AccountEmails.use`,
+`EmailTokenRepository.spendAll`, `AuthService.resetPassword`
+
+**Reproduce.** Submit the same valid reset token concurrently with two different valid new passwords. The probe held
+the token's row briefly until both calls had read it unused, then released it. **Both calls succeeded and issued
+credentials.** The second change invalidated the first call's access token (observed access statuses 401 and 200).
+`use` reads usability first, then bulk-spends links; it ignores whether its spending update changed any row.
+
+**Impact.** A competing holder of the link can overwrite the owner's successful reset. Serial second use is rejected;
+the defect is specifically the concurrent check-and-spend gap. Verification uses the same redemption helper.
+
+**Future fix / acceptance.** Atomically claim the particular unspent, unexpired token, or lock and recheck it; exactly
+one caller may continue. Invalidate sibling links in the same transaction. Test concurrent VERIFY and RESET calls.
+
+---
+
+### BUG-142 🟠 Changing the password does not invalidate an outstanding password-reset link
+
+**Status:** verified · **Affects:** `AuthService.changePassword`, `AccountEmails`
+
+**Attack.** Request a reset link, then change the password normally with the current password. Redeem the previously
+issued reset link: it still changes the password and obtains authenticated access. The probe performed exactly this.
+Password changes revoke sign-in tokens but never spend pending RESET tokens.
+
+**Impact.** Someone holding an earlier reset email can regain the account after its owner changes the password to
+secure it, for up to the link's one-hour lifetime.
+
+**Future fix / acceptance.** Invalidate outstanding recovery tokens on successful authenticated password changes and
+other credential-recovery events. The earlier link must fail after a change, while a newly requested link still works.
+
+---
+
+### BUG-143 🟠 Forgot-password timing tells an attacker which email addresses have accounts
+
+**Status:** reasoned · **Affects:** `AuthService.forgotPassword`, `AccountEmails.sendReset/sendUnconfirmed`, `ResendMailer.send`
+
+**Attack.** Compare POST `/api/auth/password/forgot` for a known and unknown address. The unknown address performs a
+database lookup and returns; an existing address synchronously performs Resend's HTTP request, potentially waiting
+up to ten seconds. Both return 202, but their work is observably different. No live Resend timing campaign was run.
+
+**Impact.** The generic response does not conceal membership; the first few requests also trigger mail. The sign-in
+timing tests do not cover this newly added endpoint.
+
+**Future fix / acceptance.** Queue delivery independently of the public response using a reliable outbox, apply the
+same public timing/work policy for absent addresses, and measure response distributions with a delayed fake mail
+provider for known, unknown, and mail-throttled addresses. Do not hold a user database transaction across the HTTP send.
+
+---
+
+### BUG-144 🟠 Three unsolicited sign-up notices can prevent the owner receiving a reset email
+
+**Status:** verified (shared-mail-budget probe; public caller path traced in code) · **Affects:** `AccountEmails.allowed`,
+`sendAlreadyRegistered`, `sendReset`, `AuthService.signUpByEmail`
+
+**Attack.** Submit three sign-ups for an existing verified address using any policy-valid chosen password. Each sends
+an "already registered" notice and consumes the shared `mail:<email>` bucket. The owner's forgot-password request then
+returns its usual success without a reset email for the rest of that 15-minute window. The probe sent the three notices
+through the mail service and confirmed that password recovery produced no additional message.
+
+**Impact.** Anyone who knows the address can impede account recovery without knowing its password. The victim is told
+to check an inbox that will not contain a recovery link.
+
+**Future fix / acceptance.** Separate recovery and unsolicited-notification budgets, suppress repetitive sign-up
+notices, and retain an aggregate anti-spam ceiling. Test that notice spam cannot consume all legitimate recovery capacity.
+
+---
+
+### BUG-145 🟠 The email-verification migration declares every old account verified without proof
+
+**Status:** reasoned · **Affects:** `V34__email_verification.sql`
+
+**What.** `UPDATE app_user SET email_verified_at = created_at` marks every pre-migration account as email-verified.
+If someone previously registered another person's address under the old behavior, installing the new feature leaves
+that person signed in with an account now labelled verified. No previously impersonated real account is alleged here.
+
+**Impact.** Verification protects new registrations but does not repair the exact email-ownership defect for existing
+accounts. This matters if any old database with uncontrolled registrations is retained or deployed.
+
+**Future fix / acceptance.** Decide the migration of existing accounts explicitly: require mailbox proof and revoke
+old sessions for unproven accounts; exempt only explicitly controlled development fixtures. Test an unverified legacy
+account upgrading through V34 and prove it cannot sign in or refresh until its mailbox owner confirms.
+
+---
+
+### BUG-146 🟠 Several expensive authenticated operations escape the read/work budget
+
+**Status:** reasoned (route and work-path review, not a saturation attack) · **Affects:** `ReadRateLimit.LIMITED`,
+`PracticeService.create/get/context/review/finished`, `AccountExport.of`, `LearningService.state`
+
+**Attack paths.** Repeat full practice-session GETs, draft-context POSTs, trade reviews, account exports, statistics,
+calibration, or learning-state reads. None is in `ReadRateLimit.LIMITED`. Statistics/calibration/trade listing read the
+account's whole trade history before limiting output; export materializes all owned rows. Practice creation checks its
+successful-session cap in `saveCapped` **after** selecting a hidden moment and loading history, so rejected attempts can
+still repeat the expensive preliminary work. A failed drill search inserts no row and therefore consumes no successful-drill quota.
+
+**Impact.** A single signed-in script can spend database/CPU work through routes outside the budget that was added for
+BUG-080. The scanner's two permits limit simultaneous scans, but waiting uses `acquireUninterruptibly` with no bounded
+queue/deadline; it does not bound incoming work. Large-account export/history makes the cost grow with account age.
+
+**Future fix / acceptance.** Budget attempted work before it starts, cover these routes, and bound concurrency/queue
+waits. Paginate history in SQL and stream or queue large exports. Test allowed and rejected work with small configured
+budgets and prove the expensive service is not called after exhaustion; keep ordinary replay playback usable.
+
+---
+
+### BUG-147 🟠 The local database listens on every network interface with shared development credentials
+
+**Status:** reasoned for remote exploitability; all-interface binding verified by `docker ps` · **Affects:** `docker-compose.yml`
+
+**Attack.** The compose file publishes `5432:5432` and contains a fixed, well-known database login. The running container
+reported `0.0.0.0:5432` and `[::]:5432`. Someone who can reach that port can attempt a direct database login, bypassing
+all application authentication and ownership checks. Actual LAN reachability depends on the host firewall; no outside
+host was probed and this is not a claim about a future managed production database.
+
+**Impact.** Local account hashes, email-link hashes, journals, and drawings are exposed if the workstation's database
+port is reachable from its network. The current compose file is explicitly the local-development setup.
+
+**Future fix / acceptance.** Bind local PostgreSQL to loopback (or keep it on an internal container network), use a
+machine-local secret, and keep deployment database access private. Verify the published listener and access from an
+untrusted network after the change; retain local app connectivity.
+
+---
+
+### BUG-148 🟡 Racing verified-email registrations can still finish as a server error
+
+**Status:** reasoned · **Affects:** `AuthService.signUpByEmail` inside transactional `register`
+
+**What.** Two new-address sign-ups can both find no account. The losing `saveAndFlush` throws a data-integrity exception;
+the helper catches it and returns the normal result **inside the same transaction**. The persistence transaction has
+already been marked rollback-only, so committing the outer service call can throw instead of returning the promised 202.
+`RegisterRaceTest` mocks the repository and tests the email-verification-disabled branch, so it does not prove this path.
+
+**Impact.** Double submission or two simultaneous sign-ups for an address can show a misleading failure even though
+the winning registration exists. No duplicate-account or takeover claim is made.
+
+**Future fix / acceptance.** Handle a uniqueness race outside the failed transaction, or use an atomic database insert
+with a separate successful lookup. Add a deterministic two-transaction, email-verification-enabled registration test.
+
+---
+
+### BUG-149 🟠 Drawing saves can finish backwards and silently restore an older position
+
+**Status:** verified (controlled out-of-order saves) · **Affects:** `useDrawings.commit`, drawing updates
+
+**Reproduce.** Drag a saved line to A, then to B before A's save completes. Let B's request finish first and A's finish
+last. The probe ended with B on screen, A persisted, and **no sync error**. `commit` starts independent writes and has
+no per-drawing queue or version check; response completion also rewrites the persisted snapshot out of order.
+
+**Impact.** A normal slow connection can lose the latest drawing edit on reload. BUG-135 fixed duplicate inserts,
+not ordering of updates.
+
+**Future fix / acceptance.** Serialize/coalesce writes per drawing and use a server version or conditional update for
+multiple tabs. Force response/commit order inversion in a test; reloading must retain the last intended position.
+
+---
+
+### BUG-150 🟠 Deleting a new drawing while its first save is pending does not delete it on the server
+
+**Status:** verified · **Affects:** `useDrawings.commit`, its `persistedRef` deletion diff
+
+**Reproduce.** Create a drawing and delay its first PUT; delete it and commit before that PUT finishes. Because its id
+has not reached `persistedRef`, the removal sends no DELETE. The pending PUT later succeeds. The probe confirmed an
+empty local drawing list, no DELETE at all, and no sync error.
+
+**Impact.** The deleted shape returns on reload. The same sequence can happen with Undo immediately after creation.
+
+**Future fix / acceptance.** Track in-flight creations and deletion intent; send the delete after creation completes
+or cancel it safely. Test create/delete, create/undo, and delete/recreate races with delayed responses.
+
+---
+
+### BUG-151 🟠 A slow drawing load replaces annotations made while it was pending
+
+**Status:** verified · **Affects:** the initial/retry loading effect in `useDrawings`
+
+**Reproduce.** Delay `listDrawings`, add a line while the chart is usable, then resolve the load with the earlier server
+snapshot. The effect unconditionally dispatches `load`, clearing the new line and its undo history without a warning.
+The probe observed exactly that. Candles and drawings are fetched separately, so drawing controls can be ready first.
+
+**Future fix / acceptance.** Gate editing until the drawing snapshot is ready or merge local changes made after load
+started. Apply the same rule to retry loads. A delayed empty server response must never erase a newly drawn annotation.
+
+---
+
+### BUG-152 🟠 Switching markets leaves the previous market's drawings editable through the new URL
+
+**Status:** verified (hook instrument-switch probe) · **Affects:** `useDrawings`, `ChartPage`, `ChartDrawingController.save/delete`
+
+**Reproduce.** Load NQ drawings, switch to ES, and delay ES's drawings response. The hook keeps NQ's state and persisted
+map while `symbolRef` changes to ES. Delete a visible NQ line now: the probe observed `deleteDrawing('ES', nqDrawingId)`.
+The backend validates that ES exists but deletes by id and owner only; it does not require that the row belongs to ES.
+Updates similarly ignore an existing row's instrument after the owner lookup.
+
+**Impact.** An ordinary market switch on a slow connection can delete or change the user's annotations on the other
+market. Owner checks still hold; this is not a cross-account deletion.
+
+**Future fix / acceptance.** Bind loaded drawing state and pending mutations to a symbol, disable old edits during a
+switch, and scope backend updates/deletes to owner **and instrument**. Delay the new load and prove no old-market write occurs.
+
+---
+
+### BUG-153 🟠 The Chart tab can show NQ prices under an ES heading while ES is loading
+
+**Status:** verified (rendered page with delayed ES response) · **Affects:** `ChartPage`'s fallback `series`, price,
+instrument economics, clock and setup response keys
+
+**Reproduce.** Load NQ and switch to ES while delaying ES bars. The page immediately says **ES** but retains NQ candles
+and a NQ last price (the probe showed 20,000 under ES). The new instrument's economics are passed to the old series and
+drawing overlay. Clock responses are rendered from `clock?.layer` without checking the window/symbol key; setup keys
+also omit the requested date window, so old-window overlays can remain during a date change.
+
+**Impact.** The displayed market and its prices/overlays can disagree at exactly the moment a user is analysing or
+drawing. Keeping a previous frame is useful only if its identity remains correct.
+
+**Future fix / acceptance.** Retain a complete, internally consistent displayed snapshot, or withhold price-dependent
+controls until the selected market/window is ready. Key every overlay by the same request identity. Test market, date,
+and timeframe switches with delayed and failed responses.
+
+---
+
+### BUG-154 🟠 Reloading a newly created practice session can restore its original state instead of its current state
+
+**Status:** verified (hook remount with retained creation state); full refresh sequence traced through routing ·
+**Affects:** `PracticeView`'s `location.state.created`, `usePracticeSession`'s seeded fast path
+
+**Reproduce.** Start a session, advance or trade, then reload or revisit its browser-history entry. Creation put the
+whole original `SessionResponse` into history state. If that object is supplied again, the hook treats it as current
+and skips `getSession` entirely. The remount probe confirmed the original cursor and **no server read**.
+
+**Impact.** The chart appears to lose progress or an open trade; the next command can jump to a different server moment.
+A draft made from the stale price can be submitted against the actual later cursor. The server's stored data is not erased.
+
+**Future fix / acceptance.** Consume and clear the creation handoff once, and validate state on subsequent mounts.
+Test a real refresh/back after advancing, placing a trade, and completing the session; the current cursor/status must show.
+
+---
+
+### BUG-155 🟠 Opening a practice-session link directly drops the saved risk limit and cost display
+
+**Status:** verified (rendered direct route) · **Affects:** `PracticeView.load` and props passed to `PracticeSession`
+
+**Reproduce.** Set a risk limit, then open or reload `/practice/<id>` directly. The effect calls `load()` only when
+`openId === null`; therefore settings are never requested on a direct session route. The probe observed no settings
+fetch and `riskLimitCents`/`costs` both undefined on the session component.
+
+**Impact.** Pre-trade warnings and the "at the stop with costs" display disappear, although the backend still records
+the saved limit and standard costs. A later scorecard can judge a limit the planning screen did not show.
+
+**Future fix / acceptance.** Load account practice settings independently of whether the home or a session is open.
+Test direct entry and reload with a saved limit and standard costs, including a settings-load failure state.
+
+---
+
+### BUG-156 🟠 Older open practice sessions disappear from every resume list
+
+**Status:** reasoned · **Affects:** `PracticeSessionRepository.findTop50ByUserIdOrderByCreatedAtDesc`, `PracticeView`, Home
+
+**Reproduce.** Leave a session open and create at least 50 newer sessions. `/api/practice/sessions` returns only the
+newest 50 of all statuses, and neither it nor the UI has a next page or a separate all-open query. The original session
+is omitted even if it is still in a trade. Its saved URL can still open it, but the normal resume UI cannot find it.
+
+**Future fix / acceptance.** Query open sessions separately with pagination and offer older completed sessions too.
+Seed over 50 newer sessions and prove the older open one remains reachable from the UI.
+
+---
+
+### BUG-157 🟠 The phone journal cannot load its full history and filters can falsely say there are no trades
+
+**Status:** verified (rendered pagination/filter probe; server maximum read in code) · **Affects:** `PhoneJournal`,
+`listTrades`, `PracticeRecordController.trades`
+
+**Reproduce.** With more than 200 finished trades, the phone loads 50, then increases the requested limit by 20:
+70, 90, ... 190, **210**. The API rejects any limit above 200, so the next page fails and older trades remain inaccessible.
+The probe observed the `limit=210` request. Selecting Losers/Winners/Long/Short/Ambiguous also sets `further` false:
+only already-loaded rows are filtered, and zero matches says "No trades of that kind yet" even if older matching rows exist.
+The desktop journal likewise offers only its initially loaded rows without older-page navigation.
+
+**Future fix / acceptance.** Add actual server pagination with a stable cursor and server-side filters, and make every
+layout reach all history. Test 250+ mixed trades, filtered matches only on later pages, and repeated load failures.
+
+---
+
+### BUG-158 🟠 The journal orders activity by the random historical market date
+
+**Status:** reasoned · **Affects:** `PracticeService.journal(UUID, int)`
+
+**Reproduce.** Make a trade in a replay of a recent market date, then make another in an older randomly selected replay.
+The listing sorts `TradePlan.getSubmittedCursor()` (the historical date), not `submittedAt` (when the learner placed it).
+Today's new trade can appear behind months of earlier practice or outside the first 50 rows entirely.
+
+**Future fix / acceptance.** Order recent activity by real submission time with a stable tie-breaker, while keeping
+the replay's date hidden/displayed according to its existing rule. Test two sessions whose historical and creation orders disagree.
+
+---
+
+### BUG-159 🟡 Home's practice counts are truncated and can disagree with its own statistics
+
+**Status:** reasoned · **Affects:** `HomePage`'s `trades` and `sessions.length`, the 50-session endpoint
+
+**What.** Home sums `s.trades` from the newest 50 sessions and presents that as its practice count; those trade counts
+include a currently running trade. The statistics endpoint counts all finished trades across all sessions. After enough
+sessions, the phone's trade count/footer can shrink or disagree with the all-time R/trade statistics shown on the same page.
+
+**Future fix / acceptance.** Use explicit all-time aggregates, labelled by closed versus placed trades; treat recent
+sessions as a recent list. Verify Home with more than 50 sessions and one still-running trade.
+
+---
+
+### BUG-160 🟠 A failed sign-out looks successful while the browser remains authenticated
+
+**Status:** verified (network-failure/remount probe) · **Affects:** `useSession.logout/logoutEverywhere`, account-menu actions
+
+**Reproduce.** Let sign-out fail before reaching the server. Both hooks set `signedOut` in `finally`, even though neither
+HttpOnly cookie was cleared and the server revoked nothing. The probe showed signed out, then immediately signed back
+in after remounting. The menu discards the rejected promise with `void`, so there is no useful completion/error state.
+
+**Impact.** On a shared device the user can leave believing the account was secured; reload reopens it. "Sign out of
+every device" can similarly imply that remote sessions ended when its request failed.
+
+**Future fix / acceptance.** Report that server sign-out could not be completed and offer a retry; only report global
+revocation after confirmation. Hiding private content locally is fine, but distinguish that state from successful
+server sign-out. Test offline, 403 and 500 responses followed by reload.
+
+---
+
+### BUG-161 🟠 Email verification and password-reset links are discarded when a session already exists
+
+**Status:** reasoned · **Affects:** the signed-in route table in `App.tsx`
+
+**Reproduce.** While signed in, open `/reset-password#token`, `/verify-email#token`, or `/forgot-password`. Those routes
+exist only in the signed-out branch; the signed-in wildcard redirects to Home without rendering the form/redeeming
+the link. This also affects an email link for a second account opened in a browser signed in to the first.
+
+**Future fix / acceptance.** Make emailed-link/recovery routes reachable regardless of current session, with an explicit
+account-switch choice when needed. Test a valid reset link while signed in and a verification link for another account.
+
+---
+
+### BUG-162 🟡 Phone sheets announce a modal dialog but keyboard focus escapes behind them
+
+**Status:** verified (Tab navigation probe) · **Affects:** `Sheet` in `ui.tsx` and its account, chart-layer, trade-plan consumers
+
+**Reproduce.** Open a sheet and Tab beyond its last control. The probe moved focus onto a button behind the scrim.
+The component sets `aria-modal=true` and initially focuses the panel, but does not trap focus, make background content
+inert, restore the opener's focus, or lock background scrolling.
+
+**Impact.** Keyboard/screen-reader users can interact with obscured page controls; phone scrolling can move the page
+behind an overlay. Focus escape is reproduced; scroll/focus-restoration consequences are code-based follow-ups.
+
+**Future fix / acceptance.** Use a proper modal primitive/native dialog or implement focus containment, inert background,
+focus return and scroll handling. Test Tab/Shift-Tab, Escape, nested sheets, closing, and small-screen scroll.
+
+---
+
+### BUG-163 🟡 The news page stops following time and calendar updates while it stays open
+
+**Status:** reasoned · **Affects:** `NewsPage` and Home's fixed `now` snapshots
+
+**What.** `now` is captured once and news is fetched only on mount. Leave the page open across a release, midnight,
+or a backend schedule refresh: "Today", passed-event shading, dates and displayed schedule stay based on the old
+snapshot. Resuming a background tab does not refresh them. The server's six-hour refresh does not update an open page.
+
+**Future fix / acceptance.** Refresh time at appropriate boundaries and refetch on visibility/focus or a modest interval.
+Test a release crossing, New York midnight, week rollover, and a changed schedule while the page remains mounted.
+
+---
+
+### BUG-164 🟡 An extreme news timestamp still reaches an unhandled server error
+
+**Status:** verified (real HTTP, 500) · **Affects:** `NewsController.news`
+
+**Reproduce.** Signed in, GET `/api/news?from=9223372036854775807`. `Instant.ofEpochSecond` throws before the 2000–2100
+check runs; with `to` omitted an extreme-but-valid start can also overflow `start.plus(DEFAULT_SPAN)`. The shared
+`Epochs.of` guard used by chart endpoints was not applied here. This is a different boundary from BUG-098's year-2100 fix.
+
+**Future fix / acceptance.** Bound raw epoch values before constructing/adding times and return 400 for both parameters,
+including omitted-to cases and Long.MIN/MAX. Do not log a full unhandled stack for ordinary rejected input.
+
+---
+
+### BUG-165 🟡 A drawing with a null anchor bypasses field validation and crashes
+
+**Status:** verified (unhandled NullPointerException through the controller) · **Affects:** `DrawingDto.anchors`,
+`ChartDrawingController.saveOnce`
+
+**Reproduce.** PUT a valid owned drawing id/kind with `"anchors":[null]`. The list is nonempty, and `@Valid` on its
+elements does not reject null. The later loop calls `anchor.time()` and throws. The probe confirmed the unhandled
+exception instead of a validation response. Authentication/CSRF still apply; this is malformed-input robustness, not data theft.
+
+**Future fix / acceptance.** Require non-null elements before dereferencing them; test null list, null elements,
+missing coordinates and valid anchors. Each malformed request should receive a safe 400.
+
+---
+
+### BUG-166 🟡 The built page's older CSP contradicts the backend's newer CSP
+
+**Status:** reasoned from both policies and built assets; no fresh browser CSP capture · **Affects:** `vite.config.ts`
+`contentSecurityPolicy`, `SecurityConfig.CONTENT_SECURITY_POLICY`
+
+**What.** The build injects a meta policy with `style-src 'self'` and no `font-src`, so fonts fall back to
+`default-src 'self'`. The backend allows inline styles and `font-src 'self' data:`, but a permissive header does not
+relax the meta policy: both are enforced. The current built CSS contains a data-URL font, and Lightweight Charts
+contains code for an inline attribution stylesheet. **The app disables its attribution logo**, so that stylesheet
+is not an active failure here. The demonstrated asset mismatch is the embedded JetBrains Mono Cyrillic-extended
+font subset (U+0460–052F and related ranges): when requested, its data URL conflicts with the meta policy. Direct CSSOM
+style-property assignments are not being claimed universally blocked.
+
+**Impact.** Text needing that font subset can fall back in the built app, with CSP violations. This is a limited font/
+policy consistency issue, not a claim that normal Latin text or the chart is broken. Tests against Vite do not inject
+this build-only meta policy.
+
+**Future fix / acceptance.** Maintain one consistent policy, including its required font/style sources, without
+loosening scripts unnecessarily. Open the actual production build, capture CSP violations, and request/render the
+affected font subset. [Multiple CSP policies intersect](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy),
+[font-src fallback](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/font-src).
+
+---
+
+### BUG-167 🟡 A lesson displays as unlocked while progress is loading or has failed
+
+**Status:** reasoned · **Affects:** `LessonPage`'s independent learning/lesson fetches and `locked` calculation
+
+**Reproduce.** Open a later lesson directly and delay/fail `/api/learning` while its lesson request succeeds.
+`locked` is false when `progress` is undefined, and the failed progress request is silently swallowed. Full lesson
+content and practice actions are then shown as open even though Learn can show the same lesson locked.
+
+**Future fix / acceptance.** Represent progress loading/failure separately and do not silently treat unknown progress
+as an unlocked lesson. Offer recovery/retry and test delayed and failed progress responses. These are pedagogical locks,
+not an authorization claim over paid or private content.
+
+---
+
+### BUG-168 🟡 Reclaiming an unconfirmed email keeps the first registrant's display name
+
+**Status:** reasoned · **Affects:** `AuthService.signUpByEmail`, `AccountEmails`' token snapshot, `AuthService.verify`
+
+**Reproduce.** Register someone else's address with one name; before confirmation, its real owner signs up using
+their own password and name and opens their own link. The link correctly installs the owner's chosen password, but
+the existing-account branch never saves the new display name and the token carries only a password hash. The owner
+inherits the first registrant's name. There is no profile-name editing UI to repair it.
+
+**Future fix / acceptance.** Bind the chosen display name to each sign-up attempt just as the password is bound,
+and apply the appropriate validated name when that attempt is verified. Preserve the anti-pre-hijacking password
+behavior. Test two sign-ups for one unconfirmed address with different names/passwords and links opened in either order.
+
+---
+
+### BUG-169 🟠 A failed reset-email send invalidates the last working link without arranging a retry
+
+**Status:** reasoned · **Affects:** `AccountEmails.issue(Purpose.RESET)`, `ResendMailer.send`
+
+**Reproduce.** Request a reset successfully, then request another during a Resend refusal/network failure.
+`issue` spends all previous RESET links before delivery. The mailer logs a non-2xx/network failure and returns normally;
+the transaction commits the replacement token, the old delivered link stops working, and the new one was never delivered.
+There is no durable delivery queue/retry; the request also consumes the shared email budget.
+
+**Impact.** The owner can lose the only usable recovery link after being told another was sent, making a temporary
+mail-provider problem into a recovery dead end.
+
+**Future fix / acceptance.** Use a durable mail outbox and retry/acknowledgement policy; do not irretrievably invalidate
+a delivered recovery path merely because delivery of a replacement was attempted. Keep public responses generic.
+Test provider 429/500/timeouts, retry delivery, token expiry and the previous link's intended lifecycle.
+
+---
+
+### BUG-170 🟡 Resending a verification email reports success even when the request fails
+
+**Status:** reasoned · **Affects:** `SignInForm.sendAgain`, both "Send the link again" buttons
+
+**Reproduce.** Sign up or try signing in to an unconfirmed account, then resend the link while offline or after the
+endpoint returns 429/500. `sendAgain` sets `resent=true` in `finally`, has no error handler, and is called with `void`.
+The screen says a new link is on its way even if no request reached the server. There is no in-flight guard, so rapid
+taps can also send duplicate requests and consume the resend/sign-in IP quota.
+
+**Impact.** A user waiting for an already-missing verification email gets a false success message and no way to tell
+that they must reconnect or wait before retrying. The rejected promise can also become an unhandled browser error.
+
+**Future fix / acceptance.** Show the generic queued message only after a successful response, handle failures without
+revealing account existence, and disable/debounce while sending. Test network failure, 429, 500, and repeated taps.
+
+---
+
+### BUG-171 🟡 One failed practice-clock request can disable its overlays for the rest of the mount
+
+**Status:** reasoned · **Affects:** `PracticeSession`'s clock-loading effect
+
+**Reproduce.** Enter a session and let its initial `getPracticeClock` fail once. The catch does nothing, so `clock`
+remains null and `clockStale` remains true. The effect depends on `[clockStale, sessionId, clock]`, not the cursor or
+a retry counter. Advancing the replay or enabling a clock layer leaves those dependencies unchanged; the effect
+does not run again. If a later refresh fails after an existing layer became stale, the same unchanged-true state can
+leave that old layer displayed indefinitely. A failed request is therefore more than a single missing frame.
+
+**Future fix / acceptance.** Track the requested cursor and explicit loading/failure state; retry on a later relevant
+cursor, a user retry, or a bounded recovery trigger without a tight retry loop. Show a failure when a requested layer
+is unavailable. Test one rejected response followed by a healthy response, advance/toggle, and recovery without reload.
+
+---
+
 ### Security audit, 2026-10-30 — read first
 
 Fabio: "act as a hacker … find every vulnerability possible … We need to protect this user data with our lives. After

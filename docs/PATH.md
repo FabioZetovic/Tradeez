@@ -55,17 +55,19 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
-last_author: CLAUDE
-last_updated: 2026-10-22
-phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
+last_session: 018   # CODEX audit complete; earlier Session 017 history: T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
+last_author: CODEX
+last_updated: 2026-11-01
+phase: SECURITY + UX AUDIT COMPLETE; T58 repairs pending — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # fix/bug-hunt (BUG-075–092 fixed, DEC-076, DEC-077) merged 2026-10-23 as 4f73512; feat/smt-chart (DEC-075, bug hunt BUG-075–092 logged) merged 2026-10-21 as 4e31dec; feat/smt, feat/partials, feat/onboarding (T20, T28, T29, DEC-073, DEC-074) merged 2026-10-21 in order as 5dade77, a8baa46, 9f332df; feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: fix/security-audit                        # fix/bug-hunt (BUG-075–092 fixed, DEC-076, DEC-077) merged 2026-10-23 as 4f73512; feat/smt-chart (DEC-075, bug hunt BUG-075–092 logged) merged 2026-10-21 as 4e31dec; feat/smt, feat/partials, feat/onboarding (T20, T28, T29, DEC-073, DEC-074) merged 2026-10-21 in order as 5dade77, a8baa46, 9f332df; feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 706/706 (Testcontainers, 2026-10-22, fix/bug-hunt), frontend 390/390 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: unknown # Session 018 was audit-only; full regression suites were not rerun
+audit_2026_11_01: 35 findings; 19 verified, 16 reasoned; 12 backend and 11 frontend forensic probes passed; npm audit 0
+historical_build_record: true  # backend 706/706 (Testcontainers, 2026-10-22, fix/bug-hunt), frontend 390/390 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -161,6 +163,31 @@ claimed_files:      # session 017 (CLAUDE) — T27 fees, commission, slippage, o
 ---
 
 ## NEXT UP
+
+### T58 — Repair batch from CODEX's 2026-11-01 audit (future work)
+
+**Audit complete, Session 018. Logging only; no application fixes made.** BUG-137–171 in
+[BUGS.md](BUGS.md): **35 new findings, 19 verified and 16 reasoned**. Full evidence and bounded rerun instructions:
+[audit report](audits/2026-11-01/README.md). Start with the concrete reproduced account and training-integrity failures.
+
+| Batch | Bugs | Problem and intended repair | Acceptance |
+|---|---|---|---|
+| T58.1 — proxy and session boundaries | 137–139 | Forwarded headers bypass both login limits; refresh grace resurrects sessions after revocation; detected theft leaves access alive. Establish a trusted proxy boundary and make rotation families obey all revocation events. | Real-server spoof tests for both header families; all old access/refresh credentials fail after logout, password change and detected reuse, while genuine concurrent refresh still works. |
+| T58.2 — safe account export | 140 | Export gives unfinished drill keys, future outcomes and hidden replay dates. Define explicit reveal-aware export fields. | Exercise every drill mode and active/complete real replays; personal data remains exportable, hidden grading material does not leave early. |
+| T58.3 — account recovery and email delivery | 141–145, 148, 161, 168–170 | Atomically consume reset/verification links; revoke old links on password changes; remove membership timing leaks; protect recovery from notice spam; handle legacy accounts, racing registration, signed-in email routes, name reclamation and failed delivery/resend. | Two-transaction redemption and registration tests; delayed/failing fake mail provider; legacy upgrade; existing-session email-link routes; rightful owner's name/password kept. Coordinate with Claude's current T56 work before editing. |
+| T58.4 — availability and local database | 146–147, 164–165 | Expensive attempted work escapes budgets; local Postgres listens on all interfaces with shared development credentials; malformed timestamps/anchors reach 500. | Budget before work starts, bound queues/history; private/loopback database listener; safe 400s on invalid input. No destructive load test needed. |
+| T58.5 — chart/drawing consistency | 149–153, 166, 171 | Out-of-order saves and loads lose drawings; market switches send old drawings through new URLs and relabel old candles; header/meta CSP disagree. | Delay/invert saves and loads; scope backend mutations to owner+instrument; consistent request keys and data snapshots; check actual built-page CSP in a browser. |
+| T58.6 — practice/journal state | 154–159 | History's creation snapshot overrides current state; direct routes omit settings; old open sessions and journal rows become unreachable; ordering/counts use historical/recent data incorrectly. | Refresh/back after trading; direct session settings; 50+ sessions and 250+ mixed trades; stable real-activity ordering and truthful totals. |
+| T58.7 — remaining UX | 160, 162–163, 167 | Failed sign-out looks complete; modal focus escapes; open news freezes in time; failed lesson-progress loading silently opens a locked lesson. | Offline sign-out+reload; keyboard modal containment/focus return; time/visibility changes; progress-load failures. |
+
+The probes currently assert the **observed defect** and live outside normal test discovery. Convert them to safe-behavior
+regressions during fixes. The audit runner passed end to end: **12 backend + 11 frontend probes**, zero failures;
+frontend dependency audit zero advisories. Full regression suites and deployment/browser verification remain future
+validation, not an asserted current pass. Earlier BUG-129/133/134 and flaky-test entries retain their existing statuses;
+the initial uncommitted source edits may already address parts of 133/134 and were deliberately not incorporated here.
+
+**Claims:** CODEX's Session 018 documentation/audit claims are released. Claude's existing claims and source edits were
+preserved. No application source, migration, or dependency was changed by this audit.
 
 Ordered. Take the topmost unblocked item. Roadmap shape is **vertical slice** (DEC-018): thin and
 end-to-end first, then thicken. Nothing here is "build a whole layer."
@@ -451,6 +478,10 @@ Q-04 (→ DEC-028) · Q-05 (→ DEC-008; Codex raised it independently and then 
 overclaim) · Q-06 (→ DEC-004, five-tool proof + decision gate) · Q-07 (→ DEC-029).
 
 Still open:
+
+- **Security/UX repair handoff (Session 018):** T58 above and BUG-137–171; findings logged, repairs intentionally pending.
+  Actual hosting proxy sanitization, production CSP/browser behavior, real mail delivery, backup/restore and a Java
+  dependency advisory scan are not verified by the local audit. Keep those checks distinct from the reproduced defects.
 
 | ID | Question | Raised | Owner |
 |---|---|---|---|
@@ -2872,3 +2903,36 @@ then fix all the bugs".
 tree is exactly the branch's, which passed its fresh-clone check (fe16cfb: backend 706, frontend 390). Next: the
 redesign — Fabio: "it is time that we change the damn design of the app, it looks extremely unpolished and vibe coded";
 a critique given, the direction waiting on his references; `feat/design` holds every screen before it as a PDF.
+
+---
+
+### SESSION 018-CODEX — 2026-11-01 — Adversarial security and UX audit (complete)
+
+**Request:** Fabio asked for a deep attacker-perspective audit of the redesigned app and then ordinary bugs hurting
+users, recorded in BUGS.md with explanations/future fixes in PATH.md. Logging only; Claude was working on email ownership.
+
+**Starting state:** `fix/security-audit`, HEAD `70c4d33`; working copy already had changes to empty-market handling,
+the environment example and associated tests. `git pull --ff-only` reported up to date. All pre-existing source edits
+and the screenshot archive were preserved; nothing was merged, reverted, deployed or repaired.
+
+**Delivered:** BUG-137–171, 35 findings (19 verified, 16 reasoned), each with scope/preconditions, impact, reproduction
+or code path, proposed repair and acceptance checks. T58 groups the future repair tasks by dependency and severity.
+`docs/audits/2026-11-01/` holds the report, bounded Java/frontend probes and a checked PowerShell runner.
+
+**Main verified failures:** forwarded-header spoofing defeated both sign-in quotas; refresh ancestors regained access
+after logout/password change; detected reuse left access tokens live; export exposed an unanswered risk answer and
+an active real replay's future result/date; the same reset token was accepted twice concurrently; an old reset link
+survived password change; notice mail exhausted recovery capacity. Frontend probes reproduced drawing-save/load
+races, old candles relabelled as another market, stale practice seeding, omitted direct-route settings, broken journal
+pagination/filtering, false sign-out completion and modal focus escape. Extreme news epochs and null anchors escaped validation.
+
+**Validation:** end-to-end `run-audit.ps1`: 12 backend probes and 11 frontend probes passed, no failures/errors;
+`npm audit` zero advisories. One frontend control rejected a suspected StrictMode email-token bug. The reset race was
+reported accurately: both resets succeed, but the later generation invalidates the earlier access token. A service-only
+email-space discrepancy was excluded because controller/browser validation invalidated the alleged user reproduction.
+No full regression suite, real deployment/mail-provider/load campaign, Java CVE scan or fresh visual-device audit claimed.
+
+**Isolation:** backend test server on a random local port, disposable Testcontainers PostgreSQL, throwaway accounts,
+in-memory mail. No user database, real inbox, paid data API or application source changed. Temporary frontend tests and
+the compiled audit class removed by the runner. Documentation claims released. Next is T58's repair batch when that
+work is taken up; begin with BUG-137, BUG-138 and BUG-140, coordinating email changes with Claude.
