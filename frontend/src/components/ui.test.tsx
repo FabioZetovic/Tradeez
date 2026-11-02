@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MotionGlobalConfig } from 'motion/react'
 import { useState } from 'react'
-import { CountUp, Segmented } from './ui'
+import { CountUp, Segmented, Sheet } from './ui'
 
 describe('CountUp', () => {
   afterEach(() => {
@@ -46,5 +46,45 @@ describe('Segmented', () => {
     for (const button of screen.getAllByRole('button')) {
       expect(button.querySelectorAll('span[aria-hidden]')).toHaveLength(button.getAttribute('aria-pressed') === 'true' ? 1 : 0)
     }
+  })
+})
+
+describe('Sheet', () => {
+  function Page() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button onClick={() => setOpen(true)}>Open</button>
+        <button>Behind</button>
+        <Sheet open={open} onClose={() => setOpen(false)} label="Account">
+          <button>First</button>
+          <button>Last</button>
+        </Sheet>
+      </>
+    )
+  }
+
+  it('BUG-162 keeps focus inside while open, makes the page behind inert, and gives focus back on close', async () => {
+    const user = userEvent.setup()
+    render(<Page />)
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Account' })
+    expect(screen.getByRole('button', { name: 'Behind', hidden: true }).closest('[inert]')).not.toBeNull()
+    expect(document.body.style.overflow).toBe('hidden')
+
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'First' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'First' })).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus()
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open' })).toHaveFocus())
+    expect(screen.getByRole('button', { name: 'Behind' }).closest('[inert]')).toBeNull()
+    expect(document.body.style.overflow).toBe('')
   })
 })

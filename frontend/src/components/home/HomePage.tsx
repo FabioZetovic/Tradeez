@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNow } from '@/hooks/useNow'
 import { motion } from 'motion/react'
 import { Link } from 'react-router'
 import { ArrowRight, ChevronRight, Clock } from 'lucide-react'
@@ -67,7 +68,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
   const kinds = useLoaded(listDrillKinds)
   const sessions = useLoaded(listSessions)
   const statistics = useLoaded(getStatistics)
-  const [now] = useState(() => new Date())
+  const now = useNow()
   const phone = useIsPhone()
 
   const name = useCallback(
@@ -510,7 +511,7 @@ function LatestSession({ adapterFactory }: { adapterFactory?: () => ChartAdapter
 /** Today's and tomorrow's high-impact US releases, New York time (T40); the week is a click away. */
 function NewsToday() {
   const news = useLoaded(getNews)
-  const [now] = useState(() => Date.now() / 1000)
+  const now = useNow().getTime() / 1000
   const days = new Set([newsDay(now), newsDay(now + DAY)])
   const soon = news?.events.filter((e) => e.impact === 'HIGH' && days.has(newsDay(e.at))) ?? []
 

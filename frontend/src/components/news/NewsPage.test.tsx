@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NewsPage } from './NewsPage'
@@ -105,5 +105,22 @@ describe('the News page (T40)', () => {
     vi.mocked(getNews).mockRejectedValue(new Error('503'))
     render(<NewsPage />)
     expect(await screen.findByRole('alert')).toHaveTextContent('could not be loaded')
+  })
+})
+
+describe('the News page left open (BUG-163)', () => {
+  it('greys out a release once its time passes, and asks for the schedule again when looked at again', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(new Date('2026-10-27T13:59:30Z')) // Tuesday 09:59:30 New York, JOLTS at 10:00
+    render(<NewsPage />)
+    const jolts = (await screen.findByText('JOLTS title')).closest('li')
+    expect(jolts).not.toHaveClass('opacity-50')
+
+    act(() => vi.advanceTimersByTime(120_000))
+    expect(screen.getByText('JOLTS title').closest('li')).toHaveClass('opacity-50')
+
+    expect(getNews).toHaveBeenCalledTimes(1)
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    expect(getNews).toHaveBeenCalledTimes(2)
   })
 })

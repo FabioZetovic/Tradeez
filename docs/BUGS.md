@@ -37,7 +37,7 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160, BUG-161, BUG-164 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). Still open: BUG-145 (Fabio's call), BUG-146, BUG-156, BUG-157, BUG-159, BUG-162, BUG-163. Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). Still open: BUG-145 (Fabio's call), BUG-146, BUG-156, BUG-157, BUG-159. Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
 
@@ -126,35 +126,6 @@ sessions, the phone's trade count/footer can shrink or disagree with the all-tim
 
 **Future fix / acceptance.** Use explicit all-time aggregates, labelled by closed versus placed trades; treat recent
 sessions as a recent list. Verify Home with more than 50 sessions and one still-running trade.
-
----
-
-### BUG-162 🟡 Phone sheets announce a modal dialog but keyboard focus escapes behind them
-
-**Status:** verified (Tab navigation probe) · **Affects:** `Sheet` in `ui.tsx` and its account, chart-layer, trade-plan consumers
-
-**Reproduce.** Open a sheet and Tab beyond its last control. The probe moved focus onto a button behind the scrim.
-The component sets `aria-modal=true` and initially focuses the panel, but does not trap focus, make background content
-inert, restore the opener's focus, or lock background scrolling.
-
-**Impact.** Keyboard/screen-reader users can interact with obscured page controls; phone scrolling can move the page
-behind an overlay. Focus escape is reproduced; scroll/focus-restoration consequences are code-based follow-ups.
-
-**Future fix / acceptance.** Use a proper modal primitive/native dialog or implement focus containment, inert background,
-focus return and scroll handling. Test Tab/Shift-Tab, Escape, nested sheets, closing, and small-screen scroll.
-
----
-
-### BUG-163 🟡 The news page stops following time and calendar updates while it stays open
-
-**Status:** reasoned · **Affects:** `NewsPage` and Home's fixed `now` snapshots
-
-**What.** `now` is captured once and news is fetched only on mount. Leave the page open across a release, midnight,
-or a backend schedule refresh: "Today", passed-event shading, dates and displayed schedule stay based on the old
-snapshot. Resuming a background tab does not refresh them. The server's six-hour refresh does not update an open page.
-
-**Future fix / acceptance.** Refresh time at appropriate boundaries and refetch on visibility/focus or a modest interval.
-Test a release crossing, New York midnight, week rollover, and a changed schedule while the page remains mounted.
 
 ---
 
@@ -676,6 +647,35 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-162 🟡 Phone sheets announce a modal dialog but keyboard focus escapes behind them
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (Tab navigation probe) · **Affects:** `Sheet` in `ui.tsx` and its account, chart-layer, trade-plan consumers
+
+**Reproduce.** Open a sheet and Tab beyond its last control. The probe moved focus onto a button behind the scrim.
+The component sets `aria-modal=true` and initially focuses the panel, but does not trap focus, make background content
+inert, restore the opener's focus, or lock background scrolling.
+
+**Impact.** Keyboard/screen-reader users can interact with obscured page controls; phone scrolling can move the page
+behind an overlay. Focus escape is reproduced; scroll/focus-restoration consequences are code-based follow-ups.
+
+**Future fix / acceptance.** Use a proper modal primitive/native dialog or implement focus containment, inert background,
+focus return and scroll handling. Test Tab/Shift-Tab, Escape, nested sheets, closing, and small-screen scroll.
+
+**✅ FIXED** (T58, 2026-11-02). `Sheet` is modal in fact. While it is open, Tab and Shift-Tab wrap round its own controls, every other child of the page is marked `inert`, and the page does not scroll. Closing it, by Escape, the scrim or a choice, gives focus back to what opened it. `ui.test` "BUG-162"; two mutants caught. Nested sheets do not occur in the app and were not tested.
+
+### BUG-163 🟡 The news page stops following time and calendar updates while it stays open
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `NewsPage` and Home's fixed `now` snapshots
+
+**What.** `now` is captured once and news is fetched only on mount. Leave the page open across a release, midnight,
+or a backend schedule refresh: "Today", passed-event shading, dates and displayed schedule stay based on the old
+snapshot. Resuming a background tab does not refresh them. The server's six-hour refresh does not update an open page.
+
+**Future fix / acceptance.** Refresh time at appropriate boundaries and refetch on visibility/focus or a modest interval.
+Test a release crossing, New York midnight, week rollover, and a changed schedule while the page remains mounted.
+
+**✅ FIXED** (T58, 2026-11-02). A new `useNow` hook moves the time on once a minute; the News page and Home's greeting, date and "Today/Tomorrow" news read it. The News page also asks for the schedule again when its tab is looked at again, and every half hour, keeping what it shows if that fails. `NewsPage.test` "BUG-163": a release greys out once its minute passes, and a return to the tab fetches again; two mutants caught.
 
 ### BUG-166 🟡 The built page's older CSP contradicts the backend's newer CSP
 

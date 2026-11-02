@@ -37,12 +37,42 @@ export function Sheet({
   const panel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
+    // BUG-162: modal in fact, not only in name. Focus stays in the sheet — Tab and Shift-Tab wrap round — the page
+    // behind is inert and does not scroll, and closing gives focus back to what opened it.
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const root = panel.current?.parentElement ?? null
+    const behind = Array.from(document.body.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && el !== root && !el.hasAttribute('inert'),
+    )
+    behind.forEach((el) => el.setAttribute('inert', ''))
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
+      if (event.key !== 'Tab' || !panel.current) return
+      const stops = Array.from(
+        panel.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex="0"]'),
+      )
+      if (stops.length === 0) return
+      const first = stops[0]
+      const last = stops[stops.length - 1]
+      const at = document.activeElement
+      if (event.shiftKey && (at === first || at === panel.current)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (at === last || !panel.current.contains(at))) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', onKey)
     panel.current?.focus()
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      behind.forEach((el) => el.removeAttribute('inert'))
+      document.body.style.overflow = overflow
+      opener?.focus()
+    }
   }, [open, onClose])
 
   return createPortal(
