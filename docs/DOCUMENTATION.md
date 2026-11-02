@@ -2228,6 +2228,10 @@ token cannot start a session after a sign-out or a password change (BUG-138), an
 access tokens too (BUG-139). "Your data" leaves out answers, outcomes and real dates not shown yet (BUG-140). A reset link
 works once even when opened twice at once (BUG-141), and dies when the password is changed (BUG-142). Notes nobody asked
 for cannot use up an address's reset emails (BUG-144). Locally, the database listens on this machine only (BUG-147).
+Emails go out after the request has answered, on a thread of their own, so forgot password takes as long for any
+address (BUG-143). Asking for a second reset link keeps the first working (BUG-169). Two sign-ups for one address at
+once make one account (BUG-148), and a sign-up's link carries its chosen name as well as its password (V35, BUG-168).
+Emailed links open even when someone is signed in (BUG-161).
 
 ---
 

@@ -142,20 +142,16 @@ public class AuthService {
 			throw new TooManyAttemptsException();
 		}
 		String hash = passwordEncoder.encode(password);
-		var existing = users.findByEmailIgnoreCase(email);
-		if (existing.isPresent()) {
-			if (existing.get().isEmailVerified()) {
-				emails.sendAlreadyRegistered(existing.get());
-			} else {
-				// Never confirmed: this sign-up's own link, carrying this sign-up's password (pre-hijacking, AccountEmails).
-				emails.sendVerification(existing.get(), hash);
-			}
-			return new SignUp(null, email);
-		}
-		try {
-			emails.sendVerification(users.saveAndFlush(new AppUser(email, hash, displayName)), hash);
-		} catch (DataIntegrityViolationException raced) {
-			// The same address signing up twice at once: one account, and the same answer to both.
+		// BUG-148: inserted only if the address is free, so the same address signing up twice at once makes one account
+		// and both get the same answer. Catching the second insert's failure left its transaction unable to commit.
+		boolean made = users.insertIfAbsent(email, hash, displayName) == 1;
+		AppUser user = users.findByEmailIgnoreCase(email).orElseThrow();
+		if (!made && user.isEmailVerified()) {
+			emails.sendAlreadyRegistered(user);
+		} else {
+			// New, or never confirmed: this sign-up's own link, carrying this sign-up's password and name (pre-hijacking,
+			// BUG-168, AccountEmails).
+			emails.sendVerification(user, hash, displayName);
 		}
 		return new SignUp(null, email);
 	}
@@ -168,6 +164,9 @@ public class AuthService {
 		// The password chosen at the sign-up this link came from (pre-hijacking, AccountEmails).
 		if (link.getPasswordHash() != null) {
 			user.changePasswordHash(link.getPasswordHash());
+		}
+		if (link.getDisplayName() != null) {
+			user.rename(link.getDisplayName());
 		}
 		user.verifyEmail(Instant.now());
 		users.save(user);
@@ -186,7 +185,7 @@ public class AuthService {
 			return;
 		}
 		if (passwordEncoder.matches(password, user.get().getPasswordHash()) && !user.get().isEmailVerified()) {
-			emails.sendVerification(user.get(), null);
+			emails.sendVerification(user.get(), null, null);
 		}
 	}
 

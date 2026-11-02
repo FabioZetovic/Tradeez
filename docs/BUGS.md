@@ -37,26 +37,9 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-142, BUG-144, BUG-147, BUG-161, BUG-164, BUG-165 and BUG-170 (and BUG-172, found on the way), moved to [Fixed](#fixed). Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147, BUG-148, BUG-161, BUG-164, BUG-165 and BUG-168 to BUG-170 (and BUG-172, found on the way), moved to [Fixed](#fixed). Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
-
----
-
-### BUG-143 🟠 Forgot-password timing tells an attacker which email addresses have accounts
-
-**Status:** reasoned · **Affects:** `AuthService.forgotPassword`, `AccountEmails.sendReset/sendUnconfirmed`, `ResendMailer.send`
-
-**Attack.** Compare POST `/api/auth/password/forgot` for a known and unknown address. The unknown address performs a
-database lookup and returns; an existing address synchronously performs Resend's HTTP request, potentially waiting
-up to ten seconds. Both return 202, but their work is observably different. No live Resend timing campaign was run.
-
-**Impact.** The generic response does not conceal membership; the first few requests also trigger mail. The sign-in
-timing tests do not cover this newly added endpoint.
-
-**Future fix / acceptance.** Queue delivery independently of the public response using a reliable outbox, apply the
-same public timing/work policy for absent addresses, and measure response distributions with a delayed fake mail
-provider for known, unknown, and mail-throttled addresses. Do not hold a user database transaction across the HTTP send.
 
 ---
 
@@ -74,6 +57,12 @@ accounts. This matters if any old database with uncontrolled registrations is re
 **Future fix / acceptance.** Decide the migration of existing accounts explicitly: require mailbox proof and revoke
 old sessions for unproven accounts; exempt only explicitly controlled development fixtures. Test an unverified legacy
 account upgrading through V34 and prove it cannot sign in or refresh until its mailbox owner confirms.
+
+**Claude, 2026-11-02 — waiting on Fabio.** V34 has run with accounts in it only on the local development database: every
+account there is Fabio's, the test account or a throwaway probe. A new host starts with an empty table, so V34 marks
+nothing there, and every account on it proves its address. Recommendation: no migration. Revisit only if a database
+with sign-ups from outside is ever migrated across V34; none exists. The alternative, un-confirming every existing
+account, would cost only a local re-confirmation through the outbox.
 
 ---
 
@@ -95,23 +84,6 @@ queue/deadline; it does not bound incoming work. Large-account export/history ma
 **Future fix / acceptance.** Budget attempted work before it starts, cover these routes, and bound concurrency/queue
 waits. Paginate history in SQL and stream or queue large exports. Test allowed and rejected work with small configured
 budgets and prove the expensive service is not called after exhaustion; keep ordinary replay playback usable.
-
----
-
-### BUG-148 🟡 Racing verified-email registrations can still finish as a server error
-
-**Status:** reasoned · **Affects:** `AuthService.signUpByEmail` inside transactional `register`
-
-**What.** Two new-address sign-ups can both find no account. The losing `saveAndFlush` throws a data-integrity exception;
-the helper catches it and returns the normal result **inside the same transaction**. The persistence transaction has
-already been marked rollback-only, so committing the outer service call can throw instead of returning the promised 202.
-`RegisterRaceTest` mocks the repository and tests the email-verification-disabled branch, so it does not prove this path.
-
-**Impact.** Double submission or two simultaneous sign-ups for an address can show a misleading failure even though
-the winning registration exists. No duplicate-account or takeover claim is made.
-
-**Future fix / acceptance.** Handle a uniqueness race outside the failed transaction, or use an atomic database insert
-with a separate successful lookup. Add a deterministic two-transaction, email-verification-enabled registration test.
 
 ---
 
@@ -364,39 +336,6 @@ content and practice actions are then shown as open even though Learn can show t
 **Future fix / acceptance.** Represent progress loading/failure separately and do not silently treat unknown progress
 as an unlocked lesson. Offer recovery/retry and test delayed and failed progress responses. These are pedagogical locks,
 not an authorization claim over paid or private content.
-
----
-
-### BUG-168 🟡 Reclaiming an unconfirmed email keeps the first registrant's display name
-
-**Status:** reasoned · **Affects:** `AuthService.signUpByEmail`, `AccountEmails`' token snapshot, `AuthService.verify`
-
-**Reproduce.** Register someone else's address with one name; before confirmation, its real owner signs up using
-their own password and name and opens their own link. The link correctly installs the owner's chosen password, but
-the existing-account branch never saves the new display name and the token carries only a password hash. The owner
-inherits the first registrant's name. There is no profile-name editing UI to repair it.
-
-**Future fix / acceptance.** Bind the chosen display name to each sign-up attempt just as the password is bound,
-and apply the appropriate validated name when that attempt is verified. Preserve the anti-pre-hijacking password
-behavior. Test two sign-ups for one unconfirmed address with different names/passwords and links opened in either order.
-
----
-
-### BUG-169 🟠 A failed reset-email send invalidates the last working link without arranging a retry
-
-**Status:** reasoned · **Affects:** `AccountEmails.issue(Purpose.RESET)`, `ResendMailer.send`
-
-**Reproduce.** Request a reset successfully, then request another during a Resend refusal/network failure.
-`issue` spends all previous RESET links before delivery. The mailer logs a non-2xx/network failure and returns normally;
-the transaction commits the replacement token, the old delivered link stops working, and the new one was never delivered.
-There is no durable delivery queue/retry; the request also consumes the shared email budget.
-
-**Impact.** The owner can lose the only usable recovery link after being told another was sent, making a temporary
-mail-provider problem into a recovery dead end.
-
-**Future fix / acceptance.** Use a durable mail outbox and retry/acknowledgement policy; do not irretrievably invalidate
-a delivered recovery path merely because delivery of a replacement was attempted. Keep public responses generic.
-Test provider 429/500/timeouts, retry delivery, token expiry and the previous link's intended lifecycle.
 
 ---
 
@@ -934,6 +873,73 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-143 🟠 Forgot-password timing tells an attacker which email addresses have accounts
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `AuthService.forgotPassword`, `AccountEmails.sendReset/sendUnconfirmed`, `ResendMailer.send`
+
+**Attack.** Compare POST `/api/auth/password/forgot` for a known and unknown address. The unknown address performs a
+database lookup and returns; an existing address synchronously performs Resend's HTTP request, potentially waiting
+up to ten seconds. Both return 202, but their work is observably different. No live Resend timing campaign was run.
+
+**Impact.** The generic response does not conceal membership; the first few requests also trigger mail. The sign-in
+timing tests do not cover this newly added endpoint.
+
+**Future fix / acceptance.** Queue delivery independently of the public response using a reliable outbox, apply the
+same public timing/work policy for absent addresses, and measure response distributions with a delayed fake mail
+provider for known, unknown, and mail-throttled addresses. Do not hold a user database transaction across the HTTP send.
+
+**✅ FIXED** (T58, 2026-11-02). Every account email is handed to the mail provider after the request's transaction commits, on a virtual thread of its own (`AccountEmails.deliver`). The answer to forgot password no longer waits for Resend, and a rolled-back request sends nothing. What is left between an address with an account and one without is one small insert of the link: milliseconds against a provider's seconds. `MailTimingTest`: with a provider that takes two seconds, both answer in under one, and the mail still arrives after; mutant caught. Not done: a durable outbox with retries. A failed send is logged and lost, as before, and the person asks again (BUG-169 keeps their earlier link working). Tests send on their own thread (`tradeez.test.mail-async`).
+
+### BUG-148 🟡 Racing verified-email registrations can still finish as a server error
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `AuthService.signUpByEmail` inside transactional `register`
+
+**What.** Two new-address sign-ups can both find no account. The losing `saveAndFlush` throws a data-integrity exception;
+the helper catches it and returns the normal result **inside the same transaction**. The persistence transaction has
+already been marked rollback-only, so committing the outer service call can throw instead of returning the promised 202.
+`RegisterRaceTest` mocks the repository and tests the email-verification-disabled branch, so it does not prove this path.
+
+**Impact.** Double submission or two simultaneous sign-ups for an address can show a misleading failure even though
+the winning registration exists. No duplicate-account or takeover claim is made.
+
+**Future fix / acceptance.** Handle a uniqueness race outside the failed transaction, or use an atomic database insert
+with a separate successful lookup. Add a deterministic two-transaction, email-verification-enabled registration test.
+
+**✅ FIXED** (T58, 2026-11-02). A new address is inserted with `INSERT … ON CONFLICT DO NOTHING` (`AppUserRepository.insertIfAbsent`). A second sign-up for the same address waits for the first and inserts nothing, with no failed statement to spoil its transaction, then gets its own link like any sign-up to an unconfirmed address. `EmailSignUpTest.simultaneousSignUps` holds the address with an uncommitted row until both sign-ups wait on it, then lets go: 202 to both, one account, two links; mutant caught.
+
+### BUG-168 🟡 Reclaiming an unconfirmed email keeps the first registrant's display name
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `AuthService.signUpByEmail`, `AccountEmails`' token snapshot, `AuthService.verify`
+
+**Reproduce.** Register someone else's address with one name; before confirmation, its real owner signs up using
+their own password and name and opens their own link. The link correctly installs the owner's chosen password, but
+the existing-account branch never saves the new display name and the token carries only a password hash. The owner
+inherits the first registrant's name. There is no profile-name editing UI to repair it.
+
+**Future fix / acceptance.** Bind the chosen display name to each sign-up attempt just as the password is bound,
+and apply the appropriate validated name when that attempt is verified. Preserve the anti-pre-hijacking password
+behavior. Test two sign-ups for one unconfirmed address with different names/passwords and links opened in either order.
+
+**✅ FIXED** (T58, 2026-11-02). V35 adds `email_token.display_name`. A sign-up's link carries the name chosen at that sign-up, as it carries the password, and opening it sets both. `EmailSignUpTest.nameTravelsWithTheLink`, in both orders; mutant caught.
+
+### BUG-169 🟠 A failed reset-email send invalidates the last working link without arranging a retry
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `AccountEmails.issue(Purpose.RESET)`, `ResendMailer.send`
+
+**Reproduce.** Request a reset successfully, then request another during a Resend refusal/network failure.
+`issue` spends all previous RESET links before delivery. The mailer logs a non-2xx/network failure and returns normally;
+the transaction commits the replacement token, the old delivered link stops working, and the new one was never delivered.
+There is no durable delivery queue/retry; the request also consumes the shared email budget.
+
+**Impact.** The owner can lose the only usable recovery link after being told another was sent, making a temporary
+mail-provider problem into a recovery dead end.
+
+**Future fix / acceptance.** Use a durable mail outbox and retry/acknowledgement policy; do not irretrievably invalidate
+a delivered recovery path merely because delivery of a replacement was attempted. Keep public responses generic.
+Test provider 429/500/timeouts, retry delivery, token expiry and the previous link's intended lifecycle.
+
+**✅ FIXED** (T58, 2026-11-02). A new reset link no longer spends the earlier ones. Opening any of them spends the rest (`AccountEmails.use`), so recovery stays single-use, and at most three go out an address a quarter-hour, each good for an hour. A replacement that fails to arrive no longer takes away the link that did, and since BUG-143 a failed send cannot fail the request. `EmailSignUpTest.earlierResetLinkSurvives`; mutant caught. Durable retries are not built (BUG-143).
 
 ### BUG-161 🟠 Email verification and password-reset links are discarded when a session already exists
 

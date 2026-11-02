@@ -65,6 +65,11 @@ public class AppUser {
 		// for JPA
 	}
 
+	/** BUG-168: the name chosen at the sign-up whose link proved the address. */
+	public void rename(String displayName) {
+		this.displayName = displayName;
+	}
+
 	public AppUser(String email, String passwordHash, String displayName) {
 		this.email = email;
 		this.passwordHash = passwordHash;

@@ -75,5 +75,7 @@ public abstract class AbstractIntegrationTest {
 		// A placeholder, so a subclass can say otherwise: a second registration of the same name would not win.
 		registry.add("tradeez.signup.verify-email", () -> "${tradeez.test.verify-email:false}");
 		registry.add("tradeez.mail.outbox-dir", () -> "");
+		// BUG-143: sent on the test's own thread, so a test can read it the moment the call returns.
+		registry.add("tradeez.mail.async", () -> "${tradeez.test.mail-async:false}");
 	}
 }

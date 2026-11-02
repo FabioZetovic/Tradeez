@@ -62,6 +62,9 @@ class EmailSignUpTest extends AbstractIntegrationTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	@Autowired
+	javax.sql.DataSource dataSource;
+
 	private int seen;
 
 	@BeforeEach
@@ -88,8 +91,13 @@ class EmailSignUpTest extends AbstractIntegrationTest {
 	}
 
 	private MvcResult register(String email, String password) throws Exception {
+		return register(email, password, "Ana");
+	}
+
+	private MvcResult register(String email, String password, String name) throws Exception {
 		return mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-			.content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\",\"displayName\":\"Ana\"}")).andReturn();
+			.content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\",\"displayName\":\"" + name + "\"}"))
+			.andReturn();
 	}
 
 	private int login(String email, String password) throws Exception {
@@ -167,6 +175,85 @@ class EmailSignUpTest extends AbstractIntegrationTest {
 		assertThat(login("victim@example.com", "attackers-own-passphrase")).isEqualTo(401);
 		// The other sign-up's link died with the first one opened.
 		assertThat(verify(token(attackersLink)).getResponse().getStatus()).isEqualTo(400);
+	}
+
+	@Test
+	@DisplayName("BUG-168 the owner's own link brings the owner's own name, not the first registrant's — in either order")
+	void nameTravelsWithTheLink() throws Exception {
+		register("victim@example.com", "attackers-own-passphrase", "Mallory");
+		Mail attackersLink = mails().getFirst();
+		register("victim@example.com", PASSWORD, "Ana");
+		Mail ownersLink = mails().getFirst();
+		verify(token(ownersLink));
+		assertThat(users.findByEmailIgnoreCase("victim@example.com").orElseThrow().getDisplayName()).isEqualTo("Ana");
+		assertThat(verify(token(attackersLink)).getResponse().getStatus()).isEqualTo(400);
+
+		// The other way round: the first sign-up was the owner's, and its link is the one opened.
+		register("bea@example.com", PASSWORD, "Bea");
+		Mail first = mails().getFirst();
+		register("bea@example.com", "someone-elses-passphrase", "Mallory");
+		mails();
+		verify(token(first));
+		assertThat(users.findByEmailIgnoreCase("bea@example.com").orElseThrow().getDisplayName()).isEqualTo("Bea");
+		assertThat(login("bea@example.com", PASSWORD)).isEqualTo(200);
+	}
+
+	@Test
+	@DisplayName("BUG-148 the same new address signing up twice at once: one account, and 202 to both")
+	void simultaneousSignUps() throws Exception {
+		java.util.concurrent.CompletableFuture<Integer> first;
+		java.util.concurrent.CompletableFuture<Integer> second;
+		// Hold the address with an uncommitted row, so both sign-ups reach the insert and wait on it; then let go.
+		try (var hold = dataSource.getConnection()) {
+			hold.setAutoCommit(false);
+			try (var insert = hold.prepareStatement(
+					"INSERT INTO app_user (email, password_hash, display_name) VALUES ('twice@example.com', 'x', 'Hold')")) {
+				insert.executeUpdate();
+			}
+			first = java.util.concurrent.CompletableFuture.supplyAsync(() -> signUpStatus("twice@example.com"));
+			second = java.util.concurrent.CompletableFuture.supplyAsync(() -> signUpStatus("twice@example.com"));
+			long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+			int waiting = 0;
+			while (System.nanoTime() < until && waiting < 2) {
+				waiting = jdbc.queryForObject("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() "
+					+ "AND wait_event_type = 'Lock' AND lower(query) LIKE '%insert into app_user%'", Integer.class);
+				if (waiting < 2) {
+					Thread.sleep(25);
+				}
+			}
+			hold.rollback();
+			assertThat(waiting).as("both sign-ups reached the insert").isEqualTo(2);
+		}
+		assertThat(first.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(202);
+		assertThat(second.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(202);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM app_user WHERE email = 'twice@example.com'", Integer.class))
+			.isEqualTo(1);
+		assertThat(mails()).hasSize(2).allSatisfy(m -> assertThat(m.subject()).isEqualTo("Confirm your email for Tradeez"));
+	}
+
+	private int signUpStatus(String email) {
+		try {
+			return register(email, PASSWORD).getResponse().getStatus();
+		} catch (Exception e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	@Test
+	@DisplayName("BUG-169 asking for a second reset link leaves the first working; opening one spends both")
+	void earlierResetLinkSurvives() throws Exception {
+		register("ana@example.com", PASSWORD);
+		verify(token(mails().getFirst()));
+		post_("/api/auth/password/forgot", "{\"email\":\"ana@example.com\"}");
+		String delivered = token(mails().getFirst());
+		post_("/api/auth/password/forgot", "{\"email\":\"ana@example.com\"}");
+		String lost = token(mails().getFirst());
+		mockMvc.perform(post("/api/auth/password/reset").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"" + delivered + "\",\"newPassword\":\"a-brand-new-passphrase\"}"))
+			.andExpect(status().isOk());
+		mockMvc.perform(post("/api/auth/password/reset").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"" + lost + "\",\"newPassword\":\"yet-another-passphrase\"}"))
+			.andExpect(status().isBadRequest());
 	}
 
 	@Test

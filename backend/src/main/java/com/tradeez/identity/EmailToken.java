@@ -52,10 +52,15 @@ public class EmailToken {
 	@Column(name = "password_hash")
 	private String passwordHash;
 
+	/** BUG-168: a sign-up's link: the name chosen at that sign-up, set when the link is opened. Null otherwise. */
+	@Column(name = "display_name")
+	private String displayName;
+
 	protected EmailToken() {
 	}
 
-	EmailToken(AppUser user, Purpose purpose, String tokenHash, Instant now, Instant expiresAt, String passwordHash) {
+	EmailToken(AppUser user, Purpose purpose, String tokenHash, Instant now, Instant expiresAt, String passwordHash,
+			String displayName) {
 		this.id = UUID.randomUUID();
 		this.user = user;
 		this.purpose = purpose;
@@ -63,6 +68,11 @@ public class EmailToken {
 		this.createdAt = now;
 		this.expiresAt = expiresAt;
 		this.passwordHash = passwordHash;
+		this.displayName = displayName;
+	}
+
+	String getDisplayName() {
+		return displayName;
 	}
 
 	UUID getId() {

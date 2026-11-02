@@ -2,10 +2,14 @@ package com.tradeez.identity;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.tradeez.identity.EmailToken.Purpose;
 import com.tradeez.identity.mail.Mailer;
@@ -27,6 +31,10 @@ import com.tradeez.identity.mail.Mailer.Mail;
  * reveal whether the address has an account. BUG-144: the notes nobody asked for (someone tried to sign up with the
  * address; forgot password on an account never confirmed) have a budget of their own, {@link #NOTICES_PER_ADDRESS}, so a
  * stranger sending them cannot use up the owner's links.
+ *
+ * <p>BUG-143: an email goes out after the request's transaction commits, on a thread of its own, so the answer does not
+ * wait for the mail provider — and an address with an account takes no longer to answer than one without. Tests send
+ * on the caller's thread ({@code tradeez.mail.async=false}).
  */
 @Service
 public class AccountEmails {
@@ -42,14 +50,16 @@ public class AccountEmails {
 	private final Mailer mailer;
 	private final RateLimiter rateLimiter;
 	private final String appUrl;
+	private final Executor sending;
 
 	public AccountEmails(EmailTokenRepository tokens, JwtService jwt, Mailer mailer, RateLimiter rateLimiter,
-			@Value("${tradeez.app-url}") String appUrl) {
+			@Value("${tradeez.app-url}") String appUrl, @Value("${tradeez.mail.async:true}") boolean async) {
 		this.tokens = tokens;
 		this.jwt = jwt;
 		this.mailer = mailer;
 		this.rateLimiter = rateLimiter;
 		this.appUrl = appUrl.replaceAll("/+$", "");
+		this.sending = async ? Executors.newVirtualThreadPerTaskExecutor() : Runnable::run;
 	}
 
 	/**
@@ -57,14 +67,15 @@ public class AccountEmails {
 	 *
 	 * @param passwordHash the password chosen at this sign-up, set when the link is opened; null to keep the account's
 	 *                     own (asking again, after proving the password)
+	 * @param displayName  the name chosen at this sign-up, likewise (BUG-168); null to keep the account's own
 	 */
 	@Transactional
-	public void sendVerification(AppUser user, String passwordHash) {
+	public void sendVerification(AppUser user, String passwordHash, String displayName) {
 		if (!allowed(user)) {
 			return;
 		}
-		String link = appUrl + "/verify-email#" + issue(user, Purpose.VERIFY, VERIFY_FOR, passwordHash);
-		mailer.send(new Mail(user.getEmail(), "Confirm your email for Tradeez", """
+		String link = appUrl + "/verify-email#" + issue(user, Purpose.VERIFY, VERIFY_FOR, passwordHash, displayName);
+		deliver(new Mail(user.getEmail(), "Confirm your email for Tradeez", """
 			Someone — we hope you — made a Tradeez account with this address. To confirm it is yours, open this link \
 			within 24 hours:
 
@@ -80,7 +91,7 @@ public class AccountEmails {
 		if (!noticeAllowed(user)) {
 			return;
 		}
-		mailer.send(new Mail(user.getEmail(), "Someone tried to sign up to Tradeez with your address", """
+		deliver(new Mail(user.getEmail(), "Someone tried to sign up to Tradeez with your address", """
 			You already have a Tradeez account with this address, and someone just tried to make another with it.
 
 			If that was you: sign in at %s/sign-in. If you have forgotten your password, set a new one at \
@@ -96,8 +107,8 @@ public class AccountEmails {
 		if (!allowed(user)) {
 			return;
 		}
-		String link = appUrl + "/reset-password#" + issue(user, Purpose.RESET, RESET_FOR, null);
-		mailer.send(new Mail(user.getEmail(), "Set a new Tradeez password", """
+		String link = appUrl + "/reset-password#" + issue(user, Purpose.RESET, RESET_FOR, null, null);
+		deliver(new Mail(user.getEmail(), "Set a new Tradeez password", """
 			Someone asked to set a new password for the Tradeez account with this address. To do it, open this link \
 			within an hour:
 
@@ -112,7 +123,7 @@ public class AccountEmails {
 		if (!noticeAllowed(user)) {
 			return;
 		}
-		mailer.send(new Mail(user.getEmail(), "Your Tradeez account was never confirmed", """
+		deliver(new Mail(user.getEmail(), "Your Tradeez account was never confirmed", """
 			Someone asked to set a new password for the Tradeez account with this address, but the account was never \
 			confirmed, so it has no password to change yet.
 
@@ -153,15 +164,27 @@ public class AccountEmails {
 		return rateLimiter.tryAcquire("notice:" + user.getEmail(), NOTICES_PER_ADDRESS, MAIL_WINDOW);
 	}
 
-	private String issue(AppUser user, Purpose purpose, Duration validFor, String passwordHash) {
+	private String issue(AppUser user, Purpose purpose, Duration validFor, String passwordHash, String displayName) {
 		Instant now = Instant.now();
-		// A reset link replaces the last; a sign-up link does not cancel another's (see the class).
-		if (purpose == Purpose.RESET) {
-			tokens.spendAll(user.getId(), purpose, now);
-		}
+		// No link cancels an earlier one of its kind (BUG-169: a reset link that failed to arrive must not take away the
+		// one that did); opening any of them spends the rest (use). At most three an address a window, each for an hour.
 		String raw = jwt.generateRefreshToken();
-		tokens.save(new EmailToken(user, purpose, jwt.hash(raw), now, now.plus(validFor), passwordHash));
+		tokens.save(new EmailToken(user, purpose, jwt.hash(raw), now, now.plus(validFor), passwordHash, displayName));
 		return raw;
+	}
+
+	/** BUG-143: once the transaction has committed — a rolled-back request sends nothing — and off the request's thread. */
+	private void deliver(Mail mail) {
+		if (TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					sending.execute(() -> mailer.send(mail));
+				}
+			});
+		} else {
+			sending.execute(() -> mailer.send(mail));
+		}
 	}
 
 	public static class InvalidLinkException extends RuntimeException {
