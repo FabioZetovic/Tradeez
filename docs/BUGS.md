@@ -624,7 +624,7 @@ is unavailable. Test one rejected response followed by a healthy response, advan
 Fabio: "act as a hacker … find every vulnerability possible … We need to protect this user data with our lives. After
 that find all the bugs that could affect user activities … THe next run after that we will start fiying all of that."
 T57 (2026-10-31) fixed BUG-120 to BUG-127, BUG-130 to BUG-132 and BUG-135 — moved to [Fixed](#fixed). T56 (2026-11-01) fixed BUG-119 and BUG-128.
-Left here: BUG-129, BUG-133, BUG-134.
+BUG-133 fixed and BUG-134 mostly fixed on 2026-11-02. Left here: BUG-129, the rest of BUG-134.
 
 **How it was done.** Every endpoint mapped, every request parameter and body read for limits, every lookup by id
 checked for the owner, the identity package read line by line, the frontend searched for raw HTML, stored tokens and
@@ -672,25 +672,10 @@ market data, which can be re-imported) to storage Fabio controls, encrypted, kep
 
 ---
 
-### BUG-133 🟡 The local test account's address and password are in git
-
-**Status:** verified (2026-10-30) · **Affects:** `backend/.env.example` (comments)
-
-**What.** The local test account's email and password sit in comments in `.env.example`, committed. The repository is
-private and nothing creates the account automatically.
-
-**Why it matters.** Anyone given access to the repository knows them; if that account is ever registered on a deployed
-instance with the same password, it is open to them.
-
-**How to fix.** Move them to the untracked `backend/.env`, rewrite the scripts to read them from there, and never
-register that account on a deployed instance (write it in "Deploying").
-
----
-
 ### BUG-134 🟠 On a new deployment with no market data, a new user walks into dead ends
 
-**Status:** verified (2026-10-30, the image on an empty database) · **Affects:** Home, Drills, the drill screen, Chart,
-News, lesson examples
+**Status:** partly fixed on `fix/security-audit` (T57, 2026-11-02) — verified (2026-10-30, the image on an empty
+database) · **Affects:** Home, Drills, the drill screen, Chart, News, lesson examples
 
 **What.** Before any history is imported (as on every new host): Home still invites "Start the first lesson" and shows
 the path; every drill opens to "No real NQ history has been imported yet…" with a **Try again** button that can never
@@ -704,6 +689,13 @@ broken.
 **How to fix.** One "market data not loaded yet" state from the API (instruments carry whether they have history),
 shown once and plainly wherever a chart would be; no "Try again" when trying again cannot help; News says the calendar
 is not loaded rather than that there is no news. And the deploy checklist imports the data before anyone is invited.
+
+**Done (T57, 2026-11-02).** Drills and Practice answer 503 `{"code":"NO_MARKET_DATA"}` with a plain message
+(`NoHistoryException`, `MarketDataExceptionHandler`) instead of a generic error; the drill screen shows it with no
+**Try again**; the Chart tab says the market data has not been loaded yet; News says "The economic calendar has not
+been loaded yet." when the calendar was never checked. Tests: `RealDrillApiTest.nothingImported`,
+`DrillView.test` (no retry on `NO_MARKET_DATA`), `HomePage.test` (calendar never loaded); three mutants caught.
+**Still open:** Home still invites "Start the first lesson" and lesson examples are empty boxes on an empty database.
 
 ---
 
@@ -1145,6 +1137,24 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-133 🟡 The local test account's address and password are in git
+
+**Status:** ✅ fixed on `fix/security-audit` (T57, 2026-11-02) — verified (2026-10-30) · **Affects:** `backend/.env.example` (comments)
+
+**What.** The local test account's email and password sit in comments in `.env.example`, committed. The repository is
+private and nothing creates the account automatically.
+
+**Why it matters.** Anyone given access to the repository knows them; if that account is ever registered on a deployed
+instance with the same password, it is open to them.
+
+**How to fix.** Move them to the untracked `backend/.env`, rewrite the scripts to read them from there, and never
+register that account on a deployed instance (write it in "Deploying").
+
+**✅ FIXED** (T57, 2026-11-02). The two lines moved to the gitignored `backend/.env`; `.env.example` now only says where
+they live. The session scripts read them from `.env` and never print them. Because the old password stays in git
+history, the account's password was changed through `/api/auth/password` to a new random one, stored only in `.env`.
+`EnvExampleTest.noTestAccount` fails the build if a `DEV_TEST_*` value comes back to the example, even in a comment.
 
 ### BUG-128 🟠 Free, unverified accounts make the database fillable by one script
 

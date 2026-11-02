@@ -518,7 +518,13 @@ function NewsToday() {
     // min-w-0: a grid item is otherwise as wide as its longest title, and the page scrolled sideways on a phone (BUG-112).
     <section aria-label="News today" className="flex min-w-0 flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
       <h2 className="text-sm font-medium text-subtle">News today</h2>
-      {news && soon.length === 0 && <p className="mt-3 text-sm text-subtle">No high-impact news today or tomorrow.</p>}
+      {/* BUG-134: a calendar never loaded is not a day without news. */}
+      {news && news.checkedAt == null && soon.length === 0 && (
+        <p className="mt-3 text-sm text-subtle">The economic calendar has not been loaded yet.</p>
+      )}
+      {news && news.checkedAt != null && soon.length === 0 && (
+        <p className="mt-3 text-sm text-subtle">No high-impact news today or tomorrow.</p>
+      )}
       {news === null && <p className="mt-3 text-sm text-subtle">The calendar could not be loaded.</p>}
       {soon.length > 0 && (
         <ul className="mt-3 flex flex-col gap-2.5">

@@ -412,7 +412,7 @@ describe('App — signed in', () => {
     mockApi({ ...signedIn, '/api/market/instruments': { body: [{ ...NQ, dataFrom: undefined, dataTo: undefined }] } })
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
 
-    expect(await screen.findByTestId('no-history')).toHaveTextContent(/No real NQ history/)
+    expect(await screen.findByTestId('no-history')).toHaveTextContent(/no NQ market data on this server yet/)
     expect(barRequestEnds()).toEqual([])
   })
 

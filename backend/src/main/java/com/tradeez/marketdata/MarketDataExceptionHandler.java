@@ -22,6 +22,16 @@ public class MarketDataExceptionHandler {
 		return body(HttpStatus.BAD_REQUEST, e.getMessage());
 	}
 
+	@ExceptionHandler(NoHistoryException.class)
+	public ResponseEntity<Map<String, Object>> noHistory(NoHistoryException e) {
+		// BUG-134: not the caller's fault and not fixed by asking again — the page shows it once, without a retry.
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+			"status", HttpStatus.SERVICE_UNAVAILABLE.value(),
+			"code", "NO_MARKET_DATA",
+			"message", e.getMessage(),
+			"timestamp", Instant.now().toString()));
+	}
+
 	private ResponseEntity<Map<String, Object>> body(HttpStatus status, String message) {
 		return ResponseEntity.status(status).body(Map.of(
 			"status", status.value(),

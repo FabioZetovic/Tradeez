@@ -392,7 +392,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
 
         {noHistory && (
           <Notice role="status" data-testid="no-history">
-            No real {SYMBOL} history has been imported yet. Run the import described in docs/PATH.md (task T2).
+            There is no {SYMBOL} market data on this server yet, so there is no chart to show. It has to be loaded first.
           </Notice>
         )}
 

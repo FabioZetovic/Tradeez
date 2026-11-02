@@ -63,7 +63,7 @@ function mockAll() {
   vi.mocked(listInstruments).mockResolvedValue([NQ])
   vi.mocked(getBars).mockResolvedValue(BARS)
   vi.mocked(getChartClock).mockResolvedValue({ rules: {}, windows: [], lines: [] } as never)
-  vi.mocked(getNews).mockResolvedValue({ events: [] } as unknown as News)
+  vi.mocked(getNews).mockResolvedValue({ events: [], checkedAt: 1_780_000_000 } as unknown as News)
 }
 
 function renderHome(adapter = new FakeChartAdapter()) {
@@ -216,6 +216,13 @@ describe('Home (T39)', () => {
   it('says when there is no high-impact news, or no calendar', async () => {
     renderHome()
     expect(await within(card('News today')).findByText('No high-impact news today or tomorrow.')).toBeInTheDocument()
+  })
+
+  it('BUG-134 a calendar never loaded is said to be so, not shown as a quiet day', async () => {
+    vi.mocked(getNews).mockResolvedValue({ events: [] } as unknown as News)
+    renderHome()
+    expect(await within(card('News today')).findByText('The economic calendar has not been loaded yet.')).toBeInTheDocument()
+    expect(within(card('News today')).queryByText(/No high-impact news/)).not.toBeInTheDocument()
   })
 
   it('a calendar that could not be loaded is said to be so', async () => {

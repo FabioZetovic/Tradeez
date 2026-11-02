@@ -2215,6 +2215,13 @@ single use) confirms and signs in; forgot password sends a one-hour reset link. 
 password, so signing up first with someone else's address gets nothing (pre-hijacking). Mail: the local `outbox` folder,
 or Resend deployed; the prod profile needs `MAIL_PROVIDER` and `APP_URL`. BUG-119 and BUG-128 fixed.
 
+**No market data yet, and the test account (T57, 2026-11-02).** A new host has no candles until the import is run.
+Until then Drills and Practice answer 503 with `"code": "NO_MARKET_DATA"` and say so plainly; the drill screen offers
+no "Try again", the Chart tab says the data has not been loaded, and News says the calendar has not been loaded rather
+than that there is no news (BUG-134; Home's lesson invitation and the lesson examples still assume data). **Import the
+data before inviting anyone.** The local test account's address and password live only in the gitignored
+`backend/.env` (BUG-133); never register that account on a deployed instance.
+
 ---
 
 ## For the presentation: the disclaimer slide

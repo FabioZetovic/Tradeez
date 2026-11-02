@@ -32,6 +32,7 @@ import com.tradeez.clock.ClockDtos.ClockLayerResponse;
 import com.tradeez.clock.ClockLayer;
 import com.tradeez.clock.ClockService;
 import com.tradeez.marketdata.Bar;
+import com.tradeez.marketdata.NoHistoryException;
 import com.tradeez.marketdata.BarSeries;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
@@ -1164,8 +1165,7 @@ public class PracticeService {
 			DayOfWeek weekday, List<HiddenStretches.Stretch> avoid) {
 		Instant[] coverage = marketData.coverage(instrument);
 		if (coverage == null) {
-			throw new IllegalArgumentException("No real " + instrument.getSymbol()
-				+ " history has been imported yet, so there is nothing to practise on.");
+			throw new NoHistoryException(instrument.getSymbol(), "practise on");
 		}
 		Instant earliest = coverage[0].plus(HISTORY);
 		Instant latest = coverage[1].minus(MIN_SESSION_LEFT);

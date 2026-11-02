@@ -37,4 +37,16 @@ class EnvExampleTest {
 			.as("move these to backend/.env (gitignored) and leave them empty in .env.example")
 			.isEmpty();
 	}
+
+	@Test
+	@DisplayName("BUG-133 .env.example names no test account's address or password, not even in a comment")
+	void noTestAccount() throws IOException {
+		List<String> filled = Files.readAllLines(Path.of(".env.example"), StandardCharsets.UTF_8)
+			.stream()
+			.map(line -> line.replaceFirst("^#\\s*", "").trim())
+			.filter(line -> line.matches("DEV_TEST_[A-Z]+\\s*=.*"))
+			.map(line -> line.substring(0, line.indexOf('=')).trim())
+			.toList();
+		assertThat(filled).as("these belong in backend/.env only").isEmpty();
+	}
 }

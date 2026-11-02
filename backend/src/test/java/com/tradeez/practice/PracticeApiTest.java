@@ -259,9 +259,10 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			jdbc.update("DELETE FROM market_bar");
 			jdbc.update("DELETE FROM market_data_import");
 			mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf()))
-				.andExpect(status().isBadRequest())
+				.andExpect(status().isServiceUnavailable())
+				.andExpect(jsonPath("$.code").value("NO_MARKET_DATA"))
 				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
-					"No real NQ history has been imported")));
+					"There is no NQ market data on this server yet")));
 		}
 
 		@Test
