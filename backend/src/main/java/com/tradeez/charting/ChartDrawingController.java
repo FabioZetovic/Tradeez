@@ -112,7 +112,8 @@ public class ChartDrawingController {
 	public record DrawingDto(
 		@NotNull UUID id,
 		@NotBlank String kind,
-		@NotEmpty List<@Valid AnchorDto> anchors,
+		// BUG-165: @NotNull on the element — @Valid alone let [null] through to a NullPointerException.
+		@NotEmpty List<@NotNull @Valid AnchorDto> anchors,
 		Map<String, Object> style,
 		@Schema(description = "A label's words (required) or a zone's name (optional); at most 80 characters")
 		@Size(max = MAX_TEXT) String text) {
@@ -206,7 +207,12 @@ public class ChartDrawingController {
 		// 409: an id the caller cannot write to should be indistinguishable from one that does not
 		// exist, or the endpoint becomes a way to probe which ids are in use.
 		if (existing.isEmpty() && drawings.existsById(id)) {
-			throw new DrawingNotYoursException();
+			// BUG-172: the row may be the caller's own, committed by an overlapping first save between the two queries
+			// above. Asked again, it is visible now; only a row still not theirs is someone else's.
+			existing = drawings.findByIdAndUserId(id, principal.id());
+			if (existing.isEmpty()) {
+				throw new DrawingNotYoursException();
+			}
 		}
 
 		if (existing.isPresent()) {

@@ -588,6 +588,20 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(current('Chart')).toBeNull()
   })
 
+  it('BUG-161 signed in, an emailed link still opens its page instead of Home', async () => {
+    at('/reset-password#tok_reset')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByLabelText('New password')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/reset-password')
+    at('/verify-email#tok_verify')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await waitFor(() =>
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => String(url))).toContain(
+        '/api/auth/verify',
+      ),
+    )
+  })
+
   it('signed out, any address leads to sign-in and back to that address after', async () => {
     mockApi({ ...signedIn, '/api/me': { status: 401, body: {} }, '/api/auth/refresh': { status: 401, body: {} } })
     at('/practice')

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tradeez.common.Epochs;
 import com.tradeez.news.EconomicCalendarService.Calendar;
 import com.tradeez.news.EconomicCalendarService.Event;
 
@@ -58,8 +59,9 @@ public class NewsController {
 			+ "At most 62 days. Times are when each release comes out. checkedAt and stale say how fresh the schedule "
 			+ "is; fomcKnownUntil how far the FOMC's dates reach.")
 	public NewsResponse news(@RequestParam(required = false) Long from, @RequestParam(required = false) Long to) {
-		Instant start = from != null ? Instant.ofEpochSecond(from) : thisMonday();
-		Instant end = to != null ? Instant.ofEpochSecond(to) : start.plus(DEFAULT_SPAN);
+		// BUG-164: a second too large for an Instant threw before the range check could answer 400.
+		Instant start = from != null ? Epochs.of(from, "from") : thisMonday();
+		Instant end = to != null ? Epochs.of(to, "to") : start.plus(DEFAULT_SPAN);
 		if (start.isBefore(EARLIEST) || end.isAfter(LATEST)) {
 			throw new IllegalArgumentException("from and to lie between the years 2000 and 2100");
 		}

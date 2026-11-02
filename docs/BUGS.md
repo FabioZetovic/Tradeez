@@ -37,7 +37,7 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-142, BUG-144 and BUG-147, moved to [Fixed](#fixed). Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-142, BUG-144, BUG-147, BUG-161, BUG-164, BUG-165 and BUG-170 (and BUG-172, found on the way), moved to [Fixed](#fixed). Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
 
@@ -300,19 +300,6 @@ server sign-out. Test offline, 403 and 500 responses followed by reload.
 
 ---
 
-### BUG-161 🟠 Email verification and password-reset links are discarded when a session already exists
-
-**Status:** reasoned · **Affects:** the signed-in route table in `App.tsx`
-
-**Reproduce.** While signed in, open `/reset-password#token`, `/verify-email#token`, or `/forgot-password`. Those routes
-exist only in the signed-out branch; the signed-in wildcard redirects to Home without rendering the form/redeeming
-the link. This also affects an email link for a second account opened in a browser signed in to the first.
-
-**Future fix / acceptance.** Make emailed-link/recovery routes reachable regardless of current session, with an explicit
-account-switch choice when needed. Test a valid reset link while signed in and a verification link for another account.
-
----
-
 ### BUG-162 🟡 Phone sheets announce a modal dialog but keyboard focus escapes behind them
 
 **Status:** verified (Tab navigation probe) · **Affects:** `Sheet` in `ui.tsx` and its account, chart-layer, trade-plan consumers
@@ -339,33 +326,6 @@ snapshot. Resuming a background tab does not refresh them. The server's six-hour
 
 **Future fix / acceptance.** Refresh time at appropriate boundaries and refetch on visibility/focus or a modest interval.
 Test a release crossing, New York midnight, week rollover, and a changed schedule while the page remains mounted.
-
----
-
-### BUG-164 🟡 An extreme news timestamp still reaches an unhandled server error
-
-**Status:** verified (real HTTP, 500) · **Affects:** `NewsController.news`
-
-**Reproduce.** Signed in, GET `/api/news?from=9223372036854775807`. `Instant.ofEpochSecond` throws before the 2000–2100
-check runs; with `to` omitted an extreme-but-valid start can also overflow `start.plus(DEFAULT_SPAN)`. The shared
-`Epochs.of` guard used by chart endpoints was not applied here. This is a different boundary from BUG-098's year-2100 fix.
-
-**Future fix / acceptance.** Bound raw epoch values before constructing/adding times and return 400 for both parameters,
-including omitted-to cases and Long.MIN/MAX. Do not log a full unhandled stack for ordinary rejected input.
-
----
-
-### BUG-165 🟡 A drawing with a null anchor bypasses field validation and crashes
-
-**Status:** verified (unhandled NullPointerException through the controller) · **Affects:** `DrawingDto.anchors`,
-`ChartDrawingController.saveOnce`
-
-**Reproduce.** PUT a valid owned drawing id/kind with `"anchors":[null]`. The list is nonempty, and `@Valid` on its
-elements does not reject null. The later loop calls `anchor.time()` and throws. The probe confirmed the unhandled
-exception instead of a validation response. Authentication/CSRF still apply; this is malformed-input robustness, not data theft.
-
-**Future fix / acceptance.** Require non-null elements before dereferencing them; test null list, null elements,
-missing coordinates and valid anchors. Each malformed request should receive a safe 400.
 
 ---
 
@@ -437,23 +397,6 @@ mail-provider problem into a recovery dead end.
 **Future fix / acceptance.** Use a durable mail outbox and retry/acknowledgement policy; do not irretrievably invalidate
 a delivered recovery path merely because delivery of a replacement was attempted. Keep public responses generic.
 Test provider 429/500/timeouts, retry delivery, token expiry and the previous link's intended lifecycle.
-
----
-
-### BUG-170 🟡 Resending a verification email reports success even when the request fails
-
-**Status:** reasoned · **Affects:** `SignInForm.sendAgain`, both "Send the link again" buttons
-
-**Reproduce.** Sign up or try signing in to an unconfirmed account, then resend the link while offline or after the
-endpoint returns 429/500. `sendAgain` sets `resent=true` in `finally`, has no error handler, and is called with `void`.
-The screen says a new link is on its way even if no request reached the server. There is no in-flight guard, so rapid
-taps can also send duplicate requests and consume the resend/sign-in IP quota.
-
-**Impact.** A user waiting for an already-missing verification email gets a false success message and no way to tell
-that they must reconnect or wait before retrying. The rejected promise can also become an unhandled browser error.
-
-**Future fix / acceptance.** Show the generic queued message only after a successful response, handle failures without
-revealing account existence, and disable/debounce while sending. Test network failure, 429, 500, and repeated taps.
 
 ---
 
@@ -991,6 +934,77 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-161 🟠 Email verification and password-reset links are discarded when a session already exists
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** the signed-in route table in `App.tsx`
+
+**Reproduce.** While signed in, open `/reset-password#token`, `/verify-email#token`, or `/forgot-password`. Those routes
+exist only in the signed-out branch; the signed-in wildcard redirects to Home without rendering the form/redeeming
+the link. This also affects an email link for a second account opened in a browser signed in to the first.
+
+**Future fix / acceptance.** Make emailed-link/recovery routes reachable regardless of current session, with an explicit
+account-switch choice when needed. Test a valid reset link while signed in and a verification link for another account.
+
+**✅ FIXED** (T58, 2026-11-02). `/verify-email`, `/forgot-password` and `/reset-password` are matched before the signed-in and signed-out route tables (`App.tsx`, `EMAIL_LINK_PATHS`), so an emailed link opens its page whoever is signed in. Opening it signs in as the account it belongs to, as it does signed out. No separate account-switch prompt was added: the link is the owner's proof, and the page names what it is doing. `App.test` "BUG-161 signed in, an emailed link still opens its page"; mutant caught.
+
+### BUG-170 🟡 Resending a verification email reports success even when the request fails
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `SignInForm.sendAgain`, both "Send the link again" buttons
+
+**Reproduce.** Sign up or try signing in to an unconfirmed account, then resend the link while offline or after the
+endpoint returns 429/500. `sendAgain` sets `resent=true` in `finally`, has no error handler, and is called with `void`.
+The screen says a new link is on its way even if no request reached the server. There is no in-flight guard, so rapid
+taps can also send duplicate requests and consume the resend/sign-in IP quota.
+
+**Impact.** A user waiting for an already-missing verification email gets a false success message and no way to tell
+that they must reconnect or wait before retrying. The rejected promise can also become an unhandled browser error.
+
+**Future fix / acceptance.** Show the generic queued message only after a successful response, handle failures without
+revealing account existence, and disable/debounce while sending. Test network failure, 429, 500, and repeated taps.
+
+**✅ FIXED** (T58, 2026-11-02). "Send the link again" says a link is on its way only after the server accepted the request. A refusal (429, 500, offline) shows the server's own wording as an alert, which never says whether the address has an account. While the request is out, the button reads "Sending…" and is disabled, so repeated taps send one request. `EmailLinks.test`: a 429 and repeated taps; two mutants caught. A redundant in-flight check that a mutant showed did nothing beside the disabled button was removed.
+
+### BUG-172 🟡 Overlapping first saves of a drawing could still answer 404
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — seen once (2026-11-02, `ChartDrawingApiTest.overlappingFirstSaves` in its class run; passed alone three times) · **Affects:** `ChartDrawingController.saveOnce`
+
+**What.** BUG-135's fix retried a save that broke the key, but left a second gap. A save looks for the caller's row, then
+asks whether the id exists at all; under READ COMMITTED each query sees the latest commit. An overlapping first save
+that commits between the two makes the first answer "none of yours" and the second "it exists", so the owner was told
+404, "not yours", for their own drawing.
+
+**✅ FIXED** (T58, 2026-11-02). When the id exists, the owner-scoped lookup is asked again before refusing; the row is
+committed by then, so the owner's own row is found and updated, and only a row still not theirs is a 404. Reasoned and
+observed, not forced: the window is between two queries of one request, too narrow to make certain in a test.
+`overlappingFirstSaves` passed four class runs after the change.
+
+### BUG-164 🟡 An extreme news timestamp still reaches an unhandled server error
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (real HTTP, 500) · **Affects:** `NewsController.news`
+
+**Reproduce.** Signed in, GET `/api/news?from=9223372036854775807`. `Instant.ofEpochSecond` throws before the 2000–2100
+check runs; with `to` omitted an extreme-but-valid start can also overflow `start.plus(DEFAULT_SPAN)`. The shared
+`Epochs.of` guard used by chart endpoints was not applied here. This is a different boundary from BUG-098's year-2100 fix.
+
+**Future fix / acceptance.** Bound raw epoch values before constructing/adding times and return 400 for both parameters,
+including omitted-to cases and Long.MIN/MAX. Do not log a full unhandled stack for ordinary rejected input.
+
+**✅ FIXED** (T58, 2026-11-02). `NewsController` builds both times through the shared `Epochs.of` guard, so a value outside 1970–9999 is a 400 naming the parameter before any arithmetic, and `start.plus(14 days)` cannot overflow from there. `NewsApiTest.bounded`: Long.MAX/MIN for `from`, for `to`, and with `to` left out; mutant caught.
+
+### BUG-165 🟡 A drawing with a null anchor bypasses field validation and crashes
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (unhandled NullPointerException through the controller) · **Affects:** `DrawingDto.anchors`,
+`ChartDrawingController.saveOnce`
+
+**Reproduce.** PUT a valid owned drawing id/kind with `"anchors":[null]`. The list is nonempty, and `@Valid` on its
+elements does not reject null. The later loop calls `anchor.time()` and throws. The probe confirmed the unhandled
+exception instead of a validation response. Authentication/CSRF still apply; this is malformed-input robustness, not data theft.
+
+**Future fix / acceptance.** Require non-null elements before dereferencing them; test null list, null elements,
+missing coordinates and valid anchors. Each malformed request should receive a safe 400.
+
+**✅ FIXED** (T58, 2026-11-02). `DrawingDto.anchors` is `List<@NotNull @Valid AnchorDto>`, so a null element fails validation as a 400. `ChartDrawingApiTest.malformedAnchorsAreRejected`: a null list, `[null]`, a null after a good anchor, and an anchor missing either coordinate are all 400, and a good one still saves; mutant caught.
 
 ### BUG-147 🟠 The local database listens on every network interface with shared development credentials
 

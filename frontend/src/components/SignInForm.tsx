@@ -33,7 +33,9 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
   // T56: the sign-up went through and a link is on its way; or sign-in found the address unconfirmed.
   const [checkInbox, setCheckInbox] = useState(false)
   const [unconfirmed, setUnconfirmed] = useState(false)
-  const [resent, setResent] = useState(false)
+  // BUG-170: said sent only once the server took it; while it goes, the button waits.
+  const [resend, setResend] = useState<'idle' | 'sending' | 'sent'>('idle')
+  const [resendError, setResendError] = useState<string | null>(null)
   const rulesId = useId()
 
   const isRegister = mode === 'register'
@@ -42,7 +44,8 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
     event.preventDefault()
     setError(null)
     setUnconfirmed(false)
-    setResent(false)
+    setResend('idle')
+    setResendError(null)
     setBusy(true)
     try {
       if (isRegister) {
@@ -63,11 +66,14 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
 
   /** T56: the link again. The answer never says whether it went — nor does this. */
   async function sendAgain() {
-    setResent(false)
+    setResend('sending')
+    setResendError(null)
     try {
       await resendVerification(email, password)
-    } finally {
-      setResent(true)
+      setResend('sent')
+    } catch (e) {
+      setResend('idle')
+      setResendError(errorMessage(e))
     }
   }
 
@@ -80,10 +86,15 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
           address is yours — then you are signed in.
         </p>
         <p className="mt-3 text-sm text-subtle">Nothing there? Look in spam, or send it again.</p>
-        <Button className="mt-5 w-full" onClick={() => void sendAgain()}>
-          Send the link again
+        <Button className="mt-5 w-full" disabled={resend === 'sending'} onClick={() => void sendAgain()}>
+          {resend === 'sending' ? 'Sending…' : 'Send the link again'}
         </Button>
-        {resent && (
+        {resendError && (
+          <p role="alert" className={cx(errorClass, 'mt-3')}>
+            {resendError}
+          </p>
+        )}
+        {resend === 'sent' && (
           <p role="status" className="mt-3 text-sm text-subtle">
             If that address has an account waiting, a new link is on its way.
           </p>
@@ -162,8 +173,15 @@ export function SignInForm({ mode, onLogin, onRegister }: SignInFormProps) {
         )}
         {unconfirmed && (
           <div className="flex flex-col gap-2">
-            <Button onClick={() => void sendAgain()}>Send the link again</Button>
-            {resent && (
+            <Button disabled={resend === 'sending'} onClick={() => void sendAgain()}>
+              {resend === 'sending' ? 'Sending…' : 'Send the link again'}
+            </Button>
+            {resendError && (
+              <p role="alert" className={errorClass}>
+                {resendError}
+              </p>
+            )}
+            {resend === 'sent' && (
               <p role="status" className="text-sm text-subtle">
                 A new link is on its way to {email}.
               </p>

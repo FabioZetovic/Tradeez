@@ -128,4 +128,48 @@ describe('T56 — signing up and in', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send the link again' }))
     expect(await screen.findByRole('status')).toHaveTextContent('A new link is on its way to ana@example.com')
   })
+
+  async function checkInbox() {
+    render(
+      <MemoryRouter>
+        <SignInForm mode="register" onLogin={vi.fn()} onRegister={vi.fn(async () => 'check-inbox' as const)} />
+      </MemoryRouter>,
+    )
+    await userEvent.type(screen.getByLabelText('Display name'), 'Ana')
+    await userEvent.type(screen.getByLabelText('Email'), 'ana@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'a-perfectly-fine-passphrase')
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    await screen.findByRole('heading', { name: 'Check your inbox' })
+  }
+
+  it('BUG-170 a resend the server refused says so, and never that a link is on its way', async () => {
+    serve({ '/api/auth/verify/resend': { status: 429, body: { message: 'Too many attempts. Wait a few minutes.' } } })
+    await checkInbox()
+    await userEvent.click(screen.getByRole('button', { name: 'Send the link again' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Too many attempts')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('BUG-170 while a resend is on its way, more taps send nothing more', async () => {
+    let release: () => void = () => {}
+    const calls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string) => {
+        calls.push(String(input))
+        return new Promise((resolve) => {
+          release = () =>
+            resolve({ ok: true, status: 202, statusText: '', headers: new Headers(), json: async () => ({}), text: async () => '' })
+        })
+      }),
+    )
+    await checkInbox()
+    const button = screen.getByRole('button', { name: 'Send the link again' })
+    await userEvent.click(button)
+    expect(screen.getByRole('button', { name: 'Sending…' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Sending…' }))
+    release()
+    expect(await screen.findByRole('status')).toHaveTextContent('a new link is on its way')
+    expect(calls.filter((c) => c === '/api/auth/verify/resend')).toHaveLength(1)
+  })
 })

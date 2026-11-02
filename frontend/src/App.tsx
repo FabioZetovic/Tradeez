@@ -39,6 +39,8 @@ export default function App({ adapterFactory }: { adapterFactory?: AdapterFactor
   )
 }
 
+const EMAIL_LINK_PATHS = ['/verify-email', '/forgot-password', '/reset-password']
+
 function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
   const { state, login, register, signedIn, logout, logoutEverywhere, changePassword, deleteAccount } = useSession()
   const location = useLocation()
@@ -51,6 +53,20 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         </p>
       </AuthPage>
     )
+  }
+
+  // T56: the pages the emailed links open, and asking for a reset. BUG-161: whether or not someone is signed in here — a
+  // link opened in a browser signed in (to this account or another) used to be sent Home, unread. Opening it signs in
+  // as the account it belongs to.
+  const emailLinks = (
+    <Routes>
+      <Route path="/verify-email" element={<AuthPage><VerifyEmail onSignedIn={signedIn} /></AuthPage>} />
+      <Route path="/forgot-password" element={<AuthPage><ForgotPassword /></AuthPage>} />
+      <Route path="/reset-password" element={<AuthPage><ResetPassword onSignedIn={signedIn} /></AuthPage>} />
+    </Routes>
+  )
+  if (EMAIL_LINK_PATHS.includes(location.pathname)) {
+    return emailLinks
   }
 
   if (state.status !== 'signedIn') {
@@ -72,10 +88,6 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/" element={state.expired ? signIn('login') : <LandingPage />} />
         <Route path="/sign-in" element={signIn('login')} />
         <Route path="/sign-up" element={signIn('register')} />
-        {/* T56: the pages the emailed links open, and asking for a reset. */}
-        <Route path="/verify-email" element={<AuthPage><VerifyEmail onSignedIn={signedIn} /></AuthPage>} />
-        <Route path="/forgot-password" element={<AuthPage><ForgotPassword /></AuthPage>} />
-        <Route path="/reset-password" element={<AuthPage><ResetPassword onSignedIn={signedIn} /></AuthPage>} />
         {/* BUG-120: what is kept and why, readable before signing up. */}
         <Route
           path="/privacy"

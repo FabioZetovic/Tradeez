@@ -124,6 +124,11 @@ class NewsApiTest extends AbstractIntegrationTest {
 		mockMvc.perform(get("/api/news?from=99999999999999").cookie(learner)).andExpect(status().isBadRequest());
 		mockMvc.perform(get("/api/news?from=-99999999999999&to=0").cookie(learner)).andExpect(status().isBadRequest());
 		mockMvc.perform(get("/api/news?from=0&to=86400").cookie(learner)).andExpect(status().isBadRequest());
+		// BUG-164: too large or small for an Instant at all, with to given or left out.
+		for (String query : new String[] {"from=" + Long.MAX_VALUE, "from=" + Long.MIN_VALUE, "to=" + Long.MAX_VALUE,
+				"from=" + y2001 + "&to=" + Long.MAX_VALUE, "from=" + Long.MIN_VALUE + "&to=" + y2001}) {
+			mockMvc.perform(get("/api/news?" + query).cookie(learner)).andExpect(status().isBadRequest());
+		}
 		mockMvc.perform(get("/api/news?from=" + y2001 + "&to=" + (y2001 + 62 * 86_400)).cookie(learner))
 			.andExpect(status().isOk());
 	}

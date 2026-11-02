@@ -279,6 +279,23 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("BUG-165 no anchors at all, a null anchor or one missing a coordinate is a 400, not a crash")
+	void malformedAnchorsAreRejected() throws Exception {
+		UUID id = UUID.randomUUID();
+		for (String anchors : java.util.List.of("null", "[null]", "[{\"time\":1710338400,\"priceTicks\":80000},null]",
+				"[{\"time\":1710338400}]", "[{\"priceTicks\":80000}]")) {
+			mockMvc.perform(put("/api/charts/DEMO-NQ/drawings/" + id).cookie(alice).with(csrf())
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"id\":\"" + id + "\",\"kind\":\"horizontal-line\",\"anchors\":" + anchors + "}"))
+				.andExpect(status().isBadRequest());
+		}
+		mockMvc.perform(put("/api/charts/DEMO-NQ/drawings/" + id).cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body(id, "horizontal-line", 1710338400L, 80_000L)))
+			.andExpect(status().is2xxSuccessful());
+	}
+
+	@Test
 	@DisplayName("a mismatched id between path and body is rejected")
 	void mismatchedIdIsRejected() throws Exception {
 		mockMvc.perform(put("/api/charts/DEMO-NQ/drawings/" + UUID.randomUUID())
