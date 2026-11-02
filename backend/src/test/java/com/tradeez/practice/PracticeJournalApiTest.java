@@ -210,6 +210,27 @@ class PracticeJournalApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("BUG-157 page by page with an offset, and filtered on the server before paging")
+	void pagesAndFilters() throws Exception {
+		String longOne = oneTrade(alice, "LONG", true);
+		String shortOne = oneTrade(alice, "SHORT", false);
+		JsonNode all = journal(alice, "");
+		assertThat(all.size()).isEqualTo(2);
+		assertThat(journal(alice, "?limit=1&offset=1").get(0).get("sessionId").asString())
+			.isEqualTo(all.get(1).get("sessionId").asString());
+		assertThat(journal(alice, "?offset=2").size()).isZero();
+
+		// A match beyond the first page is found: the long trade is the older one, past limit=1 unfiltered.
+		JsonNode longs = journal(alice, "?limit=1&kind=LONG");
+		assertThat(longs.size()).isEqualTo(1);
+		assertThat(longs.get(0).get("sessionId").asString()).isEqualTo(longOne);
+		assertThat(journal(alice, "?kind=SHORT").get(0).get("sessionId").asString()).isEqualTo(shortOne);
+
+		mockMvc.perform(get("/api/practice/trades?offset=-1").cookie(alice)).andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/practice/trades?kind=EVERYTHING").cookie(alice)).andExpect(status().isBadRequest());
+	}
+
+	@Test
 	@DisplayName("a running trade is not in the journal: only exits the replay has shown")
 	void runningNotListed() throws Exception {
 		JsonNode session = read(mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())

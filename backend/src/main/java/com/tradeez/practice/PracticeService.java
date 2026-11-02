@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.List;
 import java.util.Map;
@@ -675,7 +676,15 @@ public class PracticeService {
 
 	@Transactional(readOnly = true)
 	public List<SessionSummary> journal(UUID userId) {
-		List<PracticeSession> recent = sessions.findTop50ByUserIdOrderByCreatedAtDesc(userId);
+		// BUG-156: the newest fifty, and every open session besides — an open one older than fifty newer sessions fell
+		// off every list, though it could still be resumed.
+		Map<UUID, PracticeSession> listed = new LinkedHashMap<>();
+		sessions.findTop50ByUserIdOrderByCreatedAtDesc(userId).forEach(s -> listed.put(s.getId(), s));
+		sessions.findAllByUserIdAndStatusNotOrderByCreatedAtDesc(userId, PracticeSession.Status.COMPLETE)
+			.forEach(s -> listed.putIfAbsent(s.getId(), s));
+		List<PracticeSession> recent = listed.values().stream()
+			.sorted(Comparator.comparing(PracticeSession::getCreatedAt).reversed())
+			.toList();
 		List<UUID> ids = recent.stream().map(PracticeSession::getId).toList();
 		Map<UUID, List<TradePlan>> plansBySession = plans.findAllBySessionIdIn(ids).stream()
 			.collect(Collectors.groupingBy(TradePlan::getSessionId));
@@ -747,8 +756,23 @@ public class PracticeService {
 	 * The journal (T41): the learner's finished trades across every session, newest placed first. A session still
 	 * open shows its own clock, the date hidden; a complete one has revealed its date and shows the real moment.
 	 */
+	/** BUG-157: the journal's filters, applied on the server so a match on a later page is found. */
+	public enum JournalKind {
+		WINNERS, LOSERS, LONG, SHORT, AMBIGUOUS;
+
+		boolean keeps(JournalTradeView row) {
+			return switch (this) {
+				case WINNERS -> row.r() > 0;
+				case LOSERS -> row.r() < 0;
+				case LONG -> row.direction() == FillEngine.Direction.LONG;
+				case SHORT -> row.direction() == FillEngine.Direction.SHORT;
+				case AMBIGUOUS -> "AMBIGUOUS".equals(row.outcome());
+			};
+		}
+	}
+
 	@Transactional(readOnly = true)
-	public List<JournalTradeView> journal(UUID userId, int limit) {
+	public List<JournalTradeView> journal(UUID userId, int limit, int offset, JournalKind kind) {
 		Map<UUID, Instrument> byId = instruments.findAll().stream()
 			.collect(Collectors.toMap(Instrument::getId, Function.identity()));
 		return finished(userId).stream()
@@ -756,7 +780,6 @@ public class PracticeService {
 			// trade could land behind months of earlier practice, or past the limit.
 			.sorted(Comparator.comparing((Finished f) -> f.trade().plan().getSubmittedAt())
 				.thenComparing(f -> f.trade().plan().getId()).reversed())
-			.limit(limit)
 			.map(f -> {
 				Trade trade = f.trade();
 				PracticeSession session = f.session();
@@ -771,6 +794,9 @@ public class PracticeService {
 					instrument.getTickSize(), trade.plan().getDirection(), trade.result().getEntryTicks(),
 					trade.outcome().name(), round2(trade.r()), trade.netPnlCents(), model == null ? null : model.title());
 			})
+			.filter(row -> kind == null || kind.keeps(row))
+			.skip(offset)
+			.limit(limit)
 			.toList();
 	}
 

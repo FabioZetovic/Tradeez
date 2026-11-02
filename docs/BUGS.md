@@ -37,7 +37,7 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). Still open: BUG-145 (Fabio's call), BUG-146, BUG-156, BUG-157, BUG-159. Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). BUG-156, BUG-157 (phone; desktop left) and BUG-159 fixed too. Still open: BUG-145 (Fabio's call), BUG-146, BUG-157 on desktop. Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
 
@@ -84,48 +84,6 @@ queue/deadline; it does not bound incoming work. Large-account export/history ma
 **Future fix / acceptance.** Budget attempted work before it starts, cover these routes, and bound concurrency/queue
 waits. Paginate history in SQL and stream or queue large exports. Test allowed and rejected work with small configured
 budgets and prove the expensive service is not called after exhaustion; keep ordinary replay playback usable.
-
----
-
-### BUG-156 🟠 Older open practice sessions disappear from every resume list
-
-**Status:** reasoned · **Affects:** `PracticeSessionRepository.findTop50ByUserIdOrderByCreatedAtDesc`, `PracticeView`, Home
-
-**Reproduce.** Leave a session open and create at least 50 newer sessions. `/api/practice/sessions` returns only the
-newest 50 of all statuses, and neither it nor the UI has a next page or a separate all-open query. The original session
-is omitted even if it is still in a trade. Its saved URL can still open it, but the normal resume UI cannot find it.
-
-**Future fix / acceptance.** Query open sessions separately with pagination and offer older completed sessions too.
-Seed over 50 newer sessions and prove the older open one remains reachable from the UI.
-
----
-
-### BUG-157 🟠 The phone journal cannot load its full history and filters can falsely say there are no trades
-
-**Status:** verified (rendered pagination/filter probe; server maximum read in code) · **Affects:** `PhoneJournal`,
-`listTrades`, `PracticeRecordController.trades`
-
-**Reproduce.** With more than 200 finished trades, the phone loads 50, then increases the requested limit by 20:
-70, 90, ... 190, **210**. The API rejects any limit above 200, so the next page fails and older trades remain inaccessible.
-The probe observed the `limit=210` request. Selecting Losers/Winners/Long/Short/Ambiguous also sets `further` false:
-only already-loaded rows are filtered, and zero matches says "No trades of that kind yet" even if older matching rows exist.
-The desktop journal likewise offers only its initially loaded rows without older-page navigation.
-
-**Future fix / acceptance.** Add actual server pagination with a stable cursor and server-side filters, and make every
-layout reach all history. Test 250+ mixed trades, filtered matches only on later pages, and repeated load failures.
-
----
-
-### BUG-159 🟡 Home's practice counts are truncated and can disagree with its own statistics
-
-**Status:** reasoned · **Affects:** `HomePage`'s `trades` and `sessions.length`, the 50-session endpoint
-
-**What.** Home sums `s.trades` from the newest 50 sessions and presents that as its practice count; those trade counts
-include a currently running trade. The statistics endpoint counts all finished trades across all sessions. After enough
-sessions, the phone's trade count/footer can shrink or disagree with the all-time R/trade statistics shown on the same page.
-
-**Future fix / acceptance.** Use explicit all-time aggregates, labelled by closed versus placed trades; treat recent
-sessions as a recent list. Verify Home with more than 50 sessions and one still-running trade.
 
 ---
 
@@ -647,6 +605,48 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-156 🟠 Older open practice sessions disappear from every resume list
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `PracticeSessionRepository.findTop50ByUserIdOrderByCreatedAtDesc`, `PracticeView`, Home
+
+**Reproduce.** Leave a session open and create at least 50 newer sessions. `/api/practice/sessions` returns only the
+newest 50 of all statuses, and neither it nor the UI has a next page or a separate all-open query. The original session
+is omitted even if it is still in a trade. Its saved URL can still open it, but the normal resume UI cannot find it.
+
+**Future fix / acceptance.** Query open sessions separately with pagination and offer older completed sessions too.
+Seed over 50 newer sessions and prove the older open one remains reachable from the UI.
+
+**✅ FIXED** (T58, 2026-11-02). The session list is the newest fifty plus every session not ended, however old, newest first. `PracticeApiTest.oldOpenSessionListed` (one open session behind 55 newer ended ones); mutant caught.
+
+### BUG-157 🟠 The phone journal cannot load its full history and filters can falsely say there are no trades
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02, partly) — verified (rendered pagination/filter probe; server maximum read in code) · **Affects:** `PhoneJournal`,
+`listTrades`, `PracticeRecordController.trades`
+
+**Reproduce.** With more than 200 finished trades, the phone loads 50, then increases the requested limit by 20:
+70, 90, ... 190, **210**. The API rejects any limit above 200, so the next page fails and older trades remain inaccessible.
+The probe observed the `limit=210` request. Selecting Losers/Winners/Long/Short/Ambiguous also sets `further` false:
+only already-loaded rows are filtered, and zero matches says "No trades of that kind yet" even if older matching rows exist.
+The desktop journal likewise offers only its initially loaded rows without older-page navigation.
+
+**Future fix / acceptance.** Add actual server pagination with a stable cursor and server-side filters, and make every
+layout reach all history. Test 250+ mixed trades, filtered matches only on later pages, and repeated load failures.
+
+**✅ FIXED** (T58, 2026-11-02, partly). `/api/practice/trades` takes `offset` and `kind` (WINNERS, LOSERS, LONG, SHORT, AMBIGUOUS), filtering before paging. The phone journal pages by offset, 50 at a time, and each filter asks the server. `PracticeJournalApiTest.pagesAndFilters`; `PracticeView.test` "BUG-157" (250 trades, every one reached once, a filter match on the last page); three mutants caught. **Still open:** the desktop journal shows only its first 50.
+
+### BUG-159 🟡 Home's practice counts are truncated and can disagree with its own statistics
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `HomePage`'s `trades` and `sessions.length`, the 50-session endpoint
+
+**What.** Home sums `s.trades` from the newest 50 sessions and presents that as its practice count; those trade counts
+include a currently running trade. The statistics endpoint counts all finished trades across all sessions. After enough
+sessions, the phone's trade count/footer can shrink or disagree with the all-time R/trade statistics shown on the same page.
+
+**Future fix / acceptance.** Use explicit all-time aggregates, labelled by closed versus placed trades; treat recent
+sessions as a recent list. Verify Home with more than 50 sessions and one still-running trade.
+
+**✅ FIXED** (T58, 2026-11-02). Home counts "finished trades" from the all-time statistics, the source of its total R, not a sum over the newest fifty sessions that included a running trade. `HomePage.test` "BUG-159"; mutant caught.
 
 ### BUG-162 🟡 Phone sheets announce a modal dialog but keyboard focus escapes behind them
 

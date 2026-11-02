@@ -105,13 +105,20 @@ describe('Home (T39)', () => {
     }
   })
 
+  it('BUG-159 counts every finished trade from the statistics, not the newest sessions or a trade still running', async () => {
+    vi.mocked(listSessions).mockResolvedValue([{ trades: 2 }, { trades: 1 }] as SessionSummary[])
+    vi.mocked(getStatistics).mockResolvedValue({ overall: { trades: 120, totalR: 3 } } as Statistics)
+    renderHome()
+    await waitFor(() => expect(link(/Practice/)).toHaveTextContent('120 finished trades'))
+  })
+
   it('shows each step with its real progress — Learn and Drills as bars, Practice and Chart as figures', async () => {
     renderHome()
     const learn = await screen.findByRole('progressbar', { name: '18 of 72 lessons complete' })
     expect(learn).toHaveAttribute('aria-valuenow', '25')
     // Every drill counts (T45): two of four are on a passed lesson.
     expect(await screen.findByRole('progressbar', { name: '2 of 4 drills passed' })).toHaveAttribute('aria-valuenow', '50')
-    expect(link(/Practice/)).toHaveTextContent('2 sessions · 4 trades')
+    expect(link(/Practice/)).toHaveTextContent('4 finished trades')
     expect(link(/Learn/)).toHaveAttribute('href', '/learn')
     expect(link(/Drills/)).toHaveAttribute('href', '/drills')
     expect(link(/The whole history/)).toHaveAttribute('href', '/chart')
@@ -159,7 +166,7 @@ describe('Home (T39)', () => {
     expect(card('Due for review')).toHaveTextContent('Nothing due today.')
     expect(await screen.findByText('No trades yet — start a session.')).toBeInTheDocument()
     expect(screen.queryByTestId('total-r')).toBeNull()
-    expect(link(/Practice/)).toHaveTextContent('0 sessions · 0 trades')
+    expect(link(/Practice/)).toHaveTextContent('0 finished trades')
     expect(await screen.findByRole('progressbar', { name: '0 of 4 drills passed' })).toHaveAttribute('aria-valuenow', '0')
   })
 

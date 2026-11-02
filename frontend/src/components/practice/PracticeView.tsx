@@ -15,6 +15,7 @@ import {
   saveRiskLimit,
   KILLZONES,
   type Calibration,
+  type JournalKind,
   type JournalTrade,
   type PracticeSettings,
   type SessionResponse,
@@ -259,7 +260,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
           <PhoneJournal
             trades={trades}
             total={Math.max(statistics?.overall.trades ?? 0, trades.length)}
-            onLoad={(limit) => void listTrades(limit).then(setTrades).catch(() => setError('Could not load more of your journal.'))}
+            onError={setError}
             onOpen={setOpenId}
           />
         )}
@@ -546,35 +547,49 @@ function CalibrationPanel({ calibration }: { calibration: Calibration }) {
 
 type JournalFilter = 'All' | 'Winners' | 'Losers' | 'Long' | 'Short' | 'Ambiguous'
 const JOURNAL_FILTERS: JournalFilter[] = ['All', 'Winners', 'Losers', 'Long', 'Short', 'Ambiguous']
-const keeps: Record<JournalFilter, (t: JournalTrade) => boolean> = {
-  All: () => true,
-  Winners: (t) => t.r > 0,
-  Losers: (t) => t.r < 0,
-  Long: (t) => t.direction === 'LONG',
-  Short: (t) => t.direction === 'SHORT',
-  Ambiguous: (t) => t.outcome === 'AMBIGUOUS',
+/** BUG-157: each filter is the server's, so a match on a page not yet loaded is found. */
+const KINDS: Record<JournalFilter, JournalKind | undefined> = {
+  All: undefined,
+  Winners: 'WINNERS',
+  Losers: 'LOSERS',
+  Long: 'LONG',
+  Short: 'SHORT',
+  Ambiguous: 'AMBIGUOUS',
 }
 /** Rows shown at a time on a phone; "Load more" adds as many again. */
 const JOURNAL_PAGE = 20
+/** Rows asked of the server at a time, from where the last page ended. */
+const SERVER_PAGE = 50
 
 /** The journal on a phone (T53): two lines a trade — the side, the entry, when and how it ended, the R and the money. */
 function PhoneJournal({
   trades,
   total,
-  onLoad,
+  onError,
   onOpen,
 }: {
   trades: JournalTrade[]
   /** Every finished trade, the ones not loaded yet too: the server sends the newest first, a page at a time. */
   total: number
-  onLoad: (limit: number) => void
+  onError: (message: string) => void
   onOpen: (sessionId: string) => void
 }) {
   const [filter, setFilter] = useState<JournalFilter>('All')
   const [shown, setShown] = useState(JOURNAL_PAGE)
-  const kept = trades.filter(keeps[filter])
-  // More to show of what is loaded, or more to load from the server.
-  const further = filter === 'All' && trades.length < total
+  // What each filter has loaded so far, and whether the server may have more of it. "All" starts from the first page.
+  const [pages, setPages] = useState<Partial<Record<JournalFilter, { rows: JournalTrade[]; more: boolean }>>>({})
+  const page = pages[filter] ?? (filter === 'All' ? { rows: trades, more: trades.length < total } : undefined)
+  const kept = page?.rows ?? []
+  const further = page?.more ?? false
+  const fetchPage = (which: JournalFilter, from: JournalTrade[]) =>
+    listTrades(SERVER_PAGE, from.length, KINDS[which])
+      .then((next) => {
+        const rows = [...from, ...next]
+        // How many there are in all is known only unfiltered; a filter has more while pages come back full.
+        const more = which === 'All' ? rows.length < total : next.length === SERVER_PAGE
+        setPages((p) => ({ ...p, [which]: { rows, more } }))
+      })
+      .catch(() => onError('Could not load more of your journal.'))
   return (
     <section aria-labelledby="journal">
       <div className="mb-2.5 flex items-baseline justify-between">
@@ -594,6 +609,7 @@ function PhoneJournal({
             onClick={() => {
               setFilter(option)
               setShown(JOURNAL_PAGE)
+              if (option !== 'All' && pages[option] === undefined) void fetchPage(option, [])
             }}
             className={cx(
               'h-9 shrink-0 cursor-pointer rounded-full border px-3.5 text-[13px] font-medium focus-visible:outline-2 focus-visible:outline-accent',
@@ -604,7 +620,11 @@ function PhoneJournal({
           </button>
         ))}
       </div>
-      {kept.length === 0 ? (
+      {page === undefined ? (
+        <p role="status" className="text-sm text-subtle">
+          Loading…
+        </p>
+      ) : kept.length === 0 ? (
         <p className="text-sm text-subtle">No trades of that kind yet.</p>
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
@@ -643,7 +663,7 @@ function PhoneJournal({
         <button
           type="button"
           onClick={() => {
-            if (kept.length <= shown + JOURNAL_PAGE && further) onLoad(trades.length + JOURNAL_PAGE)
+            if (kept.length <= shown + JOURNAL_PAGE && further) void fetchPage(filter, kept)
             setShown((n) => n + JOURNAL_PAGE)
           }}
           className="mt-2.5 h-12 w-full cursor-pointer rounded-xl border border-line bg-transparent text-[15px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent"

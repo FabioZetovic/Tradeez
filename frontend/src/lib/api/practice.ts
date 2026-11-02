@@ -417,7 +417,11 @@ export interface JournalTrade {
   model?: string
 }
 
-export const listTrades = (limit = 50) => apiFetch<JournalTrade[]>(`/api/practice/trades?limit=${limit}`)
+/** BUG-157: the journal's filters, applied by the server before it pages. */
+export type JournalKind = 'WINNERS' | 'LOSERS' | 'LONG' | 'SHORT' | 'AMBIGUOUS'
+
+export const listTrades = (limit = 50, offset = 0, kind?: JournalKind) =>
+  apiFetch<JournalTrade[]>(`/api/practice/trades?limit=${limit}&offset=${offset}${kind ? `&kind=${kind}` : ''}`)
 
 /** Only while flat. Reveals the seed or the real date; ending twice changes nothing. */
 export const endSession = (id: string) =>

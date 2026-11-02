@@ -82,7 +82,9 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
   // learning-1.1.0 (T45): every drill counts toward passing its lesson, so a drill is passed when its lesson is.
   const drills = kinds ?? []
   const drillsPassed = drills.filter((k) => solid.has(k.conceptId)).length
-  const trades = sessions?.reduce((sum, s) => sum + s.trades, 0) ?? 0
+  // BUG-159: every finished trade, from the statistics the total R comes from — not a sum over the newest sessions,
+  // which stopped counting at fifty and counted a trade still running.
+  const trades = statistics?.overall.trades ?? 0
 
   const suggested = learning?.suggested
   const order = curriculum?.concepts.map((c) => c.concept.id) ?? []
@@ -96,7 +98,8 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
       learning !== null &&
       learning.summary.complete === 0 &&
       learning.summary.ratedAttempts + learning.summary.predictions === 0 &&
-      trades === 0
+      trades === 0 &&
+      (sessions?.length ?? 0) === 0
     const summary = curriculum?.concepts.find((c) => c.concept.id === suggested)?.concept.summary
     const totalR = statistics?.overall.totalR ?? 0
     return (
@@ -199,7 +202,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
                 {formatR(totalR)}
               </span>
               <span className="mt-1 text-[13px] text-subtle">
-                {trades} {trades === 1 ? 'trade' : 'trades'}
+                {trades} finished {trades === 1 ? 'trade' : 'trades'}
               </span>
             </Link>
           </section>
@@ -328,7 +331,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         <StepCard n={3} to="/practice" topic={SECTION_TOPICS.practice} title="Practice" line="A real day replayed bar by bar, the future hidden.">
           {sessions && (
             <Figure>
-              {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} · {trades} {trades === 1 ? 'trade' : 'trades'}
+              {trades} finished {trades === 1 ? 'trade' : 'trades'}
             </Figure>
           )}
         </StepCard>

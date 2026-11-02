@@ -1759,9 +1759,65 @@ describe('Practice — the replay on a phone (T53)', () => {
   })
 })
 
+/** The journal endpoint as the server answers it: filtered by kind, then a page from offset (BUG-157). */
+function journalPage(trades: JournalTrade[], url: string): JournalTrade[] {
+  const query = new URL(url, 'http://test').searchParams
+  const keeps: Record<string, (t: JournalTrade) => boolean> = {
+    WINNERS: (t) => t.r > 0,
+    LOSERS: (t) => t.r < 0,
+    LONG: (t) => t.direction === 'LONG',
+    SHORT: (t) => t.direction === 'SHORT',
+    AMBIGUOUS: (t) => t.outcome === 'AMBIGUOUS',
+  }
+  const kind = query.get('kind')
+  const offset = Number(query.get('offset') ?? 0)
+  const limit = Number(query.get('limit') ?? 50)
+  return trades.filter(kind ? keeps[kind] : () => true).slice(offset, offset + limit)
+}
+
 describe('Practice — the home on a phone (T53)', () => {
   beforeEach(() => onPhone())
   afterEach(() => vi.unstubAllGlobals())
+
+  it('BUG-157 the whole history is reachable a page at a time, and a filter finds matches not loaded yet', async () => {
+    const trades: JournalTrade[] = Array.from({ length: 250 }, (_, i) => ({
+      sessionId: `s${i}`,
+      number: 1,
+      at: Date.UTC(2000, 0, 11, 9, 5) / 1000,
+      timeBasis: 'NEW_YORK_WALL_CLOCK',
+      instrument: 'NQ',
+      tickSize: 0.25,
+      direction: 'LONG',
+      entryTicks: 80_000 + i,
+      // The only one that went both ways is the oldest: far past the first page.
+      outcome: i === 249 ? 'AMBIGUOUS' : 'TARGET',
+      r: 1,
+      netPnlCents: 1_000,
+    }))
+    const statistics = { ...NO_STATISTICS, overall: { ...NO_STATISTICS.overall, trades: 250 } }
+    mockApi((call) =>
+      call.method === 'GET' && call.url.startsWith('/api/practice/trades')
+        ? { body: journalPage(trades, call.url) }
+        : is(call, 'GET', '/api/practice/statistics')
+          ? { body: statistics }
+          : { status: 404, body: {} },
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(20))
+    for (let n = 40; n < 270; n += 20) {
+      await user.click(screen.getByRole('button', { name: /^Load \d+ more$/ }))
+      await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(Math.min(n, 250)))
+    }
+    expect(screen.queryByRole('button', { name: /^Load \d+ more$/ })).toBeNull()
+    // Every trade once: each page starts where the last ended.
+    expect(new Set(screen.getAllByTestId('journal-row').map((row) => row.textContent)).size).toBe(250)
+    const asked = calls.filter((c) => c.url.startsWith('/api/practice/trades')).map((c) => new URL(c.url, 'http://test'))
+    expect(asked.every((u) => Number(u.searchParams.get('limit')) <= 200)).toBe(true)
+
+    await user.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Ambiguous' }))
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(1))
+  })
 
   it('the journal as rows, filtered by chips, twenty at a time; the statistics a screen of their own', async () => {
     const trades: JournalTrade[] = Array.from({ length: 25 }, (_, i) => ({
@@ -1787,7 +1843,7 @@ describe('Practice — the home on a phone (T53)', () => {
     }
     mockApi((call) =>
       call.method === 'GET' && call.url.startsWith('/api/practice/trades')
-        ? { body: trades }
+        ? { body: journalPage(trades, call.url) }
         : is(call, 'GET', '/api/practice/statistics')
           ? { body: statistics }
           : { status: 404, body: {} },
@@ -1800,10 +1856,11 @@ describe('Practice — the home on a phone (T53)', () => {
 
     const show = screen.getByRole('group', { name: 'Show' })
     await user.click(within(show).getByRole('button', { name: 'Short' }))
-    expect(screen.getAllByTestId('journal-row')).toHaveLength(12)
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(12))
     await user.click(within(show).getByRole('button', { name: 'Ambiguous' }))
-    expect(screen.getAllByTestId('journal-row')).toHaveLength(1)
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(1))
     await user.click(within(show).getByRole('button', { name: 'Losers' }))
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(9))
     expect(screen.getAllByTestId('journal-row').every((row) => row.textContent?.includes('−1.00R'))).toBe(true)
 
     await user.click(screen.getByRole('button', { name: 'More statistics' }))

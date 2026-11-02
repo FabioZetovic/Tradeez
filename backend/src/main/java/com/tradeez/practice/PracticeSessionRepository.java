@@ -17,5 +17,8 @@ public interface PracticeSessionRepository extends JpaRepository<PracticeSession
 
 	List<PracticeSession> findTop50ByUserIdOrderByCreatedAtDesc(UUID userId);
 
+	/** BUG-156: every session not ended, however old — each is somewhere to resume. */
+	List<PracticeSession> findAllByUserIdAndStatusNotOrderByCreatedAtDesc(UUID userId, PracticeSession.Status status);
+
 	long countByUserIdAndCreatedAtAfter(UUID userId, Instant after);
 }

@@ -286,6 +286,28 @@ class PracticeApiTest extends AbstractIntegrationTest {
 					.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
 				.andExpect(status().isCreated());
 		}
+
+		@Test
+		@DisplayName("BUG-156 an open session older than fifty newer ones is still listed, to be resumed")
+		void oldOpenSessionListed() throws Exception {
+			UUID aliceId = users.findByEmailIgnoreCase("alice@example.com").orElseThrow().getId();
+			Instrument nq = marketData.requireInstrument("DEMO-NQ");
+			Instant start = Instant.parse("2024-03-12T15:00:00Z");
+			PracticeSession old = sessions.saveAndFlush(new PracticeSession(aliceId, nq.getId(), "5m", 7, "test",
+				start.minusSeconds(3600), start));
+			jdbc.update("UPDATE practice_session SET created_at = now() - interval '30 days' WHERE id = ?", old.getId());
+			List<PracticeSession> newer = new ArrayList<>();
+			for (int i = 0; i < 55; i++) {
+				newer.add(new PracticeSession(aliceId, nq.getId(), "5m", 2000 + i, "test", start.minusSeconds(3600), start));
+			}
+			sessions.saveAll(newer);
+			jdbc.update("UPDATE practice_session SET status = 'COMPLETE' WHERE user_id = ? AND id <> ?", aliceId, old.getId());
+
+			JsonNode listed = json.readTree(mockMvc.perform(get("/api/practice/sessions").cookie(alice))
+				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+			assertThat(listed.size()).isEqualTo(51);
+			assertThat(listed.get(50).get("id").asString()).isEqualTo(old.getId().toString());
+		}
 	}
 
 	@Nested
