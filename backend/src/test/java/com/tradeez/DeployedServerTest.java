@@ -21,6 +21,7 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import com.tradeez.identity.AppUserRepository;
 import com.tradeez.identity.CookieService;
+import com.tradeez.identity.RateLimiter;
 import com.tradeez.identity.RefreshTokenRepository;
 
 /**
@@ -31,8 +32,9 @@ import com.tradeez.identity.RefreshTokenRepository;
  * empty 401. And the API's description is closed when deployed (BUG-082), which only this configuration shows.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	// As the prod profile has it (BUG-125): the host's proxy says the request was HTTPS.
-	properties = { "tradeez.cookies.secure=true", "server.forward-headers-strategy=framework" })
+	// As the prod profile has it (BUG-125, BUG-137): the host's proxy says the request was HTTPS.
+	properties = { "tradeez.cookies.secure=true", "server.forward-headers-strategy=native",
+		"tradeez.rate-limit.trusted-proxies=0" })
 class DeployedServerTest extends AbstractIntegrationTest {
 
 	/** A fresh secret per run: the guard refuses the development one when deployed. */
@@ -51,6 +53,9 @@ class DeployedServerTest extends AbstractIntegrationTest {
 
 	@Autowired
 	RefreshTokenRepository refreshTokens;
+
+	@Autowired
+	RateLimiter limits;
 
 	private final HttpClient http = HttpClient.newHttpClient();
 
@@ -167,5 +172,31 @@ class DeployedServerTest extends AbstractIntegrationTest {
 		assertThat(overHttps.headers().firstValue("Permissions-Policy")).hasValueSatisfying(v -> assertThat(v).contains("camera=()"));
 		// Over plain HTTP no HSTS: a browser must only ever learn it over HTTPS.
 		assertThat(get("/api/health", false).headers().firstValue("Strict-Transport-Security")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("BUG-137 a made-up X-Forwarded-For or Forwarded address buys no new sign-in quota")
+	void forwardedAddressesCannotBeMadeUp() throws Exception {
+		String nobody = "absent-" + UUID.randomUUID() + "@example.test";
+		// What the host's proxy sends: whatever the caller wrote, then the address it really came from.
+		limits.clear();
+		java.util.List<Integer> appended = new java.util.ArrayList<>();
+		for (int n = 1; n <= 25; n++) {
+			appended.add(signIn(nobody, "X-Forwarded-For", "198.51.100." + n + ", 203.0.113.9"));
+		}
+		assertThat(appended).contains(429);
+		limits.clear();
+		java.util.List<Integer> rfc = new java.util.ArrayList<>();
+		for (int n = 1; n <= 25; n++) {
+			rfc.add(signIn(nobody, "Forwarded", "for=203.0.113." + n));
+		}
+		assertThat(rfc).contains(429);
+	}
+
+	private int signIn(String email, String header, String value) throws Exception {
+		return send(HttpRequest.newBuilder(uri("/api/auth/login")).header("Content-Type", "application/json")
+			.header(header, value)
+			.POST(HttpRequest.BodyPublishers.ofString(
+				"{\"email\":\"" + email + "\",\"password\":\"a-perfectly-fine-passphrase\"}"))).statusCode();
 	}
 }

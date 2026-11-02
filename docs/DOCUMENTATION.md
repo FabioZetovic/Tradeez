@@ -2184,7 +2184,7 @@ docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5
 | `DATABASE_URL` | `jdbc:postgresql://<host>:<port>/<db>` (the JDBC form, not `postgres://`) |
 | `DATABASE_USER`, `DATABASE_PASSWORD` | the database's account |
 | `JWT_SECRET` | 32 random bytes in base64 (`openssl rand -base64 32`); the app refuses to start with the development one |
-| `TRUSTED_PROXIES` | `1` behind the host's proxy, so rate limits see the real caller |
+| `SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES` | only if the host's proxy connects from a public address (a regex of its addresses); by default Tomcat believes forwarded headers from private-network proxies only (BUG-137). `TRUSTED_PROXIES` is not used deployed |
 | `APP_URL` | the app's `https://` address — the start of every link in its emails (T56) |
 | `MAIL_PROVIDER` | `resend` (the local `outbox` is refused deployed) |
 | `RESEND_API_KEY`, `MAIL_FROM` | Resend's API key and the sender, e.g. `Tradeez <hello@your-domain>`; Resend sends from a domain whose DNS records you add, so this waits on the domain (T51) — until then its test sender delivers only to the account owner's own address |
@@ -2221,6 +2221,13 @@ no "Try again", the Chart tab says the data has not been loaded, and News says t
 than that there is no news (BUG-134; Home's lesson invitation and the lesson examples still assume data). **Import the
 data before inviting anyone.** The local test account's address and password live only in the gitignored
 `backend/.env` (BUG-133); never register that account on a deployed instance.
+
+**Codex's audit, first fixes (T58, 2026-11-02).** Made-up `X-Forwarded-For` or `Forwarded` addresses no longer buy new
+sign-in attempts: deployed, Tomcat reads the caller's address from the proxy's own entry only (BUG-137). An old refresh
+token cannot start a session after a sign-out or a password change (BUG-138), and a detected stolen token ends the
+access tokens too (BUG-139). "Your data" leaves out answers, outcomes and real dates not shown yet (BUG-140). A reset link
+works once even when opened twice at once (BUG-141), and dies when the password is changed (BUG-142). Notes nobody asked
+for cannot use up an address's reset emails (BUG-144). Locally, the database listens on this machine only (BUG-147).
 
 ---
 

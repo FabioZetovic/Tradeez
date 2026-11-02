@@ -65,6 +65,10 @@ public class EmailToken {
 		this.passwordHash = passwordHash;
 	}
 
+	UUID getId() {
+		return id;
+	}
+
 	AppUser getUser() {
 		return user;
 	}

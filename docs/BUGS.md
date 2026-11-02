@@ -37,119 +37,9 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
----
-
-### BUG-137 🔴 Production forwarded-header processing defeats both sign-in limits
-
-**Status:** verified (2026-11-01, real HTTP) · **Affects:** `application-prod.yml`, `AuthRateLimitFilter`,
-`ClientAddress`, `AuthService.login` · **Prerequisite:** incoming forwarded headers reach the app without trusted-edge sanitization.
-
-**What and how to reproduce.** With production's `server.forward-headers-strategy=framework`, send wrong-password
-POSTs to `/api/auth/login` for the same address from one connection source. Without spoofing, the probes hit 429.
-Changing only `X-Forwarded-For` between requests produced **25 consecutive 401s, no 429**; changing RFC `Forwarded:
-for=...` produced another 25. No account is needed. Spring's filter rewrites `getRemoteAddr()` and removes the header
-before `ClientAddress` runs, so the latter's `trusted-proxies=0` check no longer protects the original connection address.
-The account-and-address limit is keyed on that same forged address. Trusting one proxy in this helper does not undo
-earlier rewriting by Spring.
-
-**Impact.** An attacker can keep guessing or spending BCrypt work beyond both limits. The old direct-header fix
-BUG-070 and warning BUG-131 do not cover this filter ordering. Whether a particular host strips/replaces both header
-families must be verified on that host; the app's deployment configuration itself accepts the forgery.
-
-**Future fix / acceptance.** Establish one trusted proxy boundary, strip untrusted `Forwarded` and `X-Forwarded-*`
-headers there, preserve the connection peer for app-side trust checks, and avoid independently interpreting forwarded
-addresses twice. Repeat this real-server test with both header families and the intended hosting proxy; spoofing must
-not buy a new quota. [Spring's trust-boundary guidance](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/filters.html#filters-forwarded-headers).
-
----
-
-### BUG-138 🔴 A rotated refresh token can undo sign-out and a password change
-
-**Status:** verified (three independent service/API probes) · **Affects:** `AuthService.refresh`, `withinReuseGrace`,
-`RefreshTokenRepository.revokeAllForUser`
-
-**Attack.** Obtain refresh token R, rotate it to R2, then have the owner sign out of every device or change their
-password. Replay R within 20 seconds of its original rotation. `isAlreadyRotated()` enters the grace branch before
-checking activity or the account's revocation state and calls `issueFor` with the user's **current** generation.
-The new access token reads `/api/me` with **200**. The same bypass works after ordinary logout of R2.
-
-**Impact.** A thief holding a recently rotated cookie regains a fresh 30-day session after the recovery action
-intended to remove them. This is distinct from simply accepting a concurrent duplicate before any sign-out.
-
-**Future fix / acceptance.** Bind rotation families to a revocation/session generation and refuse grace after any
-family or account revocation. A grace duplicate should resolve to a still-live successor, not mint an unrelated family.
-Keep legitimate simultaneous-tab refresh working. All three probes must reject the old ancestor after revocation.
-
----
-
-### BUG-139 🟠 Detecting refresh-token theft leaves already-issued access tokens working
-
-**Status:** verified · **Affects:** the reuse-detection branch of `AuthService.refresh`
-
-**Reproduce.** Rotate a token; replay its ancestor outside the grace period. The probe moved its test database timestamp
-back 30 seconds rather than sleeping. Reuse is detected and active refresh tokens are revoked, but the successor's
-access token still reads `/api/me` with **200**. This branch never increments `AppUser.tokenGeneration`.
-
-**Impact.** The log says every session was invalidated while a stolen access token retains data access and authenticated
-writes until its remaining 15-minute lifetime ends. The password-change and logout-all paths already do invalidate it.
-
-**Future fix / acceptance.** Commit access-generation revocation together with refresh-family revocation on detected
-reuse, including the exception path. Every previously issued access and refresh token must then be rejected.
-
----
-
-### BUG-140 🔴 Downloading account data exposes answers and practice outcomes before they are revealed
-
-**Status:** verified (authenticated export and correct answer submission) · **Affects:** `AccountExport.SECTIONS`,
-`MeController.export`, the no-lookahead boundaries
-
-**Attack.** Start a risk question and GET `/api/me/export`. `riskDrills` contains its exact `answer`, `tolerance`, and
-`question.working` while the ordinary drill result is still absent; submitting that exported answer was graded correct.
-Start real-data practice, place a bracket, and export before advancing: the normal response withholds the result, but
-`tradeResults` includes its future outcome/exit and `practiceSessions` its real hidden start date. The probe reproduced
-both. Raw `drills`, `drillMarks`, and prediction `question`/`outcome` columns are exported through the same unrestricted
-table queries too; these additional drill modes were traced in code rather than individually exercised.
-
-**Impact.** The account menu provides a normal, discoverable way to bypass the training rules, recover hidden dates,
-and corrupt progress/calibration. This exposes the caller's own training secrets; no cross-account export was found.
-
-**Future fix / acceptance.** Define a safe export schema: user-provided answers and already-revealed results only;
-withhold server answer keys and hidden replay metadata until their exercise/session is over. Test every drill mode,
-an active real replay, early-close counterfactuals, and completed sessions. Do not remove the ability to export personal data.
-
----
-
-### BUG-141 🟠 A single-use reset link can reset the password twice in a race
-
-**Status:** verified (two concurrent transactions in disposable PostgreSQL) · **Affects:** `AccountEmails.use`,
-`EmailTokenRepository.spendAll`, `AuthService.resetPassword`
-
-**Reproduce.** Submit the same valid reset token concurrently with two different valid new passwords. The probe held
-the token's row briefly until both calls had read it unused, then released it. **Both calls succeeded and issued
-credentials.** The second change invalidated the first call's access token (observed access statuses 401 and 200).
-`use` reads usability first, then bulk-spends links; it ignores whether its spending update changed any row.
-
-**Impact.** A competing holder of the link can overwrite the owner's successful reset. Serial second use is rejected;
-the defect is specifically the concurrent check-and-spend gap. Verification uses the same redemption helper.
-
-**Future fix / acceptance.** Atomically claim the particular unspent, unexpired token, or lock and recheck it; exactly
-one caller may continue. Invalidate sibling links in the same transaction. Test concurrent VERIFY and RESET calls.
-
----
-
-### BUG-142 🟠 Changing the password does not invalidate an outstanding password-reset link
-
-**Status:** verified · **Affects:** `AuthService.changePassword`, `AccountEmails`
-
-**Attack.** Request a reset link, then change the password normally with the current password. Redeem the previously
-issued reset link: it still changes the password and obtains authenticated access. The probe performed exactly this.
-Password changes revoke sign-in tokens but never spend pending RESET tokens.
-
-**Impact.** Someone holding an earlier reset email can regain the account after its owner changes the password to
-secure it, for up to the link's one-hour lifetime.
-
-**Future fix / acceptance.** Invalidate outstanding recovery tokens on successful authenticated password changes and
-other credential-recovery events. The earlier link must fail after a change, while a newly requested link still works.
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-142, BUG-144 and BUG-147, moved to [Fixed](#fixed). Codex's probes
+in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
+`ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
 
 ---
 
@@ -167,24 +57,6 @@ timing tests do not cover this newly added endpoint.
 **Future fix / acceptance.** Queue delivery independently of the public response using a reliable outbox, apply the
 same public timing/work policy for absent addresses, and measure response distributions with a delayed fake mail
 provider for known, unknown, and mail-throttled addresses. Do not hold a user database transaction across the HTTP send.
-
----
-
-### BUG-144 🟠 Three unsolicited sign-up notices can prevent the owner receiving a reset email
-
-**Status:** verified (shared-mail-budget probe; public caller path traced in code) · **Affects:** `AccountEmails.allowed`,
-`sendAlreadyRegistered`, `sendReset`, `AuthService.signUpByEmail`
-
-**Attack.** Submit three sign-ups for an existing verified address using any policy-valid chosen password. Each sends
-an "already registered" notice and consumes the shared `mail:<email>` bucket. The owner's forgot-password request then
-returns its usual success without a reset email for the rest of that 15-minute window. The probe sent the three notices
-through the mail service and confirmed that password recovery produced no additional message.
-
-**Impact.** Anyone who knows the address can impede account recovery without knowing its password. The victim is told
-to check an inbox that will not contain a recovery link.
-
-**Future fix / acceptance.** Separate recovery and unsolicited-notification budgets, suppress repetitive sign-up
-notices, and retain an aggregate anti-spam ceiling. Test that notice spam cannot consume all legitimate recovery capacity.
 
 ---
 
@@ -223,24 +95,6 @@ queue/deadline; it does not bound incoming work. Large-account export/history ma
 **Future fix / acceptance.** Budget attempted work before it starts, cover these routes, and bound concurrency/queue
 waits. Paginate history in SQL and stream or queue large exports. Test allowed and rejected work with small configured
 budgets and prove the expensive service is not called after exhaustion; keep ordinary replay playback usable.
-
----
-
-### BUG-147 🟠 The local database listens on every network interface with shared development credentials
-
-**Status:** reasoned for remote exploitability; all-interface binding verified by `docker ps` · **Affects:** `docker-compose.yml`
-
-**Attack.** The compose file publishes `5432:5432` and contains a fixed, well-known database login. The running container
-reported `0.0.0.0:5432` and `[::]:5432`. Someone who can reach that port can attempt a direct database login, bypassing
-all application authentication and ownership checks. Actual LAN reachability depends on the host firewall; no outside
-host was probed and this is not a claim about a future managed production database.
-
-**Impact.** Local account hashes, email-link hashes, journals, and drawings are exposed if the workstation's database
-port is reachable from its network. The current compose file is explicitly the local-development setup.
-
-**Future fix / acceptance.** Bind local PostgreSQL to loopback (or keep it on an internal container network), use a
-machine-local secret, and keep deployment database access private. Verify the published listener and access from an
-untrusted network after the change; retain local app connectivity.
 
 ---
 
@@ -1137,6 +991,156 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-147 🟠 The local database listens on every network interface with shared development credentials
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned for remote exploitability; all-interface binding verified by `docker ps` · **Affects:** `docker-compose.yml`
+
+**Attack.** The compose file publishes `5432:5432` and contains a fixed, well-known database login. The running container
+reported `0.0.0.0:5432` and `[::]:5432`. Someone who can reach that port can attempt a direct database login, bypassing
+all application authentication and ownership checks. Actual LAN reachability depends on the host firewall; no outside
+host was probed and this is not a claim about a future managed production database.
+
+**Impact.** Local account hashes, email-link hashes, journals, and drawings are exposed if the workstation's database
+port is reachable from its network. The current compose file is explicitly the local-development setup.
+
+**Future fix / acceptance.** Bind local PostgreSQL to loopback (or keep it on an internal container network), use a
+machine-local secret, and keep deployment database access private. Verify the published listener and access from an
+untrusted network after the change; retain local app connectivity.
+
+**✅ FIXED** (T58, 2026-11-02). `docker-compose.yml` publishes the port as `127.0.0.1:5432:5432`. After the container was recreated (its volume and data kept), `docker ps` shows `127.0.0.1:5432->5432/tcp`; a connection to the machine's network address on 5432 fails and one to 127.0.0.1 succeeds. The development login stays fixed and well known, which is acceptable now that only this machine can reach it. A deployed database is the host's, with its own secret (DOCUMENTATION "Deploying").
+
+### BUG-137 🔴 Production forwarded-header processing defeats both sign-in limits
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (2026-11-01, real HTTP) · **Affects:** `application-prod.yml`, `AuthRateLimitFilter`,
+`ClientAddress`, `AuthService.login` · **Prerequisite:** incoming forwarded headers reach the app without trusted-edge sanitization.
+
+**What and how to reproduce.** With production's `server.forward-headers-strategy=framework`, send wrong-password
+POSTs to `/api/auth/login` for the same address from one connection source. Without spoofing, the probes hit 429.
+Changing only `X-Forwarded-For` between requests produced **25 consecutive 401s, no 429**; changing RFC `Forwarded:
+for=...` produced another 25. No account is needed. Spring's filter rewrites `getRemoteAddr()` and removes the header
+before `ClientAddress` runs, so the latter's `trusted-proxies=0` check no longer protects the original connection address.
+The account-and-address limit is keyed on that same forged address. Trusting one proxy in this helper does not undo
+earlier rewriting by Spring.
+
+**Impact.** An attacker can keep guessing or spending BCrypt work beyond both limits. The old direct-header fix
+BUG-070 and warning BUG-131 do not cover this filter ordering. Whether a particular host strips/replaces both header
+families must be verified on that host; the app's deployment configuration itself accepts the forgery.
+
+**Future fix / acceptance.** Establish one trusted proxy boundary, strip untrusted `Forwarded` and `X-Forwarded-*`
+headers there, preserve the connection peer for app-side trust checks, and avoid independently interpreting forwarded
+addresses twice. Repeat this real-server test with both header families and the intended hosting proxy; spoofing must
+not buy a new quota. [Spring's trust-boundary guidance](https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/filters.html#filters-forwarded-headers).
+
+**✅ FIXED** (T58, 2026-11-02). The prod profile uses `forward-headers-strategy: native`, not `framework`. Tomcat believes `X-Forwarded-*` only from a proxy on a private network (`server.tomcat.remoteip.internal-proxies`), reads `X-Forwarded-For` from the right, so it gets what the proxy appended rather than what the caller wrote, and ignores RFC `Forwarded`. Spring's filter, which believed both from anyone, no longer runs. `tradeez.rate-limit.trusted-proxies` is fixed at 0 deployed, because Tomcat has already resolved the address. `DeployedServerTest.forwardedAddressesCannotBeMadeUp`: 25 attempts with a new made-up address each, in both header families, reach 429. `ProdProfileTest.forwardedHeadersOnlyFromTheProxy` keeps the profile saying so. If a host's proxy connects from a public address, every visitor would share one quota: set `SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES` to it (DOCUMENTATION "Deploying").
+
+### BUG-138 🔴 A rotated refresh token can undo sign-out and a password change
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (three independent service/API probes) · **Affects:** `AuthService.refresh`, `withinReuseGrace`,
+`RefreshTokenRepository.revokeAllForUser`
+
+**Attack.** Obtain refresh token R, rotate it to R2, then have the owner sign out of every device or change their
+password. Replay R within 20 seconds of its original rotation. `isAlreadyRotated()` enters the grace branch before
+checking activity or the account's revocation state and calls `issueFor` with the user's **current** generation.
+The new access token reads `/api/me` with **200**. The same bypass works after ordinary logout of R2.
+
+**Impact.** A thief holding a recently rotated cookie regains a fresh 30-day session after the recovery action
+intended to remove them. This is distinct from simply accepting a concurrent duplicate before any sign-out.
+
+**Future fix / acceptance.** Bind rotation families to a revocation/session generation and refuse grace after any
+family or account revocation. A grace duplicate should resolve to a still-live successor, not mint an unrelated family.
+Keep legitimate simultaneous-tab refresh working. All three probes must reject the old ancestor after revocation.
+
+**✅ FIXED** (T58, 2026-11-02). The grace for a duplicate refresh now follows the token's rotation chain to its newest member and serves the duplicate only while that member is still active. After a sign-out, a sign-out everywhere or a password change, the old token is refused (401) and starts nothing. `SessionRecoveryTest`: the three probes turned round, plus `graceStillServesDuplicates` (two tabs refreshing at once, BUG-001, still both signed in).
+
+### BUG-139 🟠 Detecting refresh-token theft leaves already-issued access tokens working
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified · **Affects:** the reuse-detection branch of `AuthService.refresh`
+
+**Reproduce.** Rotate a token; replay its ancestor outside the grace period. The probe moved its test database timestamp
+back 30 seconds rather than sleeping. Reuse is detected and active refresh tokens are revoked, but the successor's
+access token still reads `/api/me` with **200**. This branch never increments `AppUser.tokenGeneration`.
+
+**Impact.** The log says every session was invalidated while a stolen access token retains data access and authenticated
+writes until its remaining 15-minute lifetime ends. The password-change and logout-all paths already do invalidate it.
+
+**Future fix / acceptance.** Commit access-generation revocation together with refresh-family revocation on detected
+reuse, including the exception path. Every previously issued access and refresh token must then be rejected.
+
+**✅ FIXED** (T58, 2026-11-02). Detected reuse now also raises the account's token generation, as a password change does, so every access token already handed out is refused along with the refresh tokens. It commits with them (`noRollbackFor`). `SessionRecoveryTest.theftEndsAccessTokens`: the successor's access token gets 401.
+
+### BUG-140 🔴 Downloading account data exposes answers and practice outcomes before they are revealed
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (authenticated export and correct answer submission) · **Affects:** `AccountExport.SECTIONS`,
+`MeController.export`, the no-lookahead boundaries
+
+**Attack.** Start a risk question and GET `/api/me/export`. `riskDrills` contains its exact `answer`, `tolerance`, and
+`question.working` while the ordinary drill result is still absent; submitting that exported answer was graded correct.
+Start real-data practice, place a bracket, and export before advancing: the normal response withholds the result, but
+`tradeResults` includes its future outcome/exit and `practiceSessions` its real hidden start date. The probe reproduced
+both. Raw `drills`, `drillMarks`, and prediction `question`/`outcome` columns are exported through the same unrestricted
+table queries too; these additional drill modes were traced in code rather than individually exercised.
+
+**Impact.** The account menu provides a normal, discoverable way to bypass the training rules, recover hidden dates,
+and corrupt progress/calibration. This exposes the caller's own training secrets; no cross-account export was found.
+
+**Future fix / acceptance.** Define a safe export schema: user-provided answers and already-revealed results only;
+withhold server answer keys and hidden replay metadata until their exercise/session is over. Test every drill mode,
+an active real replay, early-close counterfactuals, and completed sessions. Do not remove the ability to export personal data.
+
+**✅ FIXED** (T58, 2026-11-02). Each export section's query marks a row still open (`open_`: a drill or risk question not answered, a practice session not COMPLETE), and `AccountExport.HIDDEN_WHILE_OPEN` drops that row's answer, outcome, seed and real dates. A drill's marked setups (`drillMarks`) are left out until it is answered. A trade's result is left out until the replay passes its exit (the score's rule), and comes without its real times until the session ends. Everything comes once revealed; the export says so in `about`. `ExportRevealTest`: a mark drill, a risk question, and a real session before its exit, after it, and ended; three mutants caught.
+
+### BUG-141 🟠 A single-use reset link can reset the password twice in a race
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (two concurrent transactions in disposable PostgreSQL) · **Affects:** `AccountEmails.use`,
+`EmailTokenRepository.spendAll`, `AuthService.resetPassword`
+
+**Reproduce.** Submit the same valid reset token concurrently with two different valid new passwords. The probe held
+the token's row briefly until both calls had read it unused, then released it. **Both calls succeeded and issued
+credentials.** The second change invalidated the first call's access token (observed access statuses 401 and 200).
+`use` reads usability first, then bulk-spends links; it ignores whether its spending update changed any row.
+
+**Impact.** A competing holder of the link can overwrite the owner's successful reset. Serial second use is rejected;
+the defect is specifically the concurrent check-and-spend gap. Verification uses the same redemption helper.
+
+**Future fix / acceptance.** Atomically claim the particular unspent, unexpired token, or lock and recheck it; exactly
+one caller may continue. Invalidate sibling links in the same transaction. Test concurrent VERIFY and RESET calls.
+
+**✅ FIXED** (T58, 2026-11-02). `AccountEmails.use` claims the one link with `UPDATE … WHERE id = ? AND used_at IS NULL` and goes on only when that changed a row. Postgres makes a second claim wait for the first and re-check `used_at`, so exactly one caller continues. `SessionRecoveryTest.resetLinkRace` holds the row until both calls have read it unused (Codex's probe): one reset, one refused.
+
+### BUG-142 🟠 Changing the password does not invalidate an outstanding password-reset link
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified · **Affects:** `AuthService.changePassword`, `AccountEmails`
+
+**Attack.** Request a reset link, then change the password normally with the current password. Redeem the previously
+issued reset link: it still changes the password and obtains authenticated access. The probe performed exactly this.
+Password changes revoke sign-in tokens but never spend pending RESET tokens.
+
+**Impact.** Someone holding an earlier reset email can regain the account after its owner changes the password to
+secure it, for up to the link's one-hour lifetime.
+
+**Future fix / acceptance.** Invalidate outstanding recovery tokens on successful authenticated password changes and
+other credential-recovery events. The earlier link must fail after a change, while a newly requested link still works.
+
+**✅ FIXED** (T58, 2026-11-02). A password change spends every unused reset link of the account (`AccountEmails.spendResets`), in the same transaction. `SessionRecoveryTest.passwordChangeSpendsResetLinks`: the link from before the change is refused, and one asked for after works.
+
+### BUG-144 🟠 Three unsolicited sign-up notices can prevent the owner receiving a reset email
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (shared-mail-budget probe; public caller path traced in code) · **Affects:** `AccountEmails.allowed`,
+`sendAlreadyRegistered`, `sendReset`, `AuthService.signUpByEmail`
+
+**Attack.** Submit three sign-ups for an existing verified address using any policy-valid chosen password. Each sends
+an "already registered" notice and consumes the shared `mail:<email>` bucket. The owner's forgot-password request then
+returns its usual success without a reset email for the rest of that 15-minute window. The probe sent the three notices
+through the mail service and confirmed that password recovery produced no additional message.
+
+**Impact.** Anyone who knows the address can impede account recovery without knowing its password. The victim is told
+to check an inbox that will not contain a recovery link.
+
+**Future fix / acceptance.** Separate recovery and unsolicited-notification budgets, suppress repetitive sign-up
+notices, and retain an aggregate anti-spam ceiling. Test that notice spam cannot consume all legitimate recovery capacity.
+
+**✅ FIXED** (T58, 2026-11-02). The notes nobody asked for ("someone tried to sign up with your address", forgot password on an unconfirmed account) have their own budget, one per address per 15 minutes, apart from the three links (`AccountEmails.NOTICES_PER_ADDRESS`). Repeated sign-ups with an address send its owner one note, and their reset link still comes. `SessionRecoveryTest.noticesLeaveResetBudget`, `noticesAreRare`.
 
 ### BUG-133 🟡 The local test account's address and password are in git
 

@@ -28,4 +28,15 @@ class ProdProfileTest {
 					"DATABASE_PASSWORD", "MAIL_PROVIDER", "APP_URL");
 			});
 	}
+
+	@Test
+	@DisplayName("BUG-137 deployed, forwarded addresses are read by Tomcat from trusted proxies only, and by nothing else")
+	void forwardedHeadersOnlyFromTheProxy() {
+		var yaml = new org.springframework.beans.factory.config.YamlPropertiesFactoryBean();
+		yaml.setResources(new org.springframework.core.io.ClassPathResource("application-prod.yml"));
+		java.util.Properties prod = yaml.getObject();
+		// DeployedServerTest shows what these two do on a real server; this keeps the profile saying them.
+		org.assertj.core.api.Assertions.assertThat(prod.getProperty("server.forward-headers-strategy")).isEqualTo("native");
+		org.assertj.core.api.Assertions.assertThat(prod.getProperty("tradeez.rate-limit.trusted-proxies")).isEqualTo("0");
+	}
 }

@@ -24,7 +24,9 @@ import com.tradeez.identity.mail.Mailer.Mail;
  *
  * <p>Each address gets at most {@link #MAILS_PER_ADDRESS} emails in {@link #MAIL_WINDOW}, whatever asks for them, so the
  * app cannot be used to flood someone's inbox. Past it, nothing is sent — and nothing is said, so the limit does not
- * reveal whether the address has an account.
+ * reveal whether the address has an account. BUG-144: the notes nobody asked for (someone tried to sign up with the
+ * address; forgot password on an account never confirmed) have a budget of their own, {@link #NOTICES_PER_ADDRESS}, so a
+ * stranger sending them cannot use up the owner's links.
  */
 @Service
 public class AccountEmails {
@@ -32,6 +34,7 @@ public class AccountEmails {
 	static final Duration VERIFY_FOR = Duration.ofHours(24);
 	static final Duration RESET_FOR = Duration.ofHours(1);
 	static final int MAILS_PER_ADDRESS = 3;
+	static final int NOTICES_PER_ADDRESS = 1;
 	static final Duration MAIL_WINDOW = Duration.ofMinutes(15);
 
 	private final EmailTokenRepository tokens;
@@ -74,7 +77,7 @@ public class AccountEmails {
 
 	/** Someone signed up with an address that already has an account: its owner is told, and nothing else happens. */
 	public void sendAlreadyRegistered(AppUser user) {
-		if (!allowed(user)) {
+		if (!noticeAllowed(user)) {
 			return;
 		}
 		mailer.send(new Mail(user.getEmail(), "Someone tried to sign up to Tradeez with your address", """
@@ -106,7 +109,7 @@ public class AccountEmails {
 
 	/** "Forgot password" for an account never confirmed: no link — only a proven address may set a password. */
 	public void sendUnconfirmed(AppUser user) {
-		if (!allowed(user)) {
+		if (!noticeAllowed(user)) {
 			return;
 		}
 		mailer.send(new Mail(user.getEmail(), "Your Tradeez account was never confirmed", """
@@ -128,12 +131,26 @@ public class AccountEmails {
 		EmailToken token = tokens.findByTokenHash(jwt.hash(rawToken))
 			.filter(t -> t.getPurpose() == purpose && t.usable(now))
 			.orElseThrow(InvalidLinkException::new);
+		// BUG-141: read unused is not enough — two requests can both read it so before either spends it.
+		if (tokens.claim(token.getId(), now) != 1) {
+			throw new InvalidLinkException();
+		}
 		tokens.spendAll(token.getUser().getId(), purpose, now);
 		return token;
 	}
 
+	/** BUG-142: the account's password changed — a reset link sent before must not undo that. */
+	@Transactional
+	void spendResets(AppUser user) {
+		tokens.spendAll(user.getId(), Purpose.RESET, Instant.now());
+	}
+
 	private boolean allowed(AppUser user) {
 		return rateLimiter.tryAcquire("mail:" + user.getEmail(), MAILS_PER_ADDRESS, MAIL_WINDOW);
+	}
+
+	private boolean noticeAllowed(AppUser user) {
+		return rateLimiter.tryAcquire("notice:" + user.getEmail(), NOTICES_PER_ADDRESS, MAIL_WINDOW);
 	}
 
 	private String issue(AppUser user, Purpose purpose, Duration validFor, String passwordHash) {

@@ -13,7 +13,8 @@ services:
       TZ: UTC
       PGTZ: UTC
     ports:
-      - "5432:5432"
+      # BUG-147: this machine only. Published on every interface, anyone on the same network could try the login above.
+      - "127.0.0.1:5432:5432"
     volumes:
       - tradeez-pgdata:/var/lib/postgresql/data
     healthcheck:

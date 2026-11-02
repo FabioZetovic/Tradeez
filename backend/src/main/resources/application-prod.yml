@@ -10,13 +10,21 @@ spring:
 
 server:
   # BUG-125. Behind the host's HTTPS proxy: believe its X-Forwarded-Proto and Host, so the app knows the request was
-  # HTTPS (HSTS, Secure cookies, same-origin checks). Which proxies to believe for the caller's address is still
-  # tradeez.rate-limit.trusted-proxies (BUG-070).
-  forward-headers-strategy: framework
+  # HTTPS (HSTS, Secure cookies, same-origin checks).
+  # BUG-137. "native", not "framework": Spring's own filter believed X-Forwarded-For and Forwarded from anyone, and
+  # rewrote the caller's address before the sign-in limits read it, so a new made-up address bought a new quota. Tomcat
+  # believes the headers only from a proxy on a private network (server.tomcat.remoteip.internal-proxies, the host's
+  # own), reads X-Forwarded-For from the right — what the proxy appended, not what the caller wrote — and ignores
+  # Forwarded. The caller's address is then already the connection's, so ClientAddress reads no header (below).
+  forward-headers-strategy: native
 
 tradeez:
   jwt:
     secret: ${JWT_SECRET}
+  rate-limit:
+    # BUG-137: Tomcat has already taken the proxy's entry out of X-Forwarded-For; what is left was written by the
+    # caller. Not configurable here.
+    trusted-proxies: 0
   # T56. The address the app is reached at (https://…), for the links in its emails, and how mail is sent: no default,
   # and MailGuard refuses the local outbox here — an email nobody can read would leave every sign-up stuck.
   app-url: ${APP_URL}

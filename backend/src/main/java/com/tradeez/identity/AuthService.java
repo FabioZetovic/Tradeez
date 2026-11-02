@@ -321,7 +321,9 @@ public class AuthService {
 			// and revoke nothing. This is the trade-off the OAuth security BCP recommends, and it is
 			// deliberate: an attacker replaying within seconds of a real rotation does get a session,
 			// which is a far smaller harm than logging honest users out at random.
-			if (withinReuseGrace(stored, now)) {
+			// BUG-138: only while the session it was rotated into is still alive. After a sign-out, a sign-out
+			// everywhere or a password change that session is gone, and the old token must not start a new one.
+			if (withinReuseGrace(stored, now) && sessionLives(stored, now)) {
 				log.debug("Refresh token for user {} was already rotated {}ms ago; treating as a "
 					+ "concurrent duplicate rather than reuse.",
 					stored.getUser().getId(),
@@ -329,7 +331,17 @@ public class AuthService {
 				return issueFor(stored.getUser(), userAgent);
 			}
 
+			if (withinReuseGrace(stored, now)) {
+				// A duplicate of a session already ended: refused, and nothing else to end.
+				throw new InvalidRefreshTokenException();
+			}
+
 			UUID userId = stored.getUser().getId();
+			// BUG-139: the access tokens already handed out end too, as on a password change — whoever holds the
+			// successor's would otherwise keep reading and writing for up to fifteen minutes.
+			AppUser owner = stored.getUser();
+			owner.revokeAccessTokens();
+			users.save(owner);
 			int revoked = refreshTokens.revokeAllForUser(userId, now);
 			log.warn("Refresh token reuse detected for user {}; revoked {} active token(s). "
 				+ "All sessions for this account have been invalidated.", userId, revoked);
@@ -379,6 +391,7 @@ public class AuthService {
 		// BUG-077: the access tokens already handed out end too, not only the refresh tokens.
 		user.revokeAccessTokens();
 		users.save(user);
+		emails.spendResets(user);
 		int revoked = refreshTokens.revokeAllForUser(userId, Instant.now());
 		log.info("Password changed for user {}; {} session(s) signed out.", userId, revoked);
 		rateLimiter.reset(throttleKey);
@@ -442,6 +455,19 @@ public class AuthService {
 		return rotatedAt != null
 			&& !Duration.between(rotatedAt, now).isNegative()
 			&& Duration.between(rotatedAt, now).compareTo(REUSE_GRACE) <= 0;
+	}
+
+	/** BUG-138: the newest token in this one's rotation chain is still usable — the session was not ended since. */
+	private boolean sessionLives(RefreshToken stored, Instant now) {
+		RefreshToken newest = stored;
+		// Bounded: a chain is a few rotations long inside the grace window, and a cycle cannot be written.
+		for (int hop = 0; hop < 32 && newest.isAlreadyRotated(); hop++) {
+			newest = refreshTokens.findById(newest.getReplacedBy()).orElse(null);
+			if (newest == null) {
+				return false;
+			}
+		}
+		return newest.isActive(now);
 	}
 
 	private IssuedTokens issueFor(AppUser user, String userAgent) {

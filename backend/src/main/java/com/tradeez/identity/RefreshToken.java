@@ -108,4 +108,8 @@ public class RefreshToken {
 		return revokedAt;
 	}
 
+	public UUID getReplacedBy() {
+		return replacedBy;
+	}
+
 }
