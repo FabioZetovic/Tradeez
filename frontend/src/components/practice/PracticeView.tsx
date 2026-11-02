@@ -90,10 +90,21 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     getCalibration()
       .then(setCalibration)
       .catch(() => setError('Could not load your calibration.'))
+  }, [])
+
+  // BUG-155: the risk limit and the costs belong to a session's screen as much as to this one — opened straight from
+  // its address, the session showed neither.
+  useEffect(() => {
     getPracticeSettings()
       .then(setSettings)
       .catch(() => setError('Could not load your risk limit.'))
   }, [])
+
+  // BUG-154: the first answer is handed over once. Left in the browser's history, a reload or Back brought the
+  // session back as it was when made — not as it is — and asked the server nothing.
+  useEffect(() => {
+    if (created) void navigate(`/practice/${created.state.id}`, { replace: true, state: null })
+  }, [created, navigate])
 
   const saveLimit = async (cents: number | null) => {
     setError(null)

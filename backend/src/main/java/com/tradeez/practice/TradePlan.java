@@ -179,6 +179,11 @@ public class TradePlan {
 		return submittedCursor;
 	}
 
+	/** When the learner placed it — real time, unlike the replay's moment above. */
+	public Instant getSubmittedAt() {
+		return submittedAt;
+	}
+
 	public TradingModel getModel() {
 		return model;
 	}

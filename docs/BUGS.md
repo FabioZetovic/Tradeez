@@ -37,7 +37,7 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147, BUG-148, BUG-161, BUG-164, BUG-165 and BUG-168 to BUG-170 (and BUG-172, found on the way), moved to [Fixed](#fixed). Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160, BUG-161, BUG-164 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). Still open: BUG-145 (Fabio's call), BUG-146, BUG-156, BUG-157, BUG-159, BUG-162, BUG-163. Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
 
@@ -87,119 +87,6 @@ budgets and prove the expensive service is not called after exhaustion; keep ord
 
 ---
 
-### BUG-149 🟠 Drawing saves can finish backwards and silently restore an older position
-
-**Status:** verified (controlled out-of-order saves) · **Affects:** `useDrawings.commit`, drawing updates
-
-**Reproduce.** Drag a saved line to A, then to B before A's save completes. Let B's request finish first and A's finish
-last. The probe ended with B on screen, A persisted, and **no sync error**. `commit` starts independent writes and has
-no per-drawing queue or version check; response completion also rewrites the persisted snapshot out of order.
-
-**Impact.** A normal slow connection can lose the latest drawing edit on reload. BUG-135 fixed duplicate inserts,
-not ordering of updates.
-
-**Future fix / acceptance.** Serialize/coalesce writes per drawing and use a server version or conditional update for
-multiple tabs. Force response/commit order inversion in a test; reloading must retain the last intended position.
-
----
-
-### BUG-150 🟠 Deleting a new drawing while its first save is pending does not delete it on the server
-
-**Status:** verified · **Affects:** `useDrawings.commit`, its `persistedRef` deletion diff
-
-**Reproduce.** Create a drawing and delay its first PUT; delete it and commit before that PUT finishes. Because its id
-has not reached `persistedRef`, the removal sends no DELETE. The pending PUT later succeeds. The probe confirmed an
-empty local drawing list, no DELETE at all, and no sync error.
-
-**Impact.** The deleted shape returns on reload. The same sequence can happen with Undo immediately after creation.
-
-**Future fix / acceptance.** Track in-flight creations and deletion intent; send the delete after creation completes
-or cancel it safely. Test create/delete, create/undo, and delete/recreate races with delayed responses.
-
----
-
-### BUG-151 🟠 A slow drawing load replaces annotations made while it was pending
-
-**Status:** verified · **Affects:** the initial/retry loading effect in `useDrawings`
-
-**Reproduce.** Delay `listDrawings`, add a line while the chart is usable, then resolve the load with the earlier server
-snapshot. The effect unconditionally dispatches `load`, clearing the new line and its undo history without a warning.
-The probe observed exactly that. Candles and drawings are fetched separately, so drawing controls can be ready first.
-
-**Future fix / acceptance.** Gate editing until the drawing snapshot is ready or merge local changes made after load
-started. Apply the same rule to retry loads. A delayed empty server response must never erase a newly drawn annotation.
-
----
-
-### BUG-152 🟠 Switching markets leaves the previous market's drawings editable through the new URL
-
-**Status:** verified (hook instrument-switch probe) · **Affects:** `useDrawings`, `ChartPage`, `ChartDrawingController.save/delete`
-
-**Reproduce.** Load NQ drawings, switch to ES, and delay ES's drawings response. The hook keeps NQ's state and persisted
-map while `symbolRef` changes to ES. Delete a visible NQ line now: the probe observed `deleteDrawing('ES', nqDrawingId)`.
-The backend validates that ES exists but deletes by id and owner only; it does not require that the row belongs to ES.
-Updates similarly ignore an existing row's instrument after the owner lookup.
-
-**Impact.** An ordinary market switch on a slow connection can delete or change the user's annotations on the other
-market. Owner checks still hold; this is not a cross-account deletion.
-
-**Future fix / acceptance.** Bind loaded drawing state and pending mutations to a symbol, disable old edits during a
-switch, and scope backend updates/deletes to owner **and instrument**. Delay the new load and prove no old-market write occurs.
-
----
-
-### BUG-153 🟠 The Chart tab can show NQ prices under an ES heading while ES is loading
-
-**Status:** verified (rendered page with delayed ES response) · **Affects:** `ChartPage`'s fallback `series`, price,
-instrument economics, clock and setup response keys
-
-**Reproduce.** Load NQ and switch to ES while delaying ES bars. The page immediately says **ES** but retains NQ candles
-and a NQ last price (the probe showed 20,000 under ES). The new instrument's economics are passed to the old series and
-drawing overlay. Clock responses are rendered from `clock?.layer` without checking the window/symbol key; setup keys
-also omit the requested date window, so old-window overlays can remain during a date change.
-
-**Impact.** The displayed market and its prices/overlays can disagree at exactly the moment a user is analysing or
-drawing. Keeping a previous frame is useful only if its identity remains correct.
-
-**Future fix / acceptance.** Retain a complete, internally consistent displayed snapshot, or withhold price-dependent
-controls until the selected market/window is ready. Key every overlay by the same request identity. Test market, date,
-and timeframe switches with delayed and failed responses.
-
----
-
-### BUG-154 🟠 Reloading a newly created practice session can restore its original state instead of its current state
-
-**Status:** verified (hook remount with retained creation state); full refresh sequence traced through routing ·
-**Affects:** `PracticeView`'s `location.state.created`, `usePracticeSession`'s seeded fast path
-
-**Reproduce.** Start a session, advance or trade, then reload or revisit its browser-history entry. Creation put the
-whole original `SessionResponse` into history state. If that object is supplied again, the hook treats it as current
-and skips `getSession` entirely. The remount probe confirmed the original cursor and **no server read**.
-
-**Impact.** The chart appears to lose progress or an open trade; the next command can jump to a different server moment.
-A draft made from the stale price can be submitted against the actual later cursor. The server's stored data is not erased.
-
-**Future fix / acceptance.** Consume and clear the creation handoff once, and validate state on subsequent mounts.
-Test a real refresh/back after advancing, placing a trade, and completing the session; the current cursor/status must show.
-
----
-
-### BUG-155 🟠 Opening a practice-session link directly drops the saved risk limit and cost display
-
-**Status:** verified (rendered direct route) · **Affects:** `PracticeView.load` and props passed to `PracticeSession`
-
-**Reproduce.** Set a risk limit, then open or reload `/practice/<id>` directly. The effect calls `load()` only when
-`openId === null`; therefore settings are never requested on a direct session route. The probe observed no settings
-fetch and `riskLimitCents`/`costs` both undefined on the session component.
-
-**Impact.** Pre-trade warnings and the "at the stop with costs" display disappear, although the backend still records
-the saved limit and standard costs. A later scorecard can judge a limit the planning screen did not show.
-
-**Future fix / acceptance.** Load account practice settings independently of whether the home or a session is open.
-Test direct entry and reload with a saved limit and standard costs, including a settings-load failure state.
-
----
-
 ### BUG-156 🟠 Older open practice sessions disappear from every resume list
 
 **Status:** reasoned · **Affects:** `PracticeSessionRepository.findTop50ByUserIdOrderByCreatedAtDesc`, `PracticeView`, Home
@@ -229,19 +116,6 @@ layout reach all history. Test 250+ mixed trades, filtered matches only on later
 
 ---
 
-### BUG-158 🟠 The journal orders activity by the random historical market date
-
-**Status:** reasoned · **Affects:** `PracticeService.journal(UUID, int)`
-
-**Reproduce.** Make a trade in a replay of a recent market date, then make another in an older randomly selected replay.
-The listing sorts `TradePlan.getSubmittedCursor()` (the historical date), not `submittedAt` (when the learner placed it).
-Today's new trade can appear behind months of earlier practice or outside the first 50 rows entirely.
-
-**Future fix / acceptance.** Order recent activity by real submission time with a stable tie-breaker, while keeping
-the replay's date hidden/displayed according to its existing rule. Test two sessions whose historical and creation orders disagree.
-
----
-
 ### BUG-159 🟡 Home's practice counts are truncated and can disagree with its own statistics
 
 **Status:** reasoned · **Affects:** `HomePage`'s `trades` and `sessions.length`, the 50-session endpoint
@@ -252,23 +126,6 @@ sessions, the phone's trade count/footer can shrink or disagree with the all-tim
 
 **Future fix / acceptance.** Use explicit all-time aggregates, labelled by closed versus placed trades; treat recent
 sessions as a recent list. Verify Home with more than 50 sessions and one still-running trade.
-
----
-
-### BUG-160 🟠 A failed sign-out looks successful while the browser remains authenticated
-
-**Status:** verified (network-failure/remount probe) · **Affects:** `useSession.logout/logoutEverywhere`, account-menu actions
-
-**Reproduce.** Let sign-out fail before reaching the server. Both hooks set `signedOut` in `finally`, even though neither
-HttpOnly cookie was cleared and the server revoked nothing. The probe showed signed out, then immediately signed back
-in after remounting. The menu discards the rejected promise with `void`, so there is no useful completion/error state.
-
-**Impact.** On a shared device the user can leave believing the account was secured; reload reopens it. "Sign out of
-every device" can similarly imply that remote sessions ended when its request failed.
-
-**Future fix / acceptance.** Report that server sign-out could not be completed and offer a retry; only report global
-revocation after confirmation. Hiding private content locally is fine, but distinguish that state from successful
-server sign-out. Test offline, 403 and 500 responses followed by reload.
 
 ---
 
@@ -298,60 +155,6 @@ snapshot. Resuming a background tab does not refresh them. The server's six-hour
 
 **Future fix / acceptance.** Refresh time at appropriate boundaries and refetch on visibility/focus or a modest interval.
 Test a release crossing, New York midnight, week rollover, and a changed schedule while the page remains mounted.
-
----
-
-### BUG-166 🟡 The built page's older CSP contradicts the backend's newer CSP
-
-**Status:** reasoned from both policies and built assets; no fresh browser CSP capture · **Affects:** `vite.config.ts`
-`contentSecurityPolicy`, `SecurityConfig.CONTENT_SECURITY_POLICY`
-
-**What.** The build injects a meta policy with `style-src 'self'` and no `font-src`, so fonts fall back to
-`default-src 'self'`. The backend allows inline styles and `font-src 'self' data:`, but a permissive header does not
-relax the meta policy: both are enforced. The current built CSS contains a data-URL font, and Lightweight Charts
-contains code for an inline attribution stylesheet. **The app disables its attribution logo**, so that stylesheet
-is not an active failure here. The demonstrated asset mismatch is the embedded JetBrains Mono Cyrillic-extended
-font subset (U+0460–052F and related ranges): when requested, its data URL conflicts with the meta policy. Direct CSSOM
-style-property assignments are not being claimed universally blocked.
-
-**Impact.** Text needing that font subset can fall back in the built app, with CSP violations. This is a limited font/
-policy consistency issue, not a claim that normal Latin text or the chart is broken. Tests against Vite do not inject
-this build-only meta policy.
-
-**Future fix / acceptance.** Maintain one consistent policy, including its required font/style sources, without
-loosening scripts unnecessarily. Open the actual production build, capture CSP violations, and request/render the
-affected font subset. [Multiple CSP policies intersect](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy),
-[font-src fallback](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/font-src).
-
----
-
-### BUG-167 🟡 A lesson displays as unlocked while progress is loading or has failed
-
-**Status:** reasoned · **Affects:** `LessonPage`'s independent learning/lesson fetches and `locked` calculation
-
-**Reproduce.** Open a later lesson directly and delay/fail `/api/learning` while its lesson request succeeds.
-`locked` is false when `progress` is undefined, and the failed progress request is silently swallowed. Full lesson
-content and practice actions are then shown as open even though Learn can show the same lesson locked.
-
-**Future fix / acceptance.** Represent progress loading/failure separately and do not silently treat unknown progress
-as an unlocked lesson. Offer recovery/retry and test delayed and failed progress responses. These are pedagogical locks,
-not an authorization claim over paid or private content.
-
----
-
-### BUG-171 🟡 One failed practice-clock request can disable its overlays for the rest of the mount
-
-**Status:** reasoned · **Affects:** `PracticeSession`'s clock-loading effect
-
-**Reproduce.** Enter a session and let its initial `getPracticeClock` fail once. The catch does nothing, so `clock`
-remains null and `clockStale` remains true. The effect depends on `[clockStale, sessionId, clock]`, not the cursor or
-a retry counter. Advancing the replay or enabling a clock layer leaves those dependencies unchanged; the effect
-does not run again. If a later refresh fails after an existing layer became stale, the same unchanged-true state can
-leave that old layer displayed indefinitely. A failed request is therefore more than a single missing frame.
-
-**Future fix / acceptance.** Track the requested cursor and explicit loading/failure state; retry on a later relevant
-cursor, a user retry, or a bounded recovery trigger without a tight retry loop. Show a failure when a requested layer
-is unavailable. Test one rejected response followed by a healthy response, advance/toggle, and recovery without reload.
 
 ---
 
@@ -873,6 +676,203 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-166 🟡 The built page's older CSP contradicts the backend's newer CSP
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned from both policies and built assets; no fresh browser CSP capture · **Affects:** `vite.config.ts`
+`contentSecurityPolicy`, `SecurityConfig.CONTENT_SECURITY_POLICY`
+
+**What.** The build injects a meta policy with `style-src 'self'` and no `font-src`, so fonts fall back to
+`default-src 'self'`. The backend allows inline styles and `font-src 'self' data:`, but a permissive header does not
+relax the meta policy: both are enforced. The current built CSS contains a data-URL font, and Lightweight Charts
+contains code for an inline attribution stylesheet. **The app disables its attribution logo**, so that stylesheet
+is not an active failure here. The demonstrated asset mismatch is the embedded JetBrains Mono Cyrillic-extended
+font subset (U+0460–052F and related ranges): when requested, its data URL conflicts with the meta policy. Direct CSSOM
+style-property assignments are not being claimed universally blocked.
+
+**Impact.** Text needing that font subset can fall back in the built app, with CSP violations. This is a limited font/
+policy consistency issue, not a claim that normal Latin text or the chart is broken. Tests against Vite do not inject
+this build-only meta policy.
+
+**Future fix / acceptance.** Maintain one consistent policy, including its required font/style sources, without
+loosening scripts unnecessarily. Open the actual production build, capture CSP violations, and request/render the
+affected font subset. [Multiple CSP policies intersect](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy),
+[font-src fallback](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/font-src).
+
+**✅ FIXED** (T58, 2026-11-02). The build no longer writes a CSP into the page (`vite.config.ts`). Since DEC-084 the server that serves the page sends the one policy, `SecurityConfig.CONTENT_SECURITY_POLICY`, with `font-src 'self' data:`, which T57 checked in a browser against the built image (fonts loaded, no violations). The two were enforced together, so the older meta refused what the header allowed. Checked by building: `dist/index.html` has no `Content-Security-Policy`. No browser capture of the Cyrillic subset was made.
+
+### BUG-158 🟠 The journal orders activity by the random historical market date
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `PracticeService.journal(UUID, int)`
+
+**Reproduce.** Make a trade in a replay of a recent market date, then make another in an older randomly selected replay.
+The listing sorts `TradePlan.getSubmittedCursor()` (the historical date), not `submittedAt` (when the learner placed it).
+Today's new trade can appear behind months of earlier practice or outside the first 50 rows entirely.
+
+**Future fix / acceptance.** Order recent activity by real submission time with a stable tie-breaker, while keeping
+the replay's date hidden/displayed according to its existing rule. Test two sessions whose historical and creation orders disagree.
+
+**✅ FIXED** (T58, 2026-11-02). `PracticeService.journal` sorts by `TradePlan.submittedAt`, when the learner placed the trade, newest first, with the plan's id to break ties. The replay's own moment is still what each row shows, hidden or revealed as before. `PracticeJournalApiTest.journalRows` makes the earlier trade the later in real time; mutant caught.
+
+### BUG-167 🟡 A lesson displays as unlocked while progress is loading or has failed
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `LessonPage`'s independent learning/lesson fetches and `locked` calculation
+
+**Reproduce.** Open a later lesson directly and delay/fail `/api/learning` while its lesson request succeeds.
+`locked` is false when `progress` is undefined, and the failed progress request is silently swallowed. Full lesson
+content and practice actions are then shown as open even though Learn can show the same lesson locked.
+
+**Future fix / acceptance.** Represent progress loading/failure separately and do not silently treat unknown progress
+as an unlocked lesson. Offer recovery/retry and test delayed and failed progress responses. These are pedagogical locks,
+not an authorization claim over paid or private content.
+
+**✅ FIXED** (T58, 2026-11-02). `LessonPage` treats progress it does not have as not known: while it loads, the lesson shows "Checking your progress…" instead of its content and its "Practise it" panel. If it fails, an alert says so with **Try again**. The title and summary still show. `LessonPage.test` "BUG-167": a failed load, then a retry that opens it; mutant caught.
+
+### BUG-171 🟡 One failed practice-clock request can disable its overlays for the rest of the mount
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `PracticeSession`'s clock-loading effect
+
+**Reproduce.** Enter a session and let its initial `getPracticeClock` fail once. The catch does nothing, so `clock`
+remains null and `clockStale` remains true. The effect depends on `[clockStale, sessionId, clock]`, not the cursor or
+a retry counter. Advancing the replay or enabling a clock layer leaves those dependencies unchanged; the effect
+does not run again. If a later refresh fails after an existing layer became stale, the same unchanged-true state can
+leave that old layer displayed indefinitely. A failed request is therefore more than a single missing frame.
+
+**Future fix / acceptance.** Track the requested cursor and explicit loading/failure state; retry on a later relevant
+cursor, a user retry, or a bounded recovery trigger without a tight retry loop. Show a failure when a requested layer
+is unavailable. Test one rejected response followed by a healthy response, advance/toggle, and recovery without reload.
+
+**✅ FIXED** (T58, 2026-11-02). `PracticeSession` remembers where a clock request failed (`clockFailedAt`) and asks again once the replay has moved from there. That is one try a position, so no loop, and a step while a request is out does not resend it (the cursor is read through a ref, not a dependency). `PracticeView.test` "BUG-171": a 500, no retry on the spot, a retry after the next bar; two mutants caught.
+
+### BUG-154 🟠 Reloading a newly created practice session can restore its original state instead of its current state
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (hook remount with retained creation state); full refresh sequence traced through routing ·
+**Affects:** `PracticeView`'s `location.state.created`, `usePracticeSession`'s seeded fast path
+
+**Reproduce.** Start a session, advance or trade, then reload or revisit its browser-history entry. Creation put the
+whole original `SessionResponse` into history state. If that object is supplied again, the hook treats it as current
+and skips `getSession` entirely. The remount probe confirmed the original cursor and **no server read**.
+
+**Impact.** The chart appears to lose progress or an open trade; the next command can jump to a different server moment.
+A draft made from the stale price can be submitted against the actual later cursor. The server's stored data is not erased.
+
+**Future fix / acceptance.** Consume and clear the creation handoff once, and validate state on subsequent mounts.
+Test a real refresh/back after advancing, placing a trade, and completing the session; the current cursor/status must show.
+
+**✅ FIXED** (T58, 2026-11-02). `PracticeView` replaces the history entry as soon as the session has taken its first answer (`navigate(…, { replace: true, state: null })`). The seed is still used once, so a new session is not fetched twice, but a reload or Back now asks the server for the session as it is. `PracticeView.test` "BUG-154" reads the history state after starting; mutant caught.
+
+### BUG-155 🟠 Opening a practice-session link directly drops the saved risk limit and cost display
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (rendered direct route) · **Affects:** `PracticeView.load` and props passed to `PracticeSession`
+
+**Reproduce.** Set a risk limit, then open or reload `/practice/<id>` directly. The effect calls `load()` only when
+`openId === null`; therefore settings are never requested on a direct session route. The probe observed no settings
+fetch and `riskLimitCents`/`costs` both undefined on the session component.
+
+**Impact.** Pre-trade warnings and the "at the stop with costs" display disappear, although the backend still records
+the saved limit and standard costs. A later scorecard can judge a limit the planning screen did not show.
+
+**Future fix / acceptance.** Load account practice settings independently of whether the home or a session is open.
+Test direct entry and reload with a saved limit and standard costs, including a settings-load failure state.
+
+**✅ FIXED** (T58, 2026-11-02). The practice settings (risk limit and standard costs) load in an effect of their own on every mount, whether the Practice home or a session's address is open. `PracticeView.test` "BUG-155" opens `/practice/<id>` directly; mutant caught.
+
+### BUG-160 🟠 A failed sign-out looks successful while the browser remains authenticated
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (network-failure/remount probe) · **Affects:** `useSession.logout/logoutEverywhere`, account-menu actions
+
+**Reproduce.** Let sign-out fail before reaching the server. Both hooks set `signedOut` in `finally`, even though neither
+HttpOnly cookie was cleared and the server revoked nothing. The probe showed signed out, then immediately signed back
+in after remounting. The menu discards the rejected promise with `void`, so there is no useful completion/error state.
+
+**Impact.** On a shared device the user can leave believing the account was secured; reload reopens it. "Sign out of
+every device" can similarly imply that remote sessions ended when its request failed.
+
+**Future fix / acceptance.** Report that server sign-out could not be completed and offer a retry; only report global
+revocation after confirmation. Hiding private content locally is fine, but distinguish that state from successful
+server sign-out. Test offline, 403 and 500 responses followed by reload.
+
+**✅ FIXED** (T58, 2026-11-02). `logout` and `logoutEverywhere` sign this browser out only after the server has, and throw otherwise. The account menu then says "You are still signed in: the sign-out did not reach the server…" and both rows can be tried again. The cookies are HttpOnly, so only the server can clear them: a sign-out that looked done but was not left the next reload signed in. `App.test` "BUG-160": a 500, then a retry that works; mutant caught.
+
+### BUG-153 🟠 The Chart tab can show NQ prices under an ES heading while ES is loading
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (rendered page with delayed ES response) · **Affects:** `ChartPage`'s fallback `series`, price,
+instrument economics, clock and setup response keys
+
+**Reproduce.** Load NQ and switch to ES while delaying ES bars. The page immediately says **ES** but retains NQ candles
+and a NQ last price (the probe showed 20,000 under ES). The new instrument's economics are passed to the old series and
+drawing overlay. Clock responses are rendered from `clock?.layer` without checking the window/symbol key; setup keys
+also omit the requested date window, so old-window overlays can remain during a date change.
+
+**Impact.** The displayed market and its prices/overlays can disagree at exactly the moment a user is analysing or
+drawing. Keeping a previous frame is useful only if its identity remains correct.
+
+**Future fix / acceptance.** Retain a complete, internally consistent displayed snapshot, or withhold price-dependent
+controls until the selected market/window is ready. Key every overlay by the same request identity. Test market, date,
+and timeframe switches with delayed and failed responses.
+
+**✅ FIXED** (T58, 2026-11-02). The previous frame stays up while the next one loads only when it is of the same market: a date or timeframe change still keeps the last candles on screen, but a market switch shows the new market's name over no candles, no last price and no drawing tools until its own candles come. The clock overlay is drawn only from the answer to the current request (`clock.key === requestKey`), and the setups' key now includes the window's end, so a date change cannot leave the last window's setups over the new candles. `App.test` "BUG-153" holds ES's candles back after a switch: no NQ price under ES; mutant caught. The clock and setups keys are reasoned, not tested separately.
+
+### BUG-149 🟠 Drawing saves can finish backwards and silently restore an older position
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (controlled out-of-order saves) · **Affects:** `useDrawings.commit`, drawing updates
+
+**Reproduce.** Drag a saved line to A, then to B before A's save completes. Let B's request finish first and A's finish
+last. The probe ended with B on screen, A persisted, and **no sync error**. `commit` starts independent writes and has
+no per-drawing queue or version check; response completion also rewrites the persisted snapshot out of order.
+
+**Impact.** A normal slow connection can lose the latest drawing edit on reload. BUG-135 fixed duplicate inserts,
+not ordering of updates.
+
+**Future fix / acceptance.** Serialize/coalesce writes per drawing and use a server version or conditional update for
+multiple tabs. Force response/commit order inversion in a test; reloading must retain the last intended position.
+
+**✅ FIXED** (T58, 2026-11-02). `useDrawings.commit` runs one commit at a time: each waits for the last and diffs the drawings as they are when its turn comes. A later drag's save always goes after an earlier one's, and changes made while a save is out merge into the next. One tab only: two tabs editing the same drawing still have the last save win, with no server version (not needed for one person's chart). `useDrawings.test` "BUG-149" holds the first save until the second is queued; mutant caught.
+
+### BUG-150 🟠 Deleting a new drawing while its first save is pending does not delete it on the server
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified · **Affects:** `useDrawings.commit`, its `persistedRef` deletion diff
+
+**Reproduce.** Create a drawing and delay its first PUT; delete it and commit before that PUT finishes. Because its id
+has not reached `persistedRef`, the removal sends no DELETE. The pending PUT later succeeds. The probe confirmed an
+empty local drawing list, no DELETE at all, and no sync error.
+
+**Impact.** The deleted shape returns on reload. The same sequence can happen with Undo immediately after creation.
+
+**Future fix / acceptance.** Track in-flight creations and deletion intent; send the delete after creation completes
+or cancel it safely. Test create/delete, create/undo, and delete/recreate races with delayed responses.
+
+**✅ FIXED** (T58, 2026-11-02). Since commits run in turn (BUG-149), a delete straight after a creation runs once the creating save has landed and is in the persisted map, so its DELETE is sent. Created and removed before any commit ran, nothing is sent at all. `useDrawings.test` "BUG-150"; caught by the BUG-149 mutant.
+
+### BUG-151 🟠 A slow drawing load replaces annotations made while it was pending
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified · **Affects:** the initial/retry loading effect in `useDrawings`
+
+**Reproduce.** Delay `listDrawings`, add a line while the chart is usable, then resolve the load with the earlier server
+snapshot. The effect unconditionally dispatches `load`, clearing the new line and its undo history without a warning.
+The probe observed exactly that. Candles and drawings are fetched separately, so drawing controls can be ready first.
+
+**Future fix / acceptance.** Gate editing until the drawing snapshot is ready or merge local changes made after load
+started. Apply the same rule to retry loads. A delayed empty server response must never erase a newly drawn annotation.
+
+**✅ FIXED** (T58, 2026-11-02). A load that arrives keeps every local drawing the server's snapshot does not have, and saves them. A failed load no longer clears the chart: what is drawn stays and is saved with the next change. `useDrawings.test` "BUG-151"; mutant caught.
+
+### BUG-152 🟠 Switching markets leaves the previous market's drawings editable through the new URL
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — verified (hook instrument-switch probe) · **Affects:** `useDrawings`, `ChartPage`, `ChartDrawingController.save/delete`
+
+**Reproduce.** Load NQ drawings, switch to ES, and delay ES's drawings response. The hook keeps NQ's state and persisted
+map while `symbolRef` changes to ES. Delete a visible NQ line now: the probe observed `deleteDrawing('ES', nqDrawingId)`.
+The backend validates that ES exists but deletes by id and owner only; it does not require that the row belongs to ES.
+Updates similarly ignore an existing row's instrument after the owner lookup.
+
+**Impact.** An ordinary market switch on a slow connection can delete or change the user's annotations on the other
+market. Owner checks still hold; this is not a cross-account deletion.
+
+**Future fix / acceptance.** Bind loaded drawing state and pending mutations to a symbol, disable old edits during a
+switch, and scope backend updates/deletes to owner **and instrument**. Delay the new load and prove no old-market write occurs.
+
+**✅ FIXED** (T58, 2026-11-02). The page drops the old market's drawings and its persisted map the moment the market changes, not when the new market's drawings arrive, so no old id can be sent to the new address. The server scopes both writes to the market: a delete matches owner, id and instrument (`deleteByIdAndUserIdAndInstrumentId`), and a save that finds the caller's drawing on another market answers 404. `useDrawings.test` "BUG-152", `ChartDrawingApiTest.boundToItsMarket`; three mutants caught.
 
 ### BUG-143 🟠 Forgot-password timing tells an attacker which email addresses have accounts
 

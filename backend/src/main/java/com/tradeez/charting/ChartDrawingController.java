@@ -215,6 +215,12 @@ public class ChartDrawingController {
 			}
 		}
 
+		// BUG-152: the caller's drawing, but on another market — written to this chart's address by a page that had not
+		// yet let go of the other market. Not this chart's, so as if it did not exist.
+		if (existing.isPresent() && !existing.get().getInstrumentId().equals(instrument.getId())) {
+			throw new DrawingNotYoursException();
+		}
+
 		if (existing.isPresent()) {
 			existing.get().update(body.kind(), anchors, style, text);
 			return ResponseEntity.ok(toDto(drawings.save(existing.get())));
@@ -240,10 +246,10 @@ public class ChartDrawingController {
 			@PathVariable String symbol,
 			@PathVariable UUID id) {
 
-		marketData.requireInstrument(symbol);
+		Instrument instrument = marketData.requireInstrument(symbol);
 		// Deleting something already gone is a success: the client asked for it to be absent, and it
 		// is. Retries after a dropped response must not fail.
-		drawings.deleteByIdAndUserId(id, principal.id());
+		drawings.deleteByIdAndUserIdAndInstrumentId(id, principal.id(), instrument.getId());
 		return ResponseEntity.noContent().build();
 	}
 

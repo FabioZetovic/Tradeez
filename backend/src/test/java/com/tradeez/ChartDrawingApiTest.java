@@ -279,6 +279,26 @@ class ChartDrawingApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("BUG-152 a drawing on one market cannot be changed or deleted through another market's address")
+	void boundToItsMarket() throws Exception {
+		UUID id = UUID.randomUUID();
+		mockMvc.perform(put("/api/charts/DEMO-NQ/drawings/" + id).cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content(body(id, "horizontal-line", 1710338400L, 80_000L)))
+			.andExpect(status().isCreated());
+		mockMvc.perform(put("/api/charts/NQ/drawings/" + id).cookie(alice).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content(body(id, "horizontal-line", 1710338400L, 90_000L)))
+			.andExpect(status().isNotFound());
+		mockMvc.perform(delete("/api/charts/NQ/drawings/" + id).cookie(alice).with(csrf()))
+			.andExpect(status().isNoContent());
+		assertThat(drawings.findById(id)).hasValueSatisfying(d -> {
+			assertThat(d.getAnchors().getFirst().get("priceTicks")).isEqualTo(80_000);
+		});
+		mockMvc.perform(delete("/api/charts/DEMO-NQ/drawings/" + id).cookie(alice).with(csrf()))
+			.andExpect(status().isNoContent());
+		assertThat(drawings.findById(id)).isEmpty();
+	}
+
+	@Test
 	@DisplayName("BUG-165 no anchors at all, a null anchor or one missing a coordinate is a 400, not a crash")
 	void malformedAnchorsAreRejected() throws Exception {
 		UUID id = UUID.randomUUID();

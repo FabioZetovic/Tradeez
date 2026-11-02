@@ -32,10 +32,22 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
   const root = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const phone = useIsPhone()
+  // BUG-160: a sign-out that did not reach the server leaves this browser signed in, and says so.
+  const [signOutFailed, setSignOutFailed] = useState(false)
   const close = useCallback(() => {
     setOpen(false)
     setView('menu')
+    setSignOutFailed(false)
   }, [])
+  const signOut = (action: () => Promise<void>) => {
+    setSignOutFailed(false)
+    action().catch(() => setSignOutFailed(true))
+  }
+  const signOutError = signOutFailed && (
+    <p role="alert" className={cx(errorClass, 'px-3 py-2')}>
+      You are still signed in: the sign-out did not reach the server. Check the connection and try again.
+    </p>
+  )
 
   if (phone) {
     // A phone (T53): the avatar opens a sheet from the foot of the screen, with the calendar and the guide in it.
@@ -90,13 +102,14 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
                 </SheetRow>
               </SheetGroup>
               <SheetGroup className="mt-3">
-                <SheetRow icon={<LogOut />} onClick={() => void onLogout()} plain>
+                <SheetRow icon={<LogOut />} onClick={() => signOut(onLogout)} plain>
                   Sign out
                 </SheetRow>
-                <SheetRow icon={<MonitorOff />} onClick={() => void onLogoutEverywhere()} plain danger>
+                <SheetRow icon={<MonitorOff />} onClick={() => signOut(onLogoutEverywhere)} plain danger>
                   Sign out of every device
                 </SheetRow>
               </SheetGroup>
+              {signOutError}
               <p className="mt-4 text-center text-xs leading-relaxed text-subtle">{DISCLAIMER_SHORT}</p>
             </>
           ) : (
@@ -153,12 +166,13 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
               >
                 How it works
               </MenuRow>
-              <MenuRow icon={<LogOut />} onClick={() => void onLogout()}>
+              <MenuRow icon={<LogOut />} onClick={() => signOut(onLogout)}>
                 Sign out
               </MenuRow>
-              <MenuRow icon={<MonitorOff />} danger onClick={() => void onLogoutEverywhere()}>
+              <MenuRow icon={<MonitorOff />} danger onClick={() => signOut(onLogoutEverywhere)}>
                 Sign out of every device
               </MenuRow>
+              {signOutError}
             </>
           ) : (
             <PasswordForm user={user} onChangePassword={onChangePassword} onBack={() => setView('menu')} />

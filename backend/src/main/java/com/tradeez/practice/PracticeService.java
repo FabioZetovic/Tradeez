@@ -752,7 +752,10 @@ public class PracticeService {
 		Map<UUID, Instrument> byId = instruments.findAll().stream()
 			.collect(Collectors.toMap(Instrument::getId, Function.identity()));
 		return finished(userId).stream()
-			.sorted(Comparator.comparing((Finished f) -> f.trade().plan().getSubmittedCursor()).reversed())
+			// BUG-158: newest placed in real time. The replay's moment is a random day of history: sorted by it, today's
+			// trade could land behind months of earlier practice, or past the limit.
+			.sorted(Comparator.comparing((Finished f) -> f.trade().plan().getSubmittedAt())
+				.thenComparing(f -> f.trade().plan().getId()).reversed())
 			.limit(limit)
 			.map(f -> {
 				Trade trade = f.trade();

@@ -20,5 +20,6 @@ public interface ChartDrawingRepository extends JpaRepository<ChartDrawing, UUID
 	 */
 	Optional<ChartDrawing> findByIdAndUserId(UUID id, UUID userId);
 
-	long deleteByIdAndUserId(UUID id, UUID userId);
+	/** BUG-152: the market too, so a delete sent to one chart's address cannot remove a drawing on another. */
+	long deleteByIdAndUserIdAndInstrumentId(UUID id, UUID userId, UUID instrumentId);
 }

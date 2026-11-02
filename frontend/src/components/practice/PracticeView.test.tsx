@@ -1,7 +1,8 @@
+import { useEffect } from 'react'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { PracticeView } from './PracticeView'
 import { FakeChartAdapter } from '@/test/fakeChartAdapter'
 import { onPhone } from '@/test/phone'
@@ -323,6 +324,34 @@ describe('Practice — a replay', () => {
     expect(calls.some((c) => c.method === 'GET' && c.url.endsWith(`/sessions/${ID}`))).toBe(false)
     // Nothing to log until a trade is placed.
     expect(screen.queryByRole('region', { name: 'Trades' })).not.toBeInTheDocument()
+  })
+
+  it('BUG-154 the first answer is handed over once: the history entry no longer carries it', async () => {
+    let historyState: unknown = 'unread'
+    function History() {
+      const state = useLocation().state as unknown
+      useEffect(() => {
+        historyState = state
+      })
+      return null
+    }
+    const user = userEvent.setup()
+    charts = []
+    atPractice(
+      <>
+        <PracticeView adapterFactory={() => new FakeChartAdapter()} />
+        <History />
+      </>,
+    )
+    await startSession(user)
+    await waitFor(() => expect(historyState).toBeNull())
+    // Still not fetched twice: the handover was used before it was cleared.
+    expect(calls.some((c) => c.method === 'GET' && c.url.endsWith(`/sessions/${ID}`))).toBe(false)
+  })
+
+  it('BUG-155 a session opened from its address still reads the risk limit and the costs', async () => {
+    renderPractice(`/practice/${ID}`)
+    await waitFor(() => expect(calls.some((c) => is(c, 'GET', '/api/practice/settings'))).toBe(true))
   })
 
   it('builds a bracket, explains a bad one, and locks exactly what was shown', async () => {
@@ -1095,6 +1124,45 @@ describe('Practice — the New York clock (T7)', () => {
     await user.click(screen.getByRole('button', { name: /next bar/i }))
     await waitFor(() => expect(screen.getByTestId('practice-cursor')).toBeInTheDocument())
     expect(asked).toBe(2)
+  })
+
+  it('BUG-171 a clock request that failed is asked again once the replay moves, not never and not in a loop', async () => {
+    const server = happyServer()
+    let asked = 0
+    let cursor = CURSOR
+    mockApi((call) => {
+      if (is(call, 'GET', '/clock')) {
+        asked++
+        if (asked === 1) return { status: 500, body: { message: 'down' } }
+        return {
+          body: {
+            rules: { sessions: 'sessions-1.0.0', opens: 'opens-1.0.0', levels: 'levels-1.0.0' },
+            windows: [],
+            lines: [],
+            nextChange: CURSOR + 99_999,
+          },
+        }
+      }
+      if (is(call, 'POST', '/advance')) {
+        cursor += 300
+        return {
+          body: {
+            state: { ...ANALYSING, cursor },
+            bars: [{ time: cursor - 300, open: 80_006, high: 80_012, low: 80_004, close: 80_010, volume: 10 }],
+          },
+        }
+      }
+      return server(call)
+    })
+    const user = userEvent.setup()
+    renderPractice()
+    await startSession(user)
+    await waitFor(() => expect(asked).toBe(1))
+    // Failed where it stands: not asked again on the spot.
+    await new Promise((r) => setTimeout(r, 50))
+    expect(asked).toBe(1)
+    await user.click(screen.getByRole('button', { name: /next bar/i }))
+    await waitFor(() => expect(asked).toBe(2))
   })
 })
 

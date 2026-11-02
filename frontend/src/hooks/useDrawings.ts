@@ -42,37 +42,10 @@ export function useDrawings(symbol: string) {
   // re-uploading every shape on every gesture.
   const persistedRef = useRef<Map<string, string>>(new Map())
   const symbolRef = useRef(symbol)
-
-  useEffect(() => {
-    let cancelled = false
-    listDrawings(symbol)
-      .then((drawings) => {
-        if (cancelled) return
-        persistedRef.current = new Map(drawings.map((d) => [d.id, JSON.stringify(d)]))
-        dispatch({ type: 'load', drawings })
-        setLoadError(null)
-        // The local drawings were just replaced by the server's, so nothing is waiting to save.
-        setSaveError(null)
-      })
-      .catch(() => {
-        // A chart that loads without its annotations is degraded but usable; one that refuses to
-        // load because a secondary request failed is not. But the user is told: an empty chart
-        // would otherwise read as "my drawings are gone".
-        if (cancelled) return
-        persistedRef.current = new Map()
-        dispatch({ type: 'load', drawings: [] })
-        setSaveError(null)
-        setLoadError({
-          symbol,
-          message: 'Your saved drawings could not be loaded. New drawings will still be saved.',
-        })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [symbol, loadAttempt])
-
   const stateRef = useRef(state)
+  // BUG-149, BUG-150: the commit running now; the next waits for it. Side by side, an earlier drag's save could land
+  // after a later one's, and a delete straight after a creation found nothing saved yet to delete.
+  const commitsRef = useRef<Promise<unknown>>(Promise.resolve())
 
   // Latest values for commit(), which runs later and asynchronously. Written at commit rather than
   // during render (BUG-035), so a discarded render cannot leave them pointing at state that never was.
@@ -100,7 +73,7 @@ export function useDrawings(symbol: string) {
    * A shape that fails to save is left out of the persisted map, so the next commit retries it.
    * Resolves to whether everything is now in sync.
    */
-  const commit = useCallback(async (): Promise<boolean> => {
+  const commitNow = useCallback(async (): Promise<boolean> => {
     const current = stateRef.current.drawings
     const persisted = persistedRef.current
     const sym = symbolRef.current
@@ -153,6 +126,54 @@ export function useDrawings(symbol: string) {
     }
     return ok
   }, [])
+
+  /** One commit at a time, each diffing the drawings as they are when its turn comes (BUG-149, BUG-150). */
+  const commit = useCallback((): Promise<boolean> => {
+    const run = commitsRef.current.then(commitNow)
+    commitsRef.current = run.catch(() => undefined)
+    return run
+  }, [commitNow])
+
+  // BUG-152: the chart whose drawings these are. Another market's are dropped the moment the market changes, not when
+  // its drawings arrive — until then, deleting one sent the old market's id to the new market's address.
+  const loadedSymbolRef = useRef(symbol)
+
+  useEffect(() => {
+    let cancelled = false
+    if (loadedSymbolRef.current !== symbol) {
+      loadedSymbolRef.current = symbol
+      persistedRef.current = new Map()
+      dispatchNow({ type: 'load', drawings: [] })
+    }
+    listDrawings(symbol)
+      .then((drawings) => {
+        if (cancelled) return
+        persistedRef.current = new Map(drawings.map((d) => [d.id, JSON.stringify(d)]))
+        // BUG-151: what was drawn while the load was on its way stays — the server's snapshot predates it.
+        const onServer = new Set(drawings.map((d) => d.id))
+        const drawnMeanwhile = stateRef.current.drawings.filter((d) => !onServer.has(d.id))
+        dispatchNow({ type: 'load', drawings: [...drawings, ...drawnMeanwhile] })
+        setLoadError(null)
+        setSaveError(null)
+        if (drawnMeanwhile.length > 0) void commit()
+      })
+      .catch(() => {
+        // A chart that loads without its annotations is degraded but usable; one that refuses to
+        // load because a secondary request failed is not. But the user is told: an empty chart
+        // would otherwise read as "my drawings are gone".
+        if (cancelled) return
+        // Whatever is drawn here stays (BUG-151) and is saved with the next change.
+        persistedRef.current = new Map()
+        setSaveError(null)
+        setLoadError({
+          symbol,
+          message: 'Your saved drawings could not be loaded. New drawings will still be saved.',
+        })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [symbol, loadAttempt, dispatchNow, commit])
 
   /**
    * Retries whatever failed. A failed save first: it is about work the user has done and would

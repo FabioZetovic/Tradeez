@@ -75,23 +75,20 @@ export function useSession() {
   /** T56: an emailed link confirmed the address or set a new password, and the server signed this browser in. */
   const signedIn = useCallback((user: User) => setState({ status: 'signedIn', user }), [])
 
+  /**
+   * BUG-160: signed out here only once the server has done it. The session's cookies are HttpOnly: only the server can
+   * clear them, so a sign-out that failed and looked done left the next reload signed in — on a shared computer, open
+   * to whoever came next. A failure is thrown for the menu to say so and offer another try.
+   */
   const logout = useCallback(async () => {
-    try {
-      await apiLogout()
-    } finally {
-      // Sign out locally even if the request failed. Leaving the UI in a signed-in state after the
-      // user asked to leave is worse than a stale server-side session, which expires anyway.
-      setState({ status: 'signedOut' })
-    }
+    await apiLogout()
+    setState({ status: 'signedOut' })
   }, [])
 
-  /** Every device, this one included (DEC-064's account menu). Signed out here even if the request failed. */
+  /** Every device, this one included (DEC-064's account menu). As above: said done only when it is. */
   const logoutEverywhere = useCallback(async () => {
-    try {
-      await apiLogoutEverywhere()
-    } finally {
-      setState({ status: 'signedOut' })
-    }
+    await apiLogoutEverywhere()
+    setState({ status: 'signedOut' })
   }, [])
 
   /** The server renews this session's cookies and signs out every other one. */

@@ -2233,6 +2233,15 @@ address (BUG-143). Asking for a second reset link keeps the first working (BUG-1
 once make one account (BUG-148), and a sign-up's link carries its chosen name as well as its password (V35, BUG-168).
 Emailed links open even when someone is signed in (BUG-161).
 
+**The chart, practice and Learn under slow answers (T58, 2026-11-02).** Drawing saves run one after another, so a later
+drag is never overwritten by an earlier one and a delete follows the save it undoes (BUG-149, BUG-150). Drawings made
+while the saved ones load are kept (BUG-151). A market switch drops the old market's drawings and candles at once, and
+the server ties every drawing update and delete to its market (BUG-152, BUG-153). A practice session's first answer is
+used once, so a reload shows it as it is now (BUG-154). Its risk limit loads on its own address (BUG-155), and a clock
+request that failed is asked again as the replay moves (BUG-171). The journal lists trades by when they were placed
+(BUG-158). A sign-out the server did not take says so (BUG-160). A lesson waits for progress before showing itself open
+(BUG-167). The page carries no CSP of its own: the server's header is the one policy (BUG-166).
+
 ---
 
 ## For the presentation: the disclaimer slide

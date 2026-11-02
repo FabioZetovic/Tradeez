@@ -169,3 +169,91 @@ describe('useDrawings — BUG-096: a commit straight after a change saves that c
     expect(vi.mocked(deleteDrawing).mock.calls).toEqual([['DEMO-NQ', 'second'], ['DEMO-NQ', 'first']])
   })
 })
+
+/** A promise and the hands to settle it, for answers that arrive when a test says. */
+function later<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((r) => (resolve = r))
+  return { promise, resolve }
+}
+
+describe("useDrawings — Codex's audit: slow answers", () => {
+  it('BUG-149 a later drag is saved after an earlier one, so the last position is what the server keeps', async () => {
+    vi.mocked(listDrawings).mockResolvedValue([line('l', 80_000)])
+    const { result } = renderHook(() => useDrawings('DEMO-NQ'))
+    await waitFor(() => expect(result.current.state.drawings).toHaveLength(1))
+    const toA = later<never>()
+    vi.mocked(saveDrawing).mockReturnValueOnce(toA.promise)
+
+    let first!: Promise<boolean>
+    let second!: Promise<boolean>
+    act(() => {
+      result.current.dispatch({ type: 'update', drawing: line('l', 80_100) })
+      first = result.current.commit()
+    })
+    await waitFor(() => expect(saveDrawing).toHaveBeenCalledTimes(1))
+    act(() => {
+      result.current.dispatch({ type: 'update', drawing: line('l', 80_200) })
+      second = result.current.commit()
+    })
+    // Only A is out; B waits for it.
+    await Promise.resolve()
+    expect(vi.mocked(saveDrawing).mock.calls.map(([, d]) => d.anchors[0].priceTicks)).toEqual([80_100])
+    await act(async () => {
+      toA.resolve({} as never)
+      await first
+      await second
+    })
+    expect(vi.mocked(saveDrawing).mock.calls.map(([, d]) => d.anchors[0].priceTicks)).toEqual([80_100, 80_200])
+  })
+
+  it('BUG-150 a drawing deleted while its first save is out is deleted on the server once that save lands', async () => {
+    const { result } = renderHook(() => useDrawings('DEMO-NQ'))
+    await waitFor(() => expect(listDrawings).toHaveBeenCalled())
+    const created = later<never>()
+    vi.mocked(saveDrawing).mockReturnValueOnce(created.promise)
+    let save!: Promise<boolean>
+    let commits!: Promise<boolean[]>
+    act(() => {
+      result.current.dispatch({ type: 'add', drawing: line('brief') })
+      save = result.current.commit()
+    })
+    await waitFor(() => expect(saveDrawing).toHaveBeenCalledTimes(1))
+    act(() => {
+      result.current.dispatch({ type: 'remove', id: 'brief' })
+      commits = Promise.all([save, result.current.commit()])
+    })
+    await act(async () => {
+      created.resolve({} as never)
+      await commits
+    })
+    expect(deleteDrawing).toHaveBeenCalledWith('DEMO-NQ', 'brief')
+  })
+
+  it('BUG-151 a line drawn while the saved drawings load is still there after they arrive, and is saved', async () => {
+    const load = later<Drawing[]>()
+    vi.mocked(listDrawings).mockReturnValueOnce(load.promise)
+    const { result } = renderHook(() => useDrawings('DEMO-NQ'))
+    act(() => result.current.dispatch({ type: 'add', drawing: line('new') }))
+    await act(async () => {
+      load.resolve([line('saved')])
+      await load.promise
+    })
+    expect(result.current.state.drawings.map((d) => d.id).sort()).toEqual(['new', 'saved'])
+    await waitFor(() => expect(vi.mocked(saveDrawing).mock.calls.map(([, d]) => d.id)).toContain('new'))
+  })
+
+  it("BUG-152 switching market drops the old market's drawings at once, so none can be sent to the new one", async () => {
+    vi.mocked(listDrawings).mockResolvedValueOnce([line('nq-line')])
+    const { result, rerender } = renderHook(({ symbol }) => useDrawings(symbol), { initialProps: { symbol: 'NQ' } })
+    await waitFor(() => expect(result.current.state.drawings).toHaveLength(1))
+    vi.mocked(listDrawings).mockReturnValueOnce(later<Drawing[]>().promise)
+    rerender({ symbol: 'ES' })
+    expect(result.current.state.drawings).toEqual([])
+    await act(async () => {
+      await result.current.commit()
+    })
+    expect(deleteDrawing).not.toHaveBeenCalled()
+    expect(saveDrawing).not.toHaveBeenCalled()
+  })
+})

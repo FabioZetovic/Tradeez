@@ -163,10 +163,15 @@ class PracticeJournalApiTest extends AbstractIntegrationTest {
 
 		JsonNode rows = journal(alice, "");
 		assertThat(rows.size()).isEqualTo(2);
-		// Newest placed first, by the real moments, whatever order the sessions were made in.
 		Instant firstPlaced = placed(first);
 		Instant secondPlaced = placed(second);
-		assertThat(rows.get(0).get("sessionId").asString()).isEqualTo(secondPlaced.isAfter(firstPlaced) ? second : first);
+		// BUG-158: newest placed first in real time, whatever days of history the replays were on. The first trade made
+		// later than the second, as far as the clock is concerned: it now leads.
+		assertThat(rows.get(0).get("sessionId").asString()).isEqualTo(second);
+		// Plans are immutable (INVARIANT 2); the test steps round that guard for this one row, and only here.
+		jdbc.execute("DO $$ BEGIN SET LOCAL session_replication_role = replica; UPDATE trade_plan SET submitted_at = now()"
+			+ " + interval '1 hour' WHERE session_id = '" + UUID.fromString(first) + "'; END $$");
+		assertThat(journal(alice, "").get(0).get("sessionId").asString()).isEqualTo(first);
 		JsonNode newest = row(rows, second);
 		JsonNode ended = row(rows, first);
 		// The ended one has revealed its date: the real moment, in UTC.

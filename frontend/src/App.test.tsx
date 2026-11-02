@@ -224,6 +224,24 @@ describe('App — signed in', () => {
     window.history.replaceState(null, '', '/chart')
   })
 
+  it("BUG-153 while another market's candles load, the last market's candles and price are not shown under its name", async () => {
+    mockApi({ ...signedIn, '/api/market/instruments': { body: [NQ, { ...NQ, symbol: 'ES' }] } })
+    const served = globalThis.fetch
+    // ES's candles never come.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        String(url).includes('/ES/') ? new Promise(() => {}) : (served as typeof fetch)(url, init),
+      ),
+    )
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByTestId('last-price')).toHaveTextContent('20001.50')
+    await userEvent.selectOptions(screen.getByLabelText('Market'), 'ES')
+    expect(await screen.findByRole('heading', { name: 'ES' })).toBeInTheDocument()
+    expect(screen.queryByTestId('last-price')).not.toBeInTheDocument()
+    localStorage.removeItem('tradeez.chart.symbol')
+  })
+
   it('restores the session and shows the workspace', async () => {
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
     expect(await screen.findByText('Fabio')).toBeInTheDocument()
@@ -493,6 +511,19 @@ describe('App — signed in', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out of every device' }))
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
     expect(requests('/api/auth/logout-all')).toHaveLength(1)
+  })
+
+  it('BUG-160 a sign-out the server did not take leaves this browser signed in, says so, and can be tried again', async () => {
+    mockApi({ ...signedIn, '/api/auth/logout': { status: 500, body: {} } })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Fabio' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('You are still signed in')
+    expect(screen.queryByRole('heading', { name: /sign in/i })).not.toBeInTheDocument()
+
+    mockApi({ ...signedIn, '/api/auth/logout': { status: 204, body: {} } })
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
   })
 })
 
