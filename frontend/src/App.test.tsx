@@ -619,6 +619,15 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(current('Chart')).toBeNull()
   })
 
+  it('BUG-173 a confirmation link, once it has signed in, goes on to Home', async () => {
+    mockApi({ ...signedOut, '/api/auth/verify': { body: USER } })
+    at('/verify-email#tok_verify')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Fabio\./ })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+    expect(requests('/api/auth/verify')).toHaveLength(1)
+  })
+
   it('BUG-161 signed in, an emailed link still opens its page instead of Home', async () => {
     at('/reset-password#tok_reset')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)

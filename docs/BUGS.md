@@ -37,7 +37,7 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). BUG-146, BUG-156, BUG-157 and BUG-159 fixed too (2026-11-03). Still open: BUG-145 (Fabio's call). Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172 and BUG-173, found on the way), moved to [Fixed](#fixed). BUG-146, BUG-156, BUG-157 and BUG-159 fixed too (2026-11-03). Still open: BUG-145 (Fabio's call). Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
 
@@ -584,6 +584,20 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-173 🟠 An email confirmation link signed in but stayed on "Confirming your email…"
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-03) — seen in the browser check of T58 (2026-11-03): the verify call answered 200, the page never moved · **Affects:** `App.tsx`, the emailed-link pages
+
+**What.** A regression from the BUG-161 fix. The link pages used to sit only among the signed-out routes, so signing in
+switched to the signed-in routes, and their wildcard went Home. Now they are shown whoever is signed in, so after
+signing in the page simply stayed. The tests passed because each link page is tested alone, and none followed it in the
+whole app.
+
+**✅ FIXED** (T58, 2026-11-03). The link pages sign in through `linkSignedIn`, which goes on to Home. It is a stable
+callback, because the confirmation page asks again whenever it changes. `App.test` "BUG-173" follows a link through the
+whole app to Home with one verify request; mutant caught. Checked live in the browser with a throwaway account: the link
+lands on Home.
 
 ### BUG-146 🟠 Several expensive authenticated operations escape the read/work budget
 

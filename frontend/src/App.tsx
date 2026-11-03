@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router'
+import { useCallback, type ReactNode } from 'react'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 import { useIsPhone } from '@/hooks/useIsPhone'
 import { MotionConfig, motion } from 'motion/react'
@@ -10,6 +10,7 @@ import { Guide } from '@/components/Guide'
 import { AccountPage } from '@/components/AccountPage'
 import { PrivacyPage } from '@/components/PrivacyPage'
 import { ForgotPassword, ResetPassword, VerifyEmail } from '@/components/EmailLinks'
+import type { User } from '@/lib/api/auth'
 import { HomePage } from '@/components/home/HomePage'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { NewsPage } from '@/components/news/NewsPage'
@@ -44,6 +45,16 @@ const EMAIL_LINK_PATHS = ['/verify-email', '/forgot-password', '/reset-password'
 function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
   const { state, login, register, signedIn, logout, logoutEverywhere, changePassword, deleteAccount } = useSession()
   const location = useLocation()
+  const navigate = useNavigate()
+  // The link has done its work: on to Home. Since BUG-161 its page shows whoever is signed in, so it no longer gives way
+  // to Home by itself. Stable, because the confirmation page asks again whenever this changes.
+  const linkSignedIn = useCallback(
+    (user: User) => {
+      signedIn(user)
+      void navigate('/', { replace: true })
+    },
+    [signedIn, navigate],
+  )
 
   if (state.status === 'loading') {
     return (
@@ -60,9 +71,9 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
   // as the account it belongs to.
   const emailLinks = (
     <Routes>
-      <Route path="/verify-email" element={<AuthPage><VerifyEmail onSignedIn={signedIn} /></AuthPage>} />
+      <Route path="/verify-email" element={<AuthPage><VerifyEmail onSignedIn={linkSignedIn} /></AuthPage>} />
       <Route path="/forgot-password" element={<AuthPage><ForgotPassword /></AuthPage>} />
-      <Route path="/reset-password" element={<AuthPage><ResetPassword onSignedIn={signedIn} /></AuthPage>} />
+      <Route path="/reset-password" element={<AuthPage><ResetPassword onSignedIn={linkSignedIn} /></AuthPage>} />
     </Routes>
   )
   if (EMAIL_LINK_PATHS.includes(location.pathname)) {
