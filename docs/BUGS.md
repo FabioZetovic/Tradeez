@@ -197,6 +197,16 @@ Every closed entry is under [Fixed](#fixed) with its original description intact
 
 ## Environment
 
+### ENV-015 🟡 An old report in target/ added twelve tests to every count
+
+**Status:** found 2026-11-03 (fresh-clone check before the T58 merge) · **Affects:** the test totals given during T58
+
+**What.** Codex's audit run on 2026-11-01 compiled its probes (`docs/audits/2026-11-01/BackendAuditTest.java`) and left
+their report in `backend/target/surefire-reports`. `mvn test` does not clear that folder, so counting its `<testcase>` entries
+added those 12 to every total. The 833 and 835 reported during T58 are really 821 and 823. Nothing failed or was hidden:
+the old file had no failures and was never run again. The fresh clone gave the true count (823), and the stale file was
+deleted. **To avoid it:** count from a clean `target/` (`mvn clean test`) or from the run's own summary.
+
 ### ENV-014 🟠 A mutation run's restoring write failed on Windows and left a mutant in the source
 
 **Status:** verified (session 018, 2026-10-26) · **Affects:** the scratchpad mutation scripts, not the product
