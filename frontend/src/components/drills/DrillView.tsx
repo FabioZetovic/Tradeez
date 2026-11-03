@@ -57,6 +57,7 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
   const [marks, setMarks] = useState<number[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [noData, setNoData] = useState(false)
   const phone = useIsPhone()
   const [ruleOpen, setRuleOpen] = useState(false)
 
@@ -79,8 +80,10 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
     try {
       await work()
     } catch (e) {
-      const body = e instanceof ApiError ? (e.body as { message?: string } | null) : null
+      const body = e instanceof ApiError ? (e.body as { message?: string; code?: string } | null) : null
       setError(body?.message ?? 'Something went wrong. Try again.')
+      // BUG-134: no market data on this server — asking again cannot help, so there is no "Try again".
+      setNoData(body?.code === 'NO_MARKET_DATA')
     } finally {
       setBusy(false)
     }
@@ -191,9 +194,11 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
                 <p role="alert" className={errorClass}>
                   {error}
                 </p>
-                <Button disabled={busy} onClick={() => void start()}>
-                  Try again
-                </Button>
+                {!noData && (
+                  <Button disabled={busy} onClick={() => void start()}>
+                    Try again
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -384,9 +389,11 @@ export function DrillView({ kind, adapterFactory }: DrillViewProps) {
               <p role="alert" className={errorClass}>
                 {error}
               </p>
-              <Button disabled={busy} onClick={() => void start()}>
-                Try again
-              </Button>
+              {!noData && (
+                <Button disabled={busy} onClick={() => void start()}>
+                  Try again
+                </Button>
+              )}
             </div>
           )}
         </Panel>

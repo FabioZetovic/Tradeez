@@ -163,10 +163,15 @@ class PracticeJournalApiTest extends AbstractIntegrationTest {
 
 		JsonNode rows = journal(alice, "");
 		assertThat(rows.size()).isEqualTo(2);
-		// Newest placed first, by the real moments, whatever order the sessions were made in.
 		Instant firstPlaced = placed(first);
 		Instant secondPlaced = placed(second);
-		assertThat(rows.get(0).get("sessionId").asString()).isEqualTo(secondPlaced.isAfter(firstPlaced) ? second : first);
+		// BUG-158: newest placed first in real time, whatever days of history the replays were on. The first trade made
+		// later than the second, as far as the clock is concerned: it now leads.
+		assertThat(rows.get(0).get("sessionId").asString()).isEqualTo(second);
+		// Plans are immutable (INVARIANT 2); the test steps round that guard for this one row, and only here.
+		jdbc.execute("DO $$ BEGIN SET LOCAL session_replication_role = replica; UPDATE trade_plan SET submitted_at = now()"
+			+ " + interval '1 hour' WHERE session_id = '" + UUID.fromString(first) + "'; END $$");
+		assertThat(journal(alice, "").get(0).get("sessionId").asString()).isEqualTo(first);
 		JsonNode newest = row(rows, second);
 		JsonNode ended = row(rows, first);
 		// The ended one has revealed its date: the real moment, in UTC.
@@ -202,6 +207,27 @@ class PracticeJournalApiTest extends AbstractIntegrationTest {
 		assertThat(journal(alice, "?limit=1").size()).isEqualTo(1);
 		mockMvc.perform(get("/api/practice/trades?limit=0").cookie(alice)).andExpect(status().isBadRequest());
 		mockMvc.perform(get("/api/practice/trades?limit=201").cookie(alice)).andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("BUG-157 page by page with an offset, and filtered on the server before paging")
+	void pagesAndFilters() throws Exception {
+		String longOne = oneTrade(alice, "LONG", true);
+		String shortOne = oneTrade(alice, "SHORT", false);
+		JsonNode all = journal(alice, "");
+		assertThat(all.size()).isEqualTo(2);
+		assertThat(journal(alice, "?limit=1&offset=1").get(0).get("sessionId").asString())
+			.isEqualTo(all.get(1).get("sessionId").asString());
+		assertThat(journal(alice, "?offset=2").size()).isZero();
+
+		// A match beyond the first page is found: the long trade is the older one, past limit=1 unfiltered.
+		JsonNode longs = journal(alice, "?limit=1&kind=LONG");
+		assertThat(longs.size()).isEqualTo(1);
+		assertThat(longs.get(0).get("sessionId").asString()).isEqualTo(longOne);
+		assertThat(journal(alice, "?kind=SHORT").get(0).get("sessionId").asString()).isEqualTo(shortOne);
+
+		mockMvc.perform(get("/api/practice/trades?offset=-1").cookie(alice)).andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/practice/trades?kind=EVERYTHING").cookie(alice)).andExpect(status().isBadRequest());
 	}
 
 	@Test

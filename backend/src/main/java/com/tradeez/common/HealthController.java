@@ -8,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +31,7 @@ public class HealthController {
 
 	private final JdbcTemplate jdbcTemplate;
 	private final BuildProperties build;
+	private final boolean deployed;
 	private final Instant startedAt =
 		Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime());
 
@@ -37,9 +39,11 @@ public class HealthController {
 	 * @param build absent when the app runs without a Maven build (straight from an IDE), which is
 	 *              why it is optional rather than required
 	 */
-	public HealthController(JdbcTemplate jdbcTemplate, ObjectProvider<BuildProperties> build) {
+	public HealthController(JdbcTemplate jdbcTemplate, ObjectProvider<BuildProperties> build,
+			@Value("${tradeez.cookies.secure}") boolean deployed) {
 		this.jdbcTemplate = jdbcTemplate;
 		this.build = build.getIfAvailable();
+		this.deployed = deployed;
 	}
 
 	@GetMapping
@@ -63,6 +67,10 @@ public class HealthController {
 		body.put("database", dbUp ? "UP" : "DOWN");
 		// INVARIANT 4: UTC everywhere.
 		body.put("timestamp", Instant.now().toString());
+		if (deployed) {
+			// BUG-132: anyone may ask; deployed, they learn only whether it is up — not what it is or when it was restarted.
+			return body;
+		}
 		body.put("application", "tradeez-backend");
 		// ENV-003. A restart that fails because the port is taken leaves the OLD process answering,
 		// and "the server responds" then proves nothing about which code is running. These two say:

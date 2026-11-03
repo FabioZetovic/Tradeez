@@ -55,6 +55,8 @@ public class JwtService {
 		Instant now = Instant.now();
 		return Jwts.builder()
 			.issuer(ISSUER)
+			// BUG-126: an id of its own, so this one token can be ended at sign-out.
+			.id(UUID.randomUUID().toString())
 			.subject(user.getId().toString())
 			.claim("email", user.getEmail())
 			.claim(GENERATION, user.getTokenGeneration())
@@ -67,8 +69,11 @@ public class JwtService {
 	/** The claim holding the account's token generation when the token was issued (BUG-077). */
 	private static final String GENERATION = "gen";
 
-	/** A valid access token's subject, and the generation it was issued in (BUG-077). */
-	public record AccessToken(UUID userId, int generation) {
+	/**
+	 * A valid access token's subject, the generation it was issued in (BUG-077), and its own id and expiry (BUG-126; a
+	 * token issued before ids were added has none and simply runs out).
+	 */
+	public record AccessToken(UUID userId, int generation, UUID jti, Instant expiresAt) {
 	}
 
 	/**
@@ -87,7 +92,9 @@ public class JwtService {
 			if (generation == null) {
 				return java.util.Optional.empty();
 			}
-			return java.util.Optional.of(new AccessToken(UUID.fromString(claims.getSubject()), generation));
+			UUID jti = claims.getId() == null ? null : UUID.fromString(claims.getId());
+			return java.util.Optional.of(new AccessToken(UUID.fromString(claims.getSubject()), generation, jti,
+				claims.getExpiration().toInstant()));
 		} catch (JwtException | IllegalArgumentException e) {
 			return java.util.Optional.empty();
 		}

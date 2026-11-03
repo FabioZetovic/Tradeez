@@ -4,10 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -89,10 +92,13 @@ public class ChartDrawingController {
 
 	private final ChartDrawingRepository drawings;
 	private final MarketDataService marketData;
+	private final TransactionTemplate transactions;
 
-	public ChartDrawingController(ChartDrawingRepository drawings, MarketDataService marketData) {
+	public ChartDrawingController(ChartDrawingRepository drawings, MarketDataService marketData,
+			PlatformTransactionManager transactionManager) {
 		this.drawings = drawings;
 		this.marketData = marketData;
+		this.transactions = new TransactionTemplate(transactionManager);
 	}
 
 	@Schema(description = "A point in market space. priceTicks is an INTEGER TICK COUNT (DEC-024).")
@@ -106,7 +112,8 @@ public class ChartDrawingController {
 	public record DrawingDto(
 		@NotNull UUID id,
 		@NotBlank String kind,
-		@NotEmpty List<@Valid AnchorDto> anchors,
+		// BUG-165: @NotNull on the element — @Valid alone let [null] through to a NullPointerException.
+		@NotEmpty List<@NotNull @Valid AnchorDto> anchors,
 		Map<String, Object> style,
 		@Schema(description = "A label's words (required) or a zone's name (optional); at most 80 characters")
 		@Size(max = MAX_TEXT) String text) {
@@ -130,12 +137,22 @@ public class ChartDrawingController {
 	@Operation(summary = "Create or update a drawing",
 		description = "Idempotent by id, so a retried save after a dropped connection cannot "
 			+ "produce a duplicate shape.")
-	@Transactional
 	public ResponseEntity<DrawingDto> save(
 			@AuthenticationPrincipal AuthenticatedUser principal,
 			@PathVariable String symbol,
 			@PathVariable UUID id,
 			@Valid @RequestBody DrawingDto body) {
+		try {
+			return transactions.execute(status -> saveOnce(principal, symbol, id, body));
+		} catch (DataIntegrityViolationException raced) {
+			// BUG-135: a new drawing's first saves can overlap (a drag sends several): both found no row, both inserted,
+			// and the second broke the key — a 500 for a drawing that was saved. Once more, the row is there: an update
+			// for its owner, still a 404 for anyone else.
+			return transactions.execute(status -> saveOnce(principal, symbol, id, body));
+		}
+	}
+
+	private ResponseEntity<DrawingDto> saveOnce(AuthenticatedUser principal, String symbol, UUID id, DrawingDto body) {
 
 		if (!id.equals(body.id())) {
 			throw new IllegalArgumentException("Drawing id in the path and body must match.");
@@ -190,6 +207,17 @@ public class ChartDrawingController {
 		// 409: an id the caller cannot write to should be indistinguishable from one that does not
 		// exist, or the endpoint becomes a way to probe which ids are in use.
 		if (existing.isEmpty() && drawings.existsById(id)) {
+			// BUG-172: the row may be the caller's own, committed by an overlapping first save between the two queries
+			// above. Asked again, it is visible now; only a row still not theirs is someone else's.
+			existing = drawings.findByIdAndUserId(id, principal.id());
+			if (existing.isEmpty()) {
+				throw new DrawingNotYoursException();
+			}
+		}
+
+		// BUG-152: the caller's drawing, but on another market — written to this chart's address by a page that had not
+		// yet let go of the other market. Not this chart's, so as if it did not exist.
+		if (existing.isPresent() && !existing.get().getInstrumentId().equals(instrument.getId())) {
 			throw new DrawingNotYoursException();
 		}
 
@@ -207,7 +235,7 @@ public class ChartDrawingController {
 
 		ChartDrawing created = new ChartDrawing(
 			id, principal.id(), instrument.getId(), body.kind(), anchors, style, text);
-		return ResponseEntity.status(HttpStatus.CREATED).body(toDto(drawings.save(created)));
+		return ResponseEntity.status(HttpStatus.CREATED).body(toDto(drawings.saveAndFlush(created)));
 	}
 
 	@DeleteMapping("/{id}")
@@ -218,10 +246,10 @@ public class ChartDrawingController {
 			@PathVariable String symbol,
 			@PathVariable UUID id) {
 
-		marketData.requireInstrument(symbol);
+		Instrument instrument = marketData.requireInstrument(symbol);
 		// Deleting something already gone is a success: the client asked for it to be absent, and it
 		// is. Retries after a dropped response must not fail.
-		drawings.deleteByIdAndUserId(id, principal.id());
+		drawings.deleteByIdAndUserIdAndInstrumentId(id, principal.id(), instrument.getId());
 		return ResponseEntity.noContent().build();
 	}
 

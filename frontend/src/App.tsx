@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router'
+import { useCallback, type ReactNode } from 'react'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 import { useIsPhone } from '@/hooks/useIsPhone'
 import { MotionConfig, motion } from 'motion/react'
@@ -7,6 +7,10 @@ import { useSession } from '@/hooks/useSession'
 import { SignInForm } from '@/components/SignInForm'
 import { AppShell, Logo } from '@/components/shell/AppShell'
 import { Guide } from '@/components/Guide'
+import { AccountPage } from '@/components/AccountPage'
+import { PrivacyPage } from '@/components/PrivacyPage'
+import { ForgotPassword, ResetPassword, VerifyEmail } from '@/components/EmailLinks'
+import type { User } from '@/lib/api/auth'
 import { HomePage } from '@/components/home/HomePage'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { NewsPage } from '@/components/news/NewsPage'
@@ -36,9 +40,21 @@ export default function App({ adapterFactory }: { adapterFactory?: AdapterFactor
   )
 }
 
+const EMAIL_LINK_PATHS = ['/verify-email', '/forgot-password', '/reset-password']
+
 function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
-  const { state, login, register, logout, logoutEverywhere, changePassword } = useSession()
+  const { state, login, register, signedIn, logout, logoutEverywhere, changePassword, deleteAccount } = useSession()
   const location = useLocation()
+  const navigate = useNavigate()
+  // The link has done its work: on to Home. Since BUG-161 its page shows whoever is signed in, so it no longer gives way
+  // to Home by itself. Stable, because the confirmation page asks again whenever this changes.
+  const linkSignedIn = useCallback(
+    (user: User) => {
+      signedIn(user)
+      void navigate('/', { replace: true })
+    },
+    [signedIn, navigate],
+  )
 
   if (state.status === 'loading') {
     return (
@@ -48,6 +64,20 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         </p>
       </AuthPage>
     )
+  }
+
+  // T56: the pages the emailed links open, and asking for a reset. BUG-161: whether or not someone is signed in here — a
+  // link opened in a browser signed in (to this account or another) used to be sent Home, unread. Opening it signs in
+  // as the account it belongs to.
+  const emailLinks = (
+    <Routes>
+      <Route path="/verify-email" element={<AuthPage><VerifyEmail onSignedIn={linkSignedIn} /></AuthPage>} />
+      <Route path="/forgot-password" element={<AuthPage><ForgotPassword /></AuthPage>} />
+      <Route path="/reset-password" element={<AuthPage><ResetPassword onSignedIn={linkSignedIn} /></AuthPage>} />
+    </Routes>
+  )
+  if (EMAIL_LINK_PATHS.includes(location.pathname)) {
+    return emailLinks
   }
 
   if (state.status !== 'signedIn') {
@@ -69,6 +99,18 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/" element={state.expired ? signIn('login') : <LandingPage />} />
         <Route path="/sign-in" element={signIn('login')} />
         <Route path="/sign-up" element={signIn('register')} />
+        {/* BUG-120: what is kept and why, readable before signing up. */}
+        <Route
+          path="/privacy"
+          element={
+            <div className="mx-auto max-w-4xl px-5 py-10">
+              <Link to="/" className="mb-8 inline-block">
+                <Logo />
+              </Link>
+              <PrivacyPage />
+            </div>
+          }
+        />
         <Route path="*" element={<Navigate to="/sign-in" replace state={{ from: location.pathname }} />} />
       </Routes>
     )
@@ -96,6 +138,8 @@ function Screens({ adapterFactory }: { adapterFactory?: AdapterFactory }) {
         <Route path="/practice/:sessionId?" element={<PracticeView adapterFactory={adapterFactory} />} />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/help" element={<Guide />} />
+        <Route path="/account" element={<AccountPage user={state.user} onDelete={deleteAccount} />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
@@ -122,6 +166,17 @@ function RiskDrill() {
 }
 
 /** Sign-in, sign-up and loading: Lovable's centred card under the logo, the disclaimer below (T36); it rises in. */
+/** BUG-120: signing up, the privacy page is one tap away. */
+function PrivacyLink() {
+  return (
+    <p className="mt-2 text-center text-xs">
+      <Link to="/privacy" className="text-subtle underline underline-offset-2 hover:text-ink">
+        Privacy: what is kept and why
+      </Link>
+    </p>
+  )
+}
+
 function AuthPage({ children }: { children: ReactNode }) {
   const phone = useIsPhone()
   if (phone) {
@@ -143,6 +198,7 @@ function AuthPage({ children }: { children: ReactNode }) {
           </div>
           {children}
           <p className="mt-auto pt-8 text-center text-xs leading-relaxed text-subtle">{DISCLAIMER}</p>
+          <PrivacyLink />
         </motion.div>
       </div>
     )
@@ -158,6 +214,7 @@ function AuthPage({ children }: { children: ReactNode }) {
         </div>
         {children}
         <p className="mt-8 text-center text-xs text-subtle">{DISCLAIMER}</p>
+        <PrivacyLink />
       </motion.div>
     </div>
   )

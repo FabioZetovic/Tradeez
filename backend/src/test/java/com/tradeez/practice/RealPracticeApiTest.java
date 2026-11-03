@@ -247,10 +247,11 @@ class RealPracticeApiTest extends AbstractIntegrationTest {
 	void noHistory() throws Exception {
 		jdbc.update("DELETE FROM market_bar");
 		create("{\"instrument\":\"NQ\"}")
-			.andExpect(status().isBadRequest())
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("NO_MARKET_DATA"))
 			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
 				.jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
-					"No real NQ history has been imported")));
+					"There is no NQ market data on this server yet")));
 	}
 
 	@Test

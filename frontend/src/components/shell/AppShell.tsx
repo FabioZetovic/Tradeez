@@ -245,6 +245,10 @@ function Footer() {
       >
         {more ? 'Less' : 'Read more'}
       </button>
+      {' · '}
+      <Link to="/privacy" className="tap underline underline-offset-2 hover:text-ink">
+        Privacy
+      </Link>
       <AnimatePresence initial={false}>
         {more && (
           <motion.p

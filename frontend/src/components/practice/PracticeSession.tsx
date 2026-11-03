@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { PriceChart } from '../PriceChart'
 import { ClockOverlay } from '../ClockOverlay'
 import { DrawingOverlay } from '../DrawingOverlay'
@@ -138,20 +138,33 @@ export function PracticeSession({ sessionId, initial, onBack, adapterFactory, ri
   const clockStale =
     cursor !== undefined &&
     (clock === null || (clock.nextChange !== undefined && cursor >= clock.nextChange))
+  // BUG-171: where the last request failed. Asked again once the replay has moved on — one try a position, never a
+  // loop — instead of never: nothing else the effect depends on changes after a failure.
+  const [clockFailedAt, setClockFailedAt] = useState<number | null>(null)
+  const clockFailedHere = clockFailedAt !== null && clockFailedAt === cursor
+  // Where the replay is when an answer comes back. Not a dependency: a step while a request is out must not resend it.
+  const cursorRef = useRef(cursor)
+  useLayoutEffect(() => {
+    cursorRef.current = cursor
+  })
   useEffect(() => {
-    if (!clockStale) return
+    if (!clockStale || clockFailedHere) return
     let cancelled = false
     getPracticeClock(sessionId)
       .then((layer) => {
-        if (!cancelled) setClock(layer)
+        if (cancelled) return
+        setClock(layer)
+        setClockFailedAt(null)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setClockFailedAt(cursorRef.current ?? null)
+      })
     return () => {
       cancelled = true
     }
     // `clock` too: a layer that comes back already stale, because the replay moved on while it was
     // being built, is asked for again.
-  }, [clockStale, sessionId, clock])
+  }, [clockStale, clockFailedHere, sessionId, clock])
 
   // Detected setups up to the cursor (T9). Any step can confirm a new one, so they are asked for
   // whenever the cursor has moved — but one request at a time: while the replay plays faster than

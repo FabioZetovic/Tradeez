@@ -51,10 +51,19 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
     return () => window.removeEventListener('scroll', onScroll)
   }, [phone, lesson])
 
-  useEffect(() => {
+  // BUG-167: whether this lesson is open is unknown until progress has loaded — and stays unknown if that fails.
+  const [learningFailed, setLearningFailed] = useState(false)
+  const fetchLearning = () =>
     getLearning()
       .then(setLearning)
-      .catch(() => {})
+      .catch(() => setLearningFailed(true))
+  const loadLearning = () => {
+    setLearningFailed(false)
+    void fetchLearning()
+  }
+
+  useEffect(() => {
+    void fetchLearning()
     getCurriculum()
       .then(setCurriculum)
       .catch(() => {})
@@ -100,7 +109,23 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
     .slice(0, topic.concepts.indexOf(id))
     .filter((c) => learning?.concepts.find((p) => p.id === c)?.kind === 'LESSON')
     .at(-1)
+  // Not known to be open is not open: the lesson waits for its progress rather than showing itself unlocked (BUG-167).
+  const pending = learning === null
   const locked = progress !== undefined && !progress.open
+  const progressPending = (
+    <Notice role={learningFailed ? 'alert' : 'status'}>
+      {learningFailed ? (
+        <>
+          Your progress could not be loaded, so whether this lesson is open is not known yet.{' '}
+          <Button size="sm" onClick={loadLearning}>
+            Try again
+          </Button>
+        </>
+      ) : (
+        'Checking your progress…'
+      )}
+    </Notice>
+  )
   const done = progress?.state === 'SOLID' || progress?.state === 'DONE'
   const tone = topicTone(topic?.title ?? lesson?.topic)
 
@@ -111,7 +136,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
       ...(lesson?.drills ?? []).map((drill) => ({ to: `/drills/${drill.kind}`, label: `Practise it: ${MODE_NAMES[drill.mode]} ${drill.title}` })),
       ...(id === RISK_CONCEPT ? RISK_KINDS.map((kind) => ({ to: `/drills/risk/${kind.slug}`, label: `Sums: ${kind.label}` })) : []),
     ]
-    const practise = lesson && !locked && lesson.kind !== 'REMOVED'
+    const practise = lesson && !pending && !locked && lesson.kind !== 'REMOVED'
     return (
       // A lesson on a phone (T53, Claude Design): a bar back with where it sits, a line for how far it has been read, the
       // words and the examples to swipe, and its drill at the thumb.
@@ -157,6 +182,8 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
 
               {lesson.kind === 'REMOVED' ? (
                 <Notice role="note">Not taught in Learn any more (DEC-081). Its useful parts are in the lessons around it.</Notice>
+              ) : pending ? (
+                progressPending
               ) : locked ? (
                 <section aria-label="Locked" className="flex flex-col items-center gap-3 rounded-card border border-line bg-surface px-4 py-6 text-center">
                   <span className="grid size-14 place-items-center rounded-2xl bg-accent/15 text-accent">
@@ -288,6 +315,8 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
 
           {lesson.kind === 'REMOVED' ? (
             <Notice role="note">Not taught in Learn any more (DEC-081). Its useful parts are in the lessons around it.</Notice>
+          ) : pending ? (
+            progressPending
           ) : locked ? (
             <Panel aria-label="Locked" className="flex items-center gap-4">
               <Lock aria-hidden className="size-6 shrink-0 text-subtle" />
@@ -313,7 +342,7 @@ export function LessonPage({ id, adapterFactory }: { id: string; adapterFactory?
             />
           )}
 
-          {!locked && lesson.kind !== 'REMOVED' && (
+          {!pending && !locked && lesson.kind !== 'REMOVED' && (
             <Panel aria-label="Practise it">
               <h2 className={panelTitle}>Practise it</h2>
               {progress?.drilled && (

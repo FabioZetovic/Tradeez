@@ -191,7 +191,8 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
   // Detected setups for the same window (T9), asked for only while a rule is switched on. A layer
   // is drawn only over the timeframe it was found on.
   const [setups, setSetups] = useState<{ key: string; layer: SetupLayer | null } | null>(null)
-  const setupsKey = `${SYMBOL}|${timeframe}`
+  // BUG-153: the window too, so a date change does not keep the last window's setups over the new candles.
+  const setupsKey = `${SYMBOL}|${timeframe}|${windowEnd}`
   useEffect(() => {
     if (windowEnd === null || setupsOn.length === 0) return
     let cancelled = false
@@ -235,8 +236,10 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
   const current = loaded !== null && loaded.key === requestKey ? loaded : null
   const loading = requestKey === null ? !noHistory && instrumentError === null : current === null
   const error = instrumentError ?? current?.error ?? null
-  // The previous chart stays up while the next window loads, instead of flashing empty.
-  const series = current ? (current.series ?? null) : (loaded?.series ?? null)
+  // The previous chart stays up while the next window loads, instead of flashing empty — of the same market only
+  // (BUG-153): NQ's candles and last price under an ES heading would be a chart of the wrong market.
+  const sameMarket = loaded?.key.startsWith(`${SYMBOL}|`) ?? false
+  const series = current ? (current.series ?? null) : sameMarket ? (loaded?.series ?? null) : null
 
   const lastBar = series?.bars.at(-1)
   const before = series && lastBar ? previousSessionClose(series.bars, lastBar.time) : null
@@ -392,7 +395,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
 
         {noHistory && (
           <Notice role="status" data-testid="no-history">
-            No real {SYMBOL} history has been imported yet. Run the import described in docs/PATH.md (task T2).
+            There is no {SYMBOL} market data on this server yet, so there is no chart to show. It has to be loaded first.
           </Notice>
         )}
 
@@ -434,7 +437,7 @@ export function ChartPage({ adapterFactory }: ChartPageProps) {
                   {drawsClock(series.timeframe) && (
                     <ClockOverlay
                       adapter={adapter}
-                      layer={clock?.layer ?? null}
+                      layer={clock?.key === requestKey ? clock.layer : null}
                       bars={series.bars}
                       timeframe={series.timeframe}
                       tickSize={instrument.tickSize}

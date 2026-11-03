@@ -48,6 +48,7 @@ import com.tradeez.drills.Prediction.Outcome;
 import com.tradeez.drills.Prediction.Question;
 import com.tradeez.drills.Prediction.Target;
 import com.tradeez.marketdata.Bar;
+import com.tradeez.marketdata.NoHistoryException;
 import com.tradeez.practice.ModelChecklist;
 import com.tradeez.marketdata.DataClass;
 import com.tradeez.marketdata.DemoSeriesGenerator;
@@ -328,8 +329,7 @@ public class DrillService {
 		long step = timeframe.seconds();
 		Instant[] coverage = marketData.coverage(instrument);
 		if (coverage == null) {
-			throw new IllegalArgumentException("No real " + instrument.getSymbol()
-				+ " history has been imported yet, so there is nothing to drill on.");
+			throw new NoHistoryException(instrument.getSymbol(), "drill on");
 		}
 		Instant earliest = coverage[0].plus(HISTORY_MARGIN);
 		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(length)).minus(Duration.ofDays(1));
@@ -424,8 +424,7 @@ public class DrillService {
 		long step = timeframe.seconds();
 		Instant[] coverage = marketData.coverage(instrument);
 		if (coverage == null) {
-			throw new IllegalArgumentException("No real " + instrument.getSymbol()
-				+ " history has been imported yet, so there is nothing to drill on.");
+			throw new NoHistoryException(instrument.getSymbol(), "drill on");
 		}
 		Instant earliest = coverage[0].plus(HISTORY_MARGIN);
 		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(length + Management.HORIZON_CANDLES))
@@ -483,8 +482,7 @@ public class DrillService {
 		long step = timeframe.seconds();
 		Instant[] coverage = marketData.coverage(instrument);
 		if (coverage == null) {
-			throw new IllegalArgumentException("No real " + instrument.getSymbol()
-				+ " history has been imported yet, so there is nothing to drill on.");
+			throw new NoHistoryException(instrument.getSymbol(), "drill on");
 		}
 		Instant earliest = coverage[0].plus(HISTORY_MARGIN);
 		Instant latest = coverage[1].minus(timeframe.duration().multipliedBy(stretchBars + Prediction.HORIZON_CANDLES))
@@ -565,8 +563,7 @@ public class DrillService {
 		long step = timeframe.seconds();
 		Instant[] coverage = marketData.coverage(instrument);
 		if (coverage == null) {
-			throw new IllegalArgumentException("No real " + instrument.getSymbol()
-				+ " history has been imported yet, so there is nothing to drill on.");
+			throw new NoHistoryException(instrument.getSymbol(), "drill on");
 		}
 		Instant earliest = coverage[0].plus(HISTORY_MARGIN).plus(Duration.ofDays(2));
 		Instant latest = coverage[1].minus(FUTURE_REACH);
@@ -663,8 +660,7 @@ public class DrillService {
 		if (!simulated) {
 			Instant[] coverage = marketData.coverage(instrument);
 			if (coverage == null) {
-				throw new IllegalArgumentException("No real " + instrument.getSymbol()
-					+ " history has been imported yet, so there is nothing to drill on.");
+				throw new NoHistoryException(instrument.getSymbol(), "drill on");
 			}
 			earliest = coverage[0].plus(HISTORY_MARGIN);
 			latest = coverage[1].minus(timeframe.duration().multipliedBy(length + CONFIRM_REACH));

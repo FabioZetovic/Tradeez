@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { ExternalLink, Folder } from 'lucide-react'
 import { getNews, type News, type NewsEvent } from '@/lib/api/news'
+import { useNow } from '@/hooks/useNow'
 import { byDay, newsDay, newsTime } from '@/lib/news'
 import { cx } from '@/lib/styles'
 import { Notice, PageHeader, Panel, Segmented } from '../ui'
@@ -27,15 +28,26 @@ export function ImpactFolder({ impact }: { impact: NewsEvent['impact'] }) {
 export function NewsPage() {
   const [news, setNews] = useState<News | null | undefined>(undefined)
   const [impact, setImpact] = useState<(typeof IMPACTS)[number]>('High + medium')
-  const [now] = useState(() => Date.now() / 1000)
+  const now = useNow().getTime() / 1000
 
+  // BUG-163: asked again when the tab is looked at again and every half hour, so the schedule the server refreshes
+  // reaches a page left open. A failed refresh keeps what is shown.
   useEffect(() => {
     let live = true
-    getNews()
-      .then((n) => live && setNews(n))
-      .catch(() => live && setNews(null))
+    const load = () =>
+      getNews()
+        .then((n) => live && setNews(n))
+        .catch(() => live && setNews((shown) => shown ?? null))
+    void load()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    const every = window.setInterval(() => void load(), 30 * 60_000)
     return () => {
       live = false
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearInterval(every)
     }
   }, [])
 

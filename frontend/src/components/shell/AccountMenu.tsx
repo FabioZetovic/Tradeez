@@ -1,6 +1,6 @@
 import { useCallback, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, CircleHelp, KeyRound, LogOut, MonitorOff, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, CircleHelp, FileLock2, KeyRound, LogOut, MonitorOff, X } from 'lucide-react'
 import { errorMessage, type User } from '@/lib/api/auth'
 import { passwordRules } from '@/lib/password'
 import { cx, errorClass, fieldClass, labelClass } from '@/lib/styles'
@@ -32,10 +32,22 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
   const root = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const phone = useIsPhone()
+  // BUG-160: a sign-out that did not reach the server leaves this browser signed in, and says so.
+  const [signOutFailed, setSignOutFailed] = useState(false)
   const close = useCallback(() => {
     setOpen(false)
     setView('menu')
+    setSignOutFailed(false)
   }, [])
+  const signOut = (action: () => Promise<void>) => {
+    setSignOutFailed(false)
+    action().catch(() => setSignOutFailed(true))
+  }
+  const signOutError = signOutFailed && (
+    <p role="alert" className={cx(errorClass, 'px-3 py-2')}>
+      You are still signed in: the sign-out did not reach the server. Check the connection and try again.
+    </p>
+  )
 
   if (phone) {
     // A phone (T53): the avatar opens a sheet from the foot of the screen, with the calendar and the guide in it.
@@ -82,18 +94,22 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
                 <SheetRow icon={<CircleHelp />} onClick={() => go('/help')}>
                   How Tradeez works
                 </SheetRow>
+                <SheetRow icon={<FileLock2 />} onClick={() => go('/account')}>
+                  Your data
+                </SheetRow>
                 <SheetRow icon={<KeyRound />} onClick={() => setView('password')}>
                   Change password
                 </SheetRow>
               </SheetGroup>
               <SheetGroup className="mt-3">
-                <SheetRow icon={<LogOut />} onClick={() => void onLogout()} plain>
+                <SheetRow icon={<LogOut />} onClick={() => signOut(onLogout)} plain>
                   Sign out
                 </SheetRow>
-                <SheetRow icon={<MonitorOff />} onClick={() => void onLogoutEverywhere()} plain danger>
+                <SheetRow icon={<MonitorOff />} onClick={() => signOut(onLogoutEverywhere)} plain danger>
                   Sign out of every device
                 </SheetRow>
               </SheetGroup>
+              {signOutError}
               <p className="mt-4 text-center text-xs leading-relaxed text-subtle">{DISCLAIMER_SHORT}</p>
             </>
           ) : (
@@ -129,6 +145,15 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
         <div className="border-t border-line pt-1.5">
           {view === 'menu' ? (
             <>
+              <MenuRow
+                icon={<FileLock2 />}
+                onClick={() => {
+                  close()
+                  void navigate('/account')
+                }}
+              >
+                Your data
+              </MenuRow>
               <MenuRow icon={<KeyRound />} onClick={() => setView('password')}>
                 Change password
               </MenuRow>
@@ -141,12 +166,13 @@ export function AccountMenu({ user, onChangePassword, onLogout, onLogoutEverywhe
               >
                 How it works
               </MenuRow>
-              <MenuRow icon={<LogOut />} onClick={() => void onLogout()}>
+              <MenuRow icon={<LogOut />} onClick={() => signOut(onLogout)}>
                 Sign out
               </MenuRow>
-              <MenuRow icon={<MonitorOff />} danger onClick={() => void onLogoutEverywhere()}>
+              <MenuRow icon={<MonitorOff />} danger onClick={() => signOut(onLogoutEverywhere)}>
                 Sign out of every device
               </MenuRow>
+              {signOutError}
             </>
           ) : (
             <PasswordForm user={user} onChangePassword={onChangePassword} onBack={() => setView('menu')} />

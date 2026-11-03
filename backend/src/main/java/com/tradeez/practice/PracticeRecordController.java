@@ -57,13 +57,19 @@ public class PracticeRecordController {
 	@Operation(summary = "The learner's finished trades, newest first",
 		description = "One row per trade across every session (T41): when it was placed — the time the session shows while "
 			+ "it is open, the real moment once it is complete (DEC-025) — the side, the entry, how it ended, R and money "
-			+ "net of costs, the model. Only trades whose exit the replay has shown. limit: 1 to 200, 50 by default.")
+			+ "net of costs, the model. Only trades whose exit the replay has shown. limit: 1 to 200, 50 by default; offset: "
+			+ "how many to skip, for the next page; kind: WINNERS, LOSERS, LONG, SHORT or AMBIGUOUS, applied before paging.")
 	public List<JournalTradeView> trades(@AuthenticationPrincipal AuthenticatedUser principal,
-			@RequestParam(defaultValue = "50") int limit) {
+			@RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset,
+			@RequestParam(required = false) PracticeService.JournalKind kind) {
 		if (limit < 1 || limit > 200) {
 			throw new IllegalArgumentException("limit is 1 to 200");
 		}
-		return practice.journal(principal.id(), limit);
+		// BUG-157: a page at a time, so any history is reachable — a larger limit never was past 200.
+		if (offset < 0) {
+			throw new IllegalArgumentException("offset is 0 or more");
+		}
+		return practice.journal(principal.id(), limit, offset, kind);
 	}
 
 	@GetMapping("/settings")

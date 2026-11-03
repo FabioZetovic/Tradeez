@@ -103,6 +103,15 @@ describe('App — signed out', () => {
     window.history.replaceState(null, '', '/sign-in')
   })
 
+  it('BUG-120 the privacy page is open to a visitor, and sign-in links to it', async () => {
+    render(<App />)
+    await screen.findByRole('heading', { name: /sign in/i })
+    await userEvent.click(screen.getByRole('link', { name: 'Privacy: what is kept and why' }))
+    expect(window.location.pathname).toBe('/privacy')
+    expect(await screen.findByRole('heading', { name: 'Privacy' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'What is kept' })).toBeInTheDocument()
+  })
+
   it('shows the sign-in form when no session can be restored', async () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
@@ -213,6 +222,24 @@ describe('App — signed in', () => {
   beforeEach(() => {
     mockApi(signedIn)
     window.history.replaceState(null, '', '/chart')
+  })
+
+  it("BUG-153 while another market's candles load, the last market's candles and price are not shown under its name", async () => {
+    mockApi({ ...signedIn, '/api/market/instruments': { body: [NQ, { ...NQ, symbol: 'ES' }] } })
+    const served = globalThis.fetch
+    // ES's candles never come.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        String(url).includes('/ES/') ? new Promise(() => {}) : (served as typeof fetch)(url, init),
+      ),
+    )
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByTestId('last-price')).toHaveTextContent('20001.50')
+    await userEvent.selectOptions(screen.getByLabelText('Market'), 'ES')
+    expect(await screen.findByRole('heading', { name: 'ES' })).toBeInTheDocument()
+    expect(screen.queryByTestId('last-price')).not.toBeInTheDocument()
+    localStorage.removeItem('tradeez.chart.symbol')
   })
 
   it('restores the session and shows the workspace', async () => {
@@ -403,7 +430,7 @@ describe('App — signed in', () => {
     mockApi({ ...signedIn, '/api/market/instruments': { body: [{ ...NQ, dataFrom: undefined, dataTo: undefined }] } })
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
 
-    expect(await screen.findByTestId('no-history')).toHaveTextContent(/No real NQ history/)
+    expect(await screen.findByTestId('no-history')).toHaveTextContent(/no NQ market data on this server yet/)
     expect(barRequestEnds()).toEqual([])
   })
 
@@ -485,6 +512,19 @@ describe('App — signed in', () => {
     expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
     expect(requests('/api/auth/logout-all')).toHaveLength(1)
   })
+
+  it('BUG-160 a sign-out the server did not take leaves this browser signed in, says so, and can be tried again', async () => {
+    mockApi({ ...signedIn, '/api/auth/logout': { status: 500, body: {} } })
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Fabio' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('You are still signed in')
+    expect(screen.queryByRole('heading', { name: /sign in/i })).not.toBeInTheDocument()
+
+    mockApi({ ...signedIn, '/api/auth/logout': { status: 204, body: {} } })
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
+  })
 })
 
 describe('App — addresses and the shell (T36, DEC-078)', () => {
@@ -542,6 +582,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
         '',
         'Economic calendar',
         'How Tradeez works',
+        'Your data',
         'Change password',
         'Sign out',
         'Sign out of every device',
@@ -576,6 +617,29 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(screen.getByRole('main')).toHaveClass('py-8')
     expect(current('Learn')).toBe('page')
     expect(current('Chart')).toBeNull()
+  })
+
+  it('BUG-173 a confirmation link, once it has signed in, goes on to Home', async () => {
+    mockApi({ ...signedOut, '/api/auth/verify': { body: USER } })
+    at('/verify-email#tok_verify')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Fabio\./ })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+    expect(requests('/api/auth/verify')).toHaveLength(1)
+  })
+
+  it('BUG-161 signed in, an emailed link still opens its page instead of Home', async () => {
+    at('/reset-password#tok_reset')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    expect(await screen.findByLabelText('New password')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/reset-password')
+    at('/verify-email#tok_verify')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await waitFor(() =>
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => String(url))).toContain(
+        '/api/auth/verify',
+      ),
+    )
   })
 
   it('signed out, any address leads to sign-in and back to that address after', async () => {

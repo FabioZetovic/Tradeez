@@ -451,10 +451,11 @@ class RealDrillApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("with no real history imported, says there is nothing to drill on")
+	@DisplayName("BUG-134 with no real history imported: 503 NO_MARKET_DATA, saying there is nothing to drill on")
 	void nothingImported() throws Exception {
 		jdbc.update("DELETE FROM market_bar");
-		start("{}").andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value(Matchers.containsString("No real NQ history")));
+		start("{}").andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("NO_MARKET_DATA"))
+			.andExpect(jsonPath("$.message").value(Matchers.containsString("no NQ market data on this server yet")));
 	}
 }

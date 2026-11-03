@@ -24,4 +24,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
 	@Query("UPDATE RefreshToken t SET t.revokedAt = :now WHERE t.user.id = :userId AND t.revokedAt IS NULL")
 	int revokeAllForUser(UUID userId, Instant now);
+
+	/** BUG-130: sign-ins that ended — expired, or revoked by rotation or sign-out — before the given moment. */
+	@Modifying
+	@org.springframework.transaction.annotation.Transactional
+	@Query("DELETE FROM RefreshToken t WHERE t.expiresAt < :before OR t.revokedAt < :before")
+	int deleteFinishedBefore(Instant before);
 }

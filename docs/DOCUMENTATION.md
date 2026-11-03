@@ -2173,7 +2173,7 @@ one site. Nothing in the repo belongs to a particular host.
 
 ```
 docker build -t tradeez .
-docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/tradeez -e JWT_SECRET=<32 random bytes, base64> -e COOKIES_SECURE=true tradeez
+docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/tradeez -e DATABASE_USER=tradeez -e DATABASE_PASSWORD=tradeez -e JWT_SECRET=<32 random bytes, base64> tradeez
 ```
 
 **On a host** (any that runs a Docker image from the GitHub repo and gives it PostgreSQL 17): point it at the root
@@ -2184,18 +2184,63 @@ docker run -p 8090:8080 -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5
 | `DATABASE_URL` | `jdbc:postgresql://<host>:<port>/<db>` (the JDBC form, not `postgres://`) |
 | `DATABASE_USER`, `DATABASE_PASSWORD` | the database's account |
 | `JWT_SECRET` | 32 random bytes in base64 (`openssl rand -base64 32`); the app refuses to start with the development one |
-| `COOKIES_SECURE` | `true` (the host gives HTTPS) |
-| `CORS_ALLOWED_ORIGINS` | the app's own address, e.g. `https://<name>.onrender.com`, later the domain |
-| `TRUSTED_PROXIES` | `1` behind the host's proxy, so rate limits see the real caller |
+| `SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES` | only if the host's proxy connects from a public address (a regex of its addresses); by default Tomcat believes forwarded headers from private-network proxies only (BUG-137). `TRUSTED_PROXIES` is not used deployed |
+| `APP_URL` | the app's `https://` address — the start of every link in its emails (T56) |
+| `MAIL_PROVIDER` | `resend` (the local `outbox` is refused deployed) |
+| `RESEND_API_KEY`, `MAIL_FROM` | Resend's API key and the sender, e.g. `Tradeez <hello@your-domain>`; Resend sends from a domain whose DNS records you add, so this waits on the domain (T51) — until then its test sender delivers only to the account owner's own address |
 | `FRED_API_KEY` | for the news calendar; without it the news stays empty |
 | `PORT` | set by most hosts; the app listens on it (8080 otherwise) |
 
-Flyway creates the tables on the first start. **The market data is not in the image**: a new database has no candles
+The image runs the `prod` profile (BUG-121): without `JWT_SECRET` or the three `DATABASE_*` settings it refuses to
+start, cookies are always Secure, the proxy's HTTPS is believed, the API description is off. No CORS setting is
+needed — the page and the API are one site. Flyway creates the tables on the first start. **The market data is not in the image**: a new database has no candles
 until the importer is run against it (README "Running it locally", the import step, with the same `DATABASE_*` variables and `MASSIVE_API_KEY`)
 or the local database is copied over (`pg_dump` / `pg_restore`). Before anyone but Fabio and the jury signs in, Q-09:
 the data is Massive's free plan, for individual use (DEC-040, INVARIANT 7), and FRED asks for a privacy policy (DEC-079).
 
 The Vercel project Fabio made for the beta is no longer needed: the image serves the page.
+
+**Security fixes (T57, 2026-10-31).** From the audit of 2026-10-30, on `fix/security-audit`: the prod profile with no
+development secrets (BUG-121); the page cached by content, so a deploy is always seen (BUG-122); bodies over 64 KB
+refused unread (BUG-123); strict same-site cookies (BUG-124); HSTS, a CSP, referrer and permissions policies
+(BUG-125); sign-out ending the access token at once (BUG-126); names and addresses that cannot impersonate (BUG-127);
+old sign-ins deleted and only a coarse browser name kept (BUG-130); a warning for untrusted proxies (BUG-131); a quieter
+health check, no generated password, BCrypt 12 (BUG-132); overlapping drawing saves (BUG-135); and "Your data" —
+download everything, delete the account, a privacy page (BUG-120). Backend 787 + new tests, frontend 485; sixteen
+mutants, all caught.
+
+**Real email addresses (T56, 2026-11-01).** An account is usable only once its owner opens a link sent to the address:
+sign-up answers "check your inbox" whether or not the address had an account; the link (token after a `#`, 24 hours,
+single use) confirms and signs in; forgot password sends a one-hour reset link. Each sign-up's link carries its own
+password, so signing up first with someone else's address gets nothing (pre-hijacking). Mail: the local `outbox` folder,
+or Resend deployed; the prod profile needs `MAIL_PROVIDER` and `APP_URL`. BUG-119 and BUG-128 fixed.
+
+**No market data yet, and the test account (T57, 2026-11-02).** A new host has no candles until the import is run.
+Until then Drills and Practice answer 503 with `"code": "NO_MARKET_DATA"` and say so plainly; the drill screen offers
+no "Try again", the Chart tab says the data has not been loaded, and News says the calendar has not been loaded rather
+than that there is no news (BUG-134; Home's lesson invitation and the lesson examples still assume data). **Import the
+data before inviting anyone.** The local test account's address and password live only in the gitignored
+`backend/.env` (BUG-133); never register that account on a deployed instance.
+
+**Codex's audit, first fixes (T58, 2026-11-02).** Made-up `X-Forwarded-For` or `Forwarded` addresses no longer buy new
+sign-in attempts: deployed, Tomcat reads the caller's address from the proxy's own entry only (BUG-137). An old refresh
+token cannot start a session after a sign-out or a password change (BUG-138), and a detected stolen token ends the
+access tokens too (BUG-139). "Your data" leaves out answers, outcomes and real dates not shown yet (BUG-140). A reset link
+works once even when opened twice at once (BUG-141), and dies when the password is changed (BUG-142). Notes nobody asked
+for cannot use up an address's reset emails (BUG-144). Locally, the database listens on this machine only (BUG-147).
+Emails go out after the request has answered, on a thread of their own, so forgot password takes as long for any
+address (BUG-143). Asking for a second reset link keeps the first working (BUG-169). Two sign-ups for one address at
+once make one account (BUG-148), and a sign-up's link carries its chosen name as well as its password (V35, BUG-168).
+Emailed links open even when someone is signed in (BUG-161).
+
+**The chart, practice and Learn under slow answers (T58, 2026-11-02).** Drawing saves run one after another, so a later
+drag is never overwritten by an earlier one and a delete follows the save it undoes (BUG-149, BUG-150). Drawings made
+while the saved ones load are kept (BUG-151). A market switch drops the old market's drawings and candles at once, and
+the server ties every drawing update and delete to its market (BUG-152, BUG-153). A practice session's first answer is
+used once, so a reload shows it as it is now (BUG-154). Its risk limit loads on its own address (BUG-155), and a clock
+request that failed is asked again as the replay moves (BUG-171). The journal lists trades by when they were placed
+(BUG-158). A sign-out the server did not take says so (BUG-160). A lesson waits for progress before showing itself open
+(BUG-167). The page carries no CSP of its own: the server's header is the one policy (BUG-166).
 
 ---
 
@@ -2214,5 +2259,38 @@ DEC-015 asks for the disclaimer on a slide as well as in the app. Its text, as t
 >   allow (Q-09).
 
 ---
+
+### Session 018 — 2026-11-01 — Security and user-experience audit (CODEX)
+
+Fabio asked for another detailed audit of the finished redesign: try to break the actual app, find ways to obtain
+information or bypass its rules, then identify bugs that disrupt ordinary use. This session recorded findings and
+future repair tasks; it made no application fixes and preserved Claude's email-registration work and other existing edits.
+
+**35 new findings are in [BUGS.md](BUGS.md), BUG-137–171: 19 verified and 16 reasoned.** Each says how it was identified,
+who/what is affected, what would go wrong, and what a repair must prove. The most serious verified problems were:
+
+- Forged forwarded addresses bypassed both sign-in limits on a real local HTTP server configured with production's
+  forwarded-header handling. Correct sanitization at a future host's trusted proxy must also be checked there.
+- A recently rotated refresh token obtained a new authenticated session even after signing out or changing the password.
+- Downloading account data exposed an unanswered drill's exact answer and an active replay's hidden date and future result.
+- Password-reset and mail-budget probes found concurrent link redemption and recovery paths an attacker could interfere with.
+
+The user-experience checks reproduced drawing edits silently lost by request races, NQ prices retained under an ES
+heading during loading, practice state/settings lost from the display on direct entry or remount, journal paging/filter
+dead ends, sign-out that only looked successful after a network failure, and keyboard focus escaping phone dialogs.
+Other code-based findings are clearly marked as requiring reproduction; their proposed checks are included with each entry.
+
+**Validation:** the saved runner passed 12 backend and 11 frontend probes. These are forensic probes that confirm
+the reported defect, not assertions that the app is secure. One successful control confirmed that React StrictMode
+does not spend the verification token twice. The frontend dependency audit reported zero advisories. Backend probes
+used a disposable database, throwaway accounts and in-memory mail; existing user data and real email services were untouched.
+Temporary test files were removed. No full regression-suite or production-host/real-device pass is claimed.
+
+[The audit report, evidence and rerun instructions](audits/2026-11-01/README.md) are retained in the repository.
+[PATH.md](PATH.md) now lists **T58**, the future repair batch, starting with the proxy/session boundaries and safe export,
+then recovery, availability, chart persistence, practice/journal behavior and remaining UX issues.
+
+The audit was committed locally (`643ff1c`). Publishing that commit to the shared GitHub branch was blocked by GitHub
+authentication; the findings and repair plan remain available in this checkout. Existing application edits were not committed.
 
 *Next session entry goes here.*

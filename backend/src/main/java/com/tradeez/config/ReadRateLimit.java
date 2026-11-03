@@ -40,6 +40,17 @@ public class ReadRateLimit implements HandlerInterceptor, WebMvcConfigurer {
 		"/api/concepts/*/lesson",
 		"/api/practice/sessions/*/setups",
 		"/api/practice/sessions/*/clock",
+		// BUG-146: the rest of what costs work on every call — a whole session rebuilt, a draft's context, a trade's
+		// review, the record added up, every row of an account — none of them stepping a replay, so playing one is not
+		// slowed.
+		"/api/practice/sessions/*",
+		"/api/practice/sessions/*/context",
+		"/api/practice/sessions/*/trades/*/review",
+		"/api/practice/statistics",
+		"/api/practice/calibration",
+		"/api/practice/trades",
+		"/api/me/export",
+		"/api/learning",
 	};
 
 	private final RateLimiter rateLimiter;
@@ -68,7 +79,7 @@ public class ReadRateLimit implements HandlerInterceptor, WebMvcConfigurer {
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		response.setHeader("Retry-After", String.valueOf(WINDOW.toSeconds()));
 		response.getWriter().write("""
-			{"status":429,"message":"Too many chart requests in a minute. Wait a moment and try again.",\
+			{"status":429,"message":"Too many requests in a minute. Wait a moment and try again.",\
 			"timestamp":"%s"}""".formatted(Instant.now()));
 		return false;
 	}

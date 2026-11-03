@@ -696,6 +696,18 @@ describe('Drills — fixtures and refusals', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByTestId('drill-overlay')).toBeInTheDocument()
   })
+
+  it('BUG-134 with no market data on the server it says so, and offers no retry that cannot work', async () => {
+    mockApi((call) => {
+      if (call.method === 'POST') {
+        return { status: 503, body: { code: 'NO_MARKET_DATA', message: 'There is no NQ market data on this server yet.' } }
+      }
+      return server()(call)
+    })
+    renderDrill('FVG_IDENTIFICATION')
+    expect(await screen.findByRole('alert')).toHaveTextContent('There is no NQ market data on this server yet.')
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  })
 })
 
 describe('Drills — SMT, two charts (DEC-075)', () => {

@@ -55,17 +55,19 @@
 ## CURRENT STATE
 
 ```yaml
-last_session: 017   # in progress — T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
-last_author: CLAUDE
-last_updated: 2026-10-22
-phase: REAL DATA + ICT CURRICULUM — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
+last_session: 018   # CODEX audit complete; earlier Session 017 history: T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
+last_author: CODEX
+last_updated: 2026-11-01
+phase: T56, T57 and T58 done and merged into master (2026-11-03) — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
 git: true
 remote: https://github.com/FabioZetovic/Tradeez   # PRIVATE, created session 007
-branch: master                                    # fix/bug-hunt (BUG-075–092 fixed, DEC-076, DEC-077) merged 2026-10-23 as 4f73512; feat/smt-chart (DEC-075, bug hunt BUG-075–092 logged) merged 2026-10-21 as 4e31dec; feat/smt, feat/partials, feat/onboarding (T20, T28, T29, DEC-073, DEC-074) merged 2026-10-21 in order as 5dade77, a8baa46, 9f332df; feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
+branch: fix/security-audit                        # fix/bug-hunt (BUG-075–092 fixed, DEC-076, DEC-077) merged 2026-10-23 as 4f73512; feat/smt-chart (DEC-075, bug hunt BUG-075–092 logged) merged 2026-10-21 as 4e31dec; feat/smt, feat/partials, feat/onboarding (T20, T28, T29, DEC-073, DEC-074) merged 2026-10-21 in order as 5dade77, a8baa46, 9f332df; feat/evidence … feat/costs (T21–T27, DEC-065–072, BUG-074) merged 2026-10-21 in order as 815f7e3, ad43649, 85a60c0, cc02048, 75ab171, 9449a13, 6d6b340; fix/bugs-and-security (bug hunt + security pass, DEC-064, BUG-066–072) merged 2026-10-17 as 7c6ca81; feat/time-models (T19, DEC-063) merged 2026-10-17 as 2f476e0; feat/ranges (T18, DEC-062) merged 2026-10-17 as 8cf18bc; feat/blocks (T17, DEC-061) merged 2026-10-17 as 35b0de5; feat/session-candles (T35, DEC-060, BUG-063–065) merged 2026-10-16 as 25fc962; feat/learning-state (T16, DEC-059) merged 2026-10-16 as a16f0d1; test/practice-coverage (bug hunt, TP/SL tests, BUG-057–060) and with it feat/prediction-drills (T15, DEC-058) merged 2026-10-16 as 581b30a; fix/practice-trades (BUG-055, BUG-056, DEC-057) merged 2026-10-16 as 7f013a9; chore/upgrade-dependencies (T14 + DEC-056) merged 2026-10-16 as 37f8513; feat/drill-engine (T13) merged 2026-10-15 as e4f7cba; feat/liquidity (T12) merged 2026-10-15 as 1cb0c52; feat/market-structure (T11) merged 2026-10-15 as 57af061; feat/practice-timeframes (T34) merged 2026-10-15 as ec617ca; feat/imbalances (T10) merged 2026-10-15 as dcf699a; feat/detector-framework (T9) merged 2026-10-15 as a582b1a; feat/ict-drawings (T8 + BUG-047–049) merged 2026-10-14 as 4321ae6; feat/ny-clock (T7 + BUG-040–046) merged 2026-10-14 as 6d09763; feat/replay-trading (T5) 2026-10-14 as 9ab699a; feat/practice-real-data (T4) 2026-10-14 as c128237; feat/real-nq-data 2026-10-13 as 80014ad (no PR); feat/fvg-drill 2026-09-30 as 2280d37; PR #1 2026-09-29 as d6747e4
 head: see git log                                 # updated every session
-build_passing: true  # backend 706/706 (Testcontainers, 2026-10-22, fix/bug-hunt), frontend 390/390 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
+build_passing: unknown # Session 018 was audit-only; full regression suites were not rerun
+audit_2026_11_01: 35 findings; 19 verified, 16 reasoned; 12 backend and 11 frontend forensic probes passed; npm audit 0
+historical_build_record: true  # backend 706/706 (Testcontainers, 2026-10-22, fix/bug-hunt), frontend 390/390 + typecheck + build; coverage: backend 95.4% of lines (./mvnw -Pcoverage test), frontend 88.3% (npm run coverage); npm audit 0; knip clean; lint: zero warnings, enforced (--deny-warnings). Fresh clone of da5f361 (T12) green 2026-10-15; merged as 1cb0c52. Fresh clone of 778c306 (T13) green 2026-10-15; merged as e4f7cba.
 deployed: false      # local only, €0
 
 stack:               # DEC-056 — newest versions everywhere; exceptions written down with the reason
@@ -123,7 +125,7 @@ files_in_repo:
 not_built_do_not_assume:
   - indicators, any aggregate score or rating; graded drills are stored (T13) but nothing reads them until the learning state (T16)
 
-blocked_on: nothing — the redesign (M6, T36–T49, docs/REDESIGN.md). T36 theme and shell (feat/t36-shell, DEC-078) and T37 overlays in the chart's paint step (feat/t37-overlays, built on it; BUG-095 and BUG-096 fixed) built and merged 2026-10-23 (master 18399e5). T38 the Chart tab and T39 Home merged 2026-10-26 (master d0b84bd). T40 News merged 2026-10-26 (master 3bbaf28; DEC-079: our own calendar from FRED and the Fed — Forex Factory's terms forbid republishing its calendar). T41 the Practice home merged 2026-10-26 (master c3ea45f; DEC-080: costs fixed at the standard). T42 the practice session screen merged 2026-10-26 (master d4a21aa). T43 Drills merged 2026-10-26 (master 2366bca). BUG-097 (nothing could be drawn ahead of the last candle) fixed and merged 2026-10-26 (master 389f037). T44 the Learn audit decided 2026-10-26 (docs/redesign/learn-audit.md; DEC-081: Fabio accepted all 72 proposals — 33 pages in nine topics). T44 the Learn audit and T45 the Learn rebuild merged 2026-10-27 (master c53cd35; DEC-081, DEC-082). T46 phones and tablets merged 2026-10-27 (master 4594bc6). T47 ES as a full instrument merged 2026-10-27 (master 2612b37; BUG-094 fixed). T48 the public landing page merged 2026-10-27 (master d06d058). T49 the AI chart assistant paused 2026-10-27 by Fabio ("lets stop at T48 for now"): nothing built and nothing spent until he decides on its budget. The post-redesign audit on fix/post-redesign-audit (2026-10-27): BUG-098, BUG-099 (vi-1.1.0, DEC-083: volume imbalances measured per market) and BUG-100 fixed, with the landing page redrawn from Fabio's Claude Design canvas: merged 2026-10-28 (master 4a2de0c). The motion pass (R-5, REDESIGN §4 finished) built on feat/motion, waiting for Fabio's "merge". The design critique (2026-10-28): the hero's purple pill removed (T50 D-1); the rest logged as T50 (D-2 … D-12, REDESIGN §6) and BUG-101 … BUG-110. T50's first pass built on fix/t50-cleanup (from feat/motion); both merged 2026-10-28 (master 2ca9ca3, 5b433b9): D-2–D-5, D-7–D-9, D-11 and BUG-102, 104–110 fixed, BUG-101 and BUG-103 kept by Fabio; D-6 (lists instead of card grids) and D-10 (Home's greeting) wait for his yes; the logo waits for the app's real name (T51). T52, the mobile pass, built on feat/mobile, waiting for "merge": BUG-111 (a tap could not mark a drill's candle) to BUG-116 fixed; BUG-117 (a test failed once under load) logged; BUG-118 (entrances too quick to see) fixed on the same branch. Fabio finds the phone layout "awful": every screen was snapshotted (desktop and phone, docs/redesign/tradeez-screens-2026-10-28.zip, not committed) for him to have redesigned in Claude Design — It came back (Claude Design, 30 phone screens): T53, the phone redesign, built 2026-10-29 — all six phases; merged with feat/mobile 2026-10-29 (master 1aedf3b, 5415758). T54 (buttons), D-10 (Home) and T55 (topic colours) merged 2026-10-29 with T31's one-image deploy (DEC-084, BUG-073 fixed). BUG-093 seen once and logged. T31 started 2026-10-29 at Fabio's request after his Vercel beta could not reach a server. Left after it: T31's hosting itself (Fabio picks a Docker host; Vercel cannot run the server), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
+blocked_on: nothing — the redesign (M6, T36–T49, docs/REDESIGN.md). T36 theme and shell (feat/t36-shell, DEC-078) and T37 overlays in the chart's paint step (feat/t37-overlays, built on it; BUG-095 and BUG-096 fixed) built and merged 2026-10-23 (master 18399e5). T38 the Chart tab and T39 Home merged 2026-10-26 (master d0b84bd). T40 News merged 2026-10-26 (master 3bbaf28; DEC-079: our own calendar from FRED and the Fed — Forex Factory's terms forbid republishing its calendar). T41 the Practice home merged 2026-10-26 (master c3ea45f; DEC-080: costs fixed at the standard). T42 the practice session screen merged 2026-10-26 (master d4a21aa). T43 Drills merged 2026-10-26 (master 2366bca). BUG-097 (nothing could be drawn ahead of the last candle) fixed and merged 2026-10-26 (master 389f037). T44 the Learn audit decided 2026-10-26 (docs/redesign/learn-audit.md; DEC-081: Fabio accepted all 72 proposals — 33 pages in nine topics). T44 the Learn audit and T45 the Learn rebuild merged 2026-10-27 (master c53cd35; DEC-081, DEC-082). T46 phones and tablets merged 2026-10-27 (master 4594bc6). T47 ES as a full instrument merged 2026-10-27 (master 2612b37; BUG-094 fixed). T48 the public landing page merged 2026-10-27 (master d06d058). T49 the AI chart assistant paused 2026-10-27 by Fabio ("lets stop at T48 for now"): nothing built and nothing spent until he decides on its budget. The post-redesign audit on fix/post-redesign-audit (2026-10-27): BUG-098, BUG-099 (vi-1.1.0, DEC-083: volume imbalances measured per market) and BUG-100 fixed, with the landing page redrawn from Fabio's Claude Design canvas: merged 2026-10-28 (master 4a2de0c). The motion pass (R-5, REDESIGN §4 finished) built on feat/motion, waiting for Fabio's "merge". The design critique (2026-10-28): the hero's purple pill removed (T50 D-1); the rest logged as T50 (D-2 … D-12, REDESIGN §6) and BUG-101 … BUG-110. T50's first pass built on fix/t50-cleanup (from feat/motion); both merged 2026-10-28 (master 2ca9ca3, 5b433b9): D-2–D-5, D-7–D-9, D-11 and BUG-102, 104–110 fixed, BUG-101 and BUG-103 kept by Fabio; D-6 (lists instead of card grids) and D-10 (Home's greeting) wait for his yes; the logo waits for the app's real name (T51). T52, the mobile pass, built on feat/mobile, waiting for "merge": BUG-111 (a tap could not mark a drill's candle) to BUG-116 fixed; BUG-117 (a test failed once under load) logged; BUG-118 (entrances too quick to see) fixed on the same branch. Fabio finds the phone layout "awful": every screen was snapshotted (desktop and phone, docs/redesign/tradeez-screens-2026-10-28.zip, not committed) for him to have redesigned in Claude Design — It came back (Claude Design, 30 phone screens): T53, the phone redesign, built 2026-10-29 — all six phases; merged with feat/mobile 2026-10-29 (master 1aedf3b, 5415758). T54 (buttons), D-10 (Home) and T55 (topic colours) merged 2026-10-29 with T31's one-image deploy (DEC-084, BUG-073 fixed). BUG-093 seen once and logged. T31 started 2026-10-29 at Fabio's request after his Vercel beta could not reach a server. The security audit (2026-10-30, at Fabio's request, "act as a hacker"): BUG-119 … BUG-135 logged. T57 (2026-10-31, fix/security-audit): BUG-120 … BUG-127, BUG-130 … BUG-132 and BUG-135 fixed; T56 (real email addresses) built 2026-11-01 — BUG-119 and BUG-128 fixed; BUG-133 fixed and BUG-134 mostly fixed 2026-11-02 (Home's lesson invite and empty lesson examples left); Codex's audit (2026-11-01) logged BUG-137 … BUG-171 (T58); BUG-137 … BUG-172 fixed 2026-11-02 and 03, BUG-145 closed by Fabio's decision (no change); merged into master 2026-11-03; left BUG-129; hosting on hold until then (Fabio: "lets hold on to that for a little"). Left after it: T31's hosting itself (Fabio picks a Docker host; Vercel cannot run the server), T32 (deeper history: skipped for now, no budget — revisit at the end), T33 (indicators, low priority), and Q-09 (showing the data to the jury).
 
 read_order_for_new_session:
   1. docs/PATH.md          # this file — state, claims, next task
@@ -161,6 +163,38 @@ claimed_files:      # session 017 (CLAUDE) — T27 fees, commission, slippage, o
 ---
 
 ## NEXT UP
+
+### T58 — Repair batch from CODEX's 2026-11-01 audit (done 2026-11-03, merged into master)
+
+Done on fix/security-audit, 2026-11-02: T58.1 (BUG-137–139), T58.2 (BUG-140), from T58.3 BUG-141, 142, 144, from T58.4 BUG-147, 164, 165, from T58.3 and T58.7 BUG-161 and 170,
+and BUG-172 found on the way. Each fixed entry in BUGS.md names its test.
+
+**Audit complete, Session 018. Logging only; no application fixes made.** BUG-137–171 in
+[BUGS.md](BUGS.md): **35 new findings, 19 verified and 16 reasoned**. Full evidence and bounded rerun instructions:
+[audit report](audits/2026-11-01/README.md). Start with the concrete reproduced account and training-integrity failures.
+
+| Batch | Bugs | Problem and intended repair | Acceptance |
+|---|---|---|---|
+| T58.1 — proxy and session boundaries | 137–139 | Forwarded headers bypass both login limits; refresh grace resurrects sessions after revocation; detected theft leaves access alive. Establish a trusted proxy boundary and make rotation families obey all revocation events. | Real-server spoof tests for both header families; all old access/refresh credentials fail after logout, password change and detected reuse, while genuine concurrent refresh still works. |
+| T58.2 — safe account export | 140 | Export gives unfinished drill keys, future outcomes and hidden replay dates. Define explicit reveal-aware export fields. | Exercise every drill mode and active/complete real replays; personal data remains exportable, hidden grading material does not leave early. |
+| T58.3 — account recovery and email delivery | 141–145, 148, 161, 168–170 | Atomically consume reset/verification links; revoke old links on password changes; remove membership timing leaks; protect recovery from notice spam; handle legacy accounts, racing registration, signed-in email routes, name reclamation and failed delivery/resend. | Two-transaction redemption and registration tests; delayed/failing fake mail provider; legacy upgrade; existing-session email-link routes; rightful owner's name/password kept. Coordinate with Claude's current T56 work before editing. |
+| T58.4 — availability and local database | 146–147, 164–165 | Expensive attempted work escapes budgets; local Postgres listens on all interfaces with shared development credentials; malformed timestamps/anchors reach 500. | Budget before work starts, bound queues/history; private/loopback database listener; safe 400s on invalid input. No destructive load test needed. |
+| T58.5 — chart/drawing consistency | 149–153, 166, 171 | Out-of-order saves and loads lose drawings; market switches send old drawings through new URLs and relabel old candles; header/meta CSP disagree. | Delay/invert saves and loads; scope backend mutations to owner+instrument; consistent request keys and data snapshots; check actual built-page CSP in a browser. |
+| T58.6 — practice/journal state | 154–159 | History's creation snapshot overrides current state; direct routes omit settings; old open sessions and journal rows become unreachable; ordering/counts use historical/recent data incorrectly. | Refresh/back after trading; direct session settings; 50+ sessions and 250+ mixed trades; stable real-activity ordering and truthful totals. |
+| T58.7 — remaining UX | 160, 162–163, 167 | Failed sign-out looks complete; modal focus escapes; open news freezes in time; failed lesson-progress loading silently opens a locked lesson. | Offline sign-out+reload; keyboard modal containment/focus return; time/visibility changes; progress-load failures. |
+
+The probes currently assert the **observed defect** and live outside normal test discovery. Convert them to safe-behavior
+regressions during fixes. The audit runner passed end to end: **12 backend + 11 frontend probes**, zero failures;
+frontend dependency audit zero advisories. Full regression suites and deployment/browser verification remain future
+validation, not an asserted current pass. Earlier BUG-129/133/134 and flaky-test entries retain their existing statuses;
+the initial uncommitted source edits may already address parts of 133/134 and were deliberately not incorporated here.
+
+**Claims:** CODEX's Session 018 documentation/audit claims are released. Claude's existing claims and source edits were
+preserved. No application source, migration, or dependency was changed by this audit.
+
+**Repository sync:** audit committed locally as `643ff1c`. Push to `origin/fix/security-audit` requires GitHub
+authentication: Git Credential Manager waited for sign-in; a noninteractive retry confirmed no usable credential.
+Only this audit's stalled Git operations were stopped. Push the local audit commits after signing GitHub in; no force push.
 
 Ordered. Take the topmost unblocked item. Roadmap shape is **vertical slice** (DEC-018): thin and
 end-to-end first, then thicken. Nothing here is "build a whole layer."
@@ -229,6 +263,8 @@ it) — its layout, Home, tiles and chart-with-layers, **not** its lime colours.
 | T53 | **The phone redesign** | — | Fabio's Claude Design canvas, built in six phases (REDESIGN §6 T53) |
 | T54 | **Buttons** | — | A hierarchy: filled pill, outline, text, round icons — built on feat/home-buttons |
 | T55 | **Topic colours** | — | Each Learn topic a colour and a picture, on Learn, Drills, Home and the lesson — built on feat/topic-colours |
+| T56 | **Real email addresses** — built 2026-11-01 on fix/security-audit | to send for real: a Resend account (free tier, Fabio signs up) and the domain (T51) | Fabio: "we need users to sign up with their actual email … they can sign up as elon musk". Verify by a single-use link; same answer for a taken address; forgot password; verified email change; unverified accounts deleted after 7 days. BUG-119 (with BUG-127, BUG-128) |
+| T57 | **Security fixes from the 2026-10-30 audit** | — | BUG-119 … BUG-135 in BUGS.md, most severe first; Fabio: "THe next run after that we will start fiying all of that" |
 
 **Order:** T36 → T37 → T38 → T39 → T40 → T41 → T42 → T43 → T45, with T44 early (it needs Fabio's time),
 then T46, T47, T48, T49. Each task its own branch, merged when Fabio says "merge".
@@ -449,6 +485,10 @@ Q-04 (→ DEC-028) · Q-05 (→ DEC-008; Codex raised it independently and then 
 overclaim) · Q-06 (→ DEC-004, five-tool proof + decision gate) · Q-07 (→ DEC-029).
 
 Still open:
+
+- **Security/UX repair handoff (Session 018):** T58 above and BUG-137–171; findings logged, repairs intentionally pending.
+  Actual hosting proxy sanitization, production CSP/browser behavior, real mail delivery, backup/restore and a Java
+  dependency advisory scan are not verified by the local audit. Keep those checks distinct from the reproduced defects.
 
 | ID | Question | Raised | Owner |
 |---|---|---|---|
@@ -2870,3 +2910,39 @@ then fix all the bugs".
 tree is exactly the branch's, which passed its fresh-clone check (fe16cfb: backend 706, frontend 390). Next: the
 redesign — Fabio: "it is time that we change the damn design of the app, it looks extremely unpolished and vibe coded";
 a critique given, the direction waiting on his references; `feat/design` holds every screen before it as a PDF.
+
+---
+
+### SESSION 018-CODEX — 2026-11-01 — Adversarial security and UX audit (complete)
+
+**Request:** Fabio asked for a deep attacker-perspective audit of the redesigned app and then ordinary bugs hurting
+users, recorded in BUGS.md with explanations/future fixes in PATH.md. Logging only; Claude was working on email ownership.
+
+**Starting state:** `fix/security-audit`, HEAD `70c4d33`; working copy already had changes to empty-market handling,
+the environment example and associated tests. `git pull --ff-only` reported up to date. All pre-existing source edits
+and the screenshot archive were preserved; nothing was merged, reverted, deployed or repaired.
+
+**Delivered:** BUG-137–171, 35 findings (19 verified, 16 reasoned), each with scope/preconditions, impact, reproduction
+or code path, proposed repair and acceptance checks. T58 groups the future repair tasks by dependency and severity.
+`docs/audits/2026-11-01/` holds the report, bounded Java/frontend probes and a checked PowerShell runner.
+
+**Main verified failures:** forwarded-header spoofing defeated both sign-in quotas; refresh ancestors regained access
+after logout/password change; detected reuse left access tokens live; export exposed an unanswered risk answer and
+an active real replay's future result/date; the same reset token was accepted twice concurrently; an old reset link
+survived password change; notice mail exhausted recovery capacity. Frontend probes reproduced drawing-save/load
+races, old candles relabelled as another market, stale practice seeding, omitted direct-route settings, broken journal
+pagination/filtering, false sign-out completion and modal focus escape. Extreme news epochs and null anchors escaped validation.
+
+**Validation:** end-to-end `run-audit.ps1`: 12 backend probes and 11 frontend probes passed, no failures/errors;
+`npm audit` zero advisories. One frontend control rejected a suspected StrictMode email-token bug. The reset race was
+reported accurately: both resets succeed, but the later generation invalidates the earlier access token. A service-only
+email-space discrepancy was excluded because controller/browser validation invalidated the alleged user reproduction.
+No full regression suite, real deployment/mail-provider/load campaign, Java CVE scan or fresh visual-device audit claimed.
+
+**Isolation:** backend test server on a random local port, disposable Testcontainers PostgreSQL, throwaway accounts,
+in-memory mail. No user database, real inbox, paid data API or application source changed. Temporary frontend tests and
+the compiled audit class removed by the runner. Documentation claims released. Next is T58's repair batch when that
+work is taken up; begin with BUG-137, BUG-138 and BUG-140, coordinating email changes with Claude.
+
+**End-of-session sync:** local audit commit `643ff1c`; remote push blocked by GitHub authentication (noninteractive
+retry: "unable to get password from user"). Findings and handoff are complete on disk; no application edits were staged.

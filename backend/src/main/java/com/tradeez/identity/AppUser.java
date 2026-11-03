@@ -53,12 +53,21 @@ public class AppUser {
 	@Column(name = "token_generation", nullable = false)
 	private int tokenGeneration;
 
+	/** T56 (BUG-119): when the owner opened the link sent to the address; null until then, and it cannot sign in. */
+	@Column(name = "email_verified_at")
+	private Instant emailVerifiedAt;
+
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "settings", nullable = false)
 	private Map<String, Object> settings = new HashMap<>();
 
 	protected AppUser() {
 		// for JPA
+	}
+
+	/** BUG-168: the name chosen at the sign-up whose link proved the address. */
+	public void rename(String displayName) {
+		this.displayName = displayName;
 	}
 
 	public AppUser(String email, String passwordHash, String displayName) {
@@ -108,6 +117,17 @@ public class AppUser {
 	}
 
 	/** A new password's hash (DEC-064); the caller has checked the old one. */
+	public boolean isEmailVerified() {
+		return emailVerifiedAt != null;
+	}
+
+	/** The address is the owner's: they opened a link sent to it. Kept as first proven. */
+	public void verifyEmail(Instant when) {
+		if (emailVerifiedAt == null) {
+			emailVerifiedAt = when;
+		}
+	}
+
 	public void changePasswordHash(String passwordHash) {
 		this.passwordHash = passwordHash;
 	}

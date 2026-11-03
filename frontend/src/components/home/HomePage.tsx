@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNow } from '@/hooks/useNow'
 import { motion } from 'motion/react'
 import { Link } from 'react-router'
 import { ArrowRight, ChevronRight, Clock } from 'lucide-react'
@@ -67,7 +68,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
   const kinds = useLoaded(listDrillKinds)
   const sessions = useLoaded(listSessions)
   const statistics = useLoaded(getStatistics)
-  const [now] = useState(() => new Date())
+  const now = useNow()
   const phone = useIsPhone()
 
   const name = useCallback(
@@ -81,7 +82,9 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
   // learning-1.1.0 (T45): every drill counts toward passing its lesson, so a drill is passed when its lesson is.
   const drills = kinds ?? []
   const drillsPassed = drills.filter((k) => solid.has(k.conceptId)).length
-  const trades = sessions?.reduce((sum, s) => sum + s.trades, 0) ?? 0
+  // BUG-159: every finished trade, from the statistics the total R comes from — not a sum over the newest sessions,
+  // which stopped counting at fifty and counted a trade still running.
+  const trades = statistics?.overall.trades ?? 0
 
   const suggested = learning?.suggested
   const order = curriculum?.concepts.map((c) => c.concept.id) ?? []
@@ -95,7 +98,8 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
       learning !== null &&
       learning.summary.complete === 0 &&
       learning.summary.ratedAttempts + learning.summary.predictions === 0 &&
-      trades === 0
+      trades === 0 &&
+      (sessions?.length ?? 0) === 0
     const summary = curriculum?.concepts.find((c) => c.concept.id === suggested)?.concept.summary
     const totalR = statistics?.overall.totalR ?? 0
     return (
@@ -198,7 +202,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
                 {formatR(totalR)}
               </span>
               <span className="mt-1 text-[13px] text-subtle">
-                {trades} {trades === 1 ? 'trade' : 'trades'}
+                {trades} finished {trades === 1 ? 'trade' : 'trades'}
               </span>
             </Link>
           </section>
@@ -327,7 +331,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         <StepCard n={3} to="/practice" topic={SECTION_TOPICS.practice} title="Practice" line="A real day replayed bar by bar, the future hidden.">
           {sessions && (
             <Figure>
-              {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} · {trades} {trades === 1 ? 'trade' : 'trades'}
+              {trades} finished {trades === 1 ? 'trade' : 'trades'}
             </Figure>
           )}
         </StepCard>
@@ -510,7 +514,7 @@ function LatestSession({ adapterFactory }: { adapterFactory?: () => ChartAdapter
 /** Today's and tomorrow's high-impact US releases, New York time (T40); the week is a click away. */
 function NewsToday() {
   const news = useLoaded(getNews)
-  const [now] = useState(() => Date.now() / 1000)
+  const now = useNow().getTime() / 1000
   const days = new Set([newsDay(now), newsDay(now + DAY)])
   const soon = news?.events.filter((e) => e.impact === 'HIGH' && days.has(newsDay(e.at))) ?? []
 
@@ -518,7 +522,13 @@ function NewsToday() {
     // min-w-0: a grid item is otherwise as wide as its longest title, and the page scrolled sideways on a phone (BUG-112).
     <section aria-label="News today" className="flex min-w-0 flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
       <h2 className="text-sm font-medium text-subtle">News today</h2>
-      {news && soon.length === 0 && <p className="mt-3 text-sm text-subtle">No high-impact news today or tomorrow.</p>}
+      {/* BUG-134: a calendar never loaded is not a day without news. */}
+      {news && news.checkedAt == null && soon.length === 0 && (
+        <p className="mt-3 text-sm text-subtle">The economic calendar has not been loaded yet.</p>
+      )}
+      {news && news.checkedAt != null && soon.length === 0 && (
+        <p className="mt-3 text-sm text-subtle">No high-impact news today or tomorrow.</p>
+      )}
       {news === null && <p className="mt-3 text-sm text-subtle">The calendar could not be loaded.</p>}
       {soon.length > 0 && (
         <ul className="mt-3 flex flex-col gap-2.5">

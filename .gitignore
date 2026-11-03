@@ -44,3 +44,6 @@ npm-debug.log*
 .*.cjs
 .*.js
 !.claude/**
+
+# --- T56: mail the local app "sent" (OutboxMailer). It holds single-use links. ---
+backend/outbox/

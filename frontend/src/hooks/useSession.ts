@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   changePassword as apiChangePassword,
+  deleteAccount as apiDeleteAccount,
   login as apiLogin,
   logout as apiLogout,
   logoutEverywhere as apiLogoutEverywhere,
+  isPendingSignUp,
   register as apiRegister,
   restoreSession,
   type User,
@@ -59,31 +61,34 @@ export function useSession() {
     setState({ status: 'signedIn', user })
   }, [])
 
+  /** T56: 'check-inbox' when the address must be confirmed first — nobody is signed in yet. */
   const register = useCallback(
-    async (email: string, password: string, displayName: string) => {
-      const user = await apiRegister({ email, password, displayName })
-      setState({ status: 'signedIn', user })
+    async (email: string, password: string, displayName: string): Promise<'signed-in' | 'check-inbox'> => {
+      const result = await apiRegister({ email, password, displayName })
+      if (isPendingSignUp(result)) return 'check-inbox'
+      setState({ status: 'signedIn', user: result })
+      return 'signed-in'
     },
     [],
   )
 
+  /** T56: an emailed link confirmed the address or set a new password, and the server signed this browser in. */
+  const signedIn = useCallback((user: User) => setState({ status: 'signedIn', user }), [])
+
+  /**
+   * BUG-160: signed out here only once the server has done it. The session's cookies are HttpOnly: only the server can
+   * clear them, so a sign-out that failed and looked done left the next reload signed in — on a shared computer, open
+   * to whoever came next. A failure is thrown for the menu to say so and offer another try.
+   */
   const logout = useCallback(async () => {
-    try {
-      await apiLogout()
-    } finally {
-      // Sign out locally even if the request failed. Leaving the UI in a signed-in state after the
-      // user asked to leave is worse than a stale server-side session, which expires anyway.
-      setState({ status: 'signedOut' })
-    }
+    await apiLogout()
+    setState({ status: 'signedOut' })
   }, [])
 
-  /** Every device, this one included (DEC-064's account menu). Signed out here even if the request failed. */
+  /** Every device, this one included (DEC-064's account menu). As above: said done only when it is. */
   const logoutEverywhere = useCallback(async () => {
-    try {
-      await apiLogoutEverywhere()
-    } finally {
-      setState({ status: 'signedOut' })
-    }
+    await apiLogoutEverywhere()
+    setState({ status: 'signedOut' })
   }, [])
 
   /** The server renews this session's cookies and signs out every other one. */
@@ -92,5 +97,11 @@ export function useSession() {
     setState({ status: 'signedIn', user })
   }, [])
 
-  return { state, login, register, logout, logoutEverywhere, changePassword }
+  /** BUG-120: the account is gone, so this session is too. Only on success: a wrong password keeps them here. */
+  const deleteAccount = useCallback(async (password: string) => {
+    await apiDeleteAccount(password)
+    setState({ status: 'signedOut' })
+  }, [])
+
+  return { state, login, register, signedIn, logout, logoutEverywhere, changePassword, deleteAccount }
 }

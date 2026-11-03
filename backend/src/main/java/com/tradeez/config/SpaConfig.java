@@ -1,7 +1,13 @@
 package com.tradeez.config;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
@@ -28,13 +34,31 @@ public class SpaConfig implements WebMvcConfigurer {
 		// Vite names every built asset by its content's hash: a changed file is a new name, so it can be kept a year.
 		registry.addResourceHandler("/assets/**")
 			.addResourceLocations(STATIC + "assets/")
-			.setCacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable());
-		// index.html and the rest are asked again each time, so a new deploy is seen at once.
+			.setCacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
+			.setUseLastModified(false);
+		// index.html and the rest are asked again each time, so a new deploy is seen at once. BUG-122: the jar dates every
+		// file 1 February 1980, so Last-Modified answered 304 "not modified" across deploys and returning visitors kept an
+		// index.html naming scripts the new build no longer has — a blank page. The answer is an ETag of the content.
 		registry.addResourceHandler("/**")
 			.addResourceLocations(STATIC)
 			.setCacheControl(CacheControl.noCache())
+			.setUseLastModified(false)
+			.setEtagGenerator(SpaConfig::etag)
 			.resourceChain(true)
 			.addResolver(new PageResolver());
+	}
+
+	/** A file's content, hashed once: the jar never changes while this process runs. */
+	private static final Map<String, String> ETAGS = new ConcurrentHashMap<>();
+
+	static String etag(Resource resource) {
+		return ETAGS.computeIfAbsent(resource.getDescription(), key -> {
+			try (InputStream in = resource.getInputStream()) {
+				return "\"" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(in.readAllBytes()), 0, 16) + "\"";
+			} catch (IOException | NoSuchAlgorithmException e) {
+				return null;
+			}
+		});
 	}
 
 	/** A file when there is one; otherwise the page, except under the API's own paths, which stay a 404. */

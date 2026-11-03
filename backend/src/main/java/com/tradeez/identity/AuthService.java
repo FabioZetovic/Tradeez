@@ -58,6 +58,13 @@ public class AuthService {
 	private final JwtService jwtService;
 	private final RateLimiter rateLimiter;
 	private final PasswordPolicy passwordPolicy;
+	private RevokedAccessTokenRepository revokedAccessTokens;
+
+	/** BUG-126. Set by Spring; a test that builds this service by hand has no access tokens to sign out. */
+	@org.springframework.beans.factory.annotation.Autowired(required = false)
+	void setRevokedAccessTokens(RevokedAccessTokenRepository revokedAccessTokens) {
+		this.revokedAccessTokens = revokedAccessTokens;
+	}
 
 	public AuthService(AppUserRepository users, RefreshTokenRepository refreshTokens,
 			PasswordEncoder passwordEncoder, JwtService jwtService, RateLimiter rateLimiter,
@@ -70,29 +77,157 @@ public class AuthService {
 		this.passwordPolicy = passwordPolicy;
 	}
 
+	/** BUG-128: sign-ups the whole site takes in an hour, from everyone together. */
+	static final int SIGN_UPS_PER_HOUR = 300;
+
+	private AccountEmails emails;
+	private boolean verifyEmail;
+
+	/**
+	 * T56 (BUG-119). Set by Spring; a test that builds this service by hand signs accounts in at once, as before. Off
+	 * only where a test says so — the prod profile refuses to start without it (MailGuard).
+	 */
+	@org.springframework.beans.factory.annotation.Autowired(required = false)
+	void setEmailVerification(AccountEmails emails,
+			@org.springframework.beans.factory.annotation.Value("${tradeez.signup.verify-email:true}") boolean verifyEmail) {
+		this.emails = emails;
+		this.verifyEmail = verifyEmail;
+	}
+
+	/**
+	 * What a sign-up ends in: signed in at once ({@code signedIn}), or — T56 — waiting for the link sent to the address
+	 * ({@code signedIn} null). The second is the same answer whether the address was new or already had an account.
+	 */
+	public record SignUp(IssuedTokens signedIn, String email) {
+	}
+
 	/** Issued credentials. The raw refresh token exists only long enough to become a cookie. */
 	public record IssuedTokens(AppUser user, String accessToken, String refreshToken) {
 	}
 
 	@Transactional
-	public IssuedTokens register(RegisterRequest request, String userAgent) {
+	public SignUp register(RegisterRequest request, String userAgent) {
+		// BUG-127: the address and the name as they will be stored, or refused.
+		String email = Identities.email(request.email());
+		String displayName = Identities.displayName(request.displayName());
 		// password-1.0.0 first: a weak password is refused before anything is looked up (DEC-064).
-		passwordPolicy.require(request.password(), request.email(), request.displayName());
-		if (users.existsByEmailIgnoreCase(request.email())) {
+		passwordPolicy.require(request.password(), email, displayName);
+		if (verifyEmail) {
+			return signUpByEmail(email, displayName, request.password());
+		}
+		if (users.existsByEmailIgnoreCase(email)) {
 			throw new EmailAlreadyRegisteredException();
 		}
 		AppUser user;
 		try {
-			user = users.saveAndFlush(new AppUser(
-				request.email().trim(),
-				passwordEncoder.encode(request.password()),
-				request.displayName().trim()));
+			user = new AppUser(email, passwordEncoder.encode(request.password()), displayName);
+			user.verifyEmail(Instant.now());
+			user = users.saveAndFlush(user);
 		} catch (DataIntegrityViolationException raced) {
 			// Two sign-ups for one address at once both pass the check above; the unique index on
 			// lower(email) lets one in, and the other is the same answer as a taken address, not a 500.
 			throw new EmailAlreadyRegisteredException();
 		}
+		return new SignUp(issueFor(user, userAgent), email);
+	}
+
+	/**
+	 * T56 (BUG-119): nobody is signed in by signing up. A new address gets an unverified account and a link; an address
+	 * that already has one gets an email telling its owner (or the link again, if it was never confirmed). Either way
+	 * the answer is the same, and takes the same time — a password is hashed on both paths — so sign-up no longer says
+	 * which addresses have accounts.
+	 */
+	private SignUp signUpByEmail(String email, String displayName, String password) {
+		if (!rateLimiter.tryAcquire("sign-ups", SIGN_UPS_PER_HOUR, java.time.Duration.ofHours(1))) {
+			throw new TooManyAttemptsException();
+		}
+		String hash = passwordEncoder.encode(password);
+		// BUG-148: inserted only if the address is free, so the same address signing up twice at once makes one account
+		// and both get the same answer. Catching the second insert's failure left its transaction unable to commit.
+		boolean made = users.insertIfAbsent(email, hash, displayName) == 1;
+		AppUser user = users.findByEmailIgnoreCase(email).orElseThrow();
+		if (!made && user.isEmailVerified()) {
+			emails.sendAlreadyRegistered(user);
+		} else {
+			// New, or never confirmed: this sign-up's own link, carrying this sign-up's password and name (pre-hijacking,
+			// BUG-168, AccountEmails).
+			emails.sendVerification(user, hash, displayName);
+		}
+		return new SignUp(null, email);
+	}
+
+	/** T56: the address is proven — the account is confirmed, and signed in. */
+	@Transactional
+	public IssuedTokens verify(String rawToken, String userAgent) {
+		EmailToken link = emails.use(rawToken, EmailToken.Purpose.VERIFY);
+		AppUser user = link.getUser();
+		// The password chosen at the sign-up this link came from (pre-hijacking, AccountEmails).
+		if (link.getPasswordHash() != null) {
+			user.changePasswordHash(link.getPasswordHash());
+		}
+		if (link.getDisplayName() != null) {
+			user.rename(link.getDisplayName());
+		}
+		user.verifyEmail(Instant.now());
+		users.save(user);
 		return issueFor(user, userAgent);
+	}
+
+	/**
+	 * T56: the link again, for an account never confirmed — only to someone who knows its password, so it cannot be used
+	 * to send its owner a link to an account with someone else's password. Says nothing either way, in the same time.
+	 */
+	@Transactional
+	public void resendVerification(String email, String password) {
+		var user = known(email);
+		if (user.isEmpty() || PasswordPolicy.tooLong(password)) {
+			passwordEncoder.encode(TIMING_STAND_IN);
+			return;
+		}
+		if (passwordEncoder.matches(password, user.get().getPasswordHash()) && !user.get().isEmailVerified()) {
+			emails.sendVerification(user.get(), null, null);
+		}
+	}
+
+	/**
+	 * T56: a link to set a new password — or, for an account never confirmed, a note to sign up again, with no link:
+	 * only a proven address may set a password. Says nothing either way.
+	 */
+	@Transactional
+	public void forgotPassword(String email) {
+		known(email).ifPresent(user -> {
+			if (user.isEmailVerified()) {
+				emails.sendReset(user);
+			} else {
+				emails.sendUnconfirmed(user);
+			}
+		});
+	}
+
+	/**
+	 * T56: a new password from a reset link. Every session ends, as with a password change — the reason for a reset is
+	 * often that someone else has the old one — and this one starts. Opening the link also proves the address.
+	 */
+	@Transactional
+	public IssuedTokens resetPassword(String rawToken, String newPassword, String userAgent) {
+		AppUser user = emails.use(rawToken, EmailToken.Purpose.RESET).getUser();
+		passwordPolicy.require(newPassword, user.getEmail(), user.getDisplayName());
+		user.changePasswordHash(passwordEncoder.encode(newPassword));
+		user.verifyEmail(Instant.now());
+		user.revokeAccessTokens();
+		users.save(user);
+		refreshTokens.revokeAllForUser(user.getId(), Instant.now());
+		log.info("Password reset for user {} from an emailed link; every session signed out.", user.getId());
+		return issueFor(user, userAgent);
+	}
+
+	/** The account at an address, if the address is one at all. */
+	private java.util.Optional<AppUser> known(String email) {
+		try {
+			return users.findByEmailIgnoreCase(Identities.email(email));
+		} catch (Identities.InvalidIdentityException notAnAddress) {
+			return java.util.Optional.empty();
+		}
 	}
 
 	/**
@@ -128,6 +263,15 @@ public class AuthService {
 		}
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 			throw new InvalidCredentialsException();
+		}
+		// T56: the right password, but the address was never proven. Told only to someone who knows the password.
+		if (verifyEmail && !user.isEmailVerified()) {
+			throw new EmailNotVerifiedException();
+		}
+		// BUG-132: a hash made at a lower cost than today's is redone now, while the password is in hand.
+		if (passwordEncoder.upgradeEncoding(user.getPasswordHash())) {
+			user.changePasswordHash(passwordEncoder.encode(request.password()));
+			users.save(user);
 		}
 
 		// Clear the counter on success, so someone who mistyped their password a few times is not
@@ -176,7 +320,9 @@ public class AuthService {
 			// and revoke nothing. This is the trade-off the OAuth security BCP recommends, and it is
 			// deliberate: an attacker replaying within seconds of a real rotation does get a session,
 			// which is a far smaller harm than logging honest users out at random.
-			if (withinReuseGrace(stored, now)) {
+			// BUG-138: only while the session it was rotated into is still alive. After a sign-out, a sign-out
+			// everywhere or a password change that session is gone, and the old token must not start a new one.
+			if (withinReuseGrace(stored, now) && sessionLives(stored, now)) {
 				log.debug("Refresh token for user {} was already rotated {}ms ago; treating as a "
 					+ "concurrent duplicate rather than reuse.",
 					stored.getUser().getId(),
@@ -184,7 +330,17 @@ public class AuthService {
 				return issueFor(stored.getUser(), userAgent);
 			}
 
+			if (withinReuseGrace(stored, now)) {
+				// A duplicate of a session already ended: refused, and nothing else to end.
+				throw new InvalidRefreshTokenException();
+			}
+
 			UUID userId = stored.getUser().getId();
+			// BUG-139: the access tokens already handed out end too, as on a password change — whoever holds the
+			// successor's would otherwise keep reading and writing for up to fifteen minutes.
+			AppUser owner = stored.getUser();
+			owner.revokeAccessTokens();
+			users.save(owner);
 			int revoked = refreshTokens.revokeAllForUser(userId, now);
 			log.warn("Refresh token reuse detected for user {}; revoked {} active token(s). "
 				+ "All sessions for this account have been invalidated.", userId, revoked);
@@ -234,6 +390,7 @@ public class AuthService {
 		// BUG-077: the access tokens already handed out end too, not only the refresh tokens.
 		user.revokeAccessTokens();
 		users.save(user);
+		emails.spendResets(user);
 		int revoked = refreshTokens.revokeAllForUser(userId, Instant.now());
 		log.info("Password changed for user {}; {} session(s) signed out.", userId, revoked);
 		rateLimiter.reset(throttleKey);
@@ -251,6 +408,34 @@ public class AuthService {
 				token.revoke(Instant.now());
 				refreshTokens.save(token);
 			});
+	}
+
+	/**
+	 * BUG-120: the account and everything hanging off it — sessions, trades, drills, drawings, sign-ins — deleted for
+	 * good (the schema cascades from app_user). Needs the current password, and is throttled as a password change is, so
+	 * a session left open on a shared computer cannot be used to destroy the account or to guess its password.
+	 */
+	@Transactional
+	public void deleteAccount(UUID userId, String password) {
+		String throttleKey = "password:" + userId;
+		if (!rateLimiter.tryAcquire(throttleKey, PASSWORD_CHANGES, ACCOUNT_WINDOW)) {
+			throw new TooManyAttemptsException();
+		}
+		AppUser user = users.findById(userId).orElseThrow(InvalidRefreshTokenException::new);
+		if (PasswordPolicy.tooLong(password) || !passwordEncoder.matches(password, user.getPasswordHash())) {
+			throw new WrongCurrentPasswordException();
+		}
+		users.delete(user);
+		rateLimiter.reset(throttleKey);
+		log.info("Account {} deleted at its owner's request.", userId);
+	}
+
+	/** BUG-126: this access token is refused from now until it would have expired. */
+	@Transactional
+	public void signOutAccessToken(JwtService.AccessToken token) {
+		if (token.jti() != null && revokedAccessTokens != null && token.expiresAt().isAfter(Instant.now())) {
+			revokedAccessTokens.save(new RevokedAccessToken(token.jti(), token.expiresAt()));
+		}
 	}
 
 	/** Every session: the refresh tokens, and the access tokens already handed out (BUG-077). */
@@ -271,13 +456,26 @@ public class AuthService {
 			&& Duration.between(rotatedAt, now).compareTo(REUSE_GRACE) <= 0;
 	}
 
+	/** BUG-138: the newest token in this one's rotation chain is still usable — the session was not ended since. */
+	private boolean sessionLives(RefreshToken stored, Instant now) {
+		RefreshToken newest = stored;
+		// Bounded: a chain is a few rotations long inside the grace window, and a cycle cannot be written.
+		for (int hop = 0; hop < 32 && newest.isAlreadyRotated(); hop++) {
+			newest = refreshTokens.findById(newest.getReplacedBy()).orElse(null);
+			if (newest == null) {
+				return false;
+			}
+		}
+		return newest.isActive(now);
+	}
+
 	private IssuedTokens issueFor(AppUser user, String userAgent) {
 		String rawRefresh = jwtService.generateRefreshToken();
 		refreshTokens.save(new RefreshToken(
 			user,
 			jwtService.hash(rawRefresh),
 			Instant.now().plus(jwtService.getRefreshTokenTtl()),
-			userAgent));
+			Devices.describe(userAgent)));
 		return new IssuedTokens(user, jwtService.issueAccessToken(user), rawRefresh);
 	}
 
@@ -299,5 +497,8 @@ public class AuthService {
 	}
 
 	public static class WrongCurrentPasswordException extends RuntimeException {
+	}
+
+	public static class EmailNotVerifiedException extends RuntimeException {
 	}
 }

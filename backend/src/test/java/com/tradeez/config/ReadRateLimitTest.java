@@ -66,10 +66,25 @@ class ReadRateLimitTest extends AbstractIntegrationTest {
 		mockMvc.perform(get(BARS).cookie(busy))
 			.andExpect(status().isTooManyRequests())
 			.andExpect(header().string("Retry-After", "60"))
-			.andExpect(jsonPath("$.message").value("Too many chart requests in a minute. Wait a moment and try again."));
+			.andExpect(jsonPath("$.message").value("Too many requests in a minute. Wait a moment and try again."));
 		// Every costly read shares the count; the rest of the API does not.
 		mockMvc.perform(get("/api/market/instruments/DEMO-NQ/clock?from=1710248400&to=1710252000").cookie(busy))
 			.andExpect(status().isTooManyRequests());
+		// BUG-146: the other work a script could repeat is in the same budget.
+		String session = "/api/practice/sessions/" + java.util.UUID.randomUUID();
+		for (String costly : new String[] { session, session + "/trades/1/review", "/api/practice/statistics",
+				"/api/practice/calibration", "/api/practice/trades", "/api/me/export", "/api/learning" }) {
+			mockMvc.perform(get(costly).cookie(busy)).andExpect(status().isTooManyRequests());
+		}
+		mockMvc.perform(post(session + "/context").cookie(busy).with(
+				org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+				.contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(status().isTooManyRequests());
+		// Stepping a replay is not: playing one must not stall.
+		mockMvc.perform(post(session + "/advance").cookie(busy).with(
+				org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+				.contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(429));
 		mockMvc.perform(get("/api/me").cookie(busy)).andExpect(status().isOk());
 		mockMvc.perform(get("/api/market/instruments").cookie(busy)).andExpect(status().isOk());
 		mockMvc.perform(get(BARS).cookie(other)).andExpect(status().isOk());

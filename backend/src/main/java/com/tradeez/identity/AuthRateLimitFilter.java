@@ -38,7 +38,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
 	/** The endpoints a guess can be made at (DEC-064 adds the password change). */
 	private static final java.util.Set<String> LIMITED =
-		java.util.Set.of("/api/auth/login", "/api/auth/register", "/api/auth/password");
+		java.util.Set.of("/api/auth/login", "/api/auth/register", "/api/auth/password", "/api/auth/verify",
+			"/api/auth/verify/resend", "/api/auth/password/forgot", "/api/auth/password/reset");
 
 	/**
 	 * BUG-075: the path as the router reads it — decoded, without {@code ;} parameters. The raw request URI let

@@ -66,4 +66,20 @@ class SpaConfigTest extends AbstractIntegrationTest {
 	void writesAreNotPublic() throws Exception {
 		mockMvc.perform(post("/learn")).andExpect(status().isForbidden());
 	}
+
+	@Test
+	@DisplayName("BUG-122 the page carries an ETag of its content and no 1980 Last-Modified, so a deploy is never answered 304")
+	void aNewDeployIsSeen() throws Exception {
+		String etag = mockMvc.perform(get("/learn"))
+			.andExpect(status().isOk())
+			.andExpect(header().doesNotExist("Last-Modified"))
+			.andReturn().getResponse().getHeader("ETag");
+		org.assertj.core.api.Assertions.assertThat(etag).matches("\"[0-9a-f]{32}\"");
+		// The same page: 304. What a browser holding an older build sends: the page again.
+		mockMvc.perform(get("/learn").header("If-None-Match", etag)).andExpect(status().isNotModified());
+		mockMvc.perform(get("/learn").header("If-None-Match", "\"0123456789abcdef0123456789abcdef\""))
+			.andExpect(status().isOk()).andExpect(content().string(containsString("Tradeez test page")));
+		mockMvc.perform(get("/learn").header("If-Modified-Since", "Fri, 01 Feb 1980 00:00:00 GMT"))
+			.andExpect(status().isOk());
+	}
 }

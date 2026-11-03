@@ -136,6 +136,19 @@ describe('a lesson (T45)', () => {
     expect(screen.getByRole('link', { name: 'Learn' })).toHaveAttribute('href', '/learn')
   })
 
+  it('BUG-167 progress that failed to load shows no lesson as open; trying again does', async () => {
+    serve({ '/api/concepts/ICT-23/lesson': LESSON, '/api/concepts': CURRICULUM })
+    renderLesson('ICT-23')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your progress could not be loaded')
+    expect(screen.getByTestId('lesson-title')).toHaveTextContent('Inversion FVG')
+    expect(screen.queryByRole('region', { name: 'What it is' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Practise it' })).toBeNull()
+
+    serve({ '/api/concepts/ICT-23/lesson': LESSON, '/api/learning': learning({}), '/api/concepts': CURRICULUM })
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('region', { name: 'What it is' })).toBeInTheDocument()
+  })
+
   it('"Practise it": the record against the pass mark, and one click to its drill', async () => {
     serve({ '/api/concepts/ICT-23/lesson': LESSON, '/api/learning': learning({}), '/api/concepts': CURRICULUM })
     renderLesson('ICT-23')

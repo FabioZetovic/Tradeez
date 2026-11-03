@@ -27,6 +27,28 @@ public class AuthExceptionHandler {
 		return body(HttpStatus.CONFLICT, "That email address is already registered.");
 	}
 
+	@ExceptionHandler(Identities.InvalidIdentityException.class)
+	public ResponseEntity<Map<String, Object>> invalidIdentity(Identities.InvalidIdentityException e) {
+		// BUG-127: the message says what to change; it is written here, never built from the input.
+		return body(HttpStatus.BAD_REQUEST, e.getMessage());
+	}
+
+	@ExceptionHandler(AuthService.EmailNotVerifiedException.class)
+	public ResponseEntity<Map<String, Object>> emailNotVerified() {
+		// T56. A code as well as words, so the page can offer to send the link again.
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+			"status", HttpStatus.FORBIDDEN.value(),
+			"code", "EMAIL_NOT_VERIFIED",
+			"message", "Confirm your email first: open the link we sent to it, or ask for a new one.",
+			"timestamp", Instant.now().toString()));
+	}
+
+	@ExceptionHandler(AccountEmails.InvalidLinkException.class)
+	public ResponseEntity<Map<String, Object>> invalidLink() {
+		return body(HttpStatus.BAD_REQUEST,
+			"This link no longer works: it was used, it expired, or a newer one was sent. Ask for a new one.");
+	}
+
 	@ExceptionHandler(AuthService.InvalidCredentialsException.class)
 	public ResponseEntity<Map<String, Object>> badCredentials() {
 		return body(HttpStatus.UNAUTHORIZED, "Invalid email or password.");
