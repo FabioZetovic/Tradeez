@@ -37,32 +37,9 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172 and BUG-173, found on the way), moved to [Fixed](#fixed). BUG-146, BUG-156, BUG-157 and BUG-159 fixed too (2026-11-03). Still open: BUG-145 (Fabio's call). Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172 and BUG-173, found on the way), moved to [Fixed](#fixed). BUG-146, BUG-156, BUG-157 and BUG-159 fixed too (2026-11-03). BUG-145 closed by Fabio's decision, no change. Nothing from the audit is open. Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
-
----
-
-### BUG-145 🟠 The email-verification migration declares every old account verified without proof
-
-**Status:** reasoned · **Affects:** `V34__email_verification.sql`
-
-**What.** `UPDATE app_user SET email_verified_at = created_at` marks every pre-migration account as email-verified.
-If someone previously registered another person's address under the old behavior, installing the new feature leaves
-that person signed in with an account now labelled verified. No previously impersonated real account is alleged here.
-
-**Impact.** Verification protects new registrations but does not repair the exact email-ownership defect for existing
-accounts. This matters if any old database with uncontrolled registrations is retained or deployed.
-
-**Future fix / acceptance.** Decide the migration of existing accounts explicitly: require mailbox proof and revoke
-old sessions for unproven accounts; exempt only explicitly controlled development fixtures. Test an unverified legacy
-account upgrading through V34 and prove it cannot sign in or refresh until its mailbox owner confirms.
-
-**Claude, 2026-11-02 — waiting on Fabio.** V34 has run with accounts in it only on the local development database: every
-account there is Fabio's, the test account or a throwaway probe. A new host starts with an empty table, so V34 marks
-nothing there, and every account on it proves its address. Recommendation: no migration. Revisit only if a database
-with sign-ups from outside is ever migrated across V34; none exists. The alternative, un-confirming every existing
-account, would cost only a local re-confirmation through the outbox.
 
 ---
 
@@ -584,6 +561,29 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 > useful than the fix.
 
 Kept for the lesson, not for the changelog.
+
+### BUG-145 🟠 The email-verification migration declares every old account verified without proof
+
+**Status:** ✅ closed, no change (decided by Fabio, 2026-11-03) — reasoned · **Affects:** `V34__email_verification.sql`
+
+**What.** `UPDATE app_user SET email_verified_at = created_at` marks every pre-migration account as email-verified.
+If someone previously registered another person's address under the old behavior, installing the new feature leaves
+that person signed in with an account now labelled verified. No previously impersonated real account is alleged here.
+
+**Impact.** Verification protects new registrations but does not repair the exact email-ownership defect for existing
+accounts. This matters if any old database with uncontrolled registrations is retained or deployed.
+
+**Future fix / acceptance.** Decide the migration of existing accounts explicitly: require mailbox proof and revoke
+old sessions for unproven accounts; exempt only explicitly controlled development fixtures. Test an unverified legacy
+account upgrading through V34 and prove it cannot sign in or refresh until its mailbox owner confirms.
+
+**Claude, 2026-11-02 — waiting on Fabio.** V34 has run with accounts in it only on the local development database: every
+account there is Fabio's, the test account or a throwaway probe. A new host starts with an empty table, so V34 marks
+nothing there, and every account on it proves its address. Recommendation: no migration. Revisit only if a database
+with sign-ups from outside is ever migrated across V34; none exists. The alternative, un-confirming every existing
+account, would cost only a local re-confirmation through the outbox.
+
+**✅ FIXED** (decided by Fabio, 2026-11-03). Closed with no change, as recommended. V34 ran with accounts in it only on the local development database, whose accounts are Fabio's, the test account and throwaway probes. A new host starts with an empty table, so every account there proves its address through T56. Revisit only if a database with sign-ups from outside is ever migrated across V34.
 
 ### BUG-173 🟠 An email confirmation link signed in but stayed on "Confirming your email…"
 
