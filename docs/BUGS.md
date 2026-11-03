@@ -572,6 +572,15 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-174 🟡 The 250-trade journal test ran past the default five seconds on a loaded machine
+
+**Status:** ✅ fixed on `feat/week-sessions` (2026-11-03) — seen once, with the backend suite running beside it (5.3 s) · **Affects:** `PracticeView.test` "BUG-157 the whole history is reachable…"
+
+**What.** The test pages through 250 trades with twelve clicks, which is about 3.5 s alone and over the 5 s default
+when the machine is busy: a timeout, not a fault in the app. The family of BUG-117.
+
+**✅ FIXED** (2026-11-03). That one test has a 20 s limit; the rest keep the default.
+
 ### BUG-145 🟠 The email-verification migration declares every old account verified without proof
 
 **Status:** ✅ closed, no change (decided by Fabio, 2026-11-03) — reasoned · **Affects:** `V34__email_verification.sql`

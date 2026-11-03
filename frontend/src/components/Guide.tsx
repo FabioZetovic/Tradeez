@@ -17,7 +17,7 @@ const STEPS = [
     to: '/practice',
     name: 'Practice',
     text:
-      'A real day replayed bar by bar, the future hidden. Plan a trade with a stop and a target, then read its ' +
+      'A real week replayed bar by bar, the future hidden. Plan a trade with a stop and a target, then read its ' +
       'scorecard: what it did and how it was made, kept apart.',
   },
   {

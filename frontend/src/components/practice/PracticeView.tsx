@@ -69,7 +69,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
   const [settings, setSettings] = useState<PracticeSettings | undefined>(undefined)
   // Empty means "any": the server then picks from the whole history.
   const [killzone, setKillzone] = useState('')
-  // T47: NQ or ES — a real day of either.
+  // T47: NQ or ES — a real week of either.
   const [market, setMarket] = useState<Market>('NQ')
   const [starting, setStarting] = useState(false)
   const [allOpen, setAllOpen] = useState(false)
@@ -163,7 +163,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
       // as two-line rows with filters; the statistics a screen of their own.
       <section className="flex flex-col gap-6">
         <h1 className="sr-only">Practice</h1>
-        {first && <p className="text-sm text-subtle">A real day replayed bar by bar, the future hidden. Plan, execute, then review.</p>}
+        {first && <p className="text-sm text-subtle">A real week replayed bar by bar, the future hidden. Plan, execute, then review.</p>}
         <section aria-label="New session" className="rounded-card border border-line bg-surface p-4">
           <h2 className="text-lg font-semibold text-ink">{first ? 'Start your first session' : 'Start a session'}</h2>
           <p className="mt-1 text-[13px] text-subtle">
@@ -272,7 +272,7 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
     <section className="flex flex-col gap-6">
       <PageHeader
         title="Practice"
-        description="A real day replayed bar by bar, the future hidden. Plan, execute, then review."
+        description="A real week replayed bar by bar, the future hidden. Plan, execute, then review."
       />
 
       <section

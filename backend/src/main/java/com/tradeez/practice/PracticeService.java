@@ -133,8 +133,12 @@ public class PracticeService {
 	/** Minimum open market after the start, so a new session never opens seconds before a close. */
 	static final Duration MIN_SESSION_LEFT = Duration.ofHours(2);
 
-	/** How far past its start a replay can be stepped. Bounds what a GET has to generate. */
-	static final Duration MAX_REPLAY = Duration.ofDays(3);
+	/**
+	 * How far past its start a replay can be stepped. Bounds what a GET has to generate. A week (DEC-085, Fabio: "extend
+	 * it to be a week"): three days begun late in a week left one trading day before the weekend — a day trade, not a
+	 * week to follow a bias through.
+	 */
+	static final Duration MAX_REPLAY = Duration.ofDays(7);
 
 	/** Long enough to step across a weekend when the market is closed. */
 	private static final Duration CLOSED_MARKET_LOOKAHEAD = Duration.ofDays(3);

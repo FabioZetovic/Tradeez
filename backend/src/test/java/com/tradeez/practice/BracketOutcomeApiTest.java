@@ -575,6 +575,9 @@ class BracketOutcomeApiTest extends AbstractIntegrationTest {
 			assertThat(stored(id, 1).exitTime()).as("on past the entry, to the stop").isEqualTo(TUESDAY_10AM.plusSeconds(240));
 			assertThat(held.get("rMultiple").asDouble()).as("+10 and −11 ticks over two contracts, $5.00 of fees").isEqualTo(-0.1);
 
+			// Ended first: an open session holds its week of replay back from the next (DEC-077, DEC-085), and the two
+			// weeks of data here leave no room for a second beside it.
+			mockMvc.perform(post("/api/practice/sessions/" + id + "/end").cookie(alice).with(csrf())).andExpect(status().isOk());
 			String far = upThenDown();
 			planWithPartial(far, ",\"partialTicks\":80015,\"partialContracts\":1").andExpect(status().isOk());
 			JsonNode state = skip(far);
