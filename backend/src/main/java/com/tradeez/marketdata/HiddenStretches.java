@@ -31,7 +31,7 @@ import org.springframework.stereotype.Service;
 public class HiddenStretches {
 
 	/** A replay's length ({@code PracticeService.MAX_REPLAY}) and a day for a trade still running at its end. */
-	public static final Duration PAST_REPLAY_START = Duration.ofDays(4);
+	public static final Duration PAST_REPLAY_START = Duration.ofDays(8);
 
 	public enum Why {
 		PRACTICE, DRILL

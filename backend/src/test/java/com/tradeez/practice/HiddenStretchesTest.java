@@ -117,6 +117,12 @@ class HiddenStretchesTest extends AbstractIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("DEC-085 a replay runs a week past its start: a whole trading week to follow, not one day")
+	void aWeek() {
+		assertThat(PracticeService.MAX_REPLAY).isEqualTo(Duration.ofDays(7));
+	}
+
+	@Test
 	@DisplayName("BUG-086 an open session's replay is off the Chart tab — candles, setups, clock prices — until it ends")
 	void practiceHidden() throws Exception {
 		String id = startSession().at("/state/id").asString();

@@ -91,7 +91,7 @@ export function LandingPage() {
               Mark every gap, name the structure, say where the stop goes. Pass it and the next lesson opens.
             </Step>
             <Step title="Practice">
-              A real day replayed bar by bar, the date hidden. Plan the trade, place it, get a scorecard against your
+              A real week replayed bar by bar, the date hidden. Plan the trade, place it, get a scorecard against your
               plan.
             </Step>
           </ol>

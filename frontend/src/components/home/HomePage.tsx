@@ -328,7 +328,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
             <Progress tone={topicTone(SECTION_TOPICS.drills).fill} value={drillsPassed / drills.length} text={`${drillsPassed} of ${drills.length} drills passed`} />
           )}
         </StepCard>
-        <StepCard n={3} to="/practice" topic={SECTION_TOPICS.practice} title="Practice" line="A real day replayed bar by bar, the future hidden.">
+        <StepCard n={3} to="/practice" topic={SECTION_TOPICS.practice} title="Practice" line="A real week replayed bar by bar, the future hidden.">
           {sessions && (
             <Figure>
               {trades} finished {trades === 1 ? 'trade' : 'trades'}

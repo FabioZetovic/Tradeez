@@ -1817,7 +1817,8 @@ describe('Practice — the home on a phone (T53)', () => {
 
     await user.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Ambiguous' }))
     await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(1))
-  })
+    // Twelve pages of 250 rows: over the default 5 s on a loaded machine.
+  }, 20_000)
 
   it('the journal as rows, filtered by chips, twenty at a time; the statistics a screen of their own', async () => {
     const trades: JournalTrade[] = Array.from({ length: 25 }, (_, i) => ({

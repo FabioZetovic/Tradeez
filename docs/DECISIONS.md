@@ -336,6 +336,23 @@ split, he chose one server, host-neutral ("i will buy a domain later i dont want
 
 **Reconsider if** the page needs a CDN in front of it — the image can still sit behind one unchanged.
 
+**DEC-085 — A practice session replays a week** · `IMPLEMENTED` · Fabio + Claude, 2026-11-03
+
+Fabio: "in practice sessions, session is too short, it is like a day, which is okay if you are backtesting but extend
+it to be a week". A replay could be stepped three days past its hidden start (`PracticeService.MAX_REPLAY`). Calendar
+days, so a session begun on a Thursday had Friday and a closed weekend: one trading day.
+
+- `MAX_REPLAY` is seven days: whatever the start, a full trading week to step through, follow a bias in and trade
+  more than once. Ending a session early is unchanged.
+- An open session's hidden stretch (DEC-077, BUG-085) grows with it: `HiddenStretches.PAST_REPLAY_START` is still the
+  replay plus a day, now eight. While a session is open, its week (and the four days of history before it) is held
+  back from the next session and from drills. Two years of data leave ample room; a test's twelve days do not, so tests
+  that open a second session now end the first.
+- The pages say "A real week replayed bar by bar" (Home, Practice, the guide, the landing page).
+
+**Reconsider if** sessions are left open for long and starve the picker on a short history: then hide only what the
+replay has actually shown, not the whole week ahead.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and
@@ -1061,7 +1078,7 @@ prices are real to the tick, and a drill's candles carry their real times: the c
 by.
 
 - **Two stretches, the real timeline:** the practice session the learner is in — the open one touched last — from its
-  cursor to a day past its replay (`HiddenStretches.PAST_REPLAY_START`, the replay's three days and a day for a trade
+  cursor to a day past its replay (`HiddenStretches.PAST_REPLAY_START`, the replay's week (three days until DEC-085) and a day for a trade
   still running); and the newest drill, while unanswered, from its first candle to the last its answer is decided by.
   What a replay has shown stays: finding the day by it shows nothing new.
 - **Left out on every real market:** the candles touching them (a daily candle whole), the setups from first candle to
