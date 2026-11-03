@@ -394,6 +394,19 @@ export function PracticeView({ adapterFactory }: PracticeViewProps) {
             </tbody>
           </table>
         )}
+        {/* BUG-157: every trade reachable here too, the next page from where the last ended. */}
+        {trades && trades.length < (statistics?.overall.trades ?? 0) && (
+          <Button
+            className="mt-3"
+            onClick={() =>
+              void listTrades(50, trades.length)
+                .then((older) => setTrades([...trades, ...older]))
+                .catch(() => setError('Could not load more of your journal.'))
+            }
+          >
+            Load older trades
+          </Button>
+        )}
       </Panel>
 
       {(statistics || calibration) && (

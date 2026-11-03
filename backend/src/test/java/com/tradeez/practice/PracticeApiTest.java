@@ -281,6 +281,12 @@ class PracticeApiTest extends AbstractIntegrationTest {
 			mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())
 					.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))
 				.andExpect(status().isTooManyRequests());
+			// BUG-146: refused before any work. With no NQ history, work first would have answered "no market data".
+			jdbc.update("DELETE FROM market_bar");
+			jdbc.update("DELETE FROM market_data_import");
+			mockMvc.perform(post("/api/practice/sessions").cookie(alice).with(csrf())
+					.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"NQ\"}"))
+				.andExpect(status().isTooManyRequests());
 			// Someone else's quota is their own.
 			mockMvc.perform(post("/api/practice/sessions").cookie(bob).with(csrf())
 					.contentType(MediaType.APPLICATION_JSON).content("{\"instrument\":\"DEMO-NQ\"}"))

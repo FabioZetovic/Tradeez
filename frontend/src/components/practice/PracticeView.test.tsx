@@ -1872,3 +1872,38 @@ describe('Practice — the home on a phone (T53)', () => {
     expect(screen.queryByRole('region', { name: 'Statistics' })).toBeNull()
   })
 })
+
+describe('Practice — the journal on a desktop (BUG-157)', () => {
+  it('reaches every trade a page at a time with "Load older trades", each once', async () => {
+    const trades: JournalTrade[] = Array.from({ length: 120 }, (_, i) => ({
+      sessionId: `d${i}`,
+      number: 1,
+      at: Date.UTC(2000, 0, 11, 9, 5) / 1000,
+      timeBasis: 'NEW_YORK_WALL_CLOCK',
+      instrument: 'NQ',
+      tickSize: 0.25,
+      direction: 'LONG',
+      entryTicks: 80_000 + i,
+      outcome: 'TARGET',
+      r: 1,
+      netPnlCents: 1_000,
+    }))
+    const statistics = { ...NO_STATISTICS, overall: { ...NO_STATISTICS.overall, trades: 120 } }
+    mockApi((call) =>
+      call.method === 'GET' && call.url.startsWith('/api/practice/trades')
+        ? { body: journalPage(trades, call.url) }
+        : is(call, 'GET', '/api/practice/statistics')
+          ? { body: statistics }
+          : { status: 404, body: {} },
+    )
+    const user = userEvent.setup()
+    renderPractice()
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(50))
+    await user.click(screen.getByRole('button', { name: 'Load older trades' }))
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(100))
+    await user.click(screen.getByRole('button', { name: 'Load older trades' }))
+    await waitFor(() => expect(screen.getAllByTestId('journal-row')).toHaveLength(120))
+    expect(screen.queryByRole('button', { name: 'Load older trades' })).toBeNull()
+    expect(new Set(screen.getAllByTestId('journal-row').map((row) => row.textContent)).size).toBe(120)
+  })
+})

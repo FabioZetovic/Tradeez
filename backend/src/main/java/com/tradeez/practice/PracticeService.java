@@ -320,6 +320,11 @@ public class PracticeService {
 	 */
 	public SessionResponse create(UUID userId, String symbol, String timeframeCode,
 			String killzoneCode, String weekdayCode) {
+		// BUG-146: refused before a moment is picked and days of history are read — the check at saving came after
+		// that work, so a refused request still did it. Kept there too, for two requests at once.
+		if (sessions.countByUserIdAndCreatedAtAfter(userId, Instant.now().minus(Duration.ofHours(1))) >= MAX_SESSIONS_PER_HOUR) {
+			throw new TooManySessionsException();
+		}
 		Instrument instrument = marketData.requireInstrument(
 			symbol == null || symbol.isBlank() ? DEFAULT_INSTRUMENT : symbol);
 		Timeframe timeframe = timeframeCode == null || timeframeCode.isBlank()

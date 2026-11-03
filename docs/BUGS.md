@@ -37,7 +37,7 @@ No claim of complete vulnerability coverage or a full regression-suite pass is m
 **Repair order:** BUG-137, BUG-138, BUG-140 first; then the other account/recovery and availability issues;
 then drawing persistence, practice state, journal, and the remaining UX findings. See T58 in PATH.md.
 
-**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). BUG-156, BUG-157 (phone; desktop left) and BUG-159 fixed too. Still open: BUG-145 (Fabio's call), BUG-146, BUG-157 on desktop. Codex's probes
+**Fixed so far (Claude, T58, 2026-11-02):** BUG-137 to BUG-144, BUG-147 to BUG-155, BUG-158, BUG-160 to BUG-171 (and BUG-172, found on the way), moved to [Fixed](#fixed). BUG-146, BUG-156, BUG-157 and BUG-159 fixed too (2026-11-03). Still open: BUG-145 (Fabio's call). Codex's probes
 in `BackendAuditTest.java` for these now fail, as they should; their turned-round versions are `SessionRecoveryTest`,
 `ExportRevealTest`, `DeployedServerTest` and `ProdProfileTest`.
 
@@ -63,27 +63,6 @@ account there is Fabio's, the test account or a throwaway probe. A new host star
 nothing there, and every account on it proves its address. Recommendation: no migration. Revisit only if a database
 with sign-ups from outside is ever migrated across V34; none exists. The alternative, un-confirming every existing
 account, would cost only a local re-confirmation through the outbox.
-
----
-
-### BUG-146 🟠 Several expensive authenticated operations escape the read/work budget
-
-**Status:** reasoned (route and work-path review, not a saturation attack) · **Affects:** `ReadRateLimit.LIMITED`,
-`PracticeService.create/get/context/review/finished`, `AccountExport.of`, `LearningService.state`
-
-**Attack paths.** Repeat full practice-session GETs, draft-context POSTs, trade reviews, account exports, statistics,
-calibration, or learning-state reads. None is in `ReadRateLimit.LIMITED`. Statistics/calibration/trade listing read the
-account's whole trade history before limiting output; export materializes all owned rows. Practice creation checks its
-successful-session cap in `saveCapped` **after** selecting a hidden moment and loading history, so rejected attempts can
-still repeat the expensive preliminary work. A failed drill search inserts no row and therefore consumes no successful-drill quota.
-
-**Impact.** A single signed-in script can spend database/CPU work through routes outside the budget that was added for
-BUG-080. The scanner's two permits limit simultaneous scans, but waiting uses `acquireUninterruptibly` with no bounded
-queue/deadline; it does not bound incoming work. Large-account export/history makes the cost grow with account age.
-
-**Future fix / acceptance.** Budget attempted work before it starts, cover these routes, and bound concurrency/queue
-waits. Paginate history in SQL and stream or queue large exports. Test allowed and rejected work with small configured
-budgets and prove the expensive service is not called after exhaustion; keep ordinary replay playback usable.
 
 ---
 
@@ -606,6 +585,27 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-146 🟠 Several expensive authenticated operations escape the read/work budget
+
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-03) — reasoned (route and work-path review, not a saturation attack) · **Affects:** `ReadRateLimit.LIMITED`,
+`PracticeService.create/get/context/review/finished`, `AccountExport.of`, `LearningService.state`
+
+**Attack paths.** Repeat full practice-session GETs, draft-context POSTs, trade reviews, account exports, statistics,
+calibration, or learning-state reads. None is in `ReadRateLimit.LIMITED`. Statistics/calibration/trade listing read the
+account's whole trade history before limiting output; export materializes all owned rows. Practice creation checks its
+successful-session cap in `saveCapped` **after** selecting a hidden moment and loading history, so rejected attempts can
+still repeat the expensive preliminary work. A failed drill search inserts no row and therefore consumes no successful-drill quota.
+
+**Impact.** A single signed-in script can spend database/CPU work through routes outside the budget that was added for
+BUG-080. The scanner's two permits limit simultaneous scans, but waiting uses `acquireUninterruptibly` with no bounded
+queue/deadline; it does not bound incoming work. Large-account export/history makes the cost grow with account age.
+
+**Future fix / acceptance.** Budget attempted work before it starts, cover these routes, and bound concurrency/queue
+waits. Paginate history in SQL and stream or queue large exports. Test allowed and rejected work with small configured
+budgets and prove the expensive service is not called after exhaustion; keep ordinary replay playback usable.
+
+**✅ FIXED** (T58, 2026-11-03). The per-account work budget (`ReadRateLimit`, 240 a minute) now covers a full session read, a draft's context, a trade's review, statistics, calibration, the journal, the data export and learning progress, beside the chart reads it had. Stepping a replay (advance, skip, close) stays outside it, so playback is never slowed; the refusal no longer says "chart". Practice creation checks the hourly session cap before it picks a moment and reads days of history, not only when saving. `ReadRateLimitTest.perAccount`: each newly covered route is 429 once the budget is spent, and advance is not. `PracticeApiTest.creationIsCapped`: past the cap with no NQ history, the answer is 429, not "no market data", so no work was done first. Two mutants caught. **Not done:** the history queries are still read whole before paging, and the setup scanner's queue has no deadline. These are bounded now by the budget, not removed.
+
 ### BUG-156 🟠 Older open practice sessions disappear from every resume list
 
 **Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02) — reasoned · **Affects:** `PracticeSessionRepository.findTop50ByUserIdOrderByCreatedAtDesc`, `PracticeView`, Home
@@ -621,7 +621,7 @@ Seed over 50 newer sessions and prove the older open one remains reachable from 
 
 ### BUG-157 🟠 The phone journal cannot load its full history and filters can falsely say there are no trades
 
-**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02, partly) — verified (rendered pagination/filter probe; server maximum read in code) · **Affects:** `PhoneJournal`,
+**Status:** ✅ fixed on `fix/security-audit` (T58, 2026-11-02; desktop 2026-11-03) — verified (rendered pagination/filter probe; server maximum read in code) · **Affects:** `PhoneJournal`,
 `listTrades`, `PracticeRecordController.trades`
 
 **Reproduce.** With more than 200 finished trades, the phone loads 50, then increases the requested limit by 20:
@@ -633,7 +633,7 @@ The desktop journal likewise offers only its initially loaded rows without older
 **Future fix / acceptance.** Add actual server pagination with a stable cursor and server-side filters, and make every
 layout reach all history. Test 250+ mixed trades, filtered matches only on later pages, and repeated load failures.
 
-**✅ FIXED** (T58, 2026-11-02, partly). `/api/practice/trades` takes `offset` and `kind` (WINNERS, LOSERS, LONG, SHORT, AMBIGUOUS), filtering before paging. The phone journal pages by offset, 50 at a time, and each filter asks the server. `PracticeJournalApiTest.pagesAndFilters`; `PracticeView.test` "BUG-157" (250 trades, every one reached once, a filter match on the last page); three mutants caught. **Still open:** the desktop journal shows only its first 50.
+**✅ FIXED** (T58, 2026-11-02; desktop 2026-11-03). `/api/practice/trades` takes `offset` and `kind` (WINNERS, LOSERS, LONG, SHORT, AMBIGUOUS), filtering before paging. The phone journal pages by offset, 50 at a time, and each filter asks the server. `PracticeJournalApiTest.pagesAndFilters`; `PracticeView.test` "BUG-157" (250 trades, every one reached once, a filter match on the last page); three mutants caught. The desktop journal has **Load older trades**, the next 50 from where it ended, while trades remain: `PracticeView.test` "the journal on a desktop"; mutant caught.
 
 ### BUG-159 🟡 Home's practice counts are truncated and can disagree with its own statistics
 
