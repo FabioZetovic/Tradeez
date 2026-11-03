@@ -58,7 +58,7 @@
 last_session: 018   # CODEX audit complete; earlier Session 017 history: T1–T19, T34, T35, DEC-056–064, both bug hunts and the security pass merged; T21 (evidence views) next. Hosting and deployment deferred by Fabio until the app is finished
 last_author: CODEX
 last_updated: 2026-11-01
-phase: T56, T57 and T58 done and merged into master (2026-11-03); DEC-085 a practice session replays a week (feat/week-sessions) — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
+phase: T56, T57 and T58 done and merged into master (2026-11-03); DEC-085 a practice session replays a week, merged into master (2026-11-03) — DEC-041 (ICT trainer, paper trading on real history), DEC-042 (Massive free plan first)
 code_written: true
 repo_initialized: true
 git: true
