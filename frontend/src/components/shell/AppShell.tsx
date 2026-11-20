@@ -57,32 +57,33 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
       <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
         {/* The full width on every screen, so it never jumps sideways between the reading pages and the chart pages
             (BUG-102). */}
-        <div className="flex h-16 w-full items-center gap-3 px-4 md:gap-8 md:px-6">
-          <Link to="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
+        <div className="grid h-16 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 md:px-6">
+          <Link to="/" className="justify-self-start rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
             <Logo />
           </Link>
-          <nav aria-label="Sections" className="flex gap-1">
+          {/* One bar in the middle holding every section (Fabio, 2026-11-20): the highlight slides along it from the
+              section left to the one opened. */}
+          <nav aria-label="Sections" className="flex gap-1 rounded-xl border border-line bg-surface p-1">
             {NAV.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
                   cx(
-                    'relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors pointer-coarse:py-3',
+                    'relative rounded-lg px-4 py-1.5 text-sm font-medium transition-colors pointer-coarse:py-3',
                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-                    isActive ? 'text-ink' : 'text-subtle hover:text-ink',
+                    isActive ? 'text-accent-ink' : 'text-subtle hover:text-ink',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {/* The highlight slides from the section left to the one opened. */}
                     {isActive && (
                       <motion.span
                         layoutId="section-highlight"
                         aria-hidden
-                        className="absolute inset-0 rounded-lg bg-sunken"
-                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                        className="absolute inset-0 rounded-lg bg-accent shadow-sm"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
                       />
                     )}
                     <span className="relative">{label}</span>
@@ -91,7 +92,7 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="flex items-center gap-1 justify-self-end">
             <AccountMenu
               user={user}
               onChangePassword={onChangePassword}

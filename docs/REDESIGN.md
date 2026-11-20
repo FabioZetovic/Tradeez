@@ -252,9 +252,9 @@ icons, `tw-animate-css`, Tailwind v4. Its chart (`CandleChart.tsx`) is a hand-dr
 
 - **Header:** sticky, `h-16`, `border-b`, `bg-background/80 backdrop-blur`; inner container
   `max-w-[1600px] px-6`, items `gap-8`.
-- **Logo:** a 32×32 `rounded-lg` square in the primary colour with a white rising-line icon (stroke 2.5),
+- **Logo:** *(DEC-086, 2026-11-20: the brand symbol from docs/brand, 32 px, replaces the square)* a 32×32 `rounded-lg` square in the primary colour with a white rising-line icon (stroke 2.5),
   then "Tradeez" in the display font, `text-lg font-bold tracking-tight`.
-- **Nav:** Home, Learn, Drills, Practice, Chart — pills `rounded-lg px-3 py-1.5 text-sm font-medium`; active
+- **Nav:** *(2026-11-20, Fabio: one bar centred in the header, `rounded-xl border bg-surface p-1`, the active pill `bg-accent text-accent-ink` sliding along it; px-4)* Home, Learn, Drills, Practice, Chart — pills `rounded-lg px-3 py-1.5 text-sm font-medium`; active
   `bg-secondary text-foreground`, others `text-muted-foreground hover:text-foreground`.
 - **Account:** right-aligned button — a 28 px circle with initials (`bg-accent text-accent-foreground`
   `text-xs font-bold`), the name, a chevron. Menu: a 240 px panel (`bg-popover p-1.5`), the email in `text-xs`
