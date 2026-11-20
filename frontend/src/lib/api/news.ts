@@ -32,6 +32,6 @@ export interface News {
   termsUrl: string
 }
 
-/** From this week's Monday in New York, two weeks, unless a window is given (UTC epoch seconds). */
+/** From today in New York, four weeks, unless a window is given (UTC epoch seconds). */
 export const getNews = (window?: { from: number; to: number }) =>
   apiFetch<News>(window ? `/api/news?from=${window.from}&to=${window.to}` : '/api/news')

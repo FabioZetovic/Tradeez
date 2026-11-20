@@ -27,7 +27,25 @@ public enum EconomicRelease {
 	PPI(46, "PPI — Producer Price Index", "BLS", Impact.MEDIUM, LocalTime.of(8, 30), "https://www.bls.gov/ppi/"),
 	JOBLESS_CLAIMS(180, "Initial Jobless Claims", "Department of Labor", Impact.MEDIUM, LocalTime.of(8, 30),
 		"https://www.dol.gov/ui/data.pdf"),
-	JOLTS(192, "JOLTS — Job Openings", "BLS", Impact.MEDIUM, LocalTime.of(10, 0), "https://www.bls.gov/jlt/");
+	JOLTS(192, "JOLTS — Job Openings", "BLS", Impact.MEDIUM, LocalTime.of(10, 0), "https://www.bls.gov/jlt/"),
+	// Fabio, 2026-11-20: more of the medium ones traders watch, each one FRED announces ahead. Left out: durable goods,
+	// which FRED files with factory orders (release 95) though the two come out at different times; ISM and the
+	// Conference Board's confidence, which FRED does not carry; existing home sales (291), whose dates FRED gives only
+	// to a query starting today. Keys fit release_key's 16 characters (V28).
+	SENTIMENT(91, "Consumer Sentiment — University of Michigan", "University of Michigan", Impact.MEDIUM,
+		LocalTime.of(10, 0), "https://www.sca.isr.umich.edu/"),
+	HOUSING_STARTS(27, "Housing Starts and Building Permits", "Census Bureau", Impact.MEDIUM, LocalTime.of(8, 30),
+		"https://www.census.gov/construction/nrc/"),
+	INDUSTRIAL_PROD(13, "Industrial Production", "Federal Reserve", Impact.MEDIUM, LocalTime.of(9, 15),
+		"https://www.federalreserve.gov/releases/g17/"),
+	NEW_HOME_SALES(97, "New Home Sales", "Census Bureau", Impact.MEDIUM, LocalTime.of(10, 0),
+		"https://www.census.gov/construction/nrs/"),
+	EMPIRE_STATE(321, "Empire State Manufacturing Survey", "New York Fed", Impact.MEDIUM, LocalTime.of(8, 30),
+		"https://www.newyorkfed.org/survey/empire/empiresurvey_overview"),
+	PHILLY_FED(351, "Philadelphia Fed Manufacturing Survey", "Philadelphia Fed", Impact.MEDIUM, LocalTime.of(8, 30),
+		"https://www.philadelphiafed.org/surveys-and-data/regional-economic-analysis/manufacturing-business-outlook-survey"),
+	TRADE_BALANCE(51, "Trade Balance — International Trade", "BEA", Impact.MEDIUM, LocalTime.of(8, 30),
+		"https://www.bea.gov/data/intl-trade-investment/international-trade-goods-and-services");
 
 	public enum Impact { HIGH, MEDIUM }
 

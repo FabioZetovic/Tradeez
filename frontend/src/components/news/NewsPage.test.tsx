@@ -108,7 +108,7 @@ describe('the News page (T40)', () => {
   it('says so for an empty fortnight, and for a calendar that could not be loaded', async () => {
     vi.mocked(getNews).mockResolvedValue({ ...NEWS, events: [] })
     const { unmount } = render(<NewsPage />)
-    expect(await screen.findByText('No releases in these two weeks.')).toBeInTheDocument()
+    expect(await screen.findByText('No releases in the next four weeks.')).toBeInTheDocument()
     unmount()
 
     vi.mocked(getNews).mockRejectedValue(new Error('503'))

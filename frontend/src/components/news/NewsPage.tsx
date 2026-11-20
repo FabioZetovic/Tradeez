@@ -58,7 +58,7 @@ export function NewsPage() {
     <>
       <PageHeader
         title="Economic calendar"
-        description="The US releases that move NQ, this week and next — the red and orange folders traders plan around. Times are New York."
+        description="The US releases that move NQ over the next four weeks — the red and orange folders traders plan around. Times are New York."
         right={<Segmented options={IMPACTS} value={impact} onChange={setImpact} label="Impact" />}
       />
 
@@ -76,7 +76,7 @@ export function NewsPage() {
         </Notice>
       )}
 
-      {news && shown.length === 0 && <p className="text-sm text-subtle">No releases in these two weeks.</p>}
+      {news && shown.length === 0 && <p className="text-sm text-subtle">No releases in the next four weeks.</p>}
 
       {/* One panel, as on Home and Drills (Fabio, 2026-11-20): the days its rows, divided by hairlines on the page's own
           background. */}

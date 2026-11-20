@@ -141,4 +141,12 @@ class EconomicCalendarServiceTest extends AbstractIntegrationTest {
 		Instant august2027 = Instant.parse("2027-08-15T12:00:00Z");
 		assertThat(service(august2027).between(august2027, august2027.plusSeconds(86_400)).fomcRunningOut()).isTrue();
 	}
+
+	@Test
+	@DisplayName("every release's key fits economic_release.release_key, sixteen characters (V28)")
+	void keysFit() {
+		for (EconomicRelease release : EconomicRelease.values()) {
+			assertThat(release.name()).as(release.name()).hasSizeLessThanOrEqualTo(16);
+		}
+	}
 }

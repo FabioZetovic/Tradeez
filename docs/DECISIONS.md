@@ -360,6 +360,24 @@ as a pinker violet on plum with a coral candle; shown three ways beside the app,
 losing candle, and the pink violet as a second brand beside the accent. Sources in `docs/brand/` (symbol, app icon,
 lockup, wordmark, favicon); the page uses the favicon and draws the symbol inline in `Logo`.
 
+**DEC-087 — News looks four weeks ahead from today, with seven more medium releases** · `IMPLEMENTED` · Fabio + Claude, 2026-11-20
+(amends DEC-079's window and list)
+
+Fabio, on a Friday: "why is there so little upcoming news". DEC-079's window was this week and next from Monday, so by
+a Friday half of it was behind and nine days ahead were left; its nine releases cluster CPI, PPI, NFP, JOLTS and the FOMC
+in the first half of a month; and it was Thanksgiving week. Both changed:
+
+- **The window** is today, from 00:00 New York, and the four weeks after it (`NewsController.DEFAULT_SPAN`), so a month's
+  big releases are always in sight and this morning's still show, dimmed.
+- **Seven medium releases**, each one FRED announces ahead (checked against FRED's release calendar on 2026-11-20):
+  consumer sentiment (University of Michigan, 91, 10:00), housing starts (27, 08:30), industrial production (13, 09:15),
+  new home sales (97, 10:00), the Empire State (321) and Philadelphia Fed (351) surveys (08:30), and the trade balance
+  (51, 08:30). Left out: durable goods, filed by FRED with factory orders (95) though the two come out at 08:30 and
+  10:00; existing home sales (291), whose dates FRED returns only to a query starting today, not from 2024 as the
+  refresher asks; ISM and the Conference Board's confidence, which FRED does not carry.
+
+**Reconsider if** FRED's answer for 291 changes, or an ISM schedule becomes available from an allowed source.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and
