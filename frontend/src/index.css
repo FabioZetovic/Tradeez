@@ -47,6 +47,9 @@
      follow this, and nothing inherits a light-theme colour. */
   html {
     color-scheme: dark;
+    /* BUG-175: room for the scrollbar on every page, so a page short enough not to scroll (Practice, Chart) is as
+       wide as one that does, and the header does not shift 15 px sideways between them. */
+    scrollbar-gutter: stable;
   }
 
   body {

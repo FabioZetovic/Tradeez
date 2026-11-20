@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, BookOpen, CalendarDays, ChartCandlestick, CirclePlay, House, Target, TrendingUp } from 'lucide-react'
+import { ArrowLeft, BookOpen, CalendarDays, ChartCandlestick, CirclePlay, House, Target } from 'lucide-react'
 import { useIsPhone } from '@/hooks/useIsPhone'
 import { DISCLAIMER, DISCLAIMER_SHORT } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
@@ -57,18 +57,21 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
       <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
         {/* The full width on every screen, so it never jumps sideways between the reading pages and the chart pages
             (BUG-102). */}
-        <div className="flex h-16 w-full items-center gap-3 px-4 md:gap-8 md:px-6">
-          <Link to="/" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
+        <div className="flex h-16 w-full items-stretch gap-3 px-4 md:gap-10 md:px-6">
+          <Link to="/" className="self-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
             <Logo />
           </Link>
-          <nav aria-label="Sections" className="flex gap-1">
+          {/* Plain words; the open section is marked by a line on the header's own edge that slides from the section
+              left to the one opened (Fabio, 2026-11-20: no pill, nothing that looks generated). */}
+          <nav aria-label="Sections" className="flex gap-7">
             {NAV.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
                   cx(
-                    'relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors pointer-coarse:py-3',
+                    // One weight for all: a bolder open section would be wider and push the others along.
+                    'relative flex items-center text-sm font-medium transition-colors',
                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                     isActive ? 'text-ink' : 'text-subtle hover:text-ink',
                   )
@@ -76,16 +79,15 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
               >
                 {({ isActive }) => (
                   <>
-                    {/* The highlight slides from the section left to the one opened. */}
+                    {label}
                     {isActive && (
                       <motion.span
                         layoutId="section-highlight"
                         aria-hidden
-                        className="absolute inset-0 rounded-lg bg-sunken"
-                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                        className="absolute inset-x-0 -bottom-px h-0.5 bg-accent"
+                        transition={{ type: 'spring', bounce: 0.1, duration: 0.4 }}
                       />
                     )}
-                    <span className="relative">{label}</span>
                   </>
                 )}
               </NavLink>
@@ -266,13 +268,22 @@ function Footer() {
   )
 }
 
-/** The mark and the name: a rising line on the accent. */
+/**
+ * The mark and the name: a T that is also a rising candle, the replay's last bars beside it, in the accent's violets
+ * and the up colour (docs/brand, Fabio's pick of three, 2026-11-20).
+ */
 export function Logo({ large = false }: { large?: boolean }) {
   return (
     <span className={cx('flex items-center', large ? 'gap-3' : 'gap-2.5')}>
-      <span className={cx('grid place-items-center rounded-lg bg-accent text-accent-ink', large ? 'size-10' : 'size-8')}>
-        <TrendingUp aria-hidden strokeWidth={2.5} className={large ? 'size-6' : 'size-5'} />
-      </span>
+      <svg aria-hidden viewBox="0 0 80 80" className={cx('shrink-0', large ? 'size-10' : 'size-8')}>
+        <rect width="80" height="80" rx="19" fill="#1D2127" />
+        <g transform="translate(4 4) scale(1.125)">
+          <path d="M6 16 15 8H58L54 15H19L12 22H6Z" fill="#5B4FD1" />
+          <path d="M10 22 19 14H55L49 24H39L27 54H15L25 24H8Z" fill="#A99FFF" />
+          <path d="M37 5H43L39 14H33ZM25 25H37L31 42H19ZM26 44H31L25 59H20Z" fill="#34D399" />
+          <path d="M45 31H51L49 35H43ZM40 43H46L44 47H38Z" fill="#5B4FD1" />
+        </g>
+      </svg>
       <span className={cx('font-display font-bold tracking-tight text-ink', large ? 'text-2xl' : 'text-lg')}>Tradeez</span>
     </span>
   )

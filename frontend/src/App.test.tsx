@@ -557,7 +557,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
 
     it('the sections sit in a tab bar at the foot, the current one marked; there is no menu', async () => {
       render(<App adapterFactory={() => new FakeChartAdapter()} />)
-      await screen.findByRole('heading', { name: /Fabio./ })
+      await screen.findByRole('heading', { name: /Fabio$/ })
       const tabs = screen.getByRole('navigation', { name: 'Sections' })
       expect(within(tabs).getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Learn', 'Drills', 'Practice', 'Chart'])
       expect(within(tabs).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
@@ -569,7 +569,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
 
     it('News is the calendar on Home, with a bar back; the account opens as a sheet with the calendar and the guide', async () => {
       render(<App adapterFactory={() => new FakeChartAdapter()} />)
-      await screen.findByRole('heading', { name: /Fabio./ })
+      await screen.findByRole('heading', { name: /Fabio$/ })
       await userEvent.click(screen.getByRole('link', { name: 'Economic calendar' }))
       expect(window.location.pathname).toBe('/news')
       await userEvent.click(screen.getByRole('link', { name: 'Back to Home' }))
@@ -603,7 +603,7 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
   it('an unknown address lands on Home; the header switches sections', async () => {
     at('/no-such-page')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Fabio\./ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Fabio$/ })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/')
     expect(current('Home')).toBe('page')
 
@@ -619,11 +619,21 @@ describe('App — addresses and the shell (T36, DEC-078)', () => {
     expect(current('Chart')).toBeNull()
   })
 
+  it('BUG-175 the open section is not set bolder than the rest, so opening one does not push the others along', async () => {
+    at('/learn')
+    render(<App adapterFactory={() => new FakeChartAdapter()} />)
+    await waitFor(() => expect(current('Learn')).toBe('page'))
+    const weights = within(screen.getByRole('navigation', { name: 'Sections' }))
+      .getAllByRole('link')
+      .map((link) => [...link.classList].filter((c) => c.startsWith('font-')).join(' '))
+    expect(new Set(weights)).toEqual(new Set(['font-medium']))
+  })
+
   it('BUG-173 a confirmation link, once it has signed in, goes on to Home', async () => {
     mockApi({ ...signedOut, '/api/auth/verify': { body: USER } })
     at('/verify-email#tok_verify')
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Fabio\./ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Fabio$/ })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/')
     expect(requests('/api/auth/verify')).toHaveLength(1)
   })
@@ -729,7 +739,7 @@ describe('App — the guide and the disclaimer (T29, T36)', () => {
 
   it('greets a sign-in with Home, not a pop-up; the guide is at /help, from the account menu', async () => {
     render(<App adapterFactory={() => new FakeChartAdapter()} />)
-    await screen.findByRole('heading', { name: /Fabio\./ })
+    await screen.findByRole('heading', { name: /Fabio$/ })
     expect(screen.queryByRole('heading', { name: 'How Tradeez works' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Fabio' }))
