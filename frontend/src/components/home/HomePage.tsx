@@ -106,9 +106,9 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
       // Home on a phone (T53, Claude Design): the next lesson first, three figures, what is due, the news, the market.
       <div className="flex flex-col gap-5">
         <header>
-          <p className="text-[13px] text-subtle">{longDate(now)}</p>
-          <h1 className="mt-0.5 font-display text-[28px] leading-tight font-bold tracking-tight text-ink">
-            {greeting(now.getHours())}, {user.displayName.split(/\s+/)[0]}.
+          <p className="num text-[11px] uppercase tracking-[0.18em] text-subtle">{longDate(now)}</p>
+          <h1 className="mt-1.5 font-display text-[28px] leading-tight font-semibold tracking-tight text-ink">
+            {greeting(now.getHours())}, {user.displayName.split(/\s+/)[0]}
           </h1>
           {fresh && (
             <p className="mt-1.5 text-sm text-subtle">Learn the rule, drill it, then practise it on a day you can&apos;t see ahead of.</p>
@@ -248,31 +248,34 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
 
   return (
     <div className="flex flex-col gap-6 py-2">
-      {/* D-10 (T50): the greeting is a line; what to do next leads the page. */}
-      <header className="flex flex-wrap items-baseline gap-x-3">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-ink">
-          {greeting(now.getHours())}, {user.displayName.split(/\s+/)[0]}.
+      {/* D-10 (T50): the greeting is a line; what to do next leads the page. Set like a page's masthead (Fabio,
+          2026-11-20: "less vibecoded"): the date small and spaced above, the greeting large, a hairline under them. */}
+      <header className="border-b border-line pb-6">
+        <p className="num text-xs uppercase tracking-[0.18em] text-subtle">{longDate(now)}</p>
+        <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-ink">
+          {greeting(now.getHours())}, {user.displayName.split(/\s+/)[0]}
         </h1>
-        <p className="text-sm text-subtle">{longDate(now)}</p>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section
-          aria-label="Up next"
-          className="flex flex-col rounded-card border border-accent/30 bg-accent/[0.07] p-7 shadow-panel lg:col-span-2"
-        >
-          <h2 className="text-sm font-medium text-accent">Up next</h2>
+        {/* A plain card: the lesson's name carries it, not a tint or a glow. */}
+        <section aria-label="Up next" className="flex flex-col rounded-xl border border-line bg-surface p-7 lg:col-span-2">
+          <h2 className="flex items-center gap-2 text-sm text-subtle">
+            <span aria-hidden className="size-1.5 rounded-full bg-accent" />
+            Up next{suggested && <span className="text-subtle/70">· {topicOf(suggested)}</span>}
+          </h2>
           {learning === undefined ? null : suggested ? (
             <>
-              <p className="mt-2 font-display text-3xl font-bold tracking-tight text-ink">{name(suggested)}</p>
-              <p className="mt-2.5 line-clamp-3 max-w-2xl text-base text-subtle">
+              <p className="mt-3 font-display text-3xl font-semibold tracking-tight text-ink">{name(suggested)}</p>
+              <p className="mt-2.5 line-clamp-3 max-w-2xl text-base leading-relaxed text-subtle">
                 {curriculum?.concepts.find((c) => c.concept.id === suggested)?.concept.summary}
               </p>
               <Link
                 to={`/learn/${suggested}`}
-                className="mt-6 inline-flex h-11 items-center gap-2 self-start rounded-full bg-accent px-6 text-sm font-semibold text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.18)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="group mt-7 inline-flex h-10 items-center gap-2 self-start rounded-md bg-ink px-4 text-sm font-medium text-canvas transition-colors hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                Continue lesson <ArrowRight aria-hidden className="size-4" />
+                Continue lesson
+                <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </>
           ) : (
@@ -282,8 +285,8 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
           )}
         </section>
 
-        <section aria-label="Practice so far" className="flex flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
-          <h2 className="text-sm font-medium text-subtle">Practice so far</h2>
+        <section aria-label="Practice so far" className="flex flex-col rounded-xl border border-line bg-surface p-7">
+          <h2 className="text-sm text-subtle">Practice so far</h2>
           {statistics && statistics.overall.trades > 0 && (
             <>
               <p

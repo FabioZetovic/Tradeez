@@ -57,42 +57,43 @@ export function AppShell({ user, onChangePassword, onLogout, onLogoutEverywhere,
       <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
         {/* The full width on every screen, so it never jumps sideways between the reading pages and the chart pages
             (BUG-102). */}
-        <div className="grid h-16 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 md:px-6">
-          <Link to="/" className="justify-self-start rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
+        <div className="flex h-16 w-full items-stretch gap-3 px-4 md:gap-10 md:px-6">
+          <Link to="/" className="self-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:py-1.5">
             <Logo />
           </Link>
-          {/* One bar in the middle holding every section (Fabio, 2026-11-20): the highlight slides along it from the
-              section left to the one opened. */}
-          <nav aria-label="Sections" className="flex gap-1 rounded-xl border border-line bg-surface p-1">
+          {/* Plain words; the open section is marked by a line on the header's own edge that slides from the section
+              left to the one opened (Fabio, 2026-11-20: no pill, nothing that looks generated). */}
+          <nav aria-label="Sections" className="flex gap-7">
             {NAV.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
                   cx(
-                    'relative rounded-lg px-4 py-1.5 text-sm font-medium transition-colors pointer-coarse:py-3',
+                    // One weight for all: a bolder open section would be wider and push the others along.
+                    'relative flex items-center text-sm font-medium transition-colors',
                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-                    isActive ? 'text-accent-ink' : 'text-subtle hover:text-ink',
+                    isActive ? 'text-ink' : 'text-subtle hover:text-ink',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
+                    {label}
                     {isActive && (
                       <motion.span
                         layoutId="section-highlight"
                         aria-hidden
-                        className="absolute inset-0 rounded-lg bg-accent shadow-sm"
-                        transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+                        className="absolute inset-x-0 -bottom-px h-0.5 bg-accent"
+                        transition={{ type: 'spring', bounce: 0.1, duration: 0.4 }}
                       />
                     )}
-                    <span className="relative">{label}</span>
                   </>
                 )}
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-1 justify-self-end">
+          <div className="ml-auto flex items-center gap-1">
             <AccountMenu
               user={user}
               onChangePassword={onChangePassword}

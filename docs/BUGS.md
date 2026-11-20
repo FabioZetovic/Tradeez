@@ -572,6 +572,21 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-175 🟡 The header moved a little every time a section was opened
+
+**Status:** ✅ fixed on `feat/logo` (2026-11-20) — Fabio: "every time you press on an element the navbar moves a little
+bit" · **Affects:** `AppShell` header, every signed-in page on a desktop
+
+**What.** Home, Learn, Drills and News scroll, Practice and Chart do not. A page that scrolls has a 15 px scrollbar, so
+the window's content was 1284 px wide on one and 1299 px on the other, and everything in the header placed from the
+right or the centre jumped sideways between them (measured: the nav 411.9 → 419.4 px). A second cause waited in the
+redesigned nav: an open section set bolder than the rest is wider and pushes the ones after it along.
+
+**✅ FIXED** (2026-11-20). `scrollbar-gutter: stable` on `html` keeps the scrollbar's room on every page; every section
+has the same weight, the open one marked only by its colour and the sliding line. Measured after: every link and the
+account menu at the same x on all six sections. Test: `App.test` "BUG-175 the open section is not set bolder…"
+(caught a bolder open section).
+
 ### BUG-174 🟡 The 250-trade journal test ran past the default five seconds on a loaded machine
 
 **Status:** ✅ fixed on `feat/week-sessions` (2026-11-03) — seen once, with the backend suite running beside it (5.3 s) · **Affects:** `PracticeView.test` "BUG-157 the whole history is reachable…"

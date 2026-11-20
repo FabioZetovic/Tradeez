@@ -98,7 +98,7 @@ describe('Home (T39)', () => {
           <HomePage user={USER} adapterFactory={() => new FakeChartAdapter()} />
         </MemoryRouter>,
       )
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`${greeting}, Fabio.`)
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`${greeting}, Fabio`)
       expect(screen.getByText('Friday, 23 October')).toBeInTheDocument()
       unmount()
       vi.useRealTimers()
