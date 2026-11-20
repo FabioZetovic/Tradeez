@@ -240,8 +240,8 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
           </section>
         )}
 
-        <NewsToday />
-        <LatestSession adapterFactory={adapterFactory} />
+        <NewsToday className={PHONE_CARD} />
+        <LatestSession adapterFactory={adapterFactory} className={PHONE_CARD} />
       </div>
     )
   }
@@ -249,17 +249,21 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
   return (
     <div className="flex flex-col gap-6 py-2">
       {/* D-10 (T50): the greeting is a line; what to do next leads the page. Set like a page's masthead (Fabio,
-          2026-11-20: "less vibecoded"): the date small and spaced above, the greeting large, a hairline under them. */}
-      <header className="border-b border-line pb-6">
+          2026-11-20: "less vibecoded"): the date small and spaced above, the greeting large; the panel's edge under them. */}
+      <header>
         <p className="num text-xs uppercase tracking-[0.18em] text-subtle">{longDate(now)}</p>
         <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight text-ink">
           {greeting(now.getHours())}, {user.displayName.split(/\s+/)[0]}
         </h1>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* A plain card: the lesson's name carries it, not a tint or a glow. */}
-        <section aria-label="Up next" className="flex flex-col rounded-xl border border-line bg-surface p-7 lg:col-span-2">
+      {/* One panel, not a page of cards (Fabio, 2026-11-20): every part in one outline, divided by hairlines and with the
+          page's own background — the lines are the gaps between rows (divide-y) and the 1 px gaps of each row's grid
+          over the line colour (gap-px bg-line), so they fall right at any width. */}
+      <div data-testid="home-panel" className="divide-y divide-line overflow-hidden rounded-xl border border-line">
+      <div className="grid gap-px bg-line lg:grid-cols-3">
+        {/* The lesson's name carries it, not a tint or a glow. */}
+        <section aria-label="Up next" className="flex flex-col bg-canvas p-7 lg:col-span-2">
           <h2 className="flex items-center gap-2 text-sm text-subtle">
             <span aria-hidden className="size-1.5 rounded-full bg-accent" />
             Up next{suggested && <span className="text-subtle/70">· {topicOf(suggested)}</span>}
@@ -285,7 +289,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
           )}
         </section>
 
-        <section aria-label="Practice so far" className="flex flex-col rounded-xl border border-line bg-surface p-7">
+        <section aria-label="Practice so far" className="flex flex-col bg-canvas p-7">
           <h2 className="text-sm text-subtle">Practice so far</h2>
           {statistics && statistics.overall.trades > 0 && (
             <>
@@ -316,7 +320,7 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         </section>
       </div>
 
-      <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <ol className="grid gap-px bg-line md:grid-cols-2 xl:grid-cols-4">
         <StepCard n={1} to="/learn" topic={SECTION_TOPICS.learn} title="Learn" line="ICT's ideas by topic, each with real NQ examples.">
           {learning && (
             <Progress
@@ -343,8 +347,8 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
         </StepCard>
       </ol>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-label="Due for review" className="rounded-card border border-line bg-surface p-6 shadow-panel">
+      <div className="grid gap-px bg-line lg:grid-cols-2">
+        <section aria-label="Due for review" className="bg-canvas p-7">
           <h2 className="flex items-center gap-2 text-sm font-medium text-subtle">
             <Clock aria-hidden className="size-3.5" /> Due for review
           </h2>
@@ -374,12 +378,19 @@ export function HomePage({ user, adapterFactory }: { user: User; adapterFactory?
           )}
         </section>
 
-        <NewsToday />
+        <NewsToday className={PANEL_CELL} />
       </div>
-      <LatestSession adapterFactory={adapterFactory} />
+      <LatestSession adapterFactory={adapterFactory} className={PANEL_CELL} />
+      </div>
     </div>
   )
 }
+
+/** A part of the desktop Home's one panel: the page's background, its hairlines drawn by the panel. */
+const PANEL_CELL = 'bg-canvas p-7'
+
+/** A card of its own, as the phone's Home keeps them (T53). */
+const PHONE_CARD = 'rounded-card border border-line bg-surface p-5'
 
 /** A figure tile on the phone's Home (T53). */
 const TILE =
@@ -418,10 +429,7 @@ function StepCard({
     >
       <Link
         to={to}
-        className={cx(
-          'flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150 hover:-translate-y-0.5 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent',
-          tone.edge,
-        )}
+        className="flex h-full flex-col bg-canvas p-7 transition-colors duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
       >
         <span aria-hidden className={cx('mb-4 grid size-10 place-items-center rounded-xl', tone.soft, tone.text)}>
           <TopicGlyph topic={topic} className="h-5 w-7" />
@@ -451,7 +459,7 @@ function Figure({ children }: { children: ReactNode }) {
  * The latest NQ session on 5-minute candles with its killzones, still — a picture to read, not a tool (R-12) — and a
  * way into the Chart tab.
  */
-function LatestSession({ adapterFactory }: { adapterFactory?: () => ChartAdapter }) {
+function LatestSession({ adapterFactory, className }: { adapterFactory?: () => ChartAdapter; className: string }) {
   const instruments = useLoaded(listInstruments)
   const nq = instruments?.find((i) => i.symbol === 'NQ')
   const dataTo = nq?.dataTo
@@ -484,7 +492,7 @@ function LatestSession({ adapterFactory }: { adapterFactory?: () => ChartAdapter
     <Link
       to="/chart"
       aria-label="NQ, the latest session — open the Chart tab"
-      className="block rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/40"
+      className={cx('block transition-colors duration-150 hover:bg-surface', className)}
     >
       <span className="mb-3 flex items-baseline gap-3">
         <span className="text-sm text-subtle">NQ · 5m · latest data</span>
@@ -515,7 +523,7 @@ function LatestSession({ adapterFactory }: { adapterFactory?: () => ChartAdapter
 }
 
 /** Today's and tomorrow's high-impact US releases, New York time (T40); the week is a click away. */
-function NewsToday() {
+function NewsToday({ className }: { className: string }) {
   const news = useLoaded(getNews)
   const now = useNow().getTime() / 1000
   const days = new Set([newsDay(now), newsDay(now + DAY)])
@@ -523,7 +531,7 @@ function NewsToday() {
 
   return (
     // min-w-0: a grid item is otherwise as wide as its longest title, and the page scrolled sideways on a phone (BUG-112).
-    <section aria-label="News today" className="flex min-w-0 flex-col rounded-card border border-line bg-surface p-6 shadow-panel">
+    <section aria-label="News today" className={cx('flex min-w-0 flex-col', className)}>
       <h2 className="text-sm font-medium text-subtle">News today</h2>
       {/* BUG-134: a calendar never loaded is not a day without news. */}
       {news && news.checkedAt == null && soon.length === 0 && (

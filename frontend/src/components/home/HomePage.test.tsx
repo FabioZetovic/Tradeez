@@ -85,6 +85,21 @@ afterEach(() => {
 })
 
 describe('Home (T39)', () => {
+  it('holds its parts in one panel, not a page of separate cards (Fabio, 2026-11-20)', async () => {
+    render(
+      <MemoryRouter>
+        <HomePage user={USER} adapterFactory={() => new FakeChartAdapter()} />
+      </MemoryRouter>,
+    )
+    const panel = screen.getByTestId('home-panel')
+    for (const part of ['Up next', 'Practice so far', 'Due for review', 'News today']) {
+      expect(panel).toContainElement(await screen.findByRole('region', { name: part }))
+    }
+    expect(panel).toContainElement(screen.getByRole('link', { name: /^Learn/ }))
+    // No part draws a card of its own inside it.
+    expect(panel.querySelectorAll('.rounded-card, .shadow-panel')).toHaveLength(0)
+  })
+
   it('greets by the hour, by first name, with the date', async () => {
     for (const [iso, greeting] of [
       ['2026-10-23T08:00:00', 'Good morning'],
