@@ -42,6 +42,9 @@ type Gesture =
 /** A label or zone whose words are being typed. `isNew`: a label just placed, gone if left empty. */
 type Editing = { id: string; isNew: boolean } | null
 
+/** How far a press may travel, in pixels, and still be a click that selects rather than a drag that pans. */
+const CLICK_SLOP = 4
+
 /** A shape with more than one point whose points all coincide: created by a click, not a drag. */
 function isUnstretched(drawing: Drawing): boolean {
   const [first, ...rest] = drawing.anchors
@@ -113,6 +116,10 @@ export function DrawingOverlay({
   //
   // Hit testing while transparent is possible because pointer events on the chart bubble up to the
   // shared parent, so the listener sees them even though the canvas does not.
+  //
+  // Two clicks to move (Fabio, 2026-11-20: panning the chart moved the FVG boxes by accident): only the *selected*
+  // drawing takes the pointer. Over any other the canvas stays transparent, so a drag across it pans the chart; a
+  // click on it — pressed and released without travelling — selects it, and the next press can move it.
   const [pointerOverDrawing, setPointerOverDrawing] = useState(false)
 
   useEffect(() => {
@@ -120,25 +127,56 @@ export function DrawingOverlay({
     const container = canvas?.parentElement
     if (!canvas || !container) return
 
-    const onMove = (event: PointerEvent) => {
+    const hitAt = (event: MouseEvent) => {
       const projection = adapter?.getProjection()
-      if (!projection) return
-
+      if (!projection) return null
       const rect = canvas.getBoundingClientRect()
       const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-      const hit = hitTest(
-        point,
-        stateRef.current.drawings,
-        stateRef.current.selectedId,
-        projection,
-        adapter?.getPaneSize()?.width ?? 0,
-      )
-      setPointerOverDrawing(hit.type !== 'none')
+      return hitTest(point, stateRef.current.drawings, stateRef.current.selectedId, projection, adapter?.getPaneSize()?.width ?? 0)
+    }
+
+    const onMove = (event: PointerEvent) => {
+      const hit = hitAt(event)
+      if (hit) setPointerOverDrawing(hit.type !== 'none' && hit.drawingId === stateRef.current.selectedId)
+    }
+
+    // A press on the chart, not on the canvas (which handles its own): where it began, to tell a click from a pan.
+    let pressedAt: { x: number; y: number } | null = null
+    const onDown = (event: PointerEvent) => {
+      pressedAt = event.target === canvas ? null : { x: event.clientX, y: event.clientY }
+    }
+    const onUp = (event: PointerEvent) => {
+      const start = pressedAt
+      pressedAt = null
+      if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP) return
+      const hit = hitAt(event)
+      if (!hit) return
+      const id = hit.type === 'none' ? null : hit.drawingId
+      if (id !== stateRef.current.selectedId) dispatch({ type: 'select', id })
+      // The pointer is over it now: the next press takes it, without waiting for the pointer to move.
+      setPointerOverDrawing(id !== null)
+    }
+
+    // Double-click a label or a zone to change its words — selected or not, so it listens here, where the chart's
+    // double-clicks arrive as well as the canvas's.
+    const onDoubleClick = (event: MouseEvent) => {
+      const hit = hitAt(event)
+      if (!hit || hit.type === 'none') return
+      const drawing = stateRef.current.drawings.find((d) => d.id === hit.drawingId)
+      if (drawing && TEXT_KINDS.has(drawing.kind)) startEditing({ id: drawing.id, isNew: false })
     }
 
     container.addEventListener('pointermove', onMove)
-    return () => container.removeEventListener('pointermove', onMove)
-  }, [adapter])
+    container.addEventListener('pointerdown', onDown)
+    container.addEventListener('pointerup', onUp)
+    container.addEventListener('dblclick', onDoubleClick)
+    return () => {
+      container.removeEventListener('pointermove', onMove)
+      container.removeEventListener('pointerdown', onDown)
+      container.removeEventListener('pointerup', onUp)
+      container.removeEventListener('dblclick', onDoubleClick)
+    }
+  }, [adapter, dispatch])
 
   const interactive = activeTool !== null || pointerOverDrawing || gesture.kind !== 'idle'
 
@@ -207,7 +245,11 @@ export function DrawingOverlay({
       case 'body': {
         const grabbed = state.drawings.find((d) => d.id === hit.drawingId)
         if (!grabbed) break
-        dispatch({ type: 'select', id: hit.drawingId })
+        // Two clicks to move: a press on a drawing not yet selected only selects it.
+        if (hit.drawingId !== state.selectedId) {
+          dispatch({ type: 'select', id: hit.drawingId })
+          break
+        }
         setGesture({
           kind: 'moving',
           drawingId: hit.drawingId,
@@ -307,18 +349,6 @@ export function DrawingOverlay({
     setGesture({ kind: 'idle' })
   }
 
-  // Double-click a label or a zone to change its words.
-  function handleDoubleClick(event: React.MouseEvent<HTMLCanvasElement>) {
-    const projection = adapter?.getProjection()
-    if (!projection) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const point = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-    const hit = hitTest(point, state.drawings, state.selectedId, projection, event.currentTarget.width)
-    if (hit.type === 'none') return
-    const drawing = state.drawings.find((d) => d.id === hit.drawingId)
-    if (drawing && TEXT_KINDS.has(drawing.kind)) startEditing({ id: drawing.id, isNew: false })
-  }
-
   const edited = editing ? state.drawings.find((d) => d.id === editing.id) : undefined
 
   function finishEditing(value: string | null) {
@@ -366,7 +396,6 @@ export function DrawingOverlay({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onDoubleClick={handleDoubleClick}
       />
       {edited && editorAt && (
         <input

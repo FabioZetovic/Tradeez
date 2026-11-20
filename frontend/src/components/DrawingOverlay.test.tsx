@@ -162,7 +162,7 @@ describe('DrawingOverlay', () => {
     render(
       <Harness
         adapter={adapter}
-        initial={{ ...initialDrawingState, drawings: [existing] }}
+        initial={{ ...initialDrawingState, drawings: [existing], selectedId: 'existing' }}
         onState={(s) => (latest = s)}
       />,
     )
@@ -193,7 +193,7 @@ describe('DrawingOverlay', () => {
     render(
       <Harness
         adapter={snapping}
-        initial={{ ...initialDrawingState, drawings: [existing] }}
+        initial={{ ...initialDrawingState, drawings: [existing], selectedId: 'existing' }}
         onState={(s) => (latest = s)}
       />,
     )
@@ -208,6 +208,75 @@ describe('DrawingOverlay', () => {
     // 30px is three bars: 1200 + 300.
     expect(latest.drawings[0].anchors[0].time).toBe(1500)
     expect(latest.drawings[0].anchors[0].priceTicks).toBe(80_000)
+  })
+
+  describe('two clicks to move (Fabio: panning the chart moved the FVG boxes)', () => {
+    // The chart under the overlay: presses on it bubble to the shared parent, where the overlay listens.
+    const onChart = (canvas: HTMLElement) => canvas.parentElement!
+
+    it('a drag across a drawing not selected pans the chart and leaves the drawing where it was', () => {
+      const adapter = new FakeChartAdapter()
+      let latest: DrawingState = initialDrawingState
+      render(
+        <Harness adapter={adapter} initial={{ ...initialDrawingState, drawings: [existing] }} onState={(s) => (latest = s)} />,
+      )
+      const canvas = screen.getByTestId('drawing-overlay')
+      stubRect(canvas)
+
+      pointer(onChart(canvas), 'pointermove', 400, 500)
+      expect(canvas).toHaveAttribute('data-interactive', 'false') // over it, and still the chart's
+
+      // Along the line, so the press ends over it as it began: only the distance says it was a pan.
+      pointer(onChart(canvas), 'pointerdown', 400, 500)
+      pointer(onChart(canvas), 'pointermove', 300, 500)
+      pointer(onChart(canvas), 'pointerup', 300, 500)
+
+      expect(latest.drawings[0].anchors[0].priceTicks).toBe(80_000)
+      expect(latest.selectedId).toBeNull() // a pan is not a click
+      expect(latest.past).toEqual([])
+    })
+
+    it('a click selects it, and only then does a press take it', () => {
+      const adapter = new FakeChartAdapter()
+      let latest: DrawingState = initialDrawingState
+      render(
+        <Harness adapter={adapter} initial={{ ...initialDrawingState, drawings: [existing] }} onState={(s) => (latest = s)} />,
+      )
+      const canvas = screen.getByTestId('drawing-overlay')
+      stubRect(canvas)
+
+      pointer(onChart(canvas), 'pointerdown', 400, 500)
+      pointer(onChart(canvas), 'pointerup', 401, 501)
+      expect(latest.selectedId).toBe('existing')
+      expect(canvas).toHaveAttribute('data-interactive', 'true')
+
+      pointer(canvas, 'pointerdown', 400, 500)
+      pointer(canvas, 'pointermove', 400, 460)
+      pointer(canvas, 'pointerup', 400, 460)
+      expect(latest.drawings[0].anchors[0].priceTicks).toBe(80_040)
+    })
+
+    it('a press on the canvas over a drawing not selected selects it without moving it', () => {
+      const other: Drawing = { ...existing, id: 'other', anchors: [{ time: 1200, priceTicks: 80_200 }] }
+      const adapter = new FakeChartAdapter()
+      let latest: DrawingState = initialDrawingState
+      render(
+        <Harness
+          adapter={adapter}
+          initial={{ ...initialDrawingState, drawings: [existing, other], selectedId: 'other' }}
+          onState={(s) => (latest = s)}
+        />,
+      )
+      const canvas = screen.getByTestId('drawing-overlay')
+      stubRect(canvas)
+
+      pointer(canvas, 'pointerdown', 400, 500)
+      pointer(canvas, 'pointermove', 400, 460)
+      pointer(canvas, 'pointerup', 400, 460)
+
+      expect(latest.selectedId).toBe('existing')
+      expect(latest.drawings[0].anchors[0].priceTicks).toBe(80_000)
+    })
   })
 
   it('stays transparent to the pointer when there is nothing to interact with', () => {

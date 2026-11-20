@@ -572,6 +572,21 @@ Not bugs. Deliberate decisions, listed so nobody mistakes them for oversights.
 
 Kept for the lesson, not for the changelog.
 
+### BUG-176 🟠 Panning the chart moved the zones drawn on it
+
+**Status:** ✅ fixed on `feat/logo` (2026-11-20) — Fabio: "when i try to move the chart i can accidentally move the boxes
+marking fvgs and such, make it so you need to click 2 times" · **Affects:** `DrawingOverlay`, every chart with drawings
+
+**What.** The overlay took the pointer whenever it was over any drawing's outline, so a pan that happened to start on a
+zone's edge grabbed the zone and dragged it instead of the chart. On a chart full of FVG zones that was most pans.
+
+**✅ FIXED** (2026-11-20). Two clicks to move: only the selected drawing takes the pointer. Over any other the overlay
+stays transparent, so a drag pans the chart; a click on it (pressed and released within 4 px, heard on the chart's
+parent) selects it, and the next press moves or reshapes it. Double-click to rename moved to the parent too, so it works
+on a drawing not yet selected. Checked in the browser on a practice session: a press on an unselected zone's edge reached
+the chart, one click selected it, a drag then moved it. Tests: `DrawingOverlay.test` "two clicks to move" (three; caught
+a press that moves at once, hovering any drawing taking the pointer, and a pan counted as a click).
+
 ### BUG-175 🟡 The header moved a little every time a section was opened
 
 **Status:** ✅ fixed on `feat/logo` (2026-11-20) — Fabio: "every time you press on an element the navbar moves a little
