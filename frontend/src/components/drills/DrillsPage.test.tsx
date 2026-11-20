@@ -150,9 +150,21 @@ describe('Drills, the cards (T43)', () => {
     // In its lesson's topic's colour and picture (T55); one no topic names in the plain one.
     expect(screen.getByRole('heading', { name: 'Gaps & imbalances' }).querySelector('svg')).toHaveClass('text-t-gaps')
     expect(card('Fair value gaps').querySelector('.text-t-gaps svg')).not.toBeNull()
-    expect(card('Fair value gaps').className).toMatch(/hover:border-t-gaps/)
     expect(card('Losing streak').querySelector('.text-t-risk svg')).not.toBeNull()
     expect(screen.getByRole('heading', { name: 'More drills' }).querySelector('svg')).toHaveClass('text-subtle')
+  })
+
+  it('holds every topic and drill in one panel, not a page of cards (Fabio, 2026-11-20)', async () => {
+    serve(ALL)
+    renderPage()
+    const panel = await screen.findByTestId('drills-panel')
+    await screen.findByRole('heading', { name: 'Gaps & imbalances' })
+    for (const topic of ['Gaps & imbalances', 'More drills']) {
+      expect(panel).toContainElement(screen.getByRole('heading', { name: topic }))
+    }
+    expect(panel).toContainElement(card('Fair value gaps'))
+    expect(panel).toContainElement(card('Losing streak'))
+    expect(panel.querySelectorAll('.rounded-card, .shadow-panel')).toHaveLength(0)
   })
 
   it("carries the real record: the lesson's tries and recent accuracy — predictions too — and risk's tally", async () => {
