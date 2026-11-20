@@ -353,6 +353,13 @@ days, so a session begun on a Thursday had Friday and a closed weekend: one trad
 **Reconsider if** sessions are left open for long and starve the picker on a short history: then hide only what the
 replay has actually shown, not the whole week ahead.
 
+**DEC-086 — The logo: a T that is a rising candle, in the app's own colours** · `IMPLEMENTED` · Fabio + Claude, 2026-11-20
+Fabio had a logo made from a brief (a T built from a candlestick, the replay's last bars beside it). Its colours came
+as a pinker violet on plum with a coral candle; shown three ways beside the app, Fabio chose the app's violets
+(#5B4FD1, #A99FFF) on the raised grey (#1D2127) with the up colour (#34D399) for the candle: coral read as a red,
+losing candle, and the pink violet as a second brand beside the accent. Sources in `docs/brand/` (symbol, app icon,
+lockup, wordmark, favicon); the page uses the favicon and draws the symbol inline in `Logo`.
+
 **DEC-007 — OpenAPI is the frontend/backend contract** · `AGREED`
 The backend publishes an OpenAPI document via springdoc-openapi; the frontend generates its
 TypeScript types with `openapi-typescript`. API shapes are never hand-written on the client and

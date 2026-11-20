@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, BookOpen, CalendarDays, ChartCandlestick, CirclePlay, House, Target, TrendingUp } from 'lucide-react'
+import { ArrowLeft, BookOpen, CalendarDays, ChartCandlestick, CirclePlay, House, Target } from 'lucide-react'
 import { useIsPhone } from '@/hooks/useIsPhone'
 import { DISCLAIMER, DISCLAIMER_SHORT } from '@/lib/disclaimer'
 import { cx } from '@/lib/styles'
@@ -266,13 +266,22 @@ function Footer() {
   )
 }
 
-/** The mark and the name: a rising line on the accent. */
+/**
+ * The mark and the name: a T that is also a rising candle, the replay's last bars beside it, in the accent's violets
+ * and the up colour (docs/brand, Fabio's pick of three, 2026-11-20).
+ */
 export function Logo({ large = false }: { large?: boolean }) {
   return (
     <span className={cx('flex items-center', large ? 'gap-3' : 'gap-2.5')}>
-      <span className={cx('grid place-items-center rounded-lg bg-accent text-accent-ink', large ? 'size-10' : 'size-8')}>
-        <TrendingUp aria-hidden strokeWidth={2.5} className={large ? 'size-6' : 'size-5'} />
-      </span>
+      <svg aria-hidden viewBox="0 0 80 80" className={cx('shrink-0', large ? 'size-10' : 'size-8')}>
+        <rect width="80" height="80" rx="19" fill="#1D2127" />
+        <g transform="translate(4 4) scale(1.125)">
+          <path d="M6 16 15 8H58L54 15H19L12 22H6Z" fill="#5B4FD1" />
+          <path d="M10 22 19 14H55L49 24H39L27 54H15L25 24H8Z" fill="#A99FFF" />
+          <path d="M37 5H43L39 14H33ZM25 25H37L31 42H19ZM26 44H31L25 59H20Z" fill="#34D399" />
+          <path d="M45 31H51L49 35H43ZM40 43H46L44 47H38Z" fill="#5B4FD1" />
+        </g>
+      </svg>
       <span className={cx('font-display font-bold tracking-tight text-ink', large ? 'text-2xl' : 'text-lg')}>Tradeez</span>
     </span>
   )
