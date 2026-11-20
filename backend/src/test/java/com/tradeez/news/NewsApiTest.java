@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -106,10 +107,17 @@ class NewsApiTest extends AbstractIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("without bounds, two weeks from this week's Monday in New York")
+	@DisplayName("without bounds, four weeks from today in New York: none of the days already past, three weeks ahead in")
 	void defaultWindow() throws Exception {
-		release("CPI", Instant.now().plusSeconds(3600).toString());
-		assertThat(news("").path("events").size()).isEqualTo(1);
+		Instant now = Instant.now();
+		release("CPI", now.minus(Duration.ofDays(2)).toString());
+		release("NFP", now.plusSeconds(3600).toString());
+		release("GDP", now.plus(Duration.ofDays(21)).toString());
+		release("PCE", now.plus(Duration.ofDays(30)).toString());
+		JsonNode events = news("").path("events");
+		assertThat(events.size()).isEqualTo(2);
+		assertThat(events.get(0).path("key").asString()).isEqualTo("NFP");
+		assertThat(events.get(1).path("key").asString()).isEqualTo("GDP");
 	}
 
 	@Test

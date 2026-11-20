@@ -102,7 +102,9 @@ export function DrillsPage() {
         </p>
       )}
 
-      <div className="flex flex-col gap-10">
+      {/* One panel, as on Home (Fabio, 2026-11-20): the topics are its rows, the drills its cells, divided by hairlines
+          on the page's own background. */}
+      <div data-testid="drills-panel" className="divide-y divide-line overflow-hidden rounded-xl border border-line">
         {sections.map(({ title, drills }) => (
           <Topic key={title} title={title}>
             {drills.map((kind, i) => (
@@ -162,11 +164,13 @@ function Topic({ title, children }: { title: string; children: ReactNode }) {
   const id = `topic-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className="mb-4 flex items-center gap-2.5 font-display text-xl font-bold tracking-tight text-ink">
+      <h2 id={id} className="flex items-center gap-2.5 px-7 py-5 font-display text-xl font-bold tracking-tight text-ink">
         <TopicGlyph topic={title} className={cx('h-5 w-7', topicTone(title).text)} />
         {title}
       </h2>
-      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</ul>
+      {/* Each drill draws the line on its right and below; the pixel the list reaches past the panel hides the last
+          column's and last row's, so a row left short ends in blank page, not a grey block. */}
+      <ul className="-mr-px -mb-px grid grid-cols-1 border-t border-line md:grid-cols-2 xl:grid-cols-3">{children}</ul>
     </section>
   )
 }
@@ -195,15 +199,11 @@ function Card({
   return (
     <motion.li
       {...enter(index, { step: 0.04 })}
+      className="border-r border-b border-line"
     >
       <Link
         to={to}
-        className={cx(
-          'flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-panel transition-all duration-150',
-          'hover:-translate-y-0.5 hover:bg-raised',
-          tone.edge,
-          'focus-visible:outline-2 focus-visible:outline-accent',
-        )}
+        className="flex h-full flex-col bg-canvas p-7 transition-colors duration-150 hover:bg-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
       >
         <span className="flex items-center gap-2.5">
           <span aria-hidden className={cx('grid size-9 shrink-0 place-items-center rounded-lg', tone.soft, tone.text)}>
