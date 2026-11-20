@@ -44,6 +44,15 @@ afterEach(() => {
 })
 
 describe('the News page (T40)', () => {
+  it('holds the days in one panel, not a card each (Fabio, 2026-11-20)', async () => {
+    render(<NewsPage />)
+    const monday = await screen.findByRole('region', { name: 'Monday 26 October' })
+    const panel = screen.getByTestId('news-panel')
+    expect(panel).toContainElement(monday)
+    expect(panel).toContainElement(screen.getByRole('region', { name: 'Wednesday 28 October' }))
+    expect(panel.querySelectorAll('.rounded-card, .shadow-panel')).toHaveLength(0)
+  })
+
   it('groups the releases by New York day, in order, today marked and what is out dimmed', async () => {
     render(<NewsPage />)
     const monday = await screen.findByRole('region', { name: 'Monday 26 October' })

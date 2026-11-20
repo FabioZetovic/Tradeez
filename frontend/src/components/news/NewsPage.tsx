@@ -5,7 +5,7 @@ import { getNews, type News, type NewsEvent } from '@/lib/api/news'
 import { useNow } from '@/hooks/useNow'
 import { byDay, newsDay, newsTime } from '@/lib/news'
 import { cx } from '@/lib/styles'
-import { Notice, PageHeader, Panel, Segmented } from '../ui'
+import { Notice, PageHeader, Segmented } from '../ui'
 import { enter } from '@/lib/motion'
 
 const IMPACTS = ['High', 'High + medium'] as const
@@ -78,17 +78,17 @@ export function NewsPage() {
 
       {news && shown.length === 0 && <p className="text-sm text-subtle">No releases in these two weeks.</p>}
 
-      <div className="flex flex-col gap-4">
+      {/* One panel, as on Home and Drills (Fabio, 2026-11-20): the days its rows, divided by hairlines on the page's own
+          background. */}
+      {shown.length > 0 && (
+      <div data-testid="news-panel" className="divide-y divide-line overflow-hidden rounded-xl border border-line">
         {byDay(shown).map(({ day, events }, index) => (
           <motion.div
             key={day}
             {...enter(index, { max: 8 })}
           >
-            <Panel
-              aria-label={day}
-              className="p-0"
-            >
-              <h2 className="flex items-center gap-2 border-b border-line px-5 py-3 text-sm font-semibold text-ink">
+            <section aria-label={day}>
+              <h2 className="num flex items-center gap-3 border-b border-line px-5 py-3 text-xs uppercase tracking-[0.18em] text-subtle">
                 {day}
                 {day === today && <span className="text-xs font-medium text-accent">Today</span>}
               </h2>
@@ -118,10 +118,11 @@ export function NewsPage() {
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </section>
           </motion.div>
         ))}
       </div>
+      )}
 
       {news && (
         <footer className="mt-8 flex flex-col gap-1 text-xs text-subtle" data-testid="news-sources">
